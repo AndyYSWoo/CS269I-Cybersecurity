@@ -1,0 +1,400 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-02-22T22:54:06.969Z", 
+    "voters": [
+        "europa", 
+        "secalert", 
+        "muon4", 
+        "malcolmx", 
+        "eveeez", 
+        "gujjuboy10x00", 
+        "axolotl", 
+        "michan001", 
+        "shepard", 
+        "babayaga_", 
+        "and 11 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "100.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 311467, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "##Description\nHello. I discovered Reflected XSS on the stage-go.wepay.com.\n\n##Browsers & OS tested\nThe XSS checked in the latest IE 11 and Edge on Windows 7. \nNot checked on Windows 10.\n\n#POC (IE 11 or Edge)\n```\nhttp://test.xpoc.pro/xss2.php?host=stage-go.wepay.com&payload='\"s\\src=data:,alert%28document.domain%29></script><script/x='\n```\n{F259515}\n\n##Root cause\nThe server do not properly neutralize user input. It thinks that incoming path is urlencoded, and reflects it on the page, but IE/Edge does not urlencode paths, if it passed through Location header.\nAnd since there was multiple payload reflections on the page, i bypassed built-in XSS filter with specific payload.\n\n##Suggested fix\nAdditionally sanitize reflected user input.\n\n## Impact\n\nThe XSS works in the latest versions of IE/Edge, however it is not working in Chrome/FF.\nOtherwise, it has same impact as usual reflected XSS - it can steal sensitive info, deface the site, conduct cookie bomb attacks, bypass CORS/csrf protection, etc.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "none", 
+            "privileges_required": "none", 
+            "user_interaction": "required", 
+            "attack_vector": "network", 
+            "attack_complexity": "high", 
+            "scope": "unchanged", 
+            "integrity": "low", 
+            "availability": "none"
+        }, 
+        "rating": "low", 
+        "score": 3.1, 
+        "author_type": "Team"
+    }, 
+    "title": "Reflected XSS in the IE 11 / Edge (latest versions) on the stage-go.wepay.com", 
+    "is_member_of_team?": null, 
+    "vote_count": 21, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 6878, 
+            "content": "This small finding was a part of big run for fun across multiple programs.\nSince this report was disclosed earlier than others, an extended summary was written to clarify the details.\n\n##Why it works\nIf we try to make next curl request:\n```\ncurl -k \"https://stage-go.wepay.com/</tag><tag>\"\n```\nwe can notice, that response will return tags as-is, unencoded (this behavior was before the fix)\n\nHowever, all browsers by default make path encoding, so path in request always turns to the\n```\nhttps://stage-go.wepay.com/%3C/tag%3E%3Ctag%3E\n```\nand reflection as result is encoded too.\nBut, not always. There is behavior in the IE 11/Edge, when the path is not encoded, if passed in the 3xx redirect location.\nSo all that we need to do it is force 3xx redirect to the `https://stage-go.wepay.com/</tag><tag>` to make XSS working. The path will not be encoded, it will reflect tags as-is.\n\nNext, the IE/Edge browsers have the built-in anti-XSS filter, similar to the XSS Auditor in the Chrome. It's not so easy to bypass in this particular case (because I couldn't effectively use common percent-encoding tricks such as `%00` in the Location header due to it's specific), but luckily, there was a double reflection on the page, so I was able to bypass filters using\n```\n'\"s\\src=data:,alert%28document.domain%29></script><script/x='\n```\npayload, which became reflected two times, and worked.\nThe impact of this XSS is usually low, due to the IE/Edge specific behavior, but sometimes it is possible to make interesting things with it.\nNote, that it will work only if the resource is doing unsafe path/parameters reflection to the page, trusting the incoming user input.\nExample of vulnerable code:\n```\n<?php\necho parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);\n```\nIt can't be XSSed in the Chrome&FF (so far I know, it's just a demonstration) due to the path encoding, but can be XSSed in IE11 with Edge document mode (latest version of the Edge for Windows 10 at the time of writing this summary seems to encode path/query correctly, so is not affected anymore) using above trick (just with a different payload, because there is no double reflection in this example).\nIn case of unsafe GET parameters reflection (like `https://[host]/[path]?<payload>=<payload>` we don't need 3xx redirect, we need it only in case of path-only reflection.\n\nThe universal POC for IE/Edge path XSS in form of PHP 3xx redirector (accepts vulnerable host and XSS payload as URL params):\n```\n<?php\nheader(\"Location: \".$_GET[\"host\"].\"/\".urldecode($_GET[\"payload\"]),true,302);\n```\n\n##References:\n*   https://github.com/masatokinugawa/filterbypass/wiki/Browser's-XSS-Filter-Bypass-Cheat-Sheet#ieedge%E3%81%AExss%E3%83%95%E3%82%A3%E3%83%AB%E3%82%BF%E3%83%BC - useful payloads for defeating IE/Edge filters\n*   https://speakerdeck.com/masatokinugawa/xss-attacks-through-path", 
+            "content_html": "<p>This small finding was a part of big run for fun across multiple programs.<br>\nSince this report was disclosed earlier than others, an extended summary was written to clarify the details.</p>\n\n<h2 id=\"why-it-works\">Why it works</h2>\n\n<p>If we try to make next curl request:</p>\n<pre class=\"highlight plaintext\"><code>curl -k &quot;https://stage-go.wepay.com/&lt;/tag&gt;&lt;tag&gt;&quot;\n</code></pre>\n<p>we can notice, that response will return tags as-is, unencoded (this behavior was before the fix)</p>\n\n<p>However, all browsers by default make path encoding, so path in request always turns to the</p>\n<pre class=\"highlight plaintext\"><code>https://stage-go.wepay.com/%3C/tag%3E%3Ctag%3E\n</code></pre>\n<p>and reflection as result is encoded too.<br>\nBut, not always. There is behavior in the IE 11/Edge, when the path is not encoded, if passed in the 3xx redirect location.<br>\nSo all that we need to do it is force 3xx redirect to the <code>https://stage-go.wepay.com/&lt;/tag&gt;&lt;tag&gt;</code> to make XSS working. The path will not be encoded, it will reflect tags as-is.</p>\n\n<p>Next, the IE/Edge browsers have the built-in anti-XSS filter, similar to the XSS Auditor in the Chrome. It&#39;s not so easy to bypass in this particular case (because I couldn&#39;t effectively use common percent-encoding tricks such as <code>%00</code> in the Location header due to it&#39;s specific), but luckily, there was a double reflection on the page, so I was able to bypass filters using</p>\n<pre class=\"highlight plaintext\"><code>&#39;&quot;s\\src=data:,alert%28document.domain%29&gt;&lt;/script&gt;&lt;script/x=&#39;\n</code></pre>\n<p>payload, which became reflected two times, and worked.<br>\nThe impact of this XSS is usually low, due to the IE/Edge specific behavior, but sometimes it is possible to make interesting things with it.<br>\nNote, that it will work only if the resource is doing unsafe path/parameters reflection to the page, trusting the incoming user input.<br>\nExample of vulnerable code:</p>\n<pre class=\"highlight plaintext\"><code>&lt;?php\necho parse_url($_SERVER[&#39;REQUEST_URI&#39;], PHP_URL_PATH);\n</code></pre>\n<p>It can&#39;t be XSSed in the Chrome&amp;FF (so far I know, it&#39;s just a demonstration) due to the path encoding, but can be XSSed in IE11 with Edge document mode (latest version of the Edge for Windows 10 at the time of writing this summary seems to encode path/query correctly, so is not affected anymore) using above trick (just with a different payload, because there is no double reflection in this example).<br>\nIn case of unsafe GET parameters reflection (like <code>https://[host]/[path]?&lt;payload&gt;=&lt;payload&gt;</code> we don&#39;t need 3xx redirect, we need it only in case of path-only reflection.</p>\n\n<p>The universal POC for IE/Edge path XSS in form of PHP 3xx redirector (accepts vulnerable host and XSS payload as URL params):</p>\n<pre class=\"highlight plaintext\"><code>&lt;?php\nheader(&quot;Location: &quot;.$_GET[&quot;host&quot;].&quot;/&quot;.urldecode($_GET[&quot;payload&quot;]),true,302);\n</code></pre>\n<h2 id=\"references\">References:</h2>\n\n<ul>\n<li>  <a title=\"https://github.com/masatokinugawa/filterbypass/wiki/Browser&#39;s-XSS-Filter-Bypass-Cheat-Sheet#ieedge%E3%81%AExss%E3%83%95%E3%82%A3%E3%83%AB%E3%82%BF%E3%83%BC\" href=\"/redirect?signature=ca8294679126f313027f79ee4d89c38f5f7d0d74&amp;url=https%3A%2F%2Fgithub.com%2Fmasatokinugawa%2Ffilterbypass%2Fwiki%2FBrowser%27s-XSS-Filter-Bypass-Cheat-Sheet%23ieedge%25E3%2581%25AExss%25E3%2583%2595%25E3%2582%25A3%25E3%2583%25AB%25E3%2582%25BF%25E3%2583%25BC\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/masatokinugawa/filterbypass/wiki/Browser&#39;s-XSS-Filter-Bypass-Cheat-Sheet#ieedge%E3%81%AExss%E3%83%95%E3%82%A3%E3%83%AB%E3%82%BF%E3%83%BC</span><i class=\"icon-external-link\"></i></a> - useful payloads for defeating IE/Edge filters</li>\n<li>  <a title=\"https://speakerdeck.com/masatokinugawa/xss-attacks-through-path\" href=\"/redirect?signature=092f520b470c02315468ef77353cee1630f1be87&amp;url=https%3A%2F%2Fspeakerdeck.com%2Fmasatokinugawa%2Fxss-attacks-through-path\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://speakerdeck.com/masatokinugawa/xss-attacks-through-path</span><i class=\"icon-external-link\"></i></a>\n</li>\n</ul>\n"
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "stage-go.wepay.com", 
+        "max_severity": "critical", 
+        "databaseId": 716, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": "2018-03-24T22:54:07.046Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$100", 
+    "attachments": [
+        {
+            "file_name": "test.JPG", 
+            "type": "image/jpeg", 
+            "id": 259515, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/259/515/4f67fc2d6d8310d7d231455a167f2a2a8d3400ef/test.JPG?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRRGIDB3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222604Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDBxaaLwYN2vGJMHU3yK3A60CbW7QJhRBSUWEebtoqVFBavCBeg3jCt%2Ff6Ue7ixJjwCt7yq0tq9sMjLsNcoWRvtzj2%2FROkCO4zNzzBp31CEVqphGDPGK4TwxJpsrRac9NLMf03D%2Be%2BJ2ZNV2d3nHzvT4XKWaT82j9XOTkFb6Na6DxwgvQvr1Hf%2FEqlGdE892eO07jT5EU%2FK35L97rIFHrO9VcuTN7ryNS%2B7sAimJ6rHmOLQJ%2BYUkhqg0irzYjFAYK2lpH5L8hzjkL5gOuzMlDEuL3UJAzmDO%2BlHSr3KOiEOOJt5CAwYCvbfdQ%2Fmf9SK6rXcy%2BUcSjH31N16mUjQCBjabHn0E45bovxZ0SsgCCItoso2NvMPAl7ZTxRvQFkkIMIKFg%2F17b%2F6Efuj07DmrIFpvHwbVR9jVNresgxKqtpJ4WLjNKNl1rYMpAMWsuond5AHhcYsUjveEyaC9r3bV2RH0HyaZPga0CQ8O2R5uHtuAnNSkzHtOZlrgultAHw6bLgsH%2F3dQsi24%2BF0PkFA5L29Va%2FxPiVy3QrmsPxcQPTKnaR%2BmyDfaDY9xyHusS%2BLnQHy9tJ9RX447YdvsdbyGpRbao2BKcHLcosL%2Bm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=d3704c2d62b7be5395ce4a709ddee195ee269e6700ec41bb0f57b1e61d41346a"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-01T19:55:40.199Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-01T19:55:40.199Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wepay", 
+            "message": "Checked in the Edge on Windows 10, it works too.", 
+            "markdown_message": "<p>Checked in the Edge on Windows 10, it works too.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2342899, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-06T00:01:58.572Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-06T00:01:58.572Z", 
+            "actor": {
+                "username": "secbloke", 
+                "url": "/secbloke", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wepay", 
+            "message": "Thanks for reporting this to us! We truly appreciate your commitment, energy, and dedication to make WePay a safer place on the web.\n\nI have created an internal bug for the engineers to look at this issue. We will get back to you once we have an update or need any additional info from you.\n", 
+            "markdown_message": "<p>Thanks for reporting this to us! We truly appreciate your commitment, energy, and dedication to make WePay a safer place on the web.</p>\n\n<p>I have created an internal bug for the engineers to look at this issue. We will get back to you once we have an update or need any additional info from you.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2353836, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-17T01:10:09.184Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-17T01:10:09.184Z", 
+            "actor": {
+                "username": "secbloke", 
+                "url": "/secbloke", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Low (3.1)", 
+                "old_severity": "Medium"
+            }, 
+            "team_handle": "wepay", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2393010, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-17T01:11:01.830Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-17T01:11:01.830Z", 
+            "actor": {
+                "username": "secbloke", 
+                "url": "/secbloke", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wepay", 
+            "message": "Thanks for your patience.\n\nThe issue you reported is on our marketing site. The site doesn't have any confidential data. \nAs it is maintained by a third party,  it took some time to fix the issue. The fix is now live.\n\nCan you verify that you can no longer reproduce the issue or bypass the fix?", 
+            "markdown_message": "<p>Thanks for your patience.</p>\n\n<p>The issue you reported is on our marketing site. The site doesn&#39;t have any confidential data. <br>\nAs it is maintained by a third party,  it took some time to fix the issue. The fix is now live.</p>\n\n<p>Can you verify that you can no longer reproduce the issue or bypass the fix?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2393011, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-17T01:17:59.562Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-17T01:29:39.975Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wepay", 
+            "message": "Hello, yes, issue was fixed. The user input in the URL path/parameters is escaped correctly now.", 
+            "markdown_message": "<p>Hello, yes, issue was fixed. The user input in the URL path/parameters is escaped correctly now.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2393016, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs"
+            }, 
+            "created_at": "2018-02-20T18:40:43.066Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-20T18:40:43.066Z", 
+            "actor": {
+                "username": "secbloke", 
+                "url": "/secbloke", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wepay", 
+            "message": "We appreciate your efforts at making WePay secure. \nPlease continue to help us find more vulnerabilities in our system. Thanks!\n", 
+            "markdown_message": "<p>We appreciate your efforts at making WePay secure. <br>\nPlease continue to help us find more vulnerabilities in our system. Thanks!</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2408540, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-02-20T18:40:56.566Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-20T18:40:56.566Z", 
+            "actor": {
+                "url": "/wepay", 
+                "profile": {
+                    "name": "WePay"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/110/f24dd424036c7229191ef9f6dc63e2e3773e1288_medium.png?1512426859"
+                }
+            }, 
+            "team_handle": "wepay", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "100.0", 
+            "collaborator": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2408542, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-20T18:47:24.373Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-20T18:47:24.373Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wepay", 
+            "message": "Thanks for the bounty!", 
+            "markdown_message": "<p>Thanks for the bounty!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2408566, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-22T22:54:07.007Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-22T22:54:07.007Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wepay", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2423320, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-24T22:54:11.782Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-24T22:54:11.782Z", 
+            "actor": {
+                "url": "/wepay", 
+                "profile": {
+                    "name": "WePay"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/110/f24dd424036c7229191ef9f6dc63e2e3773e1288_medium.png?1512426859"
+                }
+            }, 
+            "team_handle": "wepay", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2527375, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "sp1d3rs", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/sp1d3rs", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/079/690/84dbd34ad5cb1cac4cefa3bf71e715d9c9fa7404_small.png?1507170790"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 61, 
+        "name": "Cross-site Scripting (XSS) - Reflected"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -22203117.021809656, 
+    "disclosed_at": "2018-03-24T22:54:11.750Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/311467", 
+    "created_at": "2018-02-01T19:21:07.251Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"description\">Description</h2>\n\n<p>Hello. I discovered Reflected XSS on the stage-go.wepay.com.</p>\n\n<h2 id=\"browsers\">Browsers &amp; OS tested</h2>\n\n<p>The XSS checked in the latest IE 11 and Edge on Windows 7. <br>\nNot checked on Windows 10.</p>\n\n<h1 id=\"poc-ie-11-or-edge\">POC (IE 11 or Edge)</h1>\n<pre class=\"highlight plaintext\"><code>http://test.xpoc.pro/xss2.php?host=stage-go.wepay.com&amp;payload=&#39;&quot;s\\src=data:,alert%28document.domain%29&gt;&lt;/script&gt;&lt;script/x=&#39;\n</code></pre>\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"test.JPG\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/259/515/4f67fc2d6d8310d7d231455a167f2a2a8d3400ef/test.JPG?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRRGIDB3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222604Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEBAaDBxaaLwYN2vGJMHU3yK3A60CbW7QJhRBSUWEebtoqVFBavCBeg3jCt%2Ff6Ue7ixJjwCt7yq0tq9sMjLsNcoWRvtzj2%2FROkCO4zNzzBp31CEVqphGDPGK4TwxJpsrRac9NLMf03D%2Be%2BJ2ZNV2d3nHzvT4XKWaT82j9XOTkFb6Na6DxwgvQvr1Hf%2FEqlGdE892eO07jT5EU%2FK35L97rIFHrO9VcuTN7ryNS%2B7sAimJ6rHmOLQJ%2BYUkhqg0irzYjFAYK2lpH5L8hzjkL5gOuzMlDEuL3UJAzmDO%2BlHSr3KOiEOOJt5CAwYCvbfdQ%2Fmf9SK6rXcy%2BUcSjH31N16mUjQCBjabHn0E45bovxZ0SsgCCItoso2NvMPAl7ZTxRvQFkkIMIKFg%2F17b%2F6Efuj07DmrIFpvHwbVR9jVNresgxKqtpJ4WLjNKNl1rYMpAMWsuond5AHhcYsUjveEyaC9r3bV2RH0HyaZPga0CQ8O2R5uHtuAnNSkzHtOZlrgultAHw6bLgsH%2F3dQsi24%2BF0PkFA5L29Va%2FxPiVy3QrmsPxcQPTKnaR%2BmyDfaDY9xyHusS%2BLnQHy9tJ9RX447YdvsdbyGpRbao2BKcHLcosL%2Bm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=d3704c2d62b7be5395ce4a709ddee195ee269e6700ec41bb0f57b1e61d41346a\" data-attachment-type=\"image/jpeg\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/259/515/4f67fc2d6d8310d7d231455a167f2a2a8d3400ef/test.JPG?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRRGIDB3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222604Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEBAaDBxaaLwYN2vGJMHU3yK3A60CbW7QJhRBSUWEebtoqVFBavCBeg3jCt%2Ff6Ue7ixJjwCt7yq0tq9sMjLsNcoWRvtzj2%2FROkCO4zNzzBp31CEVqphGDPGK4TwxJpsrRac9NLMf03D%2Be%2BJ2ZNV2d3nHzvT4XKWaT82j9XOTkFb6Na6DxwgvQvr1Hf%2FEqlGdE892eO07jT5EU%2FK35L97rIFHrO9VcuTN7ryNS%2B7sAimJ6rHmOLQJ%2BYUkhqg0irzYjFAYK2lpH5L8hzjkL5gOuzMlDEuL3UJAzmDO%2BlHSr3KOiEOOJt5CAwYCvbfdQ%2Fmf9SK6rXcy%2BUcSjH31N16mUjQCBjabHn0E45bovxZ0SsgCCItoso2NvMPAl7ZTxRvQFkkIMIKFg%2F17b%2F6Efuj07DmrIFpvHwbVR9jVNresgxKqtpJ4WLjNKNl1rYMpAMWsuond5AHhcYsUjveEyaC9r3bV2RH0HyaZPga0CQ8O2R5uHtuAnNSkzHtOZlrgultAHw6bLgsH%2F3dQsi24%2BF0PkFA5L29Va%2FxPiVy3QrmsPxcQPTKnaR%2BmyDfaDY9xyHusS%2BLnQHy9tJ9RX447YdvsdbyGpRbao2BKcHLcosL%2Bm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=d3704c2d62b7be5395ce4a709ddee195ee269e6700ec41bb0f57b1e61d41346a\" class=\"markdown-inline-image\"></a></p>\n\n<h2 id=\"root-cause\">Root cause</h2>\n\n<p>The server do not properly neutralize user input. It thinks that incoming path is urlencoded, and reflects it on the page, but IE/Edge does not urlencode paths, if it passed through Location header.<br>\nAnd since there was multiple payload reflections on the page, i bypassed built-in XSS filter with specific payload.</p>\n\n<h2 id=\"suggested-fix\">Suggested fix</h2>\n\n<p>Additionally sanitize reflected user input.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>The XSS works in the latest versions of IE/Edge, however it is not working in Chrome/FF.<br>\nOtherwise, it has same impact as usual reflected XSS - it can steal sensitive info, deface the site, conduct cookie bomb attacks, bypass CORS/csrf protection, etc.</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.wepay.com", 
+            "about": "Payments partner to the platform economy", 
+            "twitter_handle": "wepay", 
+            "name": "WePay"
+        }, 
+        "handle": "wepay", 
+        "url": "https://hackerone.com/wepay", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/110/7ab9a8f312b783a74b9c9f2e23469c327848210e_small.png?1512426859", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/110/f24dd424036c7229191ef9f6dc63e2e3773e1288_medium.png?1512426859"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 110, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

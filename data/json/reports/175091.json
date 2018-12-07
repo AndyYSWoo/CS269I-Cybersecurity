@@ -1,0 +1,307 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2016-12-04T06:09:34.208Z", 
+    "voters": [
+        "madrobot", 
+        "mpz", 
+        "exception", 
+        "satishpk1", 
+        "paulos_", 
+        "smit", 
+        "tony_tsep", 
+        "spetr0x", 
+        "deviluser", 
+        "nightman", 
+        "and 3 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "1000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 175091, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2016-12-05T00:30:55.988Z", 
+    "vulnerability_information": "Python 3.5.2 suffers from a type confusion vulnerability in the chain.__setstate__ method of the itertools module. The issue exists due to lack of argument validation in the chain_setstate() function:\n\n    static PyObject *\n    chain_setstate(chainobject *lz, PyObject *state)\n    {\n        PyObject *source, *active=NULL;\n\n        if (! PyArg_ParseTuple(state, \"O|O\", &source, &active))\n            return NULL;\n\n        Py_INCREF(source);\n        Py_XSETREF(lz->source, source);\n        Py_XINCREF(active);\n        Py_XSETREF(lz->active, active);\n        Py_RETURN_NONE;\n    }\n\nAfter parsing the argument tuple, source and active are set without validating that they are iterator objects. This causes issues elsewhere, where the values are passed PyIter_Next:\n\n    static PyObject *\n    chain_next(chainobject *lz)\n    {\n        PyObject *item;\n\n        if (lz->source == NULL)\n            return NULL;                                    /* already stopped */\n\n        if (lz->active == NULL) {\n            PyObject *iterable = PyIter_Next(lz->source);\n            if (iterable == NULL) {\n                Py_CLEAR(lz->source);\n                return NULL;                                /* no more input sources */\n            }\n            lz->active = PyObject_GetIter(iterable);\n            Py_DECREF(iterable);\n            if (lz->active == NULL) {\n                Py_CLEAR(lz->source);\n                return NULL;                                /* input not iterable */\n            }\n        }\n        item = PyIter_Next(lz->active);\n        if (item != NULL)\n            return item;\n        if (PyErr_Occurred()) {\n            if (PyErr_ExceptionMatches(PyExc_StopIteration))\n                PyErr_Clear();\n            else\n                return NULL;                                /* input raised an exception */\n        }\n        Py_CLEAR(lz->active);\n        return chain_next(lz);                      /* recurse and use next active */\n    }\n\nIn some cases, this can lead to a DEP access violation. It might be possible to exploit this to achieve code execution.\n\n    (4074.198c): Access violation - code c0000005 (first chance)\n    First chance exceptions are reported before any exception handling.\n    This exception may be expected and handled.\n    eax=00000000 ebx=0132fa10 ecx=5b547028 edx=00000002 esi=0132fa10 edi=5b37b3e0\n    eip=00000000 esp=009ef940 ebp=009ef94c iopl=0         nv up ei pl zr na pe nc\n    cs=0023  ss=002b  ds=002b  es=002b  fs=0053  gs=002b             efl=00010246\n    00000000 ??              ???\n    0:000> k6\n    ChildEBP RetAddr  \n    WARNING: Frame IP not in any known module. Following frames may be wrong.\n    009ef93c 5b329ac0 0x0\n    009ef94c 5b2cb321 python35!PyIter_Next+0x10 [c:\\build\\cpython\\objects\\abstract.c @ 2778]\n    009ef960 5b37b42e python35!chain_next+0x21 [c:\\build\\cpython\\modules\\itertoolsmodule.c @ 1846]\n    009ef970 5b33fedd python35!wrap_next+0x4e [c:\\build\\cpython\\objects\\typeobject.c @ 5470]\n    009ef990 5b328b9d python35!wrapper_call+0x7d [c:\\build\\cpython\\objects\\descrobject.c @ 1195]\n    009ef9ac 5b3c463c python35!PyObject_Call+0x6d [c:\\build\\cpython\\objects\\abstract.c @ 2167]\n\nTo fix this issue, it is recommended that chain_setstate() be updated to validate its arguments. A proposed patch has been attached.\n\n    static PyObject *\n    chain_setstate(chainobject *lz, PyObject *state)\n    {\n        PyObject *source, *active=NULL;\n\n        if (! PyArg_ParseTuple(state, \"O|O\", &source, &active))\n            return NULL;\n\n        if (!PyIter_Check(source) || (active != NULL && !PyIter_Check(active))) {\n            PyErr_SetString(PyExc_ValueError, \"Arguments must be iterators.\");\n            return NULL;\n        }\n\n        Py_INCREF(source);\n        Py_XSETREF(lz->source, source);\n        Py_XINCREF(active);\n        Py_XSETREF(lz->active, active);\n        Py_RETURN_NONE;\n    }", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "Team"
+    }, 
+    "title": "chain.__setstate__ Type Confusion", 
+    "is_member_of_team?": null, 
+    "vote_count": 13, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-01-03T06:09:34.254Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$1,000", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-11T08:14:51.395Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-11T08:14:51.395Z", 
+            "actor": {
+                "username": "johnleitch", 
+                "url": "/johnleitch", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-python", 
+            "message": "Link to bug report: https://bugs.python.org/issue28322", 
+            "markdown_message": "<p>Link to bug report: <a title=\"https://bugs.python.org/issue28322\" href=\"/redirect?signature=a5338aeb4943e99fb810fc2ce7ffcfdcc33f8fe1&amp;url=https%3A%2F%2Fbugs.python.org%2Fissue28322\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://bugs.python.org/issue28322</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1241683, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-03T19:40:59.448Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T19:40:59.448Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Medium", 
+                "old_severity": "High"
+            }, 
+            "team_handle": "ibb-python", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1338920, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "johnleitch", 
+                "url": "/johnleitch"
+            }, 
+            "created_at": "2016-12-03T19:41:05.224Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T19:41:05.224Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-python", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 1338921, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2016-12-03T19:41:11.741Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T19:41:11.741Z", 
+            "actor": {
+                "url": "/ibb-python", 
+                "profile": {
+                    "name": "Python (IBB)"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/027/79e9602e5e25d02b7c34cdbc40438408f47e7cd7_medium.png?1383737131"
+                }
+            }, 
+            "team_handle": "ibb-python", 
+            "bounty_amount": "1000.0", 
+            "collaborator": {
+                "username": "johnleitch", 
+                "url": "/johnleitch"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1338922, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-04T06:09:34.229Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-04T06:09:34.229Z", 
+            "actor": {
+                "username": "johnleitch", 
+                "url": "/johnleitch", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-python", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1339463, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-05T00:30:56.007Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-05T00:30:56.007Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-python", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1340404, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-05T00:30:56.059Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-05T00:30:56.059Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-python", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1340405, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "johnleitch", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/johnleitch", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 2, 
+        "name": "Memory Corruption - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -60712602.012426704, 
+    "disclosed_at": "2016-12-05T00:30:56.041Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/175091", 
+    "created_at": "2016-10-11T08:14:36.540Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Python 3.5.2 suffers from a type confusion vulnerability in the chain.<strong>setstate</strong> method of the itertools module. The issue exists due to lack of argument validation in the chain_setstate() function:</p>\n<pre class=\"highlight plaintext\"><code>static PyObject *\nchain_setstate(chainobject *lz, PyObject *state)\n{\n    PyObject *source, *active=NULL;\n\n    if (! PyArg_ParseTuple(state, &quot;O|O&quot;, &amp;source, &amp;active))\n        return NULL;\n\n    Py_INCREF(source);\n    Py_XSETREF(lz-&gt;source, source);\n    Py_XINCREF(active);\n    Py_XSETREF(lz-&gt;active, active);\n    Py_RETURN_NONE;\n}\n</code></pre>\n<p>After parsing the argument tuple, source and active are set without validating that they are iterator objects. This causes issues elsewhere, where the values are passed PyIter_Next:</p>\n<pre class=\"highlight plaintext\"><code>static PyObject *\nchain_next(chainobject *lz)\n{\n    PyObject *item;\n\n    if (lz-&gt;source == NULL)\n        return NULL;                                    /* already stopped */\n\n    if (lz-&gt;active == NULL) {\n        PyObject *iterable = PyIter_Next(lz-&gt;source);\n        if (iterable == NULL) {\n            Py_CLEAR(lz-&gt;source);\n            return NULL;                                /* no more input sources */\n        }\n        lz-&gt;active = PyObject_GetIter(iterable);\n        Py_DECREF(iterable);\n        if (lz-&gt;active == NULL) {\n            Py_CLEAR(lz-&gt;source);\n            return NULL;                                /* input not iterable */\n        }\n    }\n    item = PyIter_Next(lz-&gt;active);\n    if (item != NULL)\n        return item;\n    if (PyErr_Occurred()) {\n        if (PyErr_ExceptionMatches(PyExc_StopIteration))\n            PyErr_Clear();\n        else\n            return NULL;                                /* input raised an exception */\n    }\n    Py_CLEAR(lz-&gt;active);\n    return chain_next(lz);                      /* recurse and use next active */\n}\n</code></pre>\n<p>In some cases, this can lead to a DEP access violation. It might be possible to exploit this to achieve code execution.</p>\n<pre class=\"highlight plaintext\"><code>(4074.198c): Access violation - code c0000005 (first chance)\nFirst chance exceptions are reported before any exception handling.\nThis exception may be expected and handled.\neax=00000000 ebx=0132fa10 ecx=5b547028 edx=00000002 esi=0132fa10 edi=5b37b3e0\neip=00000000 esp=009ef940 ebp=009ef94c iopl=0         nv up ei pl zr na pe nc\ncs=0023  ss=002b  ds=002b  es=002b  fs=0053  gs=002b             efl=00010246\n00000000 ??              ???\n0:000&gt; k6\nChildEBP RetAddr  \nWARNING: Frame IP not in any known module. Following frames may be wrong.\n009ef93c 5b329ac0 0x0\n009ef94c 5b2cb321 python35!PyIter_Next+0x10 [c:\\build\\cpython\\objects\\abstract.c @ 2778]\n009ef960 5b37b42e python35!chain_next+0x21 [c:\\build\\cpython\\modules\\itertoolsmodule.c @ 1846]\n009ef970 5b33fedd python35!wrap_next+0x4e [c:\\build\\cpython\\objects\\typeobject.c @ 5470]\n009ef990 5b328b9d python35!wrapper_call+0x7d [c:\\build\\cpython\\objects\\descrobject.c @ 1195]\n009ef9ac 5b3c463c python35!PyObject_Call+0x6d [c:\\build\\cpython\\objects\\abstract.c @ 2167]\n</code></pre>\n<p>To fix this issue, it is recommended that chain_setstate() be updated to validate its arguments. A proposed patch has been attached.</p>\n<pre class=\"highlight plaintext\"><code>static PyObject *\nchain_setstate(chainobject *lz, PyObject *state)\n{\n    PyObject *source, *active=NULL;\n\n    if (! PyArg_ParseTuple(state, &quot;O|O&quot;, &amp;source, &amp;active))\n        return NULL;\n\n    if (!PyIter_Check(source) || (active != NULL &amp;&amp; !PyIter_Check(active))) {\n        PyErr_SetString(PyExc_ValueError, &quot;Arguments must be iterators.&quot;);\n        return NULL;\n    }\n\n    Py_INCREF(source);\n    Py_XSETREF(lz-&gt;source, source);\n    Py_XINCREF(active);\n    Py_XSETREF(lz-&gt;active, active);\n    Py_RETURN_NONE;\n}\n</code></pre>", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://www.python.org/news/security", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "Python (IBB)"
+        }, 
+        "handle": "ibb-python", 
+        "url": "https://hackerone.com/ibb-python", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/027/22df52945ba6933f27a1dbc92380fe19a4a1a93d_small.png?1383737131", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/027/79e9602e5e25d02b7c34cdbc40438408f47e7cd7_medium.png?1383737131"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 27, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

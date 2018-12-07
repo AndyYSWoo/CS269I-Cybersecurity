@@ -1,0 +1,389 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "cryptographer", 
+        "71ck5"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 363714, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-07-27T10:34:01.328Z", 
+    "vulnerability_information": "**Summary:**\nA well-timed TCP reset (RST) can cause monerod (or any service relying on epee) to stop accepting new connections.\n\n**Description:**\nWhen a new connection is attempted, the handle_accept function is called. This does some error checking and finishes setting up the connection. Once the connection is set up, it calls acceptor_.async_accept() in order to continue listening for new connections.\n\nhttps://github.com/monero-project/monero/blob/8a7b3ff13858c5d879530c99de5c723c88429342/contrib/epee/include/net/abstract_tcp_server2.inl#L982\n\nHowever, if the handle_accept function is called with an error code, it bypasses the main block of code and simply logs a message. It does not add the accept handler back to the acceptor. The result is that the daemon will stop accepting new connections if an error is hit.\n\nIt is possible for an attacker to remotely trigger such an error. If a TCP RST packet is sent immediately after a successful TCP handshake, the connection/socket will be torn down. If it happens fast enough (specifically in the window between the server receiving the ACK and the handle_accept function being called), this will cause an error.\n\n## Releases Affected:\n\nAll releases using epee.\n\n## Steps To Reproduce:\n\nI've included a python script below which demonstrates a normal TCP connection that ends gracefully, and a malicious connection which causes an RST to be sent at close as opposed to FIN.\n\nIf this is run on a relatively idle node (e.g. if it's still synchronizing its blockchain), it will disable the node after just a couple tries. If a node is fully active, it becomes harder to get the RST processed within the critical window. I have yet to disable a fully active node, but it should be possible. A more efficient/faster attack going over raw sockets might make it easier.\n\n## Supporting Material/References:\n\n$ ./rst-attack.py <ip> <port>\n```\n#!/usr/bin/env python3\n  \nimport socket, struct, sys\n\ntgt_host = sys.argv[1]\ntgt_port = int(sys.argv[2])\n\n# Normal connection, send some data, end with graceful FIN.\ns = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)\ns.connect((tgt_host, tgt_port))\ns.send(b\"hello\")\ns.close()\n\n# Abnormal connection, force close by RST instead of FIN.\ns = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)\nl_onoff = 1\nl_linger = 0\np=struct.pack('ii', l_onoff, l_linger)\ns.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, p)\ns.connect((tgt_host, tgt_port))\ns.close()\n```\n\n## Impact\n\nAn attacker can remotely disable monero nodes. I marked this as medium since my proof-of-concept script fails to disable most active nodes. However, it is theoretically possible to take down the whole network if a clever variation or different means of causing an accept error is discovered.\n\nAn attacker could also monitor the network and snipe any nodes that have lagged behind or are in the middle of syncing the chain.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "User"
+    }, 
+    "title": "monerod can be disabled by a well-timed TCP reset packet", 
+    "is_member_of_team?": null, 
+    "vote_count": 2, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-08-26T10:34:01.467Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-11T20:34:00.495Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-11T20:34:00.495Z", 
+            "actor": {
+                "username": "anonimal", 
+                "url": "/anonimal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/857/5d3774e5d965a4122d4364133d467ea77fc31acd_medium.png?1449305173"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "What do you mean by \"disable\"? Can you provide logs? I cannot reproduce. Can you prove that this is an epee-specific issue and not OS-specific (or not boost related)?", 
+            "markdown_message": "<p>What do you mean by &quot;disable&quot;? Can you provide logs? I cannot reproduce. Can you prove that this is an epee-specific issue and not OS-specific (or not boost related)?</p>\n", 
+            "type": "Activities::BugNeedsMoreInfo", 
+            "id": 2871192, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-12T06:26:31.352Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-12T06:26:31.352Z", 
+            "actor": {
+                "username": "moneromooo", 
+                "url": "/moneromooo", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Running this on a loop on my local idle server, I can't repro, it's happily rejecting all connections without wedging. I end up with lots of TIME_WAIT connections, that's all. Anyway, I've verified that forcing an error programmatically stops the accepting, and that restarting on (forced) error continues accepting.", 
+            "markdown_message": "<p>Running this on a loop on my local idle server, I can&#39;t repro, it&#39;s happily rejecting all connections without wedging. I end up with lots of TIME_WAIT connections, that&#39;s all. Anyway, I&#39;ve verified that forcing an error programmatically stops the accepting, and that restarting on (forced) error continues accepting.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2872244, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-12T06:36:19.121Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-12T06:36:19.121Z", 
+            "actor": {
+                "username": "ahook", 
+                "url": "/ahook", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/270/516/e224bbe96c5b339e0d8d5a45c8fafd450c935424_medium.jpg?1531279521"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "So I can currently reproduce locally on OSX but that's also in a case where my 18080 is closed to the world. I've got a raw socket version running in c on ubuntu and still can't reproduce, but I'm doing more debugging now. It may end up being the case that it's an OSX thing.\n\nI'll keep hammering at it and update if I find anything. Probably a low-severity ticket at this point.", 
+            "markdown_message": "<p>So I can currently reproduce locally on OSX but that&#39;s also in a case where my 18080 is closed to the world. I&#39;ve got a raw socket version running in c on ubuntu and still can&#39;t reproduce, but I&#39;m doing more debugging now. It may end up being the case that it&#39;s an OSX thing.</p>\n\n<p>I&#39;ll keep hammering at it and update if I find anything. Probably a low-severity ticket at this point.</p>\n", 
+            "type": "Activities::BugNew", 
+            "id": 2872256, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-12T20:48:35.576Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-12T20:48:35.576Z", 
+            "actor": {
+                "username": "anonimal", 
+                "url": "/anonimal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/857/5d3774e5d965a4122d4364133d467ea77fc31acd_medium.png?1449305173"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2875298, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-13T04:56:52.198Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-13T04:56:52.198Z", 
+            "actor": {
+                "username": "ahook", 
+                "url": "/ahook", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/270/516/e224bbe96c5b339e0d8d5a45c8fafd450c935424_medium.jpg?1531279521"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "From what I can tell this is primarily an OSX issue (or at least I can only trigger it on OSX). Thought it might have been boost (I was running 1.67 on OSX and 1.58 on Ubuntu), but Ubuntu does fine on 1.67. Not sure exactly why they differ, but the stacktraces are fairly different between the two, so it could be epoll vs kqueue, or os-specific thread implementations, etc.\n\nI think it would make sense to add a line to put the handler back after an error to be safe (or maybe check the error code and only do it on certain codes). But since I'm guessing OSX nodes are rare, I'd still probably consider on the lower-medium end of severity.", 
+            "markdown_message": "<p>From what I can tell this is primarily an OSX issue (or at least I can only trigger it on OSX). Thought it might have been boost (I was running 1.67 on OSX and 1.58 on Ubuntu), but Ubuntu does fine on 1.67. Not sure exactly why they differ, but the stacktraces are fairly different between the two, so it could be epoll vs kqueue, or os-specific thread implementations, etc.</p>\n\n<p>I think it would make sense to add a line to put the handler back after an error to be safe (or maybe check the error code and only do it on certain codes). But since I&#39;m guessing OSX nodes are rare, I&#39;d still probably consider on the lower-medium end of severity.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2876552, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-13T14:24:06.454Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-13T14:24:06.454Z", 
+            "actor": {
+                "username": "moneromooo", 
+                "url": "/moneromooo", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Yes, I've done that. Also on exceptions just in case.", 
+            "markdown_message": "<p>Yes, I&#39;ve done that. Also on exceptions just in case.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2879500, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-18T10:02:57.141Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-18T10:02:57.141Z", 
+            "actor": {
+                "username": "moneromooo", 
+                "url": "/moneromooo", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Sorry, forgot the link to the patch: https://github.com/monero-project/monero/pull/3997", 
+            "markdown_message": "<p>Sorry, forgot the link to the patch: <a title=\"https://github.com/monero-project/monero/pull/3997\" href=\"/redirect?signature=e9e25243b1fa1627645cadba71f99e79fc577a68&amp;url=https%3A%2F%2Fgithub.com%2Fmonero-project%2Fmonero%2Fpull%2F3997\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/monero-project/monero/pull/3997</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2900439, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "ahook", 
+                "url": "/ahook"
+            }, 
+            "created_at": "2018-07-27T10:33:49.151Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-27T10:33:49.151Z", 
+            "actor": {
+                "username": "anonimal", 
+                "url": "/anonimal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/857/5d3774e5d965a4122d4364133d467ea77fc31acd_medium.png?1449305173"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Hi @ahook, thank you for the report. Though neither of us could reproduce, a patch has made its way into https://github.com/monero-project/monero/releases/tag/v0.12.3.0. Please paste an XMR address if you want a bounty payout.", 
+            "markdown_message": "<p>Hi <a href=\"/ahook\">@ahook</a>, thank you for the report. Though neither of us could reproduce, a patch has made its way into <a title=\"https://github.com/monero-project/monero/releases/tag/v0.12.3.0\" href=\"/redirect?signature=2eada19787e577d4df5d39bdf78cdc504442c2fc&amp;url=https%3A%2F%2Fgithub.com%2Fmonero-project%2Fmonero%2Freleases%2Ftag%2Fv0.12.3.0\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/monero-project/monero/releases/tag/v0.12.3.0</span><i class=\"icon-external-link\"></i></a>. Please paste an XMR address if you want a bounty payout.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3105081, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-27T10:34:01.372Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-27T10:34:01.372Z", 
+            "actor": {
+                "username": "anonimal", 
+                "url": "/anonimal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/857/5d3774e5d965a4122d4364133d467ea77fc31acd_medium.png?1449305173"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3105082, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-27T18:59:13.520Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-27T18:59:36.868Z", 
+            "actor": {
+                "username": "ahook", 
+                "url": "/ahook", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/270/516/e224bbe96c5b339e0d8d5a45c8fafd450c935424_medium.jpg?1531279521"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Oh cool, thanks! Here's an XMR address: 44Yg7iSGmrqdow2XKhLWxDMF17JR6SmyHQkNzaeaCiYL2YpMhUcapJ6XvHR1S5Kj87bRoeCmrgTK2Lrn58XiPFSJHtPKgXe", 
+            "markdown_message": "<p>Oh cool, thanks! Here&#39;s an XMR address: 44Yg7iSGmrqdow2XKhLWxDMF17JR6SmyHQkNzaeaCiYL2YpMhUcapJ6XvHR1S5Kj87bRoeCmrgTK2Lrn58XiPFSJHtPKgXe</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3106665, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-01T18:35:59.321Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-01T18:35:59.321Z", 
+            "actor": {
+                "username": "luigi1111w", 
+                "url": "/luigi1111w", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Sent 3 XMR: <9177299011332a41cfb7684848fc4ce28150f424a9df5adb766412db2a922118>", 
+            "markdown_message": "<p>Sent 3 XMR: &lt;9177299011332a41cfb7684848fc4ce28150f424a9df5adb766412db2a922118&gt;</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3129848, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-02T00:12:34.996Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-02T00:12:34.996Z", 
+            "actor": {
+                "username": "anonimal", 
+                "url": "/anonimal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/857/5d3774e5d965a4122d4364133d467ea77fc31acd_medium.png?1449305173"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ManuallyDisclosed", 
+            "id": 3130817, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "ahook", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/ahook", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/270/516/c11dae71b979826e00bb5740e0ff396d0b1e3ce8_small.jpg?1531279521"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 48, 
+        "name": "Denial of Service"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -8855062.836034793, 
+    "disclosed_at": "2018-08-02T00:12:35.066Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/363714", 
+    "created_at": "2018-06-09T12:09:17.963Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p><strong>Summary:</strong><br>\nA well-timed TCP reset (RST) can cause monerod (or any service relying on epee) to stop accepting new connections.</p>\n\n<p><strong>Description:</strong><br>\nWhen a new connection is attempted, the handle_accept function is called. This does some error checking and finishes setting up the connection. Once the connection is set up, it calls acceptor_.async_accept() in order to continue listening for new connections.</p>\n\n<p><a title=\"https://github.com/monero-project/monero/blob/8a7b3ff13858c5d879530c99de5c723c88429342/contrib/epee/include/net/abstract_tcp_server2.inl#L982\" href=\"/redirect?signature=43af5594f10e56da42c06fea430be86b1eddf7ae&amp;url=https%3A%2F%2Fgithub.com%2Fmonero-project%2Fmonero%2Fblob%2F8a7b3ff13858c5d879530c99de5c723c88429342%2Fcontrib%2Fepee%2Finclude%2Fnet%2Fabstract_tcp_server2.inl%23L982\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/monero-project/monero/blob/8a7b3ff13858c5d879530c99de5c723c88429342/contrib/epee/include/net/abstract_tcp_server2.inl#L982</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>However, if the handle_accept function is called with an error code, it bypasses the main block of code and simply logs a message. It does not add the accept handler back to the acceptor. The result is that the daemon will stop accepting new connections if an error is hit.</p>\n\n<p>It is possible for an attacker to remotely trigger such an error. If a TCP RST packet is sent immediately after a successful TCP handshake, the connection/socket will be torn down. If it happens fast enough (specifically in the window between the server receiving the ACK and the handle_accept function being called), this will cause an error.</p>\n\n<h2 id=\"releases-affected\">Releases Affected:</h2>\n\n<p>All releases using epee.</p>\n\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<p>I&#39;ve included a python script below which demonstrates a normal TCP connection that ends gracefully, and a malicious connection which causes an RST to be sent at close as opposed to FIN.</p>\n\n<p>If this is run on a relatively idle node (e.g. if it&#39;s still synchronizing its blockchain), it will disable the node after just a couple tries. If a node is fully active, it becomes harder to get the RST processed within the critical window. I have yet to disable a fully active node, but it should be possible. A more efficient/faster attack going over raw sockets might make it easier.</p>\n\n<h2 id=\"supporting-material-references\">Supporting Material/References:</h2>\n\n<p>$ ./rst-attack.py &lt;ip&gt; &lt;port&gt;</p>\n<pre class=\"highlight python\"><code><span class=\"c\">#!/usr/bin/env python3</span>\n\n<span class=\"kn\">import</span> <span class=\"nn\">socket</span><span class=\"p\">,</span> <span class=\"n\">struct</span><span class=\"p\">,</span> <span class=\"n\">sys</span>\n\n<span class=\"n\">tgt_host</span> <span class=\"o\">=</span> <span class=\"n\">sys</span><span class=\"o\">.</span><span class=\"n\">argv</span><span class=\"p\">[</span><span class=\"mi\">1</span><span class=\"p\">]</span>\n<span class=\"n\">tgt_port</span> <span class=\"o\">=</span> <span class=\"nb\">int</span><span class=\"p\">(</span><span class=\"n\">sys</span><span class=\"o\">.</span><span class=\"n\">argv</span><span class=\"p\">[</span><span class=\"mi\">2</span><span class=\"p\">])</span>\n\n<span class=\"c\"># Normal connection, send some data, end with graceful FIN.</span>\n<span class=\"n\">s</span> <span class=\"o\">=</span> <span class=\"n\">socket</span><span class=\"o\">.</span><span class=\"n\">socket</span><span class=\"p\">(</span><span class=\"n\">socket</span><span class=\"o\">.</span><span class=\"n\">AF_INET</span><span class=\"p\">,</span> <span class=\"n\">socket</span><span class=\"o\">.</span><span class=\"n\">SOCK_STREAM</span><span class=\"p\">,</span> <span class=\"mi\">0</span><span class=\"p\">)</span>\n<span class=\"n\">s</span><span class=\"o\">.</span><span class=\"n\">connect</span><span class=\"p\">((</span><span class=\"n\">tgt_host</span><span class=\"p\">,</span> <span class=\"n\">tgt_port</span><span class=\"p\">))</span>\n<span class=\"n\">s</span><span class=\"o\">.</span><span class=\"n\">send</span><span class=\"p\">(</span><span class=\"n\">b</span><span class=\"s\">&quot;hello&quot;</span><span class=\"p\">)</span>\n<span class=\"n\">s</span><span class=\"o\">.</span><span class=\"n\">close</span><span class=\"p\">()</span>\n\n<span class=\"c\"># Abnormal connection, force close by RST instead of FIN.</span>\n<span class=\"n\">s</span> <span class=\"o\">=</span> <span class=\"n\">socket</span><span class=\"o\">.</span><span class=\"n\">socket</span><span class=\"p\">(</span><span class=\"n\">socket</span><span class=\"o\">.</span><span class=\"n\">AF_INET</span><span class=\"p\">,</span> <span class=\"n\">socket</span><span class=\"o\">.</span><span class=\"n\">SOCK_STREAM</span><span class=\"p\">,</span> <span class=\"mi\">0</span><span class=\"p\">)</span>\n<span class=\"n\">l_onoff</span> <span class=\"o\">=</span> <span class=\"mi\">1</span>\n<span class=\"n\">l_linger</span> <span class=\"o\">=</span> <span class=\"mi\">0</span>\n<span class=\"n\">p</span><span class=\"o\">=</span><span class=\"n\">struct</span><span class=\"o\">.</span><span class=\"n\">pack</span><span class=\"p\">(</span><span class=\"s\">&#39;ii&#39;</span><span class=\"p\">,</span> <span class=\"n\">l_onoff</span><span class=\"p\">,</span> <span class=\"n\">l_linger</span><span class=\"p\">)</span>\n<span class=\"n\">s</span><span class=\"o\">.</span><span class=\"n\">setsockopt</span><span class=\"p\">(</span><span class=\"n\">socket</span><span class=\"o\">.</span><span class=\"n\">SOL_SOCKET</span><span class=\"p\">,</span> <span class=\"n\">socket</span><span class=\"o\">.</span><span class=\"n\">SO_LINGER</span><span class=\"p\">,</span> <span class=\"n\">p</span><span class=\"p\">)</span>\n<span class=\"n\">s</span><span class=\"o\">.</span><span class=\"n\">connect</span><span class=\"p\">((</span><span class=\"n\">tgt_host</span><span class=\"p\">,</span> <span class=\"n\">tgt_port</span><span class=\"p\">))</span>\n<span class=\"n\">s</span><span class=\"o\">.</span><span class=\"n\">close</span><span class=\"p\">()</span>\n</code></pre>\n<h2 id=\"impact\">Impact</h2>\n\n<p>An attacker can remotely disable monero nodes. I marked this as medium since my proof-of-concept script fails to disable most active nodes. However, it is theoretically possible to take down the whole network if a clever variation or different means of causing an accept error is discovered.</p>\n\n<p>An attacker could also monitor the network and snipe any nodes that have lagged behind or are in the middle of syncing the chain.</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://getmonero.org", 
+            "about": " Monero: the secure, private, untraceable cryptocurrency", 
+            "twitter_handle": "monerocurrency", 
+            "name": "Monero"
+        }, 
+        "handle": "monero", 
+        "url": "https://hackerone.com/monero", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/007/731/e9db7ce84f372b423c4d212b494be78c2e0a571e_small.png?1484006970", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/007/731/3428da1efb473c529a0d2e5836012a846f8b8d1e_medium.png?1484006970"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 7731, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

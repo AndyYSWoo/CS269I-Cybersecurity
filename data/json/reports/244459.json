@@ -1,0 +1,364 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "bl4de", 
+        "eveeez", 
+        "atestpk", 
+        "japz", 
+        "zerotoone", 
+        "jaimin", 
+        "65147", 
+        "wanderson21jeh", 
+        "arice"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "1500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 244459, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-07-11T12:53:00.816Z", 
+    "vulnerability_information": "", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "none", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "high", 
+            "scope": "changed", 
+            "integrity": "low", 
+            "availability": "none"
+        }, 
+        "rating": "medium", 
+        "score": 4.0, 
+        "author_type": "User"
+    }, 
+    "title": "Apache HTTP Request Parsing Whitespace Defects", 
+    "is_member_of_team?": null, 
+    "vote_count": 9, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 4781, 
+            "content": "Apache HTTP Server, prior to release 2.4.25, accepted a broad pattern of unusual whitespace patterns from the user-agent, including bare CR, FF, VTAB in parsing the request line and request header lines, as well as HTAB in parsing the request line. Any bare CR present in request lines was treated as whitespace and remained in the request field member \"the_request\", while a bare CR in the request header field name would be honored as whitespace, and a bare CR in the request header field value was retained the input headers array. Implied additional whitespace was accepted in the request line and prior to the ':' delimiter of any request header lines.\n\nRFC7230 Section 3.5 calls out some of these whitespace exceptions, and section 3.2.3 eliminated and clarified the role of implied whitespace in the grammer of this specification. Section 3.1.1 requires exactly one single SP between the method and request-target, and between the request-target and HTTP-version, followed immediately by a CRLF sequence. None of these fields permit any (unencoded) CTL character whatsoever. Section 3.2.4 explicitly disallowed any whitespace from the request header field prior to the ':' character, while Section 3.2 disallows all CTL characters in the request header line other than the HTAB character as whitespace.\n\nThese defects represent a security concern when httpd is participating in any chain of proxies or interacting with back-end application servers, either through mod_proxy or using conventional CGI mechanisms. In each case where one agent accepts such CTL characters and does not treat them as whitespace, there is the possiblity in a proxy chain of generating two responses from a server behind the uncautious proxy agent. In a sequence of two requests, this results in request A to the first proxy being interpreted as requests A + A' by the backend server, and if requests A and B were submitted to the first proxy in a keepalive connection, the proxy may interpret response A' as the response to request B, polluting the cache or potentially serving the A' content to a different downstream user-agent.\n\nThese defects are addressed with the release of Apache HTTP Server 2.4.25 and coordinated by a new directive;\n\n- [HttpProtocolOptions Strict](http://httpd.apache.org/docs/2.4/mod/core.html#httpprotocoloptions)\n\nwhich is the default behavior of 2.4.25 and later. By toggling from 'Strict' behavior to 'Unsafe' behavior, some of the restrictions may be relaxed to allow some invalid HTTP/1.1 clients to communicate with the server, but this will reintroduce the possibility of the problems described in this assessment. Note that relaxing the behavior to 'Unsafe' will still not permit raw CTLs other than HTAB (where permitted), but will allow other RFC requirements to not be enforced, such as exactly two SP characters in the request line.\n\nAcknowledgements: We would like to thank David Dennerline at IBM Security's X-Force Researchers as well as R\u00e9gis Leroy for each reporting this issue.\n\nReported to security team: 10th February 2016\nIssue public: 20th December 2016\nUpdate Released: 20th December 2016\n\nAffects: 2.4.23, 2.4.20, 2.4.18, 2.4.17, 2.4.16, 2.4.12, 2.4.10, 2.4.9, 2.4.7, 2.4.6, 2.4.4, 2.4.3, 2.4.2, 2.4.1, 2.2.31, 2.2.29, 2.2.27, 2.2.26, 2.2.25, 2.2.24, 2.2.23, 2.2.22, 2.2.21, 2.2.20, 2.2.19, 2.2.18, 2.2.17, 2.2.16, 2.2.15, 2.2.14, 2.2.13, 2.2.12, 2.2.11, 2.2.10, 2.2.9, 2.2.8, 2.2.6, 2.2.5, 2.2.4, 2.2.3, 2.2.2, 2.2.0", 
+            "content_html": "<p>Apache HTTP Server, prior to release 2.4.25, accepted a broad pattern of unusual whitespace patterns from the user-agent, including bare CR, FF, VTAB in parsing the request line and request header lines, as well as HTAB in parsing the request line. Any bare CR present in request lines was treated as whitespace and remained in the request field member &quot;the_request&quot;, while a bare CR in the request header field name would be honored as whitespace, and a bare CR in the request header field value was retained the input headers array. Implied additional whitespace was accepted in the request line and prior to the &#39;:&#39; delimiter of any request header lines.</p>\n\n<p>RFC7230 Section 3.5 calls out some of these whitespace exceptions, and section 3.2.3 eliminated and clarified the role of implied whitespace in the grammer of this specification. Section 3.1.1 requires exactly one single SP between the method and request-target, and between the request-target and HTTP-version, followed immediately by a CRLF sequence. None of these fields permit any (unencoded) CTL character whatsoever. Section 3.2.4 explicitly disallowed any whitespace from the request header field prior to the &#39;:&#39; character, while Section 3.2 disallows all CTL characters in the request header line other than the HTAB character as whitespace.</p>\n\n<p>These defects represent a security concern when httpd is participating in any chain of proxies or interacting with back-end application servers, either through mod_proxy or using conventional CGI mechanisms. In each case where one agent accepts such CTL characters and does not treat them as whitespace, there is the possiblity in a proxy chain of generating two responses from a server behind the uncautious proxy agent. In a sequence of two requests, this results in request A to the first proxy being interpreted as requests A + A&#39; by the backend server, and if requests A and B were submitted to the first proxy in a keepalive connection, the proxy may interpret response A&#39; as the response to request B, polluting the cache or potentially serving the A&#39; content to a different downstream user-agent.</p>\n\n<p>These defects are addressed with the release of Apache HTTP Server 2.4.25 and coordinated by a new directive;</p>\n\n<ul>\n<li><a href=\"/redirect?signature=32c461898eafcd1962ee796180f371093ac55262&amp;url=http%3A%2F%2Fhttpd.apache.org%2Fdocs%2F2.4%2Fmod%2Fcore.html%23httpprotocoloptions\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>HttpProtocolOptions Strict</span><i class=\"icon-external-link\"></i></a></li>\n</ul>\n\n<p>which is the default behavior of 2.4.25 and later. By toggling from &#39;Strict&#39; behavior to &#39;Unsafe&#39; behavior, some of the restrictions may be relaxed to allow some invalid HTTP/1.1 clients to communicate with the server, but this will reintroduce the possibility of the problems described in this assessment. Note that relaxing the behavior to &#39;Unsafe&#39; will still not permit raw CTLs other than HTAB (where permitted), but will allow other RFC requirements to not be enforced, such as exactly two SP characters in the request line.</p>\n\n<p>Acknowledgements: We would like to thank David Dennerline at IBM Security&#39;s X-Force Researchers as well as R\u00e9gis Leroy for each reporting this issue.</p>\n\n<p>Reported to security team: 10th February 2016<br>\nIssue public: 20th December 2016<br>\nUpdate Released: 20th December 2016</p>\n\n<p>Affects: 2.4.23, 2.4.20, 2.4.18, 2.4.17, 2.4.16, 2.4.12, 2.4.10, 2.4.9, 2.4.7, 2.4.6, 2.4.4, 2.4.3, 2.4.2, 2.4.1, 2.2.31, 2.2.29, 2.2.27, 2.2.26, 2.2.25, 2.2.24, 2.2.23, 2.2.22, 2.2.21, 2.2.20, 2.2.19, 2.2.18, 2.2.17, 2.2.16, 2.2.15, 2.2.14, 2.2.13, 2.2.12, 2.2.11, 2.2.10, 2.2.9, 2.2.8, 2.2.6, 2.2.5, 2.2.4, 2.2.3, 2.2.2, 2.2.0</p>\n"
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-08-10T12:53:00.869Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2016-8743"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$1,500", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-07-11T12:52:49.125Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-11T12:52:49.125Z", 
+            "actor": {
+                "url": "/ibb-apache", 
+                "profile": {
+                    "name": "Apache httpd (IBB)"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/026/e6dcdf3e5ffe2b3e2b8ad9f8f216a15f9152fbba_medium.png?1384379101"
+                }
+            }, 
+            "team_handle": "ibb-apache", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "1500.0", 
+            "collaborator": {
+                "username": "regilero", 
+                "url": "/regilero"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1824544, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "regilero", 
+                "url": "/regilero"
+            }, 
+            "created_at": "2017-07-11T12:52:56.038Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-11T12:52:56.038Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-apache", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 1824545, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-11T12:53:00.836Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-11T12:53:00.836Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-apache", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1824547, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-11T13:08:45.807Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-11T13:08:45.807Z", 
+            "actor": {
+                "username": "regilero", 
+                "url": "/regilero", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-apache", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1824599, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-11T14:05:11.842Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-11T14:05:11.842Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-apache", 
+            "cve_ids": [
+                "CVE-2016-8743"
+            ], 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::CveIdAdded", 
+            "id": 1824847, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-11T14:05:25.269Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-11T14:05:25.269Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {}, 
+            "team_handle": "ibb-apache", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportTitleUpdated", 
+            "id": 1824848, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-11T14:05:55.432Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-11T14:05:55.432Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-apache", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1824850, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-11T14:36:40.507Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-11T14:36:40.507Z", 
+            "actor": {
+                "username": "regilero", 
+                "url": "/regilero", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-apache", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1824909, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-11T14:39:47.126Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-11T14:39:47.126Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-apache", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ManuallyDisclosed", 
+            "id": 1824915, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "regilero", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/regilero", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 86, 
+        "name": "HTTP Request Smuggling"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "no-content", 
+    "allow_singular_disclosure_after": -41766164.38469587, 
+    "disclosed_at": "2017-07-11T14:39:47.164Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/244459", 
+    "created_at": "2017-06-29T17:41:22.337Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://apache.org/security", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "Apache httpd (IBB)"
+        }, 
+        "handle": "ibb-apache", 
+        "url": "https://hackerone.com/ibb-apache", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/026/6101e11dfbab5fb9436b6038e1e7e1ac65efd687_small.png?1384379101", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/026/e6dcdf3e5ffe2b3e2b8ad9f8f216a15f9152fbba_medium.png?1384379101"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 26, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

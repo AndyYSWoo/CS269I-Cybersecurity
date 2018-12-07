@@ -1,0 +1,890 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-11-28T01:43:13.073Z", 
+    "voters": [
+        "spam404", 
+        "asad0x01_", 
+        "ischleep", 
+        "ashish_r_padelkar", 
+        "an0nym0us", 
+        "axolotl", 
+        "michan001", 
+        "haxta4ok00", 
+        "babayaga_", 
+        "mygf", 
+        "and 18 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 417382, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-11-30T19:21:17.350Z", 
+    "vulnerability_information": "Hi Team,\n\n**Summary:**\n\nI have found an Insufficient Session Expiration on implementation of the new `Revoke user session` feature of HackerOne here: https://hackerone.com/settings/sessions\n\n**Description:**\n\nThe new __REVOKE__ session feature will destroy the session of the selected device, that means any request that requires authorization should not work (`POST`, `GET`) __BUT__ i have observed that you forgot the `GraphQL` query request, i can still query sensitive information despite i already revoke my current session and this can result a __sensitive information disclosure__  \n\n### Steps To Reproduce\n\n  1. Login to hackerone.com\n  2. Go to sensitive page and capture the `GraphQL` request , on my case i captured the bounty settings `{\"query\":\"query User_bounty_settings_page... etc` on this end point: https://hackerone.com/settings/bounties\n  3. Send the GraphQL request to repeater\n  4. Go to https://hackerone.com/settings/sessions and click `Revoke` to destroy the current session\n  5. You will be logout to your account, means session destroyed\n  6. Go back to burp repeater and click `Go` to repeat the graphql request\n  7. Observed that you can still query the graphql `User_bounty_settings_page`, and it will disclosed the reports that was rewarded, including the amounts, report title, payment method used and other sensitive information.\n\n__Below is my sample GraphQL query and response after revoking the session:__\n\n```\n{\"query\":\"query User_bounty_settings_page($first_0:Int!,$currency_1:CurrencyCode!,$currency_2:CurrencyCode!) {\\n  me {\\n    id,\\n    ...Fg\\n  }\\n}\\nfragment F0 on PayoutPreferenceInterface {\\n  default,\\n  id,\\n  __typename\\n}\\nfragment F1 on Node {\\n  id,\\n  __typename\\n}\\nfragment F2 on User {\\n  tax_form {\\n    url,\\n    hello_sign_client_id,\\n    status,\\n    id\\n  },\\n  email,\\n  bounties {\\n    total_count\\n  },\\n  payout_preferences {\\n    __typename,\\n    ...F0,\\n    ...F1\\n  },\\n  id\\n}\\nfragment F3 on CoinbasePayoutPreferenceType {\\n  email,\\n  id\\n}\\nfragment F4 on PaypalPayoutPreferenceType {\\n  email,\\n  id\\n}\\nfragment F5 on HackeronePayrollPayoutPreferenceType {\\n  email,\\n  id\\n}\\nfragment F6 on CurrencycloudBankTransferPayoutPreferenceType {\\n  name,\\n  id\\n}\\nfragment F7 on User {\\n  payout_preferences {\\n    __typename,\\n    ...F0,\\n    ...F3,\\n    ...F4,\\n    ...F5,\\n    ...F6,\\n    ...F1\\n  },\\n  id\\n}\\nfragment F8 on User {\\n  _bounties4glIUB:bounties(first:$first_0) {\\n    edges {\\n      node {\\n        id,\\n        _id,\\n        awarded_amount,\\n        bonus_amount,\\n        awarded_currency,\\n        created_at,\\n        status,\\n        report {\\n          _id,\\n          title,\\n          team {\\n            name,\\n            handle,\\n            id\\n          },\\n          id\\n        }\\n      },\\n      cursor\\n    },\\n    pageInfo {\\n      hasNextPage,\\n      hasPreviousPage\\n    }\\n  },\\n  _bounties1CaoNY:bounties(currency:$currency_1) {\\n    total_amount\\n  },\\n  id\\n}\\nfragment F9 on User {\\n  _report_retest_usersixO8i:report_retest_users(completed:true,last:$first_0) {\\n    completed_count,\\n    edges {\\n      node {\\n        id,\\n        completed_at,\\n        report_retest {\\n          report {\\n            _id,\\n            team {\\n              handle,\\n              name,\\n              id\\n            },\\n            id\\n          },\\n          id\\n        }\\n      },\\n      cursor\\n    },\\n    pageInfo {\\n      hasNextPage,\\n      hasPreviousPage\\n    }\\n  },\\n  id\\n}\\nfragment Fa on User {\\n  tax_form {\\n    url,\\n    status,\\n    signed_at,\\n    type,\\n    id\\n  },\\n  id\\n}\\nfragment Fb on User {\\n  id\\n}\\nfragment Fc on User {\\n  _bounties3jJC5o:bounties(currency:$currency_2) {\\n    total_amount\\n  },\\n  lufthansa_account {\\n    id\\n  },\\n  id,\\n  ...Fb\\n}\\nfragment Fd on User {\\n  tax_form {\\n    id\\n  },\\n  id,\\n  ...Fb\\n}\\nfragment Fe on User {\\n  lufthansa_account {\\n    first_name,\\n    last_name,\\n    number,\\n    id\\n  },\\n  id,\\n  ...Fb\\n}\\nfragment Ff on User {\\n  id,\\n  ...Fb\\n}\\nfragment Fg on User {\\n  id,\\n  tax_form {\\n    url,\\n    id\\n  },\\n  ...F2,\\n  ...F7,\\n  ...F8,\\n  ...F9,\\n  ...Fa,\\n  ...Fc,\\n  ...Fd,\\n  ...Fe,\\n  ...Ff\\n}\",\"variables\":{\"first_0\":100,\"currency_1\":\"USD\",\"currency_2\":\"XLA\n```\n\n__Response:__\n\n```\nHTTP/1.1 200 OK\nDate: Tue, 02 Oct 2018 02:01:20 GMT\nContent-Type: application/json; charset=utf-8\nConnection: close\nCache-Control: no-cache, no-store\nContent-Disposition: inline; filename=\"response.\"\nX-Request-Id: 5ffd271a-bccd-4105-8991-4ed97769b1a0\nSet-Cookie: \u2588\u2588\u2588\nStrict-Transport-Security: max-age=31536000; includeSubDomains; preload\nExpect-CT: enforce, max-age=86400\nContent-Security-Policy: default-src 'none'; base-uri 'self'; child-src www.youtube-nocookie.com b5s.hackerone-ext-content.com; connect-src 'self' www.google-analytics.com errors.hackerone.net; font-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data: cover-photos.hackerone-user-content.com hackathon-photos.hackerone-user-content.com profile-photos.hackerone-user-content.com hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com; media-src 'self' hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com; script-src 'self' www.google-analytics.com; style-src 'self' 'unsafe-inline'; report-uri https://errors.hackerone.net/api/30/csp-report/?sentry_key=61c1e2f50d21487c97a071737701f598\nReferrer-Policy: strict-origin-when-cross-origin\nX-Content-Type-Options: nosniff\nX-Download-Options: noopen\nX-Frame-Options: DENY\nX-Permitted-Cross-Domain-Policies: none\nX-XSS-Protection: 1; mode=block\nServer: cloudflare\nCF-RAY: 4633948f1bbba2f6-HKG\nContent-Length: 24732\n\n\u2588\u2588\u2588\u2588\n```\n\n__PoC screenshot below:__\n\n\u2588\u2588\u2588\u2588\u2588\n\n## Impact\n\nInsufficient Session Expiration can result to sensitive information disclosure.\n\nLet me know if anything else is needed.\n\nRegards\nJapz", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "low", 
+            "privileges_required": "high", 
+            "user_interaction": "required", 
+            "attack_vector": "local", 
+            "attack_complexity": "high", 
+            "scope": "unchanged", 
+            "integrity": "low", 
+            "availability": "none"
+        }, 
+        "rating": "low", 
+        "score": 3.9, 
+        "author_type": "Team"
+    }, 
+    "title": "Revoking user session in https://hackerone.com/settings/sessions does not revoke the GraphQL query session", 
+    "is_member_of_team?": null, 
+    "vote_count": 28, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "https://hackerone.com", 
+        "max_severity": "critical", 
+        "databaseId": 3, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": "2018-12-28T01:43:13.204Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$500", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-02T02:26:06.656Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-02T02:26:06.656Z", 
+            "actor": {
+                "username": "japz", 
+                "url": "/japz", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/078/347/8396a15e9917631dc7431a97c848bfd097d65715_medium.png?1529606078"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Revoking the user session should also immediately revoke the `GraphQL` session.", 
+            "markdown_message": "<p>Revoking the user session should also immediately revoke the <code>GraphQL</code> session.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3417536, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-02T02:45:55.896Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-30T19:19:01.493Z", 
+            "actor": {
+                "username": "japz", 
+                "url": "/japz", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/078/347/8396a15e9917631dc7431a97c848bfd097d65715_medium.png?1529606078"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Please note that i can perform any `POST` request using `GraphQL` despite i already __revoke__ the session.\n\nBelow is another sample GraphQL `POST` request that i sent to update my invitation preference even __i already REVOKE my current session and i am already logout to the account__:\n\n```\nPOST /graphql HTTP/1.1\nHost: hackerone.com\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:60.0) Gecko/20100101 Firefox/60.0\nAccept: */*\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate\nReferer: https://hackerone.com/settings/preferences\ncontent-type: application/json\nx-auth-token: \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\norigin: https://hackerone.com\nContent-Length: 1852\nCookie: \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\nConnection: close\n\n{\"query\":\"mutation Update_invitation_preferences_mutation($input_0:UpdateInvitationPreferencesInput!,$first_1:Int!,$throttle_time_2:Int!,$size_3:ProfilePictureSizes!,$types_4:[ErrorTypeEnum]!) {\\n  updateInvitationPreferences(input:$input_0) {\\n    clientMutationId,\\n    ...F1,\\n    ...F2\\n  }\\n}\\nfragment F0 on User {\\n  id,\\n  i_can_update_invitation_profile,\\n  invitation_preference,\\n  hacker_invitations_profile {\\n    receive_invites,\\n    bounty_programs_only,\\n    managed_programs_only,\\n    min_bounty,\\n    id\\n  },\\n  bounties {\\n    average_amount\\n  },\\n  username,\\n  name,\\n  _profile_picturePkPpF:profile_picture(size:$size_3)\\n}\\nfragment F1 on UpdateInvitationPreferencesPayload {\\n  me {\\n    id,\\n    new_feature_notification {\\n      name,\\n      description,\\n      url,\\n      id\\n    },\\n    _program_health_acknowledgements2aGZgn:program_health_acknowledgements(first:$first_1,throttle_time:$throttle_time_2) {\\n      edges {\\n        node {\\n          id,\\n          reason,\\n          team_member {\\n            user {\\n              id\\n            },\\n            id,\\n            team {\\n              handle,\\n              name,\\n              sla_failed_count,\\n              id\\n            }\\n          }\\n        },\\n        cursor\\n      },\\n      pageInfo {\\n        hasNextPage,\\n        hasPreviousPage\\n      }\\n    },\\n    ...F0\\n  }\\n}\\nfragment F2 on UpdateInvitationPreferencesPayload {\\n  was_successful,\\n  _errors2S3JlH:errors(types:$types_4) {\\n    edges {\\n      node {\\n        type,\\n        field,\\n        message,\\n        id\\n      },\\n      cursor\\n    },\\n    pageInfo {\\n      hasNextPage,\\n      hasPreviousPage\\n    }\\n  }\\n}\",\"variables\":{\"input_0\":{\"invitation_preference\":\"bounty_only\",\"clientMutationId\":\"1\"},\"first_1\":1,\"throttle_time_2\":3600,\"size_3\":\"small\",\"types_4\":\"ARGUMENT\"}}\n```\n\n__Below is the response:__\n\n```\nHTTP/1.1 200 OK\nDate: Tue, 02 Oct 2018 02:42:09 GMT\nContent-Type: application/json; charset=utf-8\nConnection: close\nCache-Control: no-cache, no-store\nContent-Disposition: inline; filename=\"response.\"\nX-Request-Id: 1d213563-e247-408f-89f2-97a534478b36\nSet-Cookie: \u2588\u2588\u2588\u2588\u2588\u2588\nStrict-Transport-Security: max-age=31536000; includeSubDomains; preload\nExpect-CT: enforce, max-age=86400\nContent-Security-Policy: default-src 'none'; base-uri 'self'; child-src www.youtube-nocookie.com b5s.hackerone-ext-content.com; connect-src 'self' www.google-analytics.com errors.hackerone.net; font-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data: cover-photos.hackerone-user-content.com hackathon-photos.hackerone-user-content.com profile-photos.hackerone-user-content.com hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com; media-src 'self' hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com; script-src 'self' www.google-analytics.com; style-src 'self' 'unsafe-inline'; report-uri https://errors.hackerone.net/api/30/csp-report/?sentry_key=61c1e2f50d21487c97a071737701f598\nReferrer-Policy: strict-origin-when-cross-origin\nX-Content-Type-Options: nosniff\nX-Download-Options: noopen\nX-Frame-Options: DENY\nX-Permitted-Cross-Domain-Policies: none\nX-XSS-Protection: 1; mode=block\nServer: cloudflare\nCF-RAY: 4633d060aa7aa2cc-HKG\nContent-Length: 693\n\n{\"data\":{\"updateInvitationPreferences\":{\"clientMutationId\":\"1\",\"was_successful\":true,\"_errors2S3JlH\":{\"edges\":[],\"pageInfo\":{\"hasNextPage\":false,\"hasPreviousPage\":false}},\"me\":{\"id\":\"Z2lkOi8vaGFja2Vyb25lL1VzZXIvNzgzNDc=\",\"new_feature_notification\":null,\"_program_health_acknowledgements2aGZgn\":{\"edges\":[],\"pageInfo\":{\"hasNextPage\":false,\"hasPreviousPage\":false}},\"i_can_update_invitation_profile\":false,\"invitation_preference\":\"bounty_only\",\"hacker_invitations_profile\":null,\"bounties\":{\"average_amount\":\u2588\u2588\u2588},\"username\":\"japz\",\"name\":\"\",\"_profile_picturePkPpF\":\"https://profile-photos.hackerone-user-content.com/000/078/347/456a23147b18f17e56cb5835da0ab06579e65910_small.png?1529606078\"}}}}\n```\n\nRegards\nJapz", 
+            "markdown_message": "<p>Please note that i can perform any <code>POST</code> request using <code>GraphQL</code> despite i already <strong>revoke</strong> the session.</p>\n\n<p>Below is another sample GraphQL <code>POST</code> request that i sent to update my invitation preference even <strong>i already REVOKE my current session and i am already logout to the account</strong>:</p>\n<pre class=\"highlight plaintext\"><code>POST /graphql HTTP/1.1\nHost: hackerone.com\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:60.0) Gecko/20100101 Firefox/60.0\nAccept: */*\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate\nReferer: https://hackerone.com/settings/preferences\ncontent-type: application/json\nx-auth-token: \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\norigin: https://hackerone.com\nContent-Length: 1852\nCookie: \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\nConnection: close\n\n{&quot;query&quot;:&quot;mutation Update_invitation_preferences_mutation($input_0:UpdateInvitationPreferencesInput!,$first_1:Int!,$throttle_time_2:Int!,$size_3:ProfilePictureSizes!,$types_4:[ErrorTypeEnum]!) {\\n  updateInvitationPreferences(input:$input_0) {\\n    clientMutationId,\\n    ...F1,\\n    ...F2\\n  }\\n}\\nfragment F0 on User {\\n  id,\\n  i_can_update_invitation_profile,\\n  invitation_preference,\\n  hacker_invitations_profile {\\n    receive_invites,\\n    bounty_programs_only,\\n    managed_programs_only,\\n    min_bounty,\\n    id\\n  },\\n  bounties {\\n    average_amount\\n  },\\n  username,\\n  name,\\n  _profile_picturePkPpF:profile_picture(size:$size_3)\\n}\\nfragment F1 on UpdateInvitationPreferencesPayload {\\n  me {\\n    id,\\n    new_feature_notification {\\n      name,\\n      description,\\n      url,\\n      id\\n    },\\n    _program_health_acknowledgements2aGZgn:program_health_acknowledgements(first:$first_1,throttle_time:$throttle_time_2) {\\n      edges {\\n        node {\\n          id,\\n          reason,\\n          team_member {\\n            user {\\n              id\\n            },\\n            id,\\n            team {\\n              handle,\\n              name,\\n              sla_failed_count,\\n              id\\n            }\\n          }\\n        },\\n        cursor\\n      },\\n      pageInfo {\\n        hasNextPage,\\n        hasPreviousPage\\n      }\\n    },\\n    ...F0\\n  }\\n}\\nfragment F2 on UpdateInvitationPreferencesPayload {\\n  was_successful,\\n  _errors2S3JlH:errors(types:$types_4) {\\n    edges {\\n      node {\\n        type,\\n        field,\\n        message,\\n        id\\n      },\\n      cursor\\n    },\\n    pageInfo {\\n      hasNextPage,\\n      hasPreviousPage\\n    }\\n  }\\n}&quot;,&quot;variables&quot;:{&quot;input_0&quot;:{&quot;invitation_preference&quot;:&quot;bounty_only&quot;,&quot;clientMutationId&quot;:&quot;1&quot;},&quot;first_1&quot;:1,&quot;throttle_time_2&quot;:3600,&quot;size_3&quot;:&quot;small&quot;,&quot;types_4&quot;:&quot;ARGUMENT&quot;}}\n</code></pre>\n<p><strong>Below is the response:</strong></p>\n<pre class=\"highlight plaintext\"><code>HTTP/1.1 200 OK\nDate: Tue, 02 Oct 2018 02:42:09 GMT\nContent-Type: application/json; charset=utf-8\nConnection: close\nCache-Control: no-cache, no-store\nContent-Disposition: inline; filename=&quot;response.&quot;\nX-Request-Id: 1d213563-e247-408f-89f2-97a534478b36\nSet-Cookie: \u2588\u2588\u2588\u2588\u2588\u2588\nStrict-Transport-Security: max-age=31536000; includeSubDomains; preload\nExpect-CT: enforce, max-age=86400\nContent-Security-Policy: default-src &#39;none&#39;; base-uri &#39;self&#39;; child-src www.youtube-nocookie.com b5s.hackerone-ext-content.com; connect-src &#39;self&#39; www.google-analytics.com errors.hackerone.net; font-src &#39;self&#39;; form-action &#39;self&#39;; frame-ancestors &#39;none&#39;; img-src &#39;self&#39; data: cover-photos.hackerone-user-content.com hackathon-photos.hackerone-user-content.com profile-photos.hackerone-user-content.com hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com; media-src &#39;self&#39; hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com; script-src &#39;self&#39; www.google-analytics.com; style-src &#39;self&#39; &#39;unsafe-inline&#39;; report-uri https://errors.hackerone.net/api/30/csp-report/?sentry_key=61c1e2f50d21487c97a071737701f598\nReferrer-Policy: strict-origin-when-cross-origin\nX-Content-Type-Options: nosniff\nX-Download-Options: noopen\nX-Frame-Options: DENY\nX-Permitted-Cross-Domain-Policies: none\nX-XSS-Protection: 1; mode=block\nServer: cloudflare\nCF-RAY: 4633d060aa7aa2cc-HKG\nContent-Length: 693\n\n{&quot;data&quot;:{&quot;updateInvitationPreferences&quot;:{&quot;clientMutationId&quot;:&quot;1&quot;,&quot;was_successful&quot;:true,&quot;_errors2S3JlH&quot;:{&quot;edges&quot;:[],&quot;pageInfo&quot;:{&quot;hasNextPage&quot;:false,&quot;hasPreviousPage&quot;:false}},&quot;me&quot;:{&quot;id&quot;:&quot;Z2lkOi8vaGFja2Vyb25lL1VzZXIvNzgzNDc=&quot;,&quot;new_feature_notification&quot;:null,&quot;_program_health_acknowledgements2aGZgn&quot;:{&quot;edges&quot;:[],&quot;pageInfo&quot;:{&quot;hasNextPage&quot;:false,&quot;hasPreviousPage&quot;:false}},&quot;i_can_update_invitation_profile&quot;:false,&quot;invitation_preference&quot;:&quot;bounty_only&quot;,&quot;hacker_invitations_profile&quot;:null,&quot;bounties&quot;:{&quot;average_amount&quot;:\u2588\u2588\u2588},&quot;username&quot;:&quot;japz&quot;,&quot;name&quot;:&quot;&quot;,&quot;_profile_picturePkPpF&quot;:&quot;https://profile-photos.hackerone-user-content.com/000/078/347/456a23147b18f17e56cb5835da0ab06579e65910_small.png?1529606078&quot;}}}}\n</code></pre>\n<p>Regards<br>\nJapz</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3417562, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-03T18:45:52.885Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-03T18:45:52.885Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Low (3.9)", 
+                "old_severity": "Medium"
+            }, 
+            "team_handle": "security", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 3429502, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-03T18:53:35.472Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-03T18:53:35.472Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Hi @japz - thanks for your report! This seems to something we missed on our side.\n\nI wanted to give you some background: the root cause of this problem comes from the fact that the GraphQL tokens are tied to a `User` object, not the individual sessions. This essentially means that all sessions use the same underlying secret token to generate a valid authentication token for GraphQL. We revoke this token when you'd sign out. The reason why this was never a problem was because we'd sign out ALL sessions. If we were to regenerate the token on revocation, all the other sessions would have to refresh their page, which is not a great UX. The solution to this would be to move the GraphQL secret token to the sessions OR deprecate the current authentication strategy (token) and implement OAuth (this would be better, although requires more time).\n\nI also wanted to point out two other things:\n\n1. The GraphQL token can only be refreshed with a valid sessions; because this is revoked, an attacker wouldn't be able to obtain a new GraphQL token when they have a user's GraphQL token\n2. A GraphQL token is only valid for 15 minutes; this means that the attacker needs to extract all the information or call the mutations within 15 minutes after the session was revoked\n\nWe're going ahead and triage this. Given the above, this one might be open for some time. It is not a very likely exploit scenario, but we want the revocation to be an actual revocation of the entire session, not a partial one. We were also not aware of this, so we want to thank you for that by triaging this and awarding you with a bounty.\n\nThanks, good luck, and happy hacking!", 
+            "markdown_message": "<p>Hi <a href=\"/japz\">@japz</a> - thanks for your report! This seems to something we missed on our side.</p>\n\n<p>I wanted to give you some background: the root cause of this problem comes from the fact that the GraphQL tokens are tied to a <code>User</code> object, not the individual sessions. This essentially means that all sessions use the same underlying secret token to generate a valid authentication token for GraphQL. We revoke this token when you&#39;d sign out. The reason why this was never a problem was because we&#39;d sign out ALL sessions. If we were to regenerate the token on revocation, all the other sessions would have to refresh their page, which is not a great UX. The solution to this would be to move the GraphQL secret token to the sessions OR deprecate the current authentication strategy (token) and implement OAuth (this would be better, although requires more time).</p>\n\n<p>I also wanted to point out two other things:</p>\n\n<ol>\n<li>The GraphQL token can only be refreshed with a valid sessions; because this is revoked, an attacker wouldn&#39;t be able to obtain a new GraphQL token when they have a user&#39;s GraphQL token</li>\n<li>A GraphQL token is only valid for 15 minutes; this means that the attacker needs to extract all the information or call the mutations within 15 minutes after the session was revoked</li>\n</ol>\n\n<p>We&#39;re going ahead and triage this. Given the above, this one might be open for some time. It is not a very likely exploit scenario, but we want the revocation to be an actual revocation of the entire session, not a partial one. We were also not aware of this, so we want to thank you for that by triaging this and awarding you with a bounty.</p>\n\n<p>Thanks, good luck, and happy hacking!</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 3429537, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-04T01:27:23.991Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-04T01:30:38.336Z", 
+            "actor": {
+                "username": "japz", 
+                "url": "/japz", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/078/347/8396a15e9917631dc7431a97c848bfd097d65715_medium.png?1529606078"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Hi @jobert \n\nThanks for giving me a very detailed background regarding the GraphQL token, much appreciated :)\n\n>The solution to this would be to move the GraphQL secret token to the sessions OR deprecate the current authentication strategy (token) and implement OAuth (this would be better, although requires more time).\n\nI agree, moving the GraphQL secret token to sessions was good.. but no worries if it requires more time for the other option.. it's all up to you if what solution would you like to implement.\n\n>I also wanted to point out two other things.\n\nI agree with the 2 items pointed out above, but i just want to remind you that 15 mins (graphql session expiration) is enough time for the attacker to extract sensitive information as well as calling `POST` request GraphQL mutations for a critical endpoint such as updating payment method etc.\n\n>We're going ahead and triage this. Given the above, this one might be open for some time.\n\nCool.. no worries, take your time.\n\n>We were also not aware of this, so we want to thank you for that by triaging this and awarding you with a bounty.\n\nSounds good, I'm glad i was able to help. :)\n\nCheers!\nJapz\n\n\n\n", 
+            "markdown_message": "<p>Hi <a href=\"/jobert\">@jobert</a> </p>\n\n<p>Thanks for giving me a very detailed background regarding the GraphQL token, much appreciated :)</p>\n\n<blockquote>\n<p>The solution to this would be to move the GraphQL secret token to the sessions OR deprecate the current authentication strategy (token) and implement OAuth (this would be better, although requires more time).</p>\n</blockquote>\n\n<p>I agree, moving the GraphQL secret token to sessions was good.. but no worries if it requires more time for the other option.. it&#39;s all up to you if what solution would you like to implement.</p>\n\n<blockquote>\n<p>I also wanted to point out two other things.</p>\n</blockquote>\n\n<p>I agree with the 2 items pointed out above, but i just want to remind you that 15 mins (graphql session expiration) is enough time for the attacker to extract sensitive information as well as calling <code>POST</code> request GraphQL mutations for a critical endpoint such as updating payment method etc.</p>\n\n<blockquote>\n<p>We&#39;re going ahead and triage this. Given the above, this one might be open for some time.</p>\n</blockquote>\n\n<p>Cool.. no worries, take your time.</p>\n\n<blockquote>\n<p>We were also not aware of this, so we want to thank you for that by triaging this and awarding you with a bounty.</p>\n</blockquote>\n\n<p>Sounds good, I&#39;m glad i was able to help. :)</p>\n\n<p>Cheers!<br>\nJapz</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3431926, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-09T20:04:54.147Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-09T20:04:54.147Z", 
+            "actor": {
+                "username": "bigbug", 
+                "url": "/bigbug", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/193/109/e0b14920c92521081d90583fec83ef72ce5e2fc0_medium.jpg?1506282137"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "duplicate_report_id": 420245
+            }, 
+            "team_handle": "security", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 3457254, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-10T16:53:40.009Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-10T16:53:40.009Z", 
+            "actor": {
+                "username": "indo_heker", 
+                "url": "/indo_heker", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/099/252/3c821a9af6dd8a33e89318c78a481e84ebfdb481_medium.jpeg?1536263721"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "duplicate_report_id": 422154
+            }, 
+            "team_handle": "security", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 3461292, 
+            "genius_execution_id": null
+        }, 
+        {
+            "removed_user": {
+                "url": "/indo_heker", 
+                "username": "indo_heker"
+            }, 
+            "automated_response": false, 
+            "created_at": "2018-10-10T17:16:04.748Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-10T17:16:04.748Z", 
+            "actor": {
+                "username": "indo_heker", 
+                "url": "/indo_heker", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/099/252/3c821a9af6dd8a33e89318c78a481e84ebfdb481_medium.jpeg?1536263721"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserRemoved", 
+            "id": 3461384, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-10T17:39:27.198Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-10T17:39:27.198Z", 
+            "actor": {
+                "username": "bigbug", 
+                "url": "/bigbug", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/193/109/e0b14920c92521081d90583fec83ef72ce5e2fc0_medium.jpg?1506282137"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "@jobert - gentle reminder again. Consider redacting sensitive information provided by @japz in his POC response. This contains his payment details, reports etc. As this report is attracting more external hackers, I feel the info must be redacted. I believe @japz would want this too. ", 
+            "markdown_message": "<p><a href=\"/jobert\">@jobert</a> - gentle reminder again. Consider redacting sensitive information provided by <a href=\"/japz\">@japz</a> in his POC response. This contains his payment details, reports etc. As this report is attracting more external hackers, I feel the info must be redacted. I believe <a href=\"/japz\">@japz</a> would want this too. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3461453, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-11T05:23:35.100Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-11T05:27:00.147Z", 
+            "actor": {
+                "username": "japz", 
+                "url": "/japz", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/078/347/8396a15e9917631dc7431a97c848bfd097d65715_medium.png?1529606078"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "@jobert - Can you redact the __response__ in my initial description for this GraphQL query name: `User_bounty_settings_page` ? \n\nBecause the response in my PoC contains some sensitive private information such as report `title`, `bounty amount`, `private program handle` as well as my `email address`.\n\n@bigbug thanks for the heads up.\n\nRegards\nJapz", 
+            "markdown_message": "<p><a href=\"/jobert\">@jobert</a> - Can you redact the <strong>response</strong> in my initial description for this GraphQL query name: <code>User_bounty_settings_page</code> ? </p>\n\n<p>Because the response in my PoC contains some sensitive private information such as report <code>title</code>, <code>bounty amount</code>, <code>private program handle</code> as well as my <code>email address</code>.</p>\n\n<p><a href=\"/bigbug\">@bigbug</a> thanks for the heads up.</p>\n\n<p>Regards<br>\nJapz</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3463593, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-11T13:04:17.551Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-11T13:04:17.551Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Hi @japz - all done! I initially only redacted the `Set-Cookie` header. Let me know if there's anything else that needs to be redacted. Doesn't look like it, but happy to remove more if you want.", 
+            "markdown_message": "<p>Hi <a href=\"/japz\">@japz</a> - all done! I initially only redacted the <code>Set-Cookie</code> header. Let me know if there&#39;s anything else that needs to be redacted. Doesn&#39;t look like it, but happy to remove more if you want.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3465100, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-11T13:14:53.782Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-11T13:14:53.782Z", 
+            "actor": {
+                "username": "japz", 
+                "url": "/japz", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/078/347/8396a15e9917631dc7431a97c848bfd097d65715_medium.png?1529606078"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Hi @jobert \n\nLooks good now. Thank you as always.. much appreciated :)\n\nRegads\nJapz", 
+            "markdown_message": "<p>Hi <a href=\"/jobert\">@jobert</a> </p>\n\n<p>Looks good now. Thank you as always.. much appreciated :)</p>\n\n<p>Regads<br>\nJapz</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3465121, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-10-12T17:16:05.602Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-12T17:16:05.602Z", 
+            "actor": {
+                "url": "/security", 
+                "profile": {
+                    "name": "HackerOne"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/013/28af2ada2cc00aa9427504fc5a14f587362df84b_medium.png?1445331713"
+                }
+            }, 
+            "team_handle": "security", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "500.0", 
+            "collaborator": {
+                "username": "japz", 
+                "url": "/japz"
+            }, 
+            "message": "Thanks for the awesome find! We'll still be working on fixing the issue, but in the mean time, here's your bounty \ud83d\udcb0\ud83d\udcb0\ud83d\udcb0", 
+            "markdown_message": "<p>Thanks for the awesome find! We&#39;ll still be working on fixing the issue, but in the mean time, here&#39;s your bounty \ud83d\udcb0\ud83d\udcb0\ud83d\udcb0</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 3471934, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-13T04:04:11.993Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-13T04:04:11.993Z", 
+            "actor": {
+                "username": "japz", 
+                "url": "/japz", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/078/347/8396a15e9917631dc7431a97c848bfd097d65715_medium.png?1529606078"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Hi @bencode \n\nFirst, thank you so much for the bounty.. btw  just want to ask if this is initial bounty or a full bounty ?\n\nBecause based on the CVSS score, my submission is Low `3.9`, only `.1` remaining point and it become a `Medium` severity. but still the reward is minimum of a Low severity submission, so i was wondering if this bounty is base on the `3.9` CVSS score ?\n\nRegards", 
+            "markdown_message": "<p>Hi <a href=\"/bencode\">@bencode</a> </p>\n\n<p>First, thank you so much for the bounty.. btw  just want to ask if this is initial bounty or a full bounty ?</p>\n\n<p>Because based on the CVSS score, my submission is Low <code>3.9</code>, only <code>.1</code> remaining point and it become a <code>Medium</code> severity. but still the reward is minimum of a Low severity submission, so i was wondering if this bounty is base on the <code>3.9</code> CVSS score ?</p>\n\n<p>Regards</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3473650, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-14T18:53:28.926Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-14T18:53:28.926Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Hi @japz - we generally default to the amount that we pay for the severity bracket. There have been exceptions, either for creativity, the writeup, the involved effort, or uniqueness. In this case, we'll keep it at $500. Thanks for checking!", 
+            "markdown_message": "<p>Hi <a href=\"/japz\">@japz</a> - we generally default to the amount that we pay for the severity bracket. There have been exceptions, either for creativity, the writeup, the involved effort, or uniqueness. In this case, we&#39;ll keep it at $500. Thanks for checking!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3479290, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-15T01:09:15.721Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-15T01:09:15.721Z", 
+            "actor": {
+                "username": "japz", 
+                "url": "/japz", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/078/347/8396a15e9917631dc7431a97c848bfd097d65715_medium.png?1529606078"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "@jobert - I see, thanks for letting me know. Regards", 
+            "markdown_message": "<p><a href=\"/jobert\">@jobert</a> - I see, thanks for letting me know. Regards</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3479778, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-29T23:15:44.264Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-29T23:15:44.264Z", 
+            "actor": {
+                "username": "gxlf61g6dy", 
+                "url": "/gxlf61g6dy", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/374/623/7a59839b3637063b22ac329fa53bd3bee95956a6_medium.jpg?1540158198"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "duplicate_report_id": 429681
+            }, 
+            "team_handle": "security", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 3552758, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-30T06:01:50.777Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-30T06:01:50.777Z", 
+            "actor": {
+                "username": "gxlf61g6dy", 
+                "url": "/gxlf61g6dy", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/374/623/7a59839b3637063b22ac329fa53bd3bee95956a6_medium.jpg?1540158198"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Haha, Thanks you @jobert for making 2 of my reports in duplicate for this report xD\nalthough it doesn't click revoke Session, but this is a new lesson;)) so I have to go to the point in next report.\n\nand I like your spirit @japz\n\nCheers,\n@indo_heker", 
+            "markdown_message": "<p>Haha, Thanks you <a href=\"/jobert\">@jobert</a> for making 2 of my reports in duplicate for this report xD<br>\nalthough it doesn&#39;t click revoke Session, but this is a new lesson;)) so I have to go to the point in next report.</p>\n\n<p>and I like your spirit <a href=\"/japz\">@japz</a></p>\n\n<p>Cheers,<br>\n<a href=\"/indo_heker\">@indo_heker</a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3553605, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-19T02:28:56.056Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-19T02:28:56.056Z", 
+            "actor": {
+                "username": "japz", 
+                "url": "/japz", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/078/347/8396a15e9917631dc7431a97c848bfd097d65715_medium.png?1529606078"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Hi @jobert ,\n\nJust visiting this report, It's been 2 months.. do we have updates on this ?\n\nRegards\nJapz", 
+            "markdown_message": "<p>Hi <a href=\"/jobert\">@jobert</a> ,</p>\n\n<p>Just visiting this report, It&#39;s been 2 months.. do we have updates on this ?</p>\n\n<p>Regards<br>\nJapz</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3676764, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-20T05:26:28.905Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-20T05:26:28.905Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Hi @japz - it'll likely be open for another few weeks. The task has been prioritized and will be picked up by someone soon. We'll keep you posted on our progress. Good luck and happy hacking!", 
+            "markdown_message": "<p>Hi <a href=\"/japz\">@japz</a> - it&#39;ll likely be open for another few weeks. The task has been prioritized and will be picked up by someone soon. We&#39;ll keep you posted on our progress. Good luck and happy hacking!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3682963, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "japz", 
+                "url": "/japz"
+            }, 
+            "created_at": "2018-11-27T16:29:42.147Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-27T16:29:42.147Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Hi @japz - earlier today, a fix was released for the security vulnerability you reported! We can go ahead and close this out now. Thanks again, it's much appreciated. Good luck and happy hacking!", 
+            "markdown_message": "<p>Hi <a href=\"/japz\">@japz</a> - earlier today, a fix was released for the security vulnerability you reported! We can go ahead and close this out now. Thanks again, it&#39;s much appreciated. Good luck and happy hacking!</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3716798, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-27T16:31:07.126Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-27T16:31:07.126Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "report_retest_user_id": 41
+            }, 
+            "email": "borski", 
+            "team_handle": "security", 
+            "message": null, 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserInvited", 
+            "id": 3716817, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-27T16:31:07.871Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-27T16:31:07.871Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "report_retest_user_id": 42
+            }, 
+            "email": "bull", 
+            "team_handle": "security", 
+            "message": null, 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserInvited", 
+            "id": 3716819, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-27T16:31:08.663Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-27T16:31:08.663Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "report_retest_user_id": 43
+            }, 
+            "email": "wang_johnny", 
+            "team_handle": "security", 
+            "message": null, 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserInvited", 
+            "id": 3716820, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-27T16:31:09.288Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-27T16:31:09.288Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "report_retest_user_id": 44
+            }, 
+            "email": "teknogeek", 
+            "team_handle": "security", 
+            "message": null, 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserInvited", 
+            "id": 3716821, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-27T17:15:10.895Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-27T17:15:10.895Z", 
+            "actor": {
+                "username": "teknogeek", 
+                "url": "/teknogeek", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/062/582/b9b57264f0530b733c0df9de3cf832ef45d25ba2_medium.png?1527736353"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "report_retest_user_id": 44
+            }, 
+            "team_handle": "security", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 3717199, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-27T18:45:29.623Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-27T18:45:29.623Z", 
+            "actor": {
+                "username": "borski", 
+                "url": "/borski", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "report_retest_user_id": 41
+            }, 
+            "team_handle": "security", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 3718052, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-27T22:37:17.318Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-27T22:37:17.318Z", 
+            "actor": {
+                "username": "wang_johnny", 
+                "url": "/wang_johnny", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "report_retest_user_id": 43
+            }, 
+            "team_handle": "security", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 3719486, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-28T01:43:13.137Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-28T01:43:13.137Z", 
+            "actor": {
+                "username": "japz", 
+                "url": "/japz", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/078/347/8396a15e9917631dc7431a97c848bfd097d65715_medium.png?1529606078"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "first_to_agree": true, 
+            "message": "@jobert - You can pull the trigger once all the retesters are done on their verification.\n\nCheers!\nJapz", 
+            "markdown_message": "<p><a href=\"/jobert\">@jobert</a> - You can pull the trigger once all the retesters are done on their verification.</p>\n\n<p>Cheers!<br>\nJapz</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3719949, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-28T07:13:44.701Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-28T07:13:44.701Z", 
+            "actor": {
+                "username": "bull", 
+                "url": "/bull", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/102/224/06bb1c9656695b64c8fa1fbf05f28601440eef47_medium.jpg?1474048548"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "report_retest_user_id": 42
+            }, 
+            "team_handle": "security", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 3720711, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-30T19:21:17.394Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-30T19:21:17.394Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Thanks everybody for completing the retest of this report. No bypasses or regressions were found. All sensitive information in this report has been cleaned up, so this is ready to be disclosed.\n\nHappy hacking all!", 
+            "markdown_message": "<p>Thanks everybody for completing the retest of this report. No bypasses or regressions were found. All sensitive information in this report has been cleaned up, so this is ready to be disclosed.</p>\n\n<p>Happy hacking all!</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3740882, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-30T19:21:17.524Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-30T19:21:17.524Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3740883, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": false, 
+    "reporter": {
+        "username": "japz", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/japz", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/078/347/456a23147b18f17e56cb5835da0ab06579e65910_small.png?1529606078"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 90, 
+        "name": "Insufficient Session Expiration"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": 1826963.440267856, 
+    "disclosed_at": "2018-11-30T19:21:17.498Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/417382", 
+    "created_at": "2018-10-02T02:24:25.196Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Hi Team,</p>\n\n<p><strong>Summary:</strong></p>\n\n<p>I have found an Insufficient Session Expiration on implementation of the new <code>Revoke user session</code> feature of HackerOne here: <a title=\"https://hackerone.com/settings/sessions\" href=\"https://hackerone.com/settings/sessions\">https://hackerone.com/settings/sessions</a></p>\n\n<p><strong>Description:</strong></p>\n\n<p>The new <strong>REVOKE</strong> session feature will destroy the session of the selected device, that means any request that requires authorization should not work (<code>POST</code>, <code>GET</code>) <strong>BUT</strong> i have observed that you forgot the <code>GraphQL</code> query request, i can still query sensitive information despite i already revoke my current session and this can result a <strong>sensitive information disclosure</strong>  </p>\n\n<h3 id=\"steps-to-reproduce\">Steps To Reproduce</h3>\n\n<ol>\n<li>Login to hackerone.com</li>\n<li>Go to sensitive page and capture the <code>GraphQL</code> request , on my case i captured the bounty settings <code>{&quot;query&quot;:&quot;query User_bounty_settings_page... etc</code> on this end point: <a title=\"https://hackerone.com/settings/bounties\" href=\"https://hackerone.com/settings/bounties\">https://hackerone.com/settings/bounties</a>\n</li>\n<li>Send the GraphQL request to repeater</li>\n<li>Go to <a title=\"https://hackerone.com/settings/sessions\" href=\"https://hackerone.com/settings/sessions\">https://hackerone.com/settings/sessions</a> and click <code>Revoke</code> to destroy the current session</li>\n<li>You will be logout to your account, means session destroyed</li>\n<li>Go back to burp repeater and click <code>Go</code> to repeat the graphql request</li>\n<li>Observed that you can still query the graphql <code>User_bounty_settings_page</code>, and it will disclosed the reports that was rewarded, including the amounts, report title, payment method used and other sensitive information.</li>\n</ol>\n\n<p><strong>Below is my sample GraphQL query and response after revoking the session:</strong></p>\n<pre class=\"highlight plaintext\"><code>{&quot;query&quot;:&quot;query User_bounty_settings_page($first_0:Int!,$currency_1:CurrencyCode!,$currency_2:CurrencyCode!) {\\n  me {\\n    id,\\n    ...Fg\\n  }\\n}\\nfragment F0 on PayoutPreferenceInterface {\\n  default,\\n  id,\\n  __typename\\n}\\nfragment F1 on Node {\\n  id,\\n  __typename\\n}\\nfragment F2 on User {\\n  tax_form {\\n    url,\\n    hello_sign_client_id,\\n    status,\\n    id\\n  },\\n  email,\\n  bounties {\\n    total_count\\n  },\\n  payout_preferences {\\n    __typename,\\n    ...F0,\\n    ...F1\\n  },\\n  id\\n}\\nfragment F3 on CoinbasePayoutPreferenceType {\\n  email,\\n  id\\n}\\nfragment F4 on PaypalPayoutPreferenceType {\\n  email,\\n  id\\n}\\nfragment F5 on HackeronePayrollPayoutPreferenceType {\\n  email,\\n  id\\n}\\nfragment F6 on CurrencycloudBankTransferPayoutPreferenceType {\\n  name,\\n  id\\n}\\nfragment F7 on User {\\n  payout_preferences {\\n    __typename,\\n    ...F0,\\n    ...F3,\\n    ...F4,\\n    ...F5,\\n    ...F6,\\n    ...F1\\n  },\\n  id\\n}\\nfragment F8 on User {\\n  _bounties4glIUB:bounties(first:$first_0) {\\n    edges {\\n      node {\\n        id,\\n        _id,\\n        awarded_amount,\\n        bonus_amount,\\n        awarded_currency,\\n        created_at,\\n        status,\\n        report {\\n          _id,\\n          title,\\n          team {\\n            name,\\n            handle,\\n            id\\n          },\\n          id\\n        }\\n      },\\n      cursor\\n    },\\n    pageInfo {\\n      hasNextPage,\\n      hasPreviousPage\\n    }\\n  },\\n  _bounties1CaoNY:bounties(currency:$currency_1) {\\n    total_amount\\n  },\\n  id\\n}\\nfragment F9 on User {\\n  _report_retest_usersixO8i:report_retest_users(completed:true,last:$first_0) {\\n    completed_count,\\n    edges {\\n      node {\\n        id,\\n        completed_at,\\n        report_retest {\\n          report {\\n            _id,\\n            team {\\n              handle,\\n              name,\\n              id\\n            },\\n            id\\n          },\\n          id\\n        }\\n      },\\n      cursor\\n    },\\n    pageInfo {\\n      hasNextPage,\\n      hasPreviousPage\\n    }\\n  },\\n  id\\n}\\nfragment Fa on User {\\n  tax_form {\\n    url,\\n    status,\\n    signed_at,\\n    type,\\n    id\\n  },\\n  id\\n}\\nfragment Fb on User {\\n  id\\n}\\nfragment Fc on User {\\n  _bounties3jJC5o:bounties(currency:$currency_2) {\\n    total_amount\\n  },\\n  lufthansa_account {\\n    id\\n  },\\n  id,\\n  ...Fb\\n}\\nfragment Fd on User {\\n  tax_form {\\n    id\\n  },\\n  id,\\n  ...Fb\\n}\\nfragment Fe on User {\\n  lufthansa_account {\\n    first_name,\\n    last_name,\\n    number,\\n    id\\n  },\\n  id,\\n  ...Fb\\n}\\nfragment Ff on User {\\n  id,\\n  ...Fb\\n}\\nfragment Fg on User {\\n  id,\\n  tax_form {\\n    url,\\n    id\\n  },\\n  ...F2,\\n  ...F7,\\n  ...F8,\\n  ...F9,\\n  ...Fa,\\n  ...Fc,\\n  ...Fd,\\n  ...Fe,\\n  ...Ff\\n}&quot;,&quot;variables&quot;:{&quot;first_0&quot;:100,&quot;currency_1&quot;:&quot;USD&quot;,&quot;currency_2&quot;:&quot;XLA\n</code></pre>\n<p><strong>Response:</strong></p>\n<pre class=\"highlight plaintext\"><code>HTTP/1.1 200 OK\nDate: Tue, 02 Oct 2018 02:01:20 GMT\nContent-Type: application/json; charset=utf-8\nConnection: close\nCache-Control: no-cache, no-store\nContent-Disposition: inline; filename=&quot;response.&quot;\nX-Request-Id: 5ffd271a-bccd-4105-8991-4ed97769b1a0\nSet-Cookie: \u2588\u2588\u2588\nStrict-Transport-Security: max-age=31536000; includeSubDomains; preload\nExpect-CT: enforce, max-age=86400\nContent-Security-Policy: default-src &#39;none&#39;; base-uri &#39;self&#39;; child-src www.youtube-nocookie.com b5s.hackerone-ext-content.com; connect-src &#39;self&#39; www.google-analytics.com errors.hackerone.net; font-src &#39;self&#39;; form-action &#39;self&#39;; frame-ancestors &#39;none&#39;; img-src &#39;self&#39; data: cover-photos.hackerone-user-content.com hackathon-photos.hackerone-user-content.com profile-photos.hackerone-user-content.com hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com; media-src &#39;self&#39; hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com; script-src &#39;self&#39; www.google-analytics.com; style-src &#39;self&#39; &#39;unsafe-inline&#39;; report-uri https://errors.hackerone.net/api/30/csp-report/?sentry_key=61c1e2f50d21487c97a071737701f598\nReferrer-Policy: strict-origin-when-cross-origin\nX-Content-Type-Options: nosniff\nX-Download-Options: noopen\nX-Frame-Options: DENY\nX-Permitted-Cross-Domain-Policies: none\nX-XSS-Protection: 1; mode=block\nServer: cloudflare\nCF-RAY: 4633948f1bbba2f6-HKG\nContent-Length: 24732\n\n\u2588\u2588\u2588\u2588\n</code></pre>\n<p><strong>PoC screenshot below:</strong></p>\n\n<p>\u2588\u2588\u2588\u2588\u2588</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Insufficient Session Expiration can result to sensitive information disclosure.</p>\n\n<p>Let me know if anything else is needed.</p>\n\n<p>Regards<br>\nJapz</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://hackerone.com", 
+            "about": "Vulnerability disclosure should be safe, transparent, and rewarding.", 
+            "twitter_handle": "Hacker0x01", 
+            "name": "HackerOne"
+        }, 
+        "handle": "security", 
+        "url": "https://hackerone.com/security", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/013/68fea1fe00dc833f4109e015738af4b374727e56_small.png?1445331713", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/013/28af2ada2cc00aa9427504fc5a14f587362df84b_medium.png?1445331713"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 13, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

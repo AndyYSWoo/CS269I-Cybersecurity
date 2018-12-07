@@ -1,0 +1,364 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2016-11-03T21:59:15.769Z", 
+    "voters": [
+        "lukasreschke", 
+        "secator", 
+        "mpz", 
+        "kiraak-boy", 
+        "alfredsaonoy", 
+        "ishahriyar", 
+        "demo--hacker", 
+        "spetr0x", 
+        "dyabla"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 163338, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "The SabreDAV plugin `\\OCA\\DAV\\CardDAV\\ImageExportPlugin` is used for displaying pictures of a VCF. It registers on a GET request on a CardDAV element and acts when the query parameter `photo` is sent.\n\nThe logic can be seen below:\n```\n/**\n * Intercepts GET requests on addressbook urls ending with ?photo.\n *\n * @param RequestInterface $request\n * @param ResponseInterface $response\n * @return bool|void\n */\nfunction httpGet(RequestInterface $request, ResponseInterface $response) {\n\n\t$queryParams = $request->getQueryParameters();\n\t// TODO: in addition to photo we should also add logo some point in time\n\tif (!array_key_exists('photo', $queryParams)) {\n\t\treturn true;\n\t}\n\n\t$path = $request->getPath();\n\t$node = $this->server->tree->getNodeForPath($path);\n\n\tif (!($node instanceof Card)) {\n\t\treturn true;\n\t}\n\n\t$this->server->transactionType = 'carddav-image-export';\n\n\t// Checking ACL, if available.\n\tif ($aclPlugin = $this->server->getPlugin('acl')) {\n\t\t/** @var \\Sabre\\DAVACL\\Plugin $aclPlugin */\n\t\t$aclPlugin->checkPrivileges($path, '{DAV:}read');\n\t}\n\n\tif ($result = $this->getPhoto($node)) {\n\t\t$response->setHeader('Content-Type', $result['Content-Type']);\n\t\t$response->setStatus(200);\n\n\t\t$response->setBody($result['body']);\n\n\t\t// Returning false to break the event chain\n\t\treturn false;\n\t}\n\treturn true;\n}\n```\n\nAs can be seen the the content-type is read from `$this->getPhoto($node)` as well as the body, looking at it's implementation shows that the data is directly read from the vCard:\n\n```\nfunction getPhoto(Card $node) {\n\t// TODO: this is kind of expensive - load carddav data from database and parse it\n\t//       we might want to build up a cache one day\n\ttry {\n\t\t$vObject = $this->readCard($node->get());\n\t\tif (!$vObject->PHOTO) {\n\t\t\treturn false;\n\t\t}\n\n\t\t$photo = $vObject->PHOTO;\n\t\t$type = $this->getType($photo);\n\n\t\t$val = $photo->getValue();\n\t\tif ($photo->getValueType() === 'URI') {\n\t\t\t$parsed = \\Sabre\\URI\\parse($val);\n\t\t\t//only allow data://\n\t\t\tif ($parsed['scheme'] !== 'data') {\n\t\t\t\treturn false;\n\t\t\t}\n\t\t\tif (substr_count($parsed['path'], ';') === 1) {\n\t\t\t\tlist($type,) = explode(';', $parsed['path']);\n\t\t\t}\n\t\t\t$val = file_get_contents($val);\n\t\t}\n\t\treturn [\n\t\t\t'Content-Type' => $type,\n\t\t\t'body' => $val\n\t\t];\n\t} catch(\\Exception $ex) {\n\t\t$this->logger->logException($ex);\n\t}\n\treturn false;\n}\n```\n\nThis means if somebody uploads a VCF with the following content this will deliver the content `<html><font color=\"red\">test</font></html>` with an empty Content-Type. The photo is a base64 encoding of before mentioned string.\n\n```\nBEGIN:VCARD\nVERSION:3.0\nFN:test\nUID:5cf6e5e2-ec37-4798-abb7-3c261eda92c9\nPHOTO;ENCODING=b:PGh0bWw+PGZvbnQgY29sb3I9InJlZCI+dGVzdDwvZm9udD48L2h0bWw+\nEND:VCARD\n```\n\nThen it's sufficient to just access http://10.211.55.7/stable9/remote.php/dav/addressbooks/users/admin/contacts/5cf6e5e2-ec37-4798-abb7-3c261eda92c9.vcf?photo, the easiest to reproduce this is by enabling `debug` mode and using Internet Explorer since we employ CSP which largely mitigates the issue.\n\nAs another remark, we should replace the `file_get_contents` with another implementation. This seems currently like a too risky implementation for me.\n\n{F114833}", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "low", 
+            "privileges_required": "low", 
+            "user_interaction": "required", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "low", 
+            "availability": "none"
+        }, 
+        "rating": "medium", 
+        "score": 5.4, 
+        "author_type": "User"
+    }, 
+    "title": "\\OCA\\DAV\\CardDAV\\ImageExportPlugin allows serving arbitrary data with user-defined or empty mimetype", 
+    "is_member_of_team?": null, 
+    "vote_count": 9, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2016-12-03T21:59:15.809Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2016-9465"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "2016-08-25_15-26-06.png", 
+            "type": "image/png", 
+            "id": 114833, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/114/833/4aa3fbc2c1e64d92e8781dae48f5740964b607ea/2016-08-25_15-26-06.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224619Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=6b68ccd8896ad760dc6fad6572b32325105d9bc4e60998011ac39f3372d320f1"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": true, 
+            "created_at": "2016-08-25T13:26:40.835Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-08-25T13:26:40.835Z", 
+            "actor": {
+                "url": "/nextcloud", 
+                "profile": {
+                    "name": "Nextcloud"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/291/1d2ac8991616fcd3e3cdd567d02b7e70e20a3883_medium.png?1491410731"
+                }
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "Thanks a lot for reporting this potential issue back to us!\n\nOur security team will take a look at this issue as soon as possible. We will reply to your report within 72 hours, usually much faster. For obvious reasons we'd like to ask you to not disclose this issue to any other party.", 
+            "markdown_message": "<p>Thanks a lot for reporting this potential issue back to us!</p>\n\n<p>Our security team will take a look at this issue as soon as possible. We will reply to your report within 72 hours, usually much faster. For obvious reasons we&#39;d like to ask you to not disclose this issue to any other party.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1153734, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-08-25T13:27:03.345Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-08-25T13:27:03.345Z", 
+            "actor": {
+                "url": "/nextcloud", 
+                "profile": {
+                    "name": "Nextcloud"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/291/1d2ac8991616fcd3e3cdd567d02b7e70e20a3883_medium.png?1491410731"
+                }
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "No reward since this is an internal finding.", 
+            "markdown_message": "<p>No reward since this is an internal finding.</p>\n", 
+            "type": "Activities::NotEligibleForBounty", 
+            "id": 1153737, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-08-25T13:27:22.219Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-08-25T13:27:22.219Z", 
+            "actor": {
+                "username": "lukasreschke", 
+                "url": "/lukasreschke", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/891/0ddfc05411893988a0d2794cd70d5dc221729713_medium.png?1438782834"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "cc @nickvergessen FYI, as discussed in IRC.", 
+            "markdown_message": "<p>cc <a href=\"/nickvergessen\">@nickvergessen</a> FYI, as discussed in IRC.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1153738, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-08-25T13:29:14.960Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-08-25T13:29:14.960Z", 
+            "actor": {
+                "username": "lukasreschke", 
+                "url": "/lukasreschke", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/891/0ddfc05411893988a0d2794cd70d5dc221729713_medium.png?1438782834"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "To fix this we probably should always require one of the following mimetypes:\n\n- JPG\n- PNG\n- GIF\n- TIFF\n\n For parsing data URIs I found http://stackoverflow.com/a/6735480", 
+            "markdown_message": "<p>To fix this we probably should always require one of the following mimetypes:</p>\n\n<ul>\n<li>JPG</li>\n<li>PNG</li>\n<li>GIF</li>\n<li>TIFF</li>\n</ul>\n\n<p>For parsing data URIs I found <a title=\"http://stackoverflow.com/a/6735480\" href=\"/redirect?signature=b2bbff392cf9ca9946b554d97d16e7271bb3ffb6&amp;url=http%3A%2F%2Fstackoverflow.com%2Fa%2F6735480\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://stackoverflow.com/a/6735480</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1153741, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-09-09T10:37:35.253Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-09-09T10:37:35.253Z", 
+            "actor": {
+                "username": "lukasreschke", 
+                "url": "/lukasreschke", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/891/0ddfc05411893988a0d2794cd70d5dc221729713_medium.png?1438782834"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "Patches:\n\n- master: https://github.com/nextcloud/server/pull/1339\n- stable10: https://github.com/nextcloud/server/pull/1340", 
+            "markdown_message": "<p>Patches:</p>\n\n<ul>\n<li>master: <a title=\"https://github.com/nextcloud/server/pull/1339\" href=\"/redirect?signature=8a273cf5ebd65bbfe6bccecfca9331908785d680&amp;url=https%3A%2F%2Fgithub.com%2Fnextcloud%2Fserver%2Fpull%2F1339\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/nextcloud/server/pull/1339</span><i class=\"icon-external-link\"></i></a>\n</li>\n<li>stable10: <a title=\"https://github.com/nextcloud/server/pull/1340\" href=\"/redirect?signature=8fe05991f62b89a19eb73415b54dca1a910f4c45&amp;url=https%3A%2F%2Fgithub.com%2Fnextcloud%2Fserver%2Fpull%2F1340\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/nextcloud/server/pull/1340</span><i class=\"icon-external-link\"></i></a>\n</li>\n</ul>\n", 
+            "type": "Activities::Comment", 
+            "id": 1184191, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-10T12:36:50.164Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-10T12:36:50.164Z", 
+            "actor": {
+                "username": "lukasreschke", 
+                "url": "/lukasreschke", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/891/0ddfc05411893988a0d2794cd70d5dc221729713_medium.png?1438782834"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Medium (5.4)", 
+                "old_severity": null
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1239987, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "lukasreschke", 
+                "url": "/lukasreschke"
+            }, 
+            "created_at": "2016-10-10T12:37:06.712Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-10T12:37:38.555Z", 
+            "actor": {
+                "username": "lukasreschke", 
+                "url": "/lukasreschke", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/891/0ddfc05411893988a0d2794cd70d5dc221729713_medium.png?1438782834"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "Closing as resolved, no bounty since internal finding.", 
+            "markdown_message": "<p>Closing as resolved, no bounty since internal finding.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1239988, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-03T21:59:15.788Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-03T21:59:15.788Z", 
+            "actor": {
+                "username": "lukasreschke", 
+                "url": "/lukasreschke", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/891/0ddfc05411893988a0d2794cd70d5dc221729713_medium.png?1438782834"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1283466, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-03T21:59:28.862Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T21:59:28.862Z", 
+            "actor": {
+                "url": "/nextcloud", 
+                "profile": {
+                    "name": "Nextcloud"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/291/1d2ac8991616fcd3e3cdd567d02b7e70e20a3883_medium.png?1491410731"
+                }
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1339199, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "lukasreschke", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/lukasreschke", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/037/891/8666abeffab5fc62fe0b8cad0965e5727894b1b2_small.png?1438782834"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 60, 
+        "name": "Cross-site Scripting (XSS) - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -63334023.764328875, 
+    "disclosed_at": "2016-12-03T21:59:28.846Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/163338", 
+    "created_at": "2016-08-25T13:26:40.644Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>The SabreDAV plugin <code>\\OCA\\DAV\\CardDAV\\ImageExportPlugin</code> is used for displaying pictures of a VCF. It registers on a GET request on a CardDAV element and acts when the query parameter <code>photo</code> is sent.</p>\n\n<p>The logic can be seen below:</p>\n<pre class=\"highlight plaintext\"><code>/**\n * Intercepts GET requests on addressbook urls ending with ?photo.\n *\n * [@param](/param) RequestInterface $request\n * [@param](/param) ResponseInterface $response\n * [@return](/return) bool|void\n */\nfunction httpGet(RequestInterface $request, ResponseInterface $response) {\n\n    $queryParams = $request-&gt;getQueryParameters();\n    // TODO: in addition to photo we should also add logo some point in time\n    if (!array_key_exists(&#39;photo&#39;, $queryParams)) {\n        return true;\n    }\n\n    $path = $request-&gt;getPath();\n    $node = $this-&gt;server-&gt;tree-&gt;getNodeForPath($path);\n\n    if (!($node instanceof Card)) {\n        return true;\n    }\n\n    $this-&gt;server-&gt;transactionType = &#39;carddav-image-export&#39;;\n\n    // Checking ACL, if available.\n    if ($aclPlugin = $this-&gt;server-&gt;getPlugin(&#39;acl&#39;)) {\n        /** [@var](/var) \\Sabre\\DAVACL\\Plugin $aclPlugin */\n        $aclPlugin-&gt;checkPrivileges($path, &#39;{DAV:}read&#39;);\n    }\n\n    if ($result = $this-&gt;getPhoto($node)) {\n        $response-&gt;setHeader(&#39;Content-Type&#39;, $result[&#39;Content-Type&#39;]);\n        $response-&gt;setStatus(200);\n\n        $response-&gt;setBody($result[&#39;body&#39;]);\n\n        // Returning false to break the event chain\n        return false;\n    }\n    return true;\n}\n</code></pre>\n<p>As can be seen the the content-type is read from <code>$this-&gt;getPhoto($node)</code> as well as the body, looking at it&#39;s implementation shows that the data is directly read from the vCard:</p>\n<pre class=\"highlight plaintext\"><code>function getPhoto(Card $node) {\n    // TODO: this is kind of expensive - load carddav data from database and parse it\n    //       we might want to build up a cache one day\n    try {\n        $vObject = $this-&gt;readCard($node-&gt;get());\n        if (!$vObject-&gt;PHOTO) {\n            return false;\n        }\n\n        $photo = $vObject-&gt;PHOTO;\n        $type = $this-&gt;getType($photo);\n\n        $val = $photo-&gt;getValue();\n        if ($photo-&gt;getValueType() === &#39;URI&#39;) {\n            $parsed = \\Sabre\\URI\\parse($val);\n            //only allow data://\n            if ($parsed[&#39;scheme&#39;] !== &#39;data&#39;) {\n                return false;\n            }\n            if (substr_count($parsed[&#39;path&#39;], &#39;;&#39;) === 1) {\n                list($type,) = explode(&#39;;&#39;, $parsed[&#39;path&#39;]);\n            }\n            $val = file_get_contents($val);\n        }\n        return [\n            &#39;Content-Type&#39; =&gt; $type,\n            &#39;body&#39; =&gt; $val\n        ];\n    } catch(\\Exception $ex) {\n        $this-&gt;logger-&gt;logException($ex);\n    }\n    return false;\n}\n</code></pre>\n<p>This means if somebody uploads a VCF with the following content this will deliver the content <code>&lt;html&gt;&lt;font color=&quot;red&quot;&gt;test&lt;/font&gt;&lt;/html&gt;</code> with an empty Content-Type. The photo is a base64 encoding of before mentioned string.</p>\n<pre class=\"highlight plaintext\"><code>BEGIN:VCARD\nVERSION:3.0\nFN:test\nUID:5cf6e5e2-ec37-4798-abb7-3c261eda92c9\nPHOTO;ENCODING=b:PGh0bWw+PGZvbnQgY29sb3I9InJlZCI+dGVzdDwvZm9udD48L2h0bWw+\nEND:VCARD\n</code></pre>\n<p>Then it&#39;s sufficient to just access <a title=\"http://10.211.55.7/stable9/remote.php/dav/addressbooks/users/admin/contacts/5cf6e5e2-ec37-4798-abb7-3c261eda92c9.vcf?photo\" href=\"/redirect?signature=68d8cbf433b25bd8395c0c9eaa10afc88ea887d3&amp;url=http%3A%2F%2F10.211.55.7%2Fstable9%2Fremote.php%2Fdav%2Faddressbooks%2Fusers%2Fadmin%2Fcontacts%2F5cf6e5e2-ec37-4798-abb7-3c261eda92c9.vcf%3Fphoto\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://10.211.55.7/stable9/remote.php/dav/addressbooks/users/admin/contacts/5cf6e5e2-ec37-4798-abb7-3c261eda92c9.vcf?photo</span><i class=\"icon-external-link\"></i></a>, the easiest to reproduce this is by enabling <code>debug</code> mode and using Internet Explorer since we employ CSP which largely mitigates the issue.</p>\n\n<p>As another remark, we should replace the <code>file_get_contents</code> with another implementation. This seems currently like a too risky implementation for me.</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"2016-08-25_15-26-06.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/114/833/4aa3fbc2c1e64d92e8781dae48f5740964b607ea/2016-08-25_15-26-06.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T224619Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=6b68ccd8896ad760dc6fad6572b32325105d9bc4e60998011ac39f3372d320f1\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/114/833/4aa3fbc2c1e64d92e8781dae48f5740964b607ea/2016-08-25_15-26-06.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T224619Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=6b68ccd8896ad760dc6fad6572b32325105d9bc4e60998011ac39f3372d320f1\" class=\"markdown-inline-image\"></a></p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://nextcloud.com", 
+            "about": "Access, share and protect your files, calendars, contacts, communication & more at home and in your enterprise.", 
+            "twitter_handle": "nextclouders", 
+            "name": "Nextcloud"
+        }, 
+        "handle": "nextcloud", 
+        "url": "https://hackerone.com/nextcloud", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/013/291/5d33b6e08fad356e1743fd899fe7d6dda9971209_small.png?1491410731", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/013/291/1d2ac8991616fcd3e3cdd567d02b7e70e20a3883_medium.png?1491410731"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 13291, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

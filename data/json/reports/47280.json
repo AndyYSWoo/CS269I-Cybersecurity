@@ -1,0 +1,745 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2015-06-16T19:38:33.941Z", 
+    "voters": [
+        "jensec", 
+        "eveeez", 
+        "babayaga_", 
+        "craxerbikash", 
+        "spetr0x", 
+        "cryptographer"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 47280, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2015-06-16T19:17:21.898Z", 
+    "vulnerability_information": "Rails does not escape hash keys properly in `to_json` when generating json.\r\n\r\nValues are escaped as expected\r\n```ruby\r\nirb(main):001:0> {\"a\"=>\"<>\"}.to_json\r\n=> \"{\\\"a\\\":\\\"\\\\u003c\\\\u003e\\\"}\"\r\n```\r\n\r\nHowever keys are not:\r\n```ruby\r\nirb(main):002:0> {\"<>\"=>\"a\"}.to_json\r\n=> \"{\\\"<>\\\":\\\"a\\\"}\"\r\n```\r\n\r\nThis is because the `json` gem calls `.to_s` on the keys [here](https://github.com/flori/json/blob/259dee6c9bdda08ed0c1fc2e69bfbb2d377faba0/ext/json/ext/generator/generator.c#L738) which transforms the `EscapedString` back into a simple `String` so it doesn't go through the escaping process that values go through [here](https://github.com/EiNSTeiN-/rails/blob/3820788e4c2825dd77c779ba5b3bc29689e04e1d/activesupport/lib/active_support/json/encoding.rb#L54-L60).\r\n\r\n**Security consideration**: this issue is a vector for XSS when an arbitrary value is used as a key and reflected in a javascript tag. Consider this piece of code:\r\n```ruby\r\njavascript_tag \"var json=#{params.to_json}\"\r\n```\r\nWhen params is something like `{\"</script><script>alert(1)//\"=>\"xss\"}` then `<>` are not escaped as they should and the javascript tag looks like this:\r\n```html\r\n<script>\r\n//<![CDATA[\r\nvar json={\"</script><script>alert(1)//\":\"xss\"}\r\n//]]>\r\n</script>\r\n```\r\nThe `</script>` inside the json object will terminate the opening script tag because it has precedence over everything else, and `alert(1)` is executed.\r\n\r\nI believe this issue also applies to 4.2-stable and master.\r\n\r\nNote that I opened a PR for a related issue in the json gem (https://github.com/flori/json/pull/235) which occurs when `ActiveSupport.escape_html_entities_in_json = false` because the forward slash is never escaped (neither in rails nor in the json gem). It might be worth fixing this in rails as well.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "low", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "low", 
+            "availability": "none"
+        }, 
+        "rating": "high", 
+        "score": 7.2, 
+        "author_type": "Team"
+    }, 
+    "title": "JSON keys are not properly escaped", 
+    "is_member_of_team?": null, 
+    "vote_count": 6, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 166, 
+            "content": "XSS Vulnerability in ActiveSupport::JSON.encode \n\nThere is an XSS vulnerability in the ActiveSupport::JSON.encode method in Ruby on Rails. \nThis vulnerability has been assigned the CVE identifier CVE-2015-3226. \n\nVersions Affected:  3.0.x, 3.1.x, 3.2.x, 4.1.x, 4.2.x. \nNot affected:       4.0.x. \nFixed Versions:     4.2.2, 4.1.11 \n\nImpact \n------ \nWhen a `Hash` containing user-controlled data is encode as JSON (either through \n`Hash#to_json` or `ActiveSupport::JSON.encode`), Rails does not perform adequate \nescaping that matches the guarantee implied by the `escape_html_entities_in_json` \noption (which is enabled by default). If this resulting JSON string is subsequently \ninserted directly into an HTML page, the page will be vulnerable to XSS attacks. \n\nFor example, the following code snippet is vulnerable to this attack: \n\n    <%= javascript_tag \"var data = #{user_supplied_data.to_json};\" %> \n\nSimilarly, the following is also vulnerable: \n\n    <script> \n      var data = <%= ActiveSupport::JSON.encode(user_supplied_data).html_safe %>; \n    </script> \n\nAll applications that renders JSON-encoded strings that contains user-controlled \ndata in their views should either upgrade to one of the FIXED versions or use \nthe suggested workaround immediately. \n\nReleases \n-------- \nThe FIXED releases are available at the normal locations. \n\nWorkarounds \n----------- \nTo work around this problem add an initializer with the following code: \n\n    module ActiveSupport \n      module JSON \n        module Encoding \n          private \n          class EscapedString \n            def to_s \n              self \n            end \n          end \n        end \n      end \n    end \n\nPatches \n------- \nTo aid users who aren't able to upgrade immediately we have provided patches for the two \nsupported release series.  They are in git-am format and consist of a single changeset. \n\n* 4-1-to_json_xss.patch - Patch for 4.1 series \n* 4-2-to_json_xss.patch - Patch for 4.2 series \n\nPlease note that only the 4.1.x and 4.2.x series are supported at present. \nUsers of earlier unsupported releases are advised to upgrade as soon as possible as we cannot \nguarantee the continued availability of security fixes for unsupported releases. \n\nCredits \n------- \n\nThanks to Francois Chagnon of Shopify for reporting the vulnerability to us, and working \nwith us on a fix. \n", 
+            "content_html": "<p>XSS Vulnerability in ActiveSupport::JSON.encode </p>\n\n<p>There is an XSS vulnerability in the ActiveSupport::JSON.encode method in Ruby on Rails. <br>\nThis vulnerability has been assigned the CVE identifier CVE-2015-3226. </p>\n\n<p>Versions Affected:  3.0.x, 3.1.x, 3.2.x, 4.1.x, 4.2.x. <br>\nNot affected:       4.0.x. <br>\nFixed Versions:     4.2.2, 4.1.11 </p>\n\n<h2 id=\"impact\">Impact </h2>\n\n<p>When a <code>Hash</code> containing user-controlled data is encode as JSON (either through <br>\n<code>Hash#to_json</code> or <code>ActiveSupport::JSON.encode</code>), Rails does not perform adequate <br>\nescaping that matches the guarantee implied by the <code>escape_html_entities_in_json</code> <br>\noption (which is enabled by default). If this resulting JSON string is subsequently <br>\ninserted directly into an HTML page, the page will be vulnerable to XSS attacks. </p>\n\n<p>For example, the following code snippet is vulnerable to this attack: </p>\n<pre class=\"highlight plaintext\"><code>&lt;%= javascript_tag &quot;var data = #{user_supplied_data.to_json};&quot; %&gt; \n</code></pre>\n<p>Similarly, the following is also vulnerable: </p>\n<pre class=\"highlight plaintext\"><code>&lt;script&gt; \n  var data = &lt;%= ActiveSupport::JSON.encode(user_supplied_data).html_safe %&gt;; \n&lt;/script&gt; \n</code></pre>\n<p>All applications that renders JSON-encoded strings that contains user-controlled <br>\ndata in their views should either upgrade to one of the FIXED versions or use <br>\nthe suggested workaround immediately. </p>\n\n<h2 id=\"releases\">Releases </h2>\n\n<p>The FIXED releases are available at the normal locations. </p>\n\n<h2 id=\"workarounds\">Workarounds </h2>\n\n<p>To work around this problem add an initializer with the following code: </p>\n<pre class=\"highlight plaintext\"><code>module ActiveSupport \n  module JSON \n    module Encoding \n      private \n      class EscapedString \n        def to_s \n          self \n        end \n      end \n    end \n  end \nend \n</code></pre>\n<h2 id=\"patches\">Patches </h2>\n\n<p>To aid users who aren&#39;t able to upgrade immediately we have provided patches for the two <br>\nsupported release series.  They are in git-am format and consist of a single changeset. </p>\n\n<ul>\n<li>4-1-to_json_xss.patch - Patch for 4.1 series </li>\n<li>4-2-to_json_xss.patch - Patch for 4.2 series </li>\n</ul>\n\n<p>Please note that only the 4.1.x and 4.2.x series are supported at present. <br>\nUsers of earlier unsupported releases are advised to upgrade as soon as possible as we cannot <br>\nguarantee the continued availability of security fixes for unsupported releases. </p>\n\n<h2 id=\"credits\">Credits </h2>\n\n<p>Thanks to Francois Chagnon of Shopify for reporting the vulnerability to us, and working <br>\nwith us on a fix. </p>\n"
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2015-07-16T19:17:22.246Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2015-3226"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$500", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2015-02-10T01:00:35.596Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-02-10T01:00:35.596Z", 
+            "actor": {
+                "username": "einstein_", 
+                "url": "/einstein_", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "Here's a patch for 4.1-stable:\n\n```patch\ndiff --git a/activesupport/lib/active_support/json/encoding.rb b/activesupport/lib/active_support/json/encoding.rb\nindex f29d422..d0f67b1 100644\n--- a/activesupport/lib/active_support/json/encoding.rb\n+++ b/activesupport/lib/active_support/json/encoding.rb\n@@ -58,6 +58,10 @@ def to_json(*)\n                 super.gsub ESCAPE_REGEX_WITHOUT_HTML_ENTITIES, ESCAPED_CHARS\n               end\n             end\n+\n+            def to_s\n+              self\n+            end\n           end\n \n           # Mark these as private so we don't leak encoding-specific constructs\ndiff --git a/activesupport/test/json/encoding_test.rb b/activesupport/test/json/encoding_test.rb\nindex c4283ee..b75c67c 100644\n--- a/activesupport/test/json/encoding_test.rb\n+++ b/activesupport/test/json/encoding_test.rb\n@@ -143,6 +143,13 @@ def test_hash_encoding\n     assert_equal %({\\\"a\\\":\\\"b\\\",\\\"c\\\":\\\"d\\\"}), sorted_json(ActiveSupport::JSON.encode(:a => :b, :c => :d))\n   end\n \n+  def test_hash_keys_encoding\n+    ActiveSupport.escape_html_entities_in_json = true\n+    assert_equal \"{\\\"\\\\u003c\\\\u003e\\\":\\\"\\\\u003c\\\\u003e\\\"}\", ActiveSupport::JSON.encode(\"<>\" => \"<>\")\n+  ensure\n+    ActiveSupport.escape_html_entities_in_json = false\n+  end\n+\n   def test_utf8_string_encoded_properly\n     result = ActiveSupport::JSON.encode('\u20ac2.99')\n     assert_equal '\"\u20ac2.99\"', result\n```", 
+            "markdown_message": "<p>Here&#39;s a patch for 4.1-stable:</p>\n<pre class=\"highlight diff\"><code><span class=\"gh\">diff --git a/activesupport/lib/active_support/json/encoding.rb b/activesupport/lib/active_support/json/encoding.rb\nindex f29d422..d0f67b1 100644\n</span><span class=\"gd\">--- a/activesupport/lib/active_support/json/encoding.rb\n</span><span class=\"gi\">+++ b/activesupport/lib/active_support/json/encoding.rb\n</span><span class=\"gu\">@@ -58,6 +58,10 @@ def to_json(*)\n</span>                 super.gsub ESCAPE_REGEX_WITHOUT_HTML_ENTITIES, ESCAPED_CHARS\n               end\n             end\n<span class=\"gi\">+\n+            def to_s\n+              self\n+            end\n</span>           end\n\n           # Mark these as private so we don&#39;t leak encoding-specific constructs\n<span class=\"gh\">diff --git a/activesupport/test/json/encoding_test.rb b/activesupport/test/json/encoding_test.rb\nindex c4283ee..b75c67c 100644\n</span><span class=\"gd\">--- a/activesupport/test/json/encoding_test.rb\n</span><span class=\"gi\">+++ b/activesupport/test/json/encoding_test.rb\n</span><span class=\"gu\">@@ -143,6 +143,13 @@ def test_hash_encoding\n</span>     assert_equal %({\\&quot;a\\&quot;:\\&quot;b\\&quot;,\\&quot;c\\&quot;:\\&quot;d\\&quot;}), sorted_json(ActiveSupport::JSON.encode(:a =&gt; :b, :c =&gt; :d))\n   end\n\n<span class=\"gi\">+  def test_hash_keys_encoding\n+    ActiveSupport.escape_html_entities_in_json = true\n+    assert_equal &quot;{\\&quot;\\\\u003c\\\\u003e\\&quot;:\\&quot;\\\\u003c\\\\u003e\\&quot;}&quot;, ActiveSupport::JSON.encode(&quot;&lt;&gt;&quot; =&gt; &quot;&lt;&gt;&quot;)\n+  ensure\n+    ActiveSupport.escape_html_entities_in_json = false\n+  end\n+\n</span>   def test_utf8_string_encoded_properly\n     result = ActiveSupport::JSON.encode(&#39;\u20ac2.99&#39;)\n     assert_equal &#39;&quot;\u20ac2.99&quot;&#39;, result\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 328789, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-02-10T13:58:34.484Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-02-10T13:58:34.484Z", 
+            "actor": {
+                "username": "rafaelfranca", 
+                "url": "/rafaelfranca", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/981/281bfa78e7ec84f83ee4efe2cf53f744cf07b8c0_medium.jpg?1397516124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "Hi @einstein_, just to confirm we got your report and we agree with the proposed solution. We will prepare the advisory and post it back to review.", 
+            "markdown_message": "<p>Hi <a href=\"/einstein_\">@einstein_</a>, just to confirm we got your report and we agree with the proposed solution. We will prepare the advisory and post it back to review.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 329060, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-02-23T19:56:33.110Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-02-23T19:56:33.110Z", 
+            "actor": {
+                "username": "rafaelfranca", 
+                "url": "/rafaelfranca", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/981/281bfa78e7ec84f83ee4efe2cf53f744cf07b8c0_medium.jpg?1397516124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "I was researching the impact and possible workarounds for this XSS vulnerability and found that it is only possible due to `javascript_tag` marking the content as HTML safe by default. I'm missing any case where this issue can also lead XSS?\n\nAlso I can't think in any possible workaround, do you have any in mind?", 
+            "markdown_message": "<p>I was researching the impact and possible workarounds for this XSS vulnerability and found that it is only possible due to <code>javascript_tag</code> marking the content as HTML safe by default. I&#39;m missing any case where this issue can also lead XSS?</p>\n\n<p>Also I can&#39;t think in any possible workaround, do you have any in mind?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 338590, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/030/156/3102adeed80cffbb4db0ff5619475afa49041f3c/4-1-to_json_xss.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222857Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=f09a99a1292d821712e16c4082d21a0b3e9acf507dafa977e6ba5b4d3e8a9330", 
+                    "type": "text/x-diff", 
+                    "id": 30156, 
+                    "filename": "4-1-to_json_xss.patch"
+                }, 
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/030/157/7097fd92c3502cf09b8f610d14f0825c1c767b25/4-2-to_json_xss.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222857Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=924acc26187d2805de080edea17a2857a99895667b3365470c53655ec83a3430", 
+                    "type": "text/x-diff", 
+                    "id": 30157, 
+                    "filename": "4-2-to_json_xss.patch"
+                }, 
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/030/158/e9c498ca457fcb9e717053026c4a8f64a2f9072e/advisory.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222857Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=ff468e8d3a6136f3653ae600158984e27867ff2eb8ed59fafaa8dc5e137a1689", 
+                    "type": "text/plain", 
+                    "id": 30158, 
+                    "filename": "advisory.txt"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2015-02-23T20:20:26.206Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-02-23T20:20:26.206Z", 
+            "actor": {
+                "username": "rafaelfranca", 
+                "url": "/rafaelfranca", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/981/281bfa78e7ec84f83ee4efe2cf53f744cf07b8c0_medium.jpg?1397516124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "Here is the first draft of the advisory and the patches for 4.1.9 and 4.2.0. I'm planning to release 4.1.9.1 and 4.2.0.1 including just security releases and 4.2.1 and 4.1.10 with bug fixes and the security patches.\n\nLet me know what you think.\n\n@einstein_ about the credits how do you want it? We usually do \"Thanks to XXX of Company for reporting the vulnerability to us and working closely with us on a fix.\"", 
+            "markdown_message": "<p>Here is the first draft of the advisory and the patches for 4.1.9 and 4.2.0. I&#39;m planning to release 4.1.9.1 and 4.2.0.1 including just security releases and 4.2.1 and 4.1.10 with bug fixes and the security patches.</p>\n\n<p>Let me know what you think.</p>\n\n<p><a href=\"/einstein_\">@einstein_</a> about the credits how do you want it? We usually do &quot;Thanks to XXX of Company for reporting the vulnerability to us and working closely with us on a fix.&quot;</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 338616, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-02-23T21:11:36.993Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-02-23T21:23:01.397Z", 
+            "actor": {
+                "username": "einstein_", 
+                "url": "/einstein_", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "The javascript_tag use case might very well be the only one, I didn't look for other vectors since our specific use case was inside a javascript_tag call too. The example form my report would lead to a XSS only inside of a `<script>` tag because of the precedence of `</script>` over anything else.\n\nWe ended up monkey-patching `content_tag_string` like below in order to prevent this from happening in the future, because `</script>` is never a valid sequence in a script tag no matter how it got there:\n\n```ruby\nmodule ActionView\n  module Helpers\n    module TagHelper\n\n      private\n\n      alias_method :orig_content_tag_string, :content_tag_string\n      def content_tag_string(name, content, options, escape = true)\n        if name.to_s.downcase == \"script\" && content =~ /\\<\\s*\\/\\s*script[^\\>]*>/i\n          raise ArgumentError, \"Blocked XSS: string </script> found inside tag content.\"\n        end\n        orig_content_tag_string(name, content, options, escape)\n      end\n    end\n  end\nend\n```\n\nwith the following tests:\n```ruby\nrequire 'test_helper'\n\nclass ActionViewContentTagTest < ActiveSupport::TestCase\n  include ActionView::Helpers::TagHelper\n  include ActionView::Helpers::JavaScriptHelper\n\n  test \"script tags cannot contain </script>\" do\n    assert_raise ArgumentError do\n      javascript_tag \"foo</script>bar\"\n    end\n  end\n\n  test \"script tags cannot contain malformed </script>\" do\n    assert_raise ArgumentError do\n      javascript_tag \"foo<   /    script>bar\"\n    end\n    assert_raise ArgumentError do\n      javascript_tag \"foo< / script   bla>bar\"\n    end\n  end\n\n  test \"script tags can contain </script> when forward slash is escaped\" do\n    assert_nothing_raised do\n      javascript_tag \"foo<\\\\/script>bar\"\n    end\n  end\nend\n```\n\nI'm not sure this is something you'd want in rails, but I don't see a better way to protect against this.\n\nAlso note that the provided patch (my original patch as well as your official ones) offers no protection when `ActiveSupport.escape_html_entities_in_json = false`. That would require encoding the forward slash character in [ESCAPE_REGEX_WITHOUT_HTML_ENTITIES](https://github.com/rails/rails/blob/88b334ec696ffe1fa08b934780f4ab27030c5c76/activesupport/lib/active_support/json/encoding.rb#L49) (i.e. encode `/` as `\\/`). That would protect against the `</script>` vector even when `ActiveSupport.escape_html_entities_in_json = false` until https://github.com/flori/json/pull/235 is merged.\n", 
+            "markdown_message": "<p>The javascript_tag use case might very well be the only one, I didn&#39;t look for other vectors since our specific use case was inside a javascript_tag call too. The example form my report would lead to a XSS only inside of a <code>&lt;script&gt;</code> tag because of the precedence of <code>&lt;/script&gt;</code> over anything else.</p>\n\n<p>We ended up monkey-patching <code>content_tag_string</code> like below in order to prevent this from happening in the future, because <code>&lt;/script&gt;</code> is never a valid sequence in a script tag no matter how it got there:</p>\n<pre class=\"highlight ruby\"><code><span class=\"k\">module</span> <span class=\"nn\">ActionView</span>\n  <span class=\"k\">module</span> <span class=\"nn\">Helpers</span>\n    <span class=\"k\">module</span> <span class=\"nn\">TagHelper</span>\n\n      <span class=\"kp\">private</span>\n\n      <span class=\"kp\">alias_method</span> <span class=\"ss\">:orig_content_tag_string</span><span class=\"p\">,</span> <span class=\"ss\">:content_tag_string</span>\n      <span class=\"k\">def</span> <span class=\"nf\">content_tag_string</span><span class=\"p\">(</span><span class=\"nb\">name</span><span class=\"p\">,</span> <span class=\"n\">content</span><span class=\"p\">,</span> <span class=\"n\">options</span><span class=\"p\">,</span> <span class=\"n\">escape</span> <span class=\"o\">=</span> <span class=\"kp\">true</span><span class=\"p\">)</span>\n        <span class=\"k\">if</span> <span class=\"nb\">name</span><span class=\"p\">.</span><span class=\"nf\">to_s</span><span class=\"p\">.</span><span class=\"nf\">downcase</span> <span class=\"o\">==</span> <span class=\"s2\">&quot;script&quot;</span> <span class=\"o\">&amp;&amp;</span> <span class=\"n\">content</span> <span class=\"o\">=~</span> <span class=\"sr\">/\\&lt;\\s*\\/\\s*script[^\\&gt;]*&gt;/i</span>\n          <span class=\"k\">raise</span> <span class=\"no\">ArgumentError</span><span class=\"p\">,</span> <span class=\"s2\">&quot;Blocked XSS: string &lt;/script&gt; found inside tag content.&quot;</span>\n        <span class=\"k\">end</span>\n        <span class=\"n\">orig_content_tag_string</span><span class=\"p\">(</span><span class=\"nb\">name</span><span class=\"p\">,</span> <span class=\"n\">content</span><span class=\"p\">,</span> <span class=\"n\">options</span><span class=\"p\">,</span> <span class=\"n\">escape</span><span class=\"p\">)</span>\n      <span class=\"k\">end</span>\n    <span class=\"k\">end</span>\n  <span class=\"k\">end</span>\n<span class=\"k\">end</span>\n</code></pre>\n<p>with the following tests:</p>\n<pre class=\"highlight ruby\"><code><span class=\"nb\">require</span> <span class=\"s1\">&#39;test_helper&#39;</span>\n\n<span class=\"k\">class</span> <span class=\"nc\">ActionViewContentTagTest</span> <span class=\"o\">&lt;</span> <span class=\"no\">ActiveSupport</span><span class=\"o\">::</span><span class=\"no\">TestCase</span>\n  <span class=\"kp\">include</span> <span class=\"no\">ActionView</span><span class=\"o\">::</span><span class=\"no\">Helpers</span><span class=\"o\">::</span><span class=\"no\">TagHelper</span>\n  <span class=\"kp\">include</span> <span class=\"no\">ActionView</span><span class=\"o\">::</span><span class=\"no\">Helpers</span><span class=\"o\">::</span><span class=\"no\">JavaScriptHelper</span>\n\n  <span class=\"nb\">test</span> <span class=\"s2\">&quot;script tags cannot contain &lt;/script&gt;&quot;</span> <span class=\"k\">do</span>\n    <span class=\"n\">assert_raise</span> <span class=\"no\">ArgumentError</span> <span class=\"k\">do</span>\n      <span class=\"n\">javascript_tag</span> <span class=\"s2\">&quot;foo&lt;/script&gt;bar&quot;</span>\n    <span class=\"k\">end</span>\n  <span class=\"k\">end</span>\n\n  <span class=\"nb\">test</span> <span class=\"s2\">&quot;script tags cannot contain malformed &lt;/script&gt;&quot;</span> <span class=\"k\">do</span>\n    <span class=\"n\">assert_raise</span> <span class=\"no\">ArgumentError</span> <span class=\"k\">do</span>\n      <span class=\"n\">javascript_tag</span> <span class=\"s2\">&quot;foo&lt;   /    script&gt;bar&quot;</span>\n    <span class=\"k\">end</span>\n    <span class=\"n\">assert_raise</span> <span class=\"no\">ArgumentError</span> <span class=\"k\">do</span>\n      <span class=\"n\">javascript_tag</span> <span class=\"s2\">&quot;foo&lt; / script   bla&gt;bar&quot;</span>\n    <span class=\"k\">end</span>\n  <span class=\"k\">end</span>\n\n  <span class=\"nb\">test</span> <span class=\"s2\">&quot;script tags can contain &lt;/script&gt; when forward slash is escaped&quot;</span> <span class=\"k\">do</span>\n    <span class=\"n\">assert_nothing_raised</span> <span class=\"k\">do</span>\n      <span class=\"n\">javascript_tag</span> <span class=\"s2\">&quot;foo&lt;</span><span class=\"se\">\\\\</span><span class=\"s2\">/script&gt;bar&quot;</span>\n    <span class=\"k\">end</span>\n  <span class=\"k\">end</span>\n<span class=\"k\">end</span>\n</code></pre>\n<p>I&#39;m not sure this is something you&#39;d want in rails, but I don&#39;t see a better way to protect against this.</p>\n\n<p>Also note that the provided patch (my original patch as well as your official ones) offers no protection when <code>ActiveSupport.escape_html_entities_in_json = false</code>. That would require encoding the forward slash character in <a href=\"/redirect?signature=c4b31e6fd2eb0fcefcd008ec764a500234d73343&amp;url=https%3A%2F%2Fgithub.com%2Frails%2Frails%2Fblob%2F88b334ec696ffe1fa08b934780f4ab27030c5c76%2Factivesupport%2Flib%2Factive_support%2Fjson%2Fencoding.rb%23L49\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>ESCAPE_REGEX_WITHOUT_HTML_ENTITIES</span><i class=\"icon-external-link\"></i></a> (i.e. encode <code>/</code> as <code>\\/</code>). That would protect against the <code>&lt;/script&gt;</code> vector even when <code>ActiveSupport.escape_html_entities_in_json = false</code> until <a title=\"https://github.com/flori/json/pull/235\" href=\"/redirect?signature=b6edaee448578e3611c1b72908612563e5ccc1e8&amp;url=https%3A%2F%2Fgithub.com%2Fflori%2Fjson%2Fpull%2F235\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/flori/json/pull/235</span><i class=\"icon-external-link\"></i></a> is merged.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 338668, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-02-23T21:12:02.438Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-02-23T21:12:02.438Z", 
+            "actor": {
+                "username": "einstein_", 
+                "url": "/einstein_", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "For the credit: \"Thanks to Francois Chagnon of Shopify\"", 
+            "markdown_message": "<p>For the credit: &quot;Thanks to Francois Chagnon of Shopify&quot;</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 338670, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-02-23T22:39:03.871Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-02-23T22:39:03.871Z", 
+            "actor": {
+                "username": "rafaelfranca", 
+                "url": "/rafaelfranca", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/981/281bfa78e7ec84f83ee4efe2cf53f744cf07b8c0_medium.jpg?1397516124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "I'm not sure if we should care about `escape_html_entities_in_json` being `false`. It is true by default and it is a good practice to keep it true.\n\nFor example, even with your patch, if `escape_html_entities_in_json` is false, we still have the same problem:\n\n```\n<script>\n  var foo = <%= params.to_json.html_safe %>\n</script>", 
+            "markdown_message": "<p>I&#39;m not sure if we should care about <code>escape_html_entities_in_json</code> being <code>false</code>. It is true by default and it is a good practice to keep it true.</p>\n\n<p>For example, even with your patch, if <code>escape_html_entities_in_json</code> is false, we still have the same problem:</p>\n<pre class=\"highlight plaintext\"><code>&lt;script&gt;\n  var foo = &lt;%= params.to_json.html_safe %&gt;\n&lt;/script&gt;\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 338750, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-02-23T23:03:52.163Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-02-23T23:03:52.163Z", 
+            "actor": {
+                "username": "einstein_", 
+                "url": "/einstein_", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "Escaping `/` as `\\/` will fix this xss vector in all cases since `params.to_json.html_safe` would look like `{'foo': '<\\/script>'}` when `escape_html_entities_in_json=false`. I think the proper place to fix this is in the `json` lib, but I thought it was worth mentioning since both issues are somewhat related. The forward slash not being escaped is is a slightly different issues from the one I originally reported here, the only link between them is that they are both exploitable with the string `</script>`. Escaping html entities successfully prevents this xss vector, but if either json or rails had escaped `/`, this would not have been a security issue in the first place (it might still have been a escaping bug, but not a security issue).\n", 
+            "markdown_message": "<p>Escaping <code>/</code> as <code>\\/</code> will fix this xss vector in all cases since <code>params.to_json.html_safe</code> would look like <code>{&#39;foo&#39;: &#39;&lt;\\/script&gt;&#39;}</code> when <code>escape_html_entities_in_json=false</code>. I think the proper place to fix this is in the <code>json</code> lib, but I thought it was worth mentioning since both issues are somewhat related. The forward slash not being escaped is is a slightly different issues from the one I originally reported here, the only link between them is that they are both exploitable with the string <code>&lt;/script&gt;</code>. Escaping html entities successfully prevents this xss vector, but if either json or rails had escaped <code>/</code>, this would not have been a security issue in the first place (it might still have been a escaping bug, but not a security issue).</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 338768, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-02-23T23:21:21.736Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-02-23T23:27:04.574Z", 
+            "actor": {
+                "username": "einstein_", 
+                "url": "/einstein_", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "I'm sorry if I misunderstood your last message, were you talking about the `content_tag_string` patch? Indeed it does nothing when javascript_tag is not used. This patch is useful in case someone does the following for example:\n```erb\n<%= javascript_tag do %>\n  var foo = \"<%= foo.gsub('\"', '\\\"') %>\";\n<% end %>\n```\nThis does successfully prevent the javascript string from being terminated when `foo='\";alert'`, but does nothing when `foo=\"</script>\"`. I agree this would be a terrible way to escape strings, and I don't see why anyone would do this, but the monkey patch will save the day in case someone tries really hard to roll out their own way of escaping strings.\n", 
+            "markdown_message": "<p>I&#39;m sorry if I misunderstood your last message, were you talking about the <code>content_tag_string</code> patch? Indeed it does nothing when javascript_tag is not used. This patch is useful in case someone does the following for example:</p>\n<pre class=\"highlight erb\"><code><span class=\"cp\">&lt;%=</span> <span class=\"n\">javascript_tag</span> <span class=\"k\">do</span> <span class=\"cp\">%&gt;</span>\n  var foo = &quot;<span class=\"cp\">&lt;%=</span> <span class=\"n\">foo</span><span class=\"p\">.</span><span class=\"nf\">gsub</span><span class=\"p\">(</span><span class=\"s1\">&#39;&quot;&#39;</span><span class=\"p\">,</span> <span class=\"s1\">&#39;\\&quot;&#39;</span><span class=\"p\">)</span> <span class=\"cp\">%&gt;</span>&quot;;\n<span class=\"cp\">&lt;%</span> <span class=\"k\">end</span> <span class=\"cp\">%&gt;</span>\n</code></pre>\n<p>This does successfully prevent the javascript string from being terminated when <code>foo=&#39;&quot;;alert&#39;</code>, but does nothing when <code>foo=&quot;&lt;/script&gt;&quot;</code>. I agree this would be a terrible way to escape strings, and I don&#39;t see why anyone would do this, but the monkey patch will save the day in case someone tries really hard to roll out their own way of escaping strings.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 338773, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-02-24T00:03:29.958Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-02-24T00:03:29.958Z", 
+            "actor": {
+                "username": "einstein_", 
+                "url": "/einstein_", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "So you are right, the `javascript_tag` patch is not a viable workaround for this issue, it's an additional patch that fixes the problem in a different scenario.\n\nWould this work as a workaround? Suggest that people add this monkey patch as an initializer:\n```ruby\nmodule ActiveSupport\n  module JSON\n    module Encoding\n      private\n      class EscapedString\n        def to_s\n          self\n        end\n      end\n    end\n  end\nend\n```", 
+            "markdown_message": "<p>So you are right, the <code>javascript_tag</code> patch is not a viable workaround for this issue, it&#39;s an additional patch that fixes the problem in a different scenario.</p>\n\n<p>Would this work as a workaround? Suggest that people add this monkey patch as an initializer:</p>\n<pre class=\"highlight ruby\"><code><span class=\"k\">module</span> <span class=\"nn\">ActiveSupport</span>\n  <span class=\"k\">module</span> <span class=\"nn\">JSON</span>\n    <span class=\"k\">module</span> <span class=\"nn\">Encoding</span>\n      <span class=\"kp\">private</span>\n      <span class=\"k\">class</span> <span class=\"nc\">EscapedString</span>\n        <span class=\"k\">def</span> <span class=\"nf\">to_s</span>\n          <span class=\"nb\">self</span>\n        <span class=\"k\">end</span>\n      <span class=\"k\">end</span>\n    <span class=\"k\">end</span>\n  <span class=\"k\">end</span>\n<span class=\"k\">end</span>\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 338799, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-02-24T00:21:19.940Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-02-24T00:24:09.693Z", 
+            "actor": {
+                "username": "einstein_", 
+                "url": "/einstein_", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "Should the impact section mention this is a xss vulnerability only when to_json.html_safe is used inside of a script tag?\n\nFor example:\n\nImpact\n------\nThis helper, or its indirect call `Hash#to_json`, in combination with `html_safe` is vulnerable to an XSS attack when used inside a `<script>` element.\n", 
+            "markdown_message": "<p>Should the impact section mention this is a xss vulnerability only when to_json.html_safe is used inside of a script tag?</p>\n\n<p>For example:</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>This helper, or its indirect call <code>Hash#to_json</code>, in combination with <code>html_safe</code> is vulnerable to an XSS attack when used inside a <code>&lt;script&gt;</code> element.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 338806, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-02-24T16:13:15.402Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-02-24T16:13:15.402Z", 
+            "actor": {
+                "username": "rafaelfranca", 
+                "url": "/rafaelfranca", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/981/281bfa78e7ec84f83ee4efe2cf53f744cf07b8c0_medium.jpg?1397516124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "I think we should also include the `javascript_tag` case in the impact section.\n\nThat monkey patch can be a good workaround.\n\nMaybe we should also apply a fix in `javascript_tag` to always escape `</script>`. I'll take a look.", 
+            "markdown_message": "<p>I think we should also include the <code>javascript_tag</code> case in the impact section.</p>\n\n<p>That monkey patch can be a good workaround.</p>\n\n<p>Maybe we should also apply a fix in <code>javascript_tag</code> to always escape <code>&lt;/script&gt;</code>. I&#39;ll take a look.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 339192, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-04-01T19:59:00.625Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-04-01T19:59:00.625Z", 
+            "actor": {
+                "username": "einstein_", 
+                "url": "/einstein_", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "Rafael, do you have a tentative date for the release of a advisory/fix?", 
+            "markdown_message": "<p>Rafael, do you have a tentative date for the release of a advisory/fix?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 367675, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-04-09T20:54:33.999Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-04-09T20:54:33.999Z", 
+            "actor": {
+                "username": "rafaelfranca", 
+                "url": "/rafaelfranca", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/981/281bfa78e7ec84f83ee4efe2cf53f744cf07b8c0_medium.jpg?1397516124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "I'll request the CVE today and I believe next week we can release. I'll update here the updated advisory and patches.", 
+            "markdown_message": "<p>I&#39;ll request the CVE today and I believe next week we can release. I&#39;ll update here the updated advisory and patches.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 376571, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/034/141/8b13476ea74a82abbb0c519da686ce994a6d577d/advisory.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222857Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=48a5420709b428d57a141a33abe1740d90c8094b06a2f2a56cbb6367a3314363", 
+                    "type": "text/x-ruby", 
+                    "id": 34141, 
+                    "filename": "advisory.txt"
+                }, 
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/034/140/1ccfd1e07bc6e3b508d05a6ac48a6bda03eb3655/4-2-to_json_xss.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222857Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=adb5b84ce2193ebb13dd2c414c41b999ae5687404442b0138d03e1379c941a54", 
+                    "type": "text/x-diff", 
+                    "id": 34140, 
+                    "filename": "4-2-to_json_xss.patch"
+                }, 
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/034/139/edc2e536f650f5adf207ca24d36ac0d965797888/4-1-to_json_xss.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222857Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=38f23f5645e01184d9204c38642bb3e349468f7c9e551657dfb1e6c8afd54c86", 
+                    "type": "text/x-diff", 
+                    "id": 34139, 
+                    "filename": "4-1-to_json_xss.patch"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2015-04-09T23:33:53.310Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-04-09T23:33:53.310Z", 
+            "actor": {
+                "username": "rafaelfranca", 
+                "url": "/rafaelfranca", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/981/281bfa78e7ec84f83ee4efe2cf53f744cf07b8c0_medium.jpg?1397516124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "Here updated version of patches and advisory", 
+            "markdown_message": "<p>Here updated version of patches and advisory</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 376785, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/034/152/8fa933257dfa8c99eff5ff7e7a49d375ec873154/advisory.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222857Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=c7d1f8e9bcc7ffc40cf4aab03319f2662d182dad56576a5cd7b610a587a22750", 
+                    "type": "text/x-ruby", 
+                    "id": 34152, 
+                    "filename": "advisory.txt"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2015-04-10T01:54:20.225Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-04-10T01:54:20.225Z", 
+            "actor": {
+                "username": "rafaelfranca", 
+                "url": "/rafaelfranca", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/981/281bfa78e7ec84f83ee4efe2cf53f744cf07b8c0_medium.jpg?1397516124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "I reworded the advisory with some inputs of the Rails Core members", 
+            "markdown_message": "<p>I reworded the advisory with some inputs of the Rails Core members</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 376821, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-04-10T05:06:46.667Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-04-10T05:06:46.667Z", 
+            "actor": {
+                "username": "einstein_", 
+                "url": "/einstein_", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "The advisory and patches look good. One small thing, there is a typo: `directely` should read `directly`\n", 
+            "markdown_message": "<p>The advisory and patches look good. One small thing, there is a typo: <code>directely</code> should read <code>directly</code></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 376916, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-06-15T17:22:54.405Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-06-15T17:22:54.405Z", 
+            "actor": {
+                "username": "rafaelfranca", 
+                "url": "/rafaelfranca", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/981/281bfa78e7ec84f83ee4efe2cf53f744cf07b8c0_medium.jpg?1397516124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 473006, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-06-15T17:22:54.916Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-06-15T17:22:54.916Z", 
+            "actor": {
+                "username": "rafaelfranca", 
+                "url": "/rafaelfranca", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/981/281bfa78e7ec84f83ee4efe2cf53f744cf07b8c0_medium.jpg?1397516124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 473009, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "einstein_", 
+                "url": "/einstein_"
+            }, 
+            "created_at": "2015-06-16T19:17:13.709Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-06-16T19:17:13.709Z", 
+            "actor": {
+                "username": "rafaelfranca", 
+                "url": "/rafaelfranca", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/981/281bfa78e7ec84f83ee4efe2cf53f744cf07b8c0_medium.jpg?1397516124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 474500, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-06-16T19:17:21.937Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-06-16T19:17:21.937Z", 
+            "actor": {
+                "username": "rafaelfranca", 
+                "url": "/rafaelfranca", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/981/281bfa78e7ec84f83ee4efe2cf53f744cf07b8c0_medium.jpg?1397516124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 474501, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-06-16T19:38:33.999Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-06-16T19:38:33.999Z", 
+            "actor": {
+                "username": "einstein_", 
+                "url": "/einstein_", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 474535, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-06-16T19:38:34.292Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-06-16T19:38:34.292Z", 
+            "actor": {
+                "username": "einstein_", 
+                "url": "/einstein_", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 474536, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-05T18:40:17.501Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-05T18:40:17.501Z", 
+            "actor": {
+                "username": "rafaelfranca", 
+                "url": "/rafaelfranca", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/981/281bfa78e7ec84f83ee4efe2cf53f744cf07b8c0_medium.jpg?1397516124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "High (7.2)", 
+                "old_severity": null
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2202445, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-12-05T18:40:38.186Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-05T18:40:38.186Z", 
+            "actor": {
+                "url": "/rails", 
+                "profile": {
+                    "name": "Ruby on Rails"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/022/1b2dab688cae8b769493f39137f09274a6b5f156_medium.png?1383736680"
+                }
+            }, 
+            "team_handle": "rails", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "500.0", 
+            "collaborator": {
+                "username": "einstein_", 
+                "url": "/einstein_"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2202446, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "einstein_", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/einstein_", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 60, 
+        "name": "Cross-site Scripting (XSS) - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -107061095.48817316, 
+    "disclosed_at": "2015-06-16T19:38:34.244Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/47280", 
+    "created_at": "2015-02-10T01:00:04.032Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Rails does not escape hash keys properly in <code>to_json</code> when generating json.</p>\n\n<p>Values are escaped as expected</p>\n<pre class=\"highlight ruby\"><code><span class=\"n\">irb</span><span class=\"p\">(</span><span class=\"n\">main</span><span class=\"p\">):</span><span class=\"mo\">001</span><span class=\"p\">:</span><span class=\"mi\">0</span><span class=\"o\">&gt;</span> <span class=\"p\">{</span><span class=\"s2\">&quot;a&quot;</span><span class=\"o\">=&gt;</span><span class=\"s2\">&quot;&lt;&gt;&quot;</span><span class=\"p\">}.</span><span class=\"nf\">to_json</span>\n<span class=\"o\">=&gt;</span> <span class=\"s2\">&quot;{</span><span class=\"se\">\\&quot;</span><span class=\"s2\">a</span><span class=\"se\">\\&quot;</span><span class=\"s2\">:</span><span class=\"se\">\\&quot;\\\\</span><span class=\"s2\">u003c</span><span class=\"se\">\\\\</span><span class=\"s2\">u003e</span><span class=\"se\">\\&quot;</span><span class=\"s2\">}&quot;</span>\n</code></pre>\n<p>However keys are not:</p>\n<pre class=\"highlight ruby\"><code><span class=\"n\">irb</span><span class=\"p\">(</span><span class=\"n\">main</span><span class=\"p\">):</span><span class=\"mo\">002</span><span class=\"p\">:</span><span class=\"mi\">0</span><span class=\"o\">&gt;</span> <span class=\"p\">{</span><span class=\"s2\">&quot;&lt;&gt;&quot;</span><span class=\"o\">=&gt;</span><span class=\"s2\">&quot;a&quot;</span><span class=\"p\">}.</span><span class=\"nf\">to_json</span>\n<span class=\"o\">=&gt;</span> <span class=\"s2\">&quot;{</span><span class=\"se\">\\&quot;</span><span class=\"s2\">&lt;&gt;</span><span class=\"se\">\\&quot;</span><span class=\"s2\">:</span><span class=\"se\">\\&quot;</span><span class=\"s2\">a</span><span class=\"se\">\\&quot;</span><span class=\"s2\">}&quot;</span>\n</code></pre>\n<p>This is because the <code>json</code> gem calls <code>.to_s</code> on the keys <a href=\"/redirect?signature=ef1e117ab41f2db0ee14db860be90017877b40ca&amp;url=https%3A%2F%2Fgithub.com%2Fflori%2Fjson%2Fblob%2F259dee6c9bdda08ed0c1fc2e69bfbb2d377faba0%2Fext%2Fjson%2Fext%2Fgenerator%2Fgenerator.c%23L738\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>here</span><i class=\"icon-external-link\"></i></a> which transforms the <code>EscapedString</code> back into a simple <code>String</code> so it doesn&#39;t go through the escaping process that values go through <a href=\"/redirect?signature=1970e5f6d8acd8d444759dd21db0ece65ffc7bb6&amp;url=https%3A%2F%2Fgithub.com%2FEiNSTeiN-%2Frails%2Fblob%2F3820788e4c2825dd77c779ba5b3bc29689e04e1d%2Factivesupport%2Flib%2Factive_support%2Fjson%2Fencoding.rb%23L54-L60\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>here</span><i class=\"icon-external-link\"></i></a>.</p>\n\n<p><strong>Security consideration</strong>: this issue is a vector for XSS when an arbitrary value is used as a key and reflected in a javascript tag. Consider this piece of code:</p>\n<pre class=\"highlight ruby\"><code><span class=\"n\">javascript_tag</span> <span class=\"s2\">&quot;var json=</span><span class=\"si\">#{</span><span class=\"n\">params</span><span class=\"p\">.</span><span class=\"nf\">to_json</span><span class=\"si\">}</span><span class=\"s2\">&quot;</span>\n</code></pre>\n<p>When params is something like <code>{&quot;&lt;/script&gt;&lt;script&gt;alert(1)//&quot;=&gt;&quot;xss&quot;}</code> then <code>&lt;&gt;</code> are not escaped as they should and the javascript tag looks like this:</p>\n<pre class=\"highlight html\"><code><span class=\"nt\">&lt;script&gt;</span>\n<span class=\"c1\">//&lt;![CDATA[</span>\n<span class=\"kd\">var</span> <span class=\"nx\">json</span><span class=\"o\">=</span><span class=\"p\">{</span><span class=\"err\">&quot;</span><span class=\"nt\">&lt;/script&gt;&lt;script&gt;</span><span class=\"nx\">alert</span><span class=\"p\">(</span><span class=\"mi\">1</span><span class=\"p\">)</span><span class=\"c1\">//&quot;:&quot;xss&quot;}</span>\n<span class=\"c1\">//]]&gt;</span>\n<span class=\"nt\">&lt;/script&gt;</span>\n</code></pre>\n<p>The <code>&lt;/script&gt;</code> inside the json object will terminate the opening script tag because it has precedence over everything else, and <code>alert(1)</code> is executed.</p>\n\n<p>I believe this issue also applies to 4.2-stable and master.</p>\n\n<p>Note that I opened a PR for a related issue in the json gem (<a title=\"https://github.com/flori/json/pull/235\" href=\"/redirect?signature=b6edaee448578e3611c1b72908612563e5ccc1e8&amp;url=https%3A%2F%2Fgithub.com%2Fflori%2Fjson%2Fpull%2F235\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/flori/json/pull/235</span><i class=\"icon-external-link\"></i></a>) which occurs when <code>ActiveSupport.escape_html_entities_in_json = false</code> because the forward slash is never escaped (neither in rails nor in the json gem). It might be worth fixing this in rails as well.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://rubyonrails.org/security", 
+            "about": "Web development that doesn't hurt.", 
+            "twitter_handle": null, 
+            "name": "Ruby on Rails"
+        }, 
+        "handle": "rails", 
+        "url": "https://hackerone.com/rails", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/022/2883e997d5f9ddf2f1c31365d74abe52fc54c9c9_small.png?1383736680", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/022/1b2dab688cae8b769493f39137f09274a6b5f156_medium.png?1383736680"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 22, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

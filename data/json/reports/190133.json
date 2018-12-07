@@ -1,0 +1,321 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2016-12-17T23:45:41.804Z", 
+    "voters": [
+        "dkasak", 
+        "suv", 
+        "eveeez", 
+        "spetr0x", 
+        "dr_dragon"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "1000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 190133, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2016-12-16T20:53:25.200Z", 
+    "vulnerability_information": "Introduction\n============\n\nPassing primitive non-`Fixnum` values to the `values_at` method of `Struct` and `Range` leads to a segfault in both mruby and mruby-engine/parent Ruby process.\n\nProof of concept\n================\n\nlist-crash.rb\n-------------\n\n    [].values_at true\n\nstruct-crash.rb\n---------------\n\n    Struct.new.new.values_at true\n\n1. Save either of the above as `crash.rb`.\n2. Run either:\n   a) `mruby crash.rb`\n   b) `sandbox crash.rb`\n3. Both cause a segfault due to an invalid pointer dereference.\n\nDiscussion\n==========\n\nThe crash is introduced in commit `79a621dd739faf4cc0958e11d6a887331cf79e48`.\n\nThe underlying cause is that the new `mrb_range_ptr` attempts to dereference a pointer derived from a `mrb_value` to check whether the `edges` member is `NULL` without ensuring that the `mrb_value` in question is a non-primitive (and therefore has a valid pointer value). In the case of the `values_at` methods, its arguments are passed to `mrb_get_values_at` which in turn passes it to `range_beg_len`. There it is passed to `mrb_range_ptr` before checking its type.\n\nSolution\n========\n\nTo fix the crash, the type of the value passed to `range_beg_len` should be checked before calling `mrb_range_ptr`. We've also looked through the codebase for other problematic instances, but found none.\n\n    diff --git a/src/range.c b/src/range.c\n    index 4179574..73fe758 100644\n    --- a/src/range.c\n    +++ b/src/range.c\n    @@ -252,9 +252,10 @@ static mrb_bool\n    range_beg_len(mrb_state *mrb, mrb_value range, mrb_int *begp, mrb_int *lenp, mrb_int len, mrb_bool trunc)\n    {\n    mrb_int beg, end;\n    -  struct RRange *r = mrb_range_ptr(mrb, range);\n    +  struct RRange *r;\n    \n    if (mrb_type(range) != MRB_TT_RANGE) return FALSE;\n    +  r = mrb_range_ptr(mrb, range);\n    \n    beg = mrb_int(mrb, r->edges->beg);\n    end = mrb_int(mrb, r->edges->end);\n\n\n\n--\nDenis Kasak\nDamir Jeli\u0107", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "Team"
+    }, 
+    "title": "Segfault when passing invalid values to `values_at`", 
+    "is_member_of_team?": null, 
+    "vote_count": 5, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-01-15T20:53:25.231Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$1,000", 
+    "attachments": [
+        {
+            "file_name": "list-crash.rb", 
+            "type": "text/plain", 
+            "id": 142415, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/142/415/3197772a6ac90cb0bb55eb16002ed3bd702a2fd2/list-crash.rb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2G5YP65E%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224534Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDBU1F5krpICaZ0NqsCK3A6VE3SvOEqtR6mTF0RGsq2RFtP%2BeCnscHc5QWUWgfaEy6uXh0YyE%2Bu%2FBf1bgQOuQySCtb1Z%2BZ6sLON3HRMq%2BgYmhgdN4si0rU1p4nOiBj6crMBDlPKrwCFw0SRWaa%2FeWJtScRo9HMxA318TQuy1cnz2RYUYCxaU0Jci%2BrDGNmR0becuinzwZxwbm9sdysqqkTqFq64D7gI7nTrej5s6rDW11vFWqHpUP2d1FhvBaFOAjy8GP523rvRQSSyFkXe9YJUVlNrSLtqEAenEAnsweq3B3e669G9C%2FHm8G06ThADW69XI9pnMKVDT3FsJRtvkiltR9fsPJGB94knGZqwwdAK33UZ6TzU7QFoNEMoH%2BuvrEkO7SW8nmlfngtoX7AqMEGVMNAktUrQgR3jBfz1AXbDyaVpNINObIwvcxkjAPeH%2BJ9fJANeefQc2S9wtnpHnZGI8bjrMu%2F%2BBZHNLud7642CzhDwWVt363%2B%2B45PABKA6apczYhBSmM6I6woOQCnxMCpcKiqGyhztmN1LCRqv7FY5wPxjrGQArJvuYDfVGrN5Q7QMy6qocAzCdmYXfTag83vWxBpO15sjYooKOm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=6ea6ede8617966fd5ff5c087f0e90d9a5fa9a06874539de87c6fdb92a3bea69a"
+        }, 
+        {
+            "file_name": "0001-Fix-segfault-when-passing-invalid-values-to-values_a.patch", 
+            "type": "text/x-diff", 
+            "id": 142417, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/142/417/84ebe597e42bac842e0c999e9576c1644a07e243/0001-Fix-segfault-when-passing-invalid-values-to-values_a.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2G5YP65E%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224534Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDBU1F5krpICaZ0NqsCK3A6VE3SvOEqtR6mTF0RGsq2RFtP%2BeCnscHc5QWUWgfaEy6uXh0YyE%2Bu%2FBf1bgQOuQySCtb1Z%2BZ6sLON3HRMq%2BgYmhgdN4si0rU1p4nOiBj6crMBDlPKrwCFw0SRWaa%2FeWJtScRo9HMxA318TQuy1cnz2RYUYCxaU0Jci%2BrDGNmR0becuinzwZxwbm9sdysqqkTqFq64D7gI7nTrej5s6rDW11vFWqHpUP2d1FhvBaFOAjy8GP523rvRQSSyFkXe9YJUVlNrSLtqEAenEAnsweq3B3e669G9C%2FHm8G06ThADW69XI9pnMKVDT3FsJRtvkiltR9fsPJGB94knGZqwwdAK33UZ6TzU7QFoNEMoH%2BuvrEkO7SW8nmlfngtoX7AqMEGVMNAktUrQgR3jBfz1AXbDyaVpNINObIwvcxkjAPeH%2BJ9fJANeefQc2S9wtnpHnZGI8bjrMu%2F%2BBZHNLud7642CzhDwWVt363%2B%2B45PABKA6apczYhBSmM6I6woOQCnxMCpcKiqGyhztmN1LCRqv7FY5wPxjrGQArJvuYDfVGrN5Q7QMy6qocAzCdmYXfTag83vWxBpO15sjYooKOm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=01e4cc52f0551a7ccc9ff9e54c4acda09fcde7fc8ad0f995dda07bfe00ed2f65"
+        }, 
+        {
+            "file_name": "struct-crash.rb", 
+            "type": "text/plain", 
+            "id": 142418, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/142/418/423282eedc4d37423483c6e87c35250e8979ffb0/struct-crash.rb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2G5YP65E%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224534Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDBU1F5krpICaZ0NqsCK3A6VE3SvOEqtR6mTF0RGsq2RFtP%2BeCnscHc5QWUWgfaEy6uXh0YyE%2Bu%2FBf1bgQOuQySCtb1Z%2BZ6sLON3HRMq%2BgYmhgdN4si0rU1p4nOiBj6crMBDlPKrwCFw0SRWaa%2FeWJtScRo9HMxA318TQuy1cnz2RYUYCxaU0Jci%2BrDGNmR0becuinzwZxwbm9sdysqqkTqFq64D7gI7nTrej5s6rDW11vFWqHpUP2d1FhvBaFOAjy8GP523rvRQSSyFkXe9YJUVlNrSLtqEAenEAnsweq3B3e669G9C%2FHm8G06ThADW69XI9pnMKVDT3FsJRtvkiltR9fsPJGB94knGZqwwdAK33UZ6TzU7QFoNEMoH%2BuvrEkO7SW8nmlfngtoX7AqMEGVMNAktUrQgR3jBfz1AXbDyaVpNINObIwvcxkjAPeH%2BJ9fJANeefQc2S9wtnpHnZGI8bjrMu%2F%2BBZHNLud7642CzhDwWVt363%2B%2B45PABKA6apczYhBSmM6I6woOQCnxMCpcKiqGyhztmN1LCRqv7FY5wPxjrGQArJvuYDfVGrN5Q7QMy6qocAzCdmYXfTag83vWxBpO15sjYooKOm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=9fa396b74db15203bbc77e4ee08ce7cbb123d011dd761a0e84cb3f95311381a1"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-12T19:09:21.284Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-12T19:09:21.284Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for your report. We've reproduced the issue, and our engineering team is investigating.", 
+            "markdown_message": "<p>Thank you for your report. We&#39;ve reproduced the issue, and our engineering team is investigating.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1359132, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-12T19:09:26.474Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-12T19:09:26.474Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Low", 
+                "old_severity": "High (8.6)"
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1359133, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "dkasak", 
+                "url": "/dkasak"
+            }, 
+            "created_at": "2016-12-16T15:01:49.923Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-16T15:01:49.923Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thanks again for your report. This issue was resolved upstream in https://github.com/mruby/mruby/pull/3345, and we have deployed the fix to our production environment.\n\nOur bounty payments should be happening shortly, so we'll be in touch with you again soon.", 
+            "markdown_message": "<p>Thanks again for your report. This issue was resolved upstream in <a title=\"https://github.com/mruby/mruby/pull/3345\" href=\"/redirect?signature=998a8005a58e3e400f4e036daab611b0a9f97368&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fpull%2F3345\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/pull/3345</span><i class=\"icon-external-link\"></i></a>, and we have deployed the fix to our production environment.</p>\n\n<p>Our bounty payments should be happening shortly, so we&#39;ll be in touch with you again soon.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1369286, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2016-12-16T20:53:20.894Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-16T20:53:20.894Z", 
+            "actor": {
+                "url": "/shopify-scripts", 
+                "profile": {
+                    "name": "shopify-scripts"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+                }
+            }, 
+            "team_handle": "shopify-scripts", 
+            "bounty_amount": "1000.0", 
+            "collaborator": {
+                "username": "dkasak", 
+                "url": "/dkasak"
+            }, 
+            "message": "Thanks for helping improve the security of Shopify Scripts and the mruby project!", 
+            "markdown_message": "<p>Thanks for helping improve the security of Shopify Scripts and the mruby project!</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1370236, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-16T20:53:25.215Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-16T20:53:25.215Z", 
+            "actor": {
+                "username": "andrewdunbar", 
+                "url": "/andrewdunbar", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/164/cd46f5270ea41c5f0da3bea93e2eca7a95858caf_medium.jpg?1427927985"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1370237, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-17T23:45:41.826Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-17T23:45:41.826Z", 
+            "actor": {
+                "username": "dkasak", 
+                "url": "/dkasak", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/122/858/741782c4a124d498cf0070511e4c112f6ef73e5d_medium.png?1481406790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for the bounties! It was a real pleasure working with you.", 
+            "markdown_message": "<p>Thank you for the bounties! It was a real pleasure working with you.</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1371856, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-17T23:45:41.885Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-17T23:45:41.885Z", 
+            "actor": {
+                "username": "dkasak", 
+                "url": "/dkasak", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/122/858/741782c4a124d498cf0070511e4c112f6ef73e5d_medium.png?1481406790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1371857, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "dkasak", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/dkasak", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/122/858/9cb96e9ee0a0a51253abc1d38190bed32bcb7087_small.png?1481406790"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 48, 
+        "name": "Denial of Service"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -59622729.49860921, 
+    "disclosed_at": "2016-12-17T23:45:41.864Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/190133", 
+    "created_at": "2016-12-10T15:08:58.789Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"introduction\">Introduction</h1>\n\n<p>Passing primitive non-<code>Fixnum</code> values to the <code>values_at</code> method of <code>Struct</code> and <code>Range</code> leads to a segfault in both mruby and mruby-engine/parent Ruby process.</p>\n\n<h1 id=\"proof-of-concept\">Proof of concept</h1>\n\n<h2 id=\"list-crash-rb\">list-crash.rb</h2>\n<pre class=\"highlight plaintext\"><code>[].values_at true\n</code></pre>\n<h2 id=\"struct-crash-rb\">struct-crash.rb</h2>\n<pre class=\"highlight plaintext\"><code>Struct.new.new.values_at true\n</code></pre>\n<ol>\n<li>Save either of the above as <code>crash.rb</code>.</li>\n<li>Run either:\na) <code>mruby crash.rb</code>\nb) <code>sandbox crash.rb</code>\n</li>\n<li>Both cause a segfault due to an invalid pointer dereference.</li>\n</ol>\n\n<h1 id=\"discussion\">Discussion</h1>\n\n<p>The crash is introduced in commit <code>79a621dd739faf4cc0958e11d6a887331cf79e48</code>.</p>\n\n<p>The underlying cause is that the new <code>mrb_range_ptr</code> attempts to dereference a pointer derived from a <code>mrb_value</code> to check whether the <code>edges</code> member is <code>NULL</code> without ensuring that the <code>mrb_value</code> in question is a non-primitive (and therefore has a valid pointer value). In the case of the <code>values_at</code> methods, its arguments are passed to <code>mrb_get_values_at</code> which in turn passes it to <code>range_beg_len</code>. There it is passed to <code>mrb_range_ptr</code> before checking its type.</p>\n\n<h1 id=\"solution\">Solution</h1>\n\n<p>To fix the crash, the type of the value passed to <code>range_beg_len</code> should be checked before calling <code>mrb_range_ptr</code>. We&#39;ve also looked through the codebase for other problematic instances, but found none.</p>\n<pre class=\"highlight diff\"><code><span class=\"gh\">diff --git a/src/range.c b/src/range.c\nindex 4179574..73fe758 100644\n</span><span class=\"gd\">--- a/src/range.c\n</span><span class=\"gi\">+++ b/src/range.c\n</span><span class=\"gu\">@@ -252,9 +252,10 @@ static mrb_bool\n</span>range_beg_len(mrb_state *mrb, mrb_value range, mrb_int *begp, mrb_int *lenp, mrb_int len, mrb_bool trunc)\n{\nmrb_int beg, end;\n<span class=\"gd\">-  struct RRange *r = mrb_range_ptr(mrb, range);\n</span><span class=\"gi\">+  struct RRange *r;\n</span>\nif (mrb_type(range) != MRB_TT_RANGE) return FALSE;\n<span class=\"gi\">+  r = mrb_range_ptr(mrb, range);\n</span>\nbeg = mrb_int(mrb, r-&gt;edges-&gt;beg);\nend = mrb_int(mrb, r-&gt;edges-&gt;end);\n</code></pre>\n<p>--<br>\nDenis Kasak<br>\nDamir Jeli\u0107</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.mruby.science", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "shopify-scripts"
+        }, 
+        "handle": "shopify-scripts", 
+        "url": "https://hackerone.com/shopify-scripts", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/015/668/9f47d94cbd9e4311b57f1ab05f67fb5c26fd2e78_small.jpg?1475592254", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 15668, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

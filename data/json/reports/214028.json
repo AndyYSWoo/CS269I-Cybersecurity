@@ -1,0 +1,367 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-10-03T17:46:25.354Z", 
+    "voters": [
+        "sp1d3rs", 
+        "bl4de", 
+        "jensec", 
+        "tungpun", 
+        "eveeez", 
+        "gamliel", 
+        "babayaga_", 
+        "fa1rlight", 
+        "crazy_wonk", 
+        "ronygigi", 
+        "and 6 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 214028, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-10-03T19:11:28.740Z", 
+    "vulnerability_information": "# Vulnerability details\nThere's a race condition in the `Import::GitlabProjectsController#create` endpoint that allows an attacker to gain access to someone else's import file. The race condition happens when there's a collision in two or more file names uploaded at the same time, before the import gets processed by Sidekiq. The person uploading the file for the first time will see the last person's file contents instead.\n\n# Impact\nDepending on the contents of the GitLab import file, this could leak confidential information from other users on the GitLab instance.\n\n# Proof of concept\nThis is hard to reproduce without a good setup, but conceptually it's pretty easy to explain by going through the code. When someone uploads a new file, the following code gets executed:\n\n**app/controllers/import/gitlab_projects_controller.rb** (15-18)\n```ruby\nimport_upload_path = Gitlab::ImportExport.import_upload_path(filename: project_params[:file].original_filename)\n\nFileUtils.mkdir_p(File.dirname(import_upload_path))\nFileUtils.copy_entry(project_params[:file].path, import_upload_path)\n```\n\nThe `Gitlab::ImportExport.import_upload_path` method looks like this:\n\n```ruby\ndef import_upload_path(filename:)\n  File.join(storage_path, 'uploads', filename)\nend\n```\n\nThis means, when a file called `import.tar.gz` would get uploaded, it would copy the temporary file to `/var/opt/gitlab/gitlab-rails/shared/tmp/project_exports/uploads/import.tar.gz`. Next, it'll schedule an async job in Sidekiq that'll take care of unpacking the import file and restore it's contents. However, since there's a delay between when the file gets copied and when the job gets processed (depending on how busy the workers are, etc.), someone else could upload a file with the same filename. If this happens before the import job gets processed, the victim will unknowingly overwrite the attacker's import file. When the attacker's Sidekiq job gets executed, it'll unpack the victim's import file and restore the files in the attacker's repository.\n\nThe entropy of a GitLab export file is decent enough to make this extremely hard to pull off. However, when someone would rename the file to something more common, for example a repository name, project name, or something generic like `import.tar.gz`, the changes of this happening increase.\n\nTo reproduce this vulnerability locally, it is easiest to shutdown the Sidekiq workers and upload two files with the same name under two different accounts. After that, restart the Sidekiq workers. You'll notice that both repositories hold the contents of the last imported file.\n\n# Remediation advice\nGenerate a random filename instead of using the original filename or add the namespace and project URL to avoid file name collisions.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "low", 
+            "privileges_required": "low", 
+            "user_interaction": "required", 
+            "attack_vector": "network", 
+            "attack_complexity": "high", 
+            "scope": "unchanged", 
+            "integrity": "low", 
+            "availability": "none"
+        }, 
+        "rating": "low", 
+        "score": 3.7, 
+        "author_type": "User"
+    }, 
+    "title": "Race condition in GitLab import, giving access to other people their imports due to filename collision", 
+    "is_member_of_team?": null, 
+    "vote_count": 16, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-11-02T17:46:25.398Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-17T16:14:58.184Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-17T16:14:58.184Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @jobert,\n\nI think the chances of a collision here are relatively high given that so many users are importing their own versions of the same projects and Sidekiq can get overloaded at times. I've opened confidential issue: https://gitlab.com/gitlab-org/gitlab-ce/issues/29652 to discuss a fix. Thanks again for another report!", 
+            "markdown_message": "<p>Hi <a href=\"/jobert\">@jobert</a>,</p>\n\n<p>I think the chances of a collision here are relatively high given that so many users are importing their own versions of the same projects and Sidekiq can get overloaded at times. I&#39;ve opened confidential issue: <a title=\"https://gitlab.com/gitlab-org/gitlab-ce/issues/29652\" href=\"/redirect?signature=36d1e0f5e296c60cfcf4000dcc024b2f9f708abd&amp;url=https%3A%2F%2Fgitlab.com%2Fgitlab-org%2Fgitlab-ce%2Fissues%2F29652\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://gitlab.com/gitlab-org/gitlab-ce/issues/29652</span><i class=\"icon-external-link\"></i></a> to discuss a fix. Thanks again for another report!</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1547991, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-19T15:29:22.186Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-19T15:29:22.186Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @jobert,\n\nI just wanted to let you know this is still waiting for a fix. Hopefully we'll be able to get one out soon. Sorry for the delay!", 
+            "markdown_message": "<p>Hi <a href=\"/jobert\">@jobert</a>,</p>\n\n<p>I just wanted to let you know this is still waiting for a fix. Hopefully we&#39;ll be able to get one out soon. Sorry for the delay!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1765524, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-19T21:19:58.695Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-19T21:19:58.695Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "@briann Sounds good. If you need help, let me know. Calling `project_params[:file].tempfile.path` instead of `project_params[:file].original_filename` should add enough entropy to the filename to avoid collisions. You could also specify the project namespace and name to separate the files per project, but I'd still add additional entropy to the filename to avoid collisions. Writing a regression spec is slightly harder, but I'd probably manually copy a file to the `uploads` directory in the spec and then write a controller spec with that exact filename to make sure it isn't overwritten.\n\n```diff\ndiff --git i/app/controllers/import/gitlab_projects_controller.rb w/app/controllers/import/gitlab_projects_controller.rb\nindex 36d246d185..29c6f7431a 100644\n--- i/app/controllers/import/gitlab_projects_controller.rb\n+++ w/app/controllers/import/gitlab_projects_controller.rb\n@@ -12,7 +12,7 @@ class Import::GitlabProjectsController < Import::BaseController\n       return redirect_back_or_default(options: { alert: \"You need to upload a GitLab project export archive.\" })\n     end\n\n-    import_upload_path = Gitlab::ImportExport.import_upload_path(filename: project_params[:file].original_filename)\n+    import_upload_path = Gitlab::ImportExport.import_upload_path(filename: project_params[:file].tempfile.path)\n\n     FileUtils.mkdir_p(File.dirname(import_upload_path))\n     FileUtils.copy_entry(project_params[:file].path, import_upload_path)\n```", 
+            "markdown_message": "<p><a href=\"/briann\">@briann</a> Sounds good. If you need help, let me know. Calling <code>project_params[:file].tempfile.path</code> instead of <code>project_params[:file].original_filename</code> should add enough entropy to the filename to avoid collisions. You could also specify the project namespace and name to separate the files per project, but I&#39;d still add additional entropy to the filename to avoid collisions. Writing a regression spec is slightly harder, but I&#39;d probably manually copy a file to the <code>uploads</code> directory in the spec and then write a controller spec with that exact filename to make sure it isn&#39;t overwritten.</p>\n<pre class=\"highlight diff\"><code><span class=\"gh\">diff --git i/app/controllers/import/gitlab_projects_controller.rb w/app/controllers/import/gitlab_projects_controller.rb\nindex 36d246d185..29c6f7431a 100644\n</span><span class=\"gd\">--- i/app/controllers/import/gitlab_projects_controller.rb\n</span><span class=\"gi\">+++ w/app/controllers/import/gitlab_projects_controller.rb\n</span><span class=\"gu\">@@ -12,7 +12,7 @@ class Import::GitlabProjectsController &lt; Import::BaseController\n</span>       return redirect_back_or_default(options: { alert: &quot;You need to upload a GitLab project export archive.&quot; })\n     end\n\n<span class=\"gd\">-    import_upload_path = Gitlab::ImportExport.import_upload_path(filename: project_params[:file].original_filename)\n</span><span class=\"gi\">+    import_upload_path = Gitlab::ImportExport.import_upload_path(filename: project_params[:file].tempfile.path)\n</span>\n     FileUtils.mkdir_p(File.dirname(import_upload_path))\n     FileUtils.copy_entry(project_params[:file].path, import_upload_path)\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 1766730, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-20T14:08:21.238Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-20T14:08:21.238Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "I appreciate the help. You know how it goes, it's not so much a lack of technical knowledge that keeps these from being patched quickly but rather a lack of time. ", 
+            "markdown_message": "<p>I appreciate the help. You know how it goes, it&#39;s not so much a lack of technical knowledge that keeps these from being patched quickly but rather a lack of time. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1768349, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-30T22:12:49.895Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-30T22:12:49.895Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @jobert,\n\nWe have a fix ready for this. I hope to have it included in our next security release. I'll let you know for sure when it's released.", 
+            "markdown_message": "<p>Hi <a href=\"/jobert\">@jobert</a>,</p>\n\n<p>We have a fix ready for this. I hope to have it included in our next security release. I&#39;ll let you know for sure when it&#39;s released.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1878501, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-30T18:10:16.629Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-30T18:10:16.629Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @jobert,\n\nA fix for this will be included in our next security release. Hopefully to be released in a the next day or two. I'll let you know!", 
+            "markdown_message": "<p>Hi <a href=\"/jobert\">@jobert</a>,</p>\n\n<p>A fix for this will be included in our next security release. Hopefully to be released in a the next day or two. I&#39;ll let you know!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1967024, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "jobert", 
+                "url": "/jobert"
+            }, 
+            "created_at": "2017-09-07T23:02:56.561Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-07T23:02:56.561Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @jobert,\n\nA patch for this vulnerability was included with our security release today: https://about.gitlab.com/2017/09/07/gitlab-9-dot-5-dot-4-security-release/\n\nThanks again for another report!", 
+            "markdown_message": "<p>Hi <a href=\"/jobert\">@jobert</a>,</p>\n\n<p>A patch for this vulnerability was included with our security release today: <a title=\"https://about.gitlab.com/2017/09/07/gitlab-9-dot-5-dot-4-security-release/\" href=\"/redirect?signature=3d3af4ea6e3ca9bb51c4b5cc6b160b0db9764767&amp;url=https%3A%2F%2Fabout.gitlab.com%2F2017%2F09%2F07%2Fgitlab-9-dot-5-dot-4-security-release%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://about.gitlab.com/2017/09/07/gitlab-9-dot-5-dot-4-security-release/</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>Thanks again for another report!</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1984009, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-03T17:46:25.380Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-03T17:46:25.380Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2041504, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-03T19:11:28.768Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-03T19:11:28.768Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2041795, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-03T19:11:28.856Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-03T19:11:28.856Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2041796, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "jobert", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/jobert", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/002/15c798072d48f06507cde4b11352a3338ae973fc_small.png?1410255083"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 18, 
+        "name": "Information Disclosure"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -34490733.59292597, 
+    "disclosed_at": "2017-10-03T19:11:28.808Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/214028", 
+    "created_at": "2017-03-16T22:30:03.968Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"vulnerability-details\">Vulnerability details</h1>\n\n<p>There&#39;s a race condition in the <code>Import::GitlabProjectsController#create</code> endpoint that allows an attacker to gain access to someone else&#39;s import file. The race condition happens when there&#39;s a collision in two or more file names uploaded at the same time, before the import gets processed by Sidekiq. The person uploading the file for the first time will see the last person&#39;s file contents instead.</p>\n\n<h1 id=\"impact\">Impact</h1>\n\n<p>Depending on the contents of the GitLab import file, this could leak confidential information from other users on the GitLab instance.</p>\n\n<h1 id=\"proof-of-concept\">Proof of concept</h1>\n\n<p>This is hard to reproduce without a good setup, but conceptually it&#39;s pretty easy to explain by going through the code. When someone uploads a new file, the following code gets executed:</p>\n\n<p><strong>app/controllers/import/gitlab_projects_controller.rb</strong> (15-18)</p>\n<pre class=\"highlight ruby\"><code><span class=\"n\">import_upload_path</span> <span class=\"o\">=</span> <span class=\"no\">Gitlab</span><span class=\"o\">::</span><span class=\"no\">ImportExport</span><span class=\"p\">.</span><span class=\"nf\">import_upload_path</span><span class=\"p\">(</span><span class=\"ss\">filename: </span><span class=\"n\">project_params</span><span class=\"p\">[</span><span class=\"ss\">:file</span><span class=\"p\">].</span><span class=\"nf\">original_filename</span><span class=\"p\">)</span>\n\n<span class=\"no\">FileUtils</span><span class=\"p\">.</span><span class=\"nf\">mkdir_p</span><span class=\"p\">(</span><span class=\"no\">File</span><span class=\"p\">.</span><span class=\"nf\">dirname</span><span class=\"p\">(</span><span class=\"n\">import_upload_path</span><span class=\"p\">))</span>\n<span class=\"no\">FileUtils</span><span class=\"p\">.</span><span class=\"nf\">copy_entry</span><span class=\"p\">(</span><span class=\"n\">project_params</span><span class=\"p\">[</span><span class=\"ss\">:file</span><span class=\"p\">].</span><span class=\"nf\">path</span><span class=\"p\">,</span> <span class=\"n\">import_upload_path</span><span class=\"p\">)</span>\n</code></pre>\n<p>The <code>Gitlab::ImportExport.import_upload_path</code> method looks like this:</p>\n<pre class=\"highlight ruby\"><code><span class=\"k\">def</span> <span class=\"nf\">import_upload_path</span><span class=\"p\">(</span><span class=\"n\">filename</span><span class=\"p\">:)</span>\n  <span class=\"no\">File</span><span class=\"p\">.</span><span class=\"nf\">join</span><span class=\"p\">(</span><span class=\"n\">storage_path</span><span class=\"p\">,</span> <span class=\"s1\">&#39;uploads&#39;</span><span class=\"p\">,</span> <span class=\"n\">filename</span><span class=\"p\">)</span>\n<span class=\"k\">end</span>\n</code></pre>\n<p>This means, when a file called <code>import.tar.gz</code> would get uploaded, it would copy the temporary file to <code>/var/opt/gitlab/gitlab-rails/shared/tmp/project_exports/uploads/import.tar.gz</code>. Next, it&#39;ll schedule an async job in Sidekiq that&#39;ll take care of unpacking the import file and restore it&#39;s contents. However, since there&#39;s a delay between when the file gets copied and when the job gets processed (depending on how busy the workers are, etc.), someone else could upload a file with the same filename. If this happens before the import job gets processed, the victim will unknowingly overwrite the attacker&#39;s import file. When the attacker&#39;s Sidekiq job gets executed, it&#39;ll unpack the victim&#39;s import file and restore the files in the attacker&#39;s repository.</p>\n\n<p>The entropy of a GitLab export file is decent enough to make this extremely hard to pull off. However, when someone would rename the file to something more common, for example a repository name, project name, or something generic like <code>import.tar.gz</code>, the changes of this happening increase.</p>\n\n<p>To reproduce this vulnerability locally, it is easiest to shutdown the Sidekiq workers and upload two files with the same name under two different accounts. After that, restart the Sidekiq workers. You&#39;ll notice that both repositories hold the contents of the last imported file.</p>\n\n<h1 id=\"remediation-advice\">Remediation advice</h1>\n\n<p>Generate a random filename instead of using the original filename or add the namespace and project URL to avoid file name collisions.</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://about.gitlab.com", 
+            "about": "Open source software to collaborate on code", 
+            "twitter_handle": "gitlab", 
+            "name": "GitLab"
+        }, 
+        "handle": "gitlab", 
+        "url": "https://hackerone.com/gitlab", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/264/338ec4b43393873324e3f1911f2f107d025d13f1_small.png?1454722206", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/264/f40e550269de1c8aef9adbdfe728c9aa8163a7e5_medium.png?1454722206"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 264, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

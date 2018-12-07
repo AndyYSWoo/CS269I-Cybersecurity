@@ -1,0 +1,387 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-05-22T21:54:43.884Z", 
+    "voters": [
+        "ysx", 
+        "eveeez", 
+        "japz", 
+        "demo--hacker", 
+        "spetr0x"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 206877, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-05-23T07:29:33.199Z", 
+    "vulnerability_information": "#Problem\n\nThere are HTML injections throughout the ownCloud desktop client. A good example of this can be seen in [accountsettings.cpp line 641 to 705](https://github.com/owncloud/client/blob/172689d35cfae5137a316dfdee7dacc9667e1dcc/src/gui/accountsettings.cpp#L641-L705). For reference purposes this is a trimmed down and slightly commented version of the code:\n\n```cpp\nvoid AccountSettings::refreshSelectiveSyncStatus()\n{\n    QString msg;\n    int cnt = 0;\n    foreach (Folder *folder, FolderMan::instance()->map().values()) {\n    ...\n        foreach(const auto &it, undecidedList) {\n            ...\n            QString myFolder = (it);\n            ...\n            QModelIndex theIndx = _model->indexForPath(folder, myFolder);\n            if(theIndx.isValid()) {\n                // User supplied content is appended to msg\n                msg += QString::fromLatin1(\"<a href=\\\"%1?folder=%2\\\">%1</a>\").arg(myFolder).arg(folder->alias());\n            } else {\n                msg += myFolder; // no link because we do not know the index yet.\n            }\n        }\n    }\n\n    if (msg.isEmpty()) {\n       ...\n    } else {\n        ConfigFile cfg;\n        QString info =\n            !cfg.confirmExternalStorage() ? tr(\"There are folders that were not synchronized because they are too big: \") :\n            !cfg.newBigFolderSizeLimit().first ? tr(\"There are folders that were not synchronized because they are external storages: \") :\n            tr(\"There are folders that were not synchronized because they are too big or external storages: \");\n\n        ui->selectiveSyncNotification->setText(info + msg);\n        ui->selectiveSyncButtons->setVisible(false);\n        ui->bigFolderUi->setVisible(true);\n        shouldBeVisible = true;\n    }\n   ...\n}\n```\n\n`msg` is assigned `QString::fromLatin1(\"<a href=\\\"%1?folder=%2\\\">%1</a>\").arg(myFolder).arg(folder->alias());` whereas `myFolder` and `folder->alias()` are user-controlled content.\n\nIf an adversary on the instance now shares a folder with someone else that exceeds the \"ask for confirmation before synchronising limit\" (default: 500MB) this will lead into above execution path.  An example malicious folder name would be:\n\n> `\"><&#x2f;a><p><center><h1><strong>Important!<&#x2f;strong> Please go to nextcloud.com and relogin!<&#x2f;center><&#x2f;h1><&#x2f;p><!-- ` \n\nIn the user interface this will lead to following view in the 2.3.x client:\n\n{F161217}\n\n*Note that this is also exploitable on 2.2.x. For simplicity, I went with the 2.3.x client as this is the currently developed branch. Exploit has been tested on OS X and may need adjustments for other operating systems.*\n\n#Patch proposal\n\nThis kind of vulnerability can be addressed by escaping user-supplied content, in this case one approach to patch it would be:\n\n```diff\ndiff --git src/gui/accountsettings.cpp src/gui/accountsettings.cpp\nindex 0fb32cfbf..9c46ce9c1 100644\n--- src/gui/accountsettings.cpp\n+++ src/gui/accountsettings.cpp\n@@ -664,7 +664,7 @@ void AccountSettings::refreshSelectiveSyncStatus()\n             }\n             QModelIndex theIndx = _model->indexForPath(folder, myFolder);\n             if(theIndx.isValid()) {\n-                msg += QString::fromLatin1(\"<a href=\\\"%1?folder=%2\\\">%1</a>\").arg(myFolder).arg(folder->alias());\n+                msg += QString::fromLatin1(\"<a href=\\\"%1?folder=%2\\\">%1</a>\").arg(myFolder.toHtmlEscaped()).arg(folder->alias().toHtmlEscaped());\n             } else {\n                 msg += myFolder; // no link because we do not know the index yet.\n             }\n```\n\n#General recommendation\n\nA quick research on the client application shows that similar vulnerabilities can be found throughout the application. For example when hovering file names as can be seen in F161223. \n\nI'd highly recommend thus to review the whole codebase for similar vulnerabilities.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "none", 
+            "privileges_required": "low", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "high", 
+            "scope": "changed", 
+            "integrity": "low", 
+            "availability": "none"
+        }, 
+        "rating": "low", 
+        "score": 3.5, 
+        "author_type": "User"
+    }, 
+    "title": "HTML injection in Desktop Client", 
+    "is_member_of_team?": null, 
+    "vote_count": 5, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-06-21T21:54:43.966Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "spoofed-error-message.png", 
+            "type": "image/png", 
+            "id": 161217, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/161/217/a4c068bd8471848048c19b04cb47c4abac4bf1fa/spoofed-error-message.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223825Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=0aba7e065c77229389903f8f44a1966c8dd63c98881e05f418380e9d443f8cfc"
+        }, 
+        {
+            "file_name": "font-exploit.png", 
+            "type": "image/png", 
+            "id": 161223, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/161/223/dd22834d5b4e602a7af623b0cc26ac76ae794163/font-exploit.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223825Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=f415bf0d59769becf6a5e60920d62d4cce849f6b20ee8e00600aca1b1eedddfb"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": true, 
+            "created_at": "2017-02-16T13:01:16.906Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-16T13:01:16.906Z", 
+            "actor": {
+                "url": "/owncloud", 
+                "profile": {
+                    "name": "ownCloud"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/059/6af0ec24c370d0d2250fdf2ac3e937f4aab2692d_medium.png?1438786688"
+                }
+            }, 
+            "team_handle": "owncloud", 
+            "message": "Thanks a lot for reporting this potential issue back to us. We take security very seriously and would appreciate if you would not share any information about this bug until we have determined a potential patch.\r\n \r\nOur security team will take a look at this issue as soon as possible. We will reply to your report within 72 hours, usually much faster.", 
+            "markdown_message": "<p>Thanks a lot for reporting this potential issue back to us. We take security very seriously and would appreciate if you would not share any information about this bug until we have determined a potential patch.</p>\n\n<p>Our security team will take a look at this issue as soon as possible. We will reply to your report within 72 hours, usually much faster.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1489102, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-22T17:24:36.048Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-22T17:24:36.048Z", 
+            "actor": {
+                "username": "ogoffart", 
+                "url": "/ogoffart", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "owncloud", 
+            "message": "Looks like a valid report.\n\nNote that the patch does not work with Qt4.   (one need to call Utility::escape(...)  instead)\n\n(Also, the mult-arg veriant of arg should be used because the folder could contain a '%1'", 
+            "markdown_message": "<p>Looks like a valid report.</p>\n\n<p>Note that the patch does not work with Qt4.   (one need to call Utility::escape(...)  instead)</p>\n\n<p>(Also, the mult-arg veriant of arg should be used because the folder could contain a &#39;%1&#39;</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1499717, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-23T14:37:49.991Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-23T14:37:49.991Z", 
+            "actor": {
+                "username": "lukasreschke", 
+                "url": "/lukasreschke", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/891/0ddfc05411893988a0d2794cd70d5dc221729713_medium.png?1438782834"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "owncloud", 
+            "message": "Thanks for the update, @ogoffart. We do certainly appreciate it! :-)\n\nAs stated via mail, if you require any help in addressing this me and @rullzer would be happy to help as well as review any Pull Request.", 
+            "markdown_message": "<p>Thanks for the update, <a href=\"/ogoffart\">@ogoffart</a>. We do certainly appreciate it! :-)</p>\n\n<p>As stated via mail, if you require any help in addressing this me and <a href=\"/rullzer\">@rullzer</a> would be happy to help as well as review any Pull Request.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1501456, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-24T08:52:34.893Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-24T08:52:34.893Z", 
+            "actor": {
+                "username": "ogoffart", 
+                "url": "/ogoffart", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "owncloud", 
+            "message": "The issue should be fixed now:  https://github.com/owncloud/client/pull/5558\n(yes, it is public, I considered it is fine because the security implications of adding some formating glitches to the UI are quite low).\n\nI don't know how to proceed with hackerone for the bounty or so. maybe @pprochaska can help.\nThe issue is valid and was fixed. But i think the security implications are low.  An authenticated user sharing files can add or mess the formating of some messages in the client.", 
+            "markdown_message": "<p>The issue should be fixed now:  <a title=\"https://github.com/owncloud/client/pull/5558\" href=\"/redirect?signature=0cb853726a300acf29e5dc208542d5be99df02c7&amp;url=https%3A%2F%2Fgithub.com%2Fowncloud%2Fclient%2Fpull%2F5558\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/owncloud/client/pull/5558</span><i class=\"icon-external-link\"></i></a><br>\n(yes, it is public, I considered it is fine because the security implications of adding some formating glitches to the UI are quite low).</p>\n\n<p>I don&#39;t know how to proceed with hackerone for the bounty or so. maybe <a href=\"/pprochaska\">@pprochaska</a> can help.<br>\nThe issue is valid and was fixed. But i think the security implications are low.  An authenticated user sharing files can add or mess the formating of some messages in the client.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1502929, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/168/414/f7c5ffa4c0c0e86a2fdd9143a2861062bed9f5ba/mark_as_resolved.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223826Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=e9556856bd45af84e2303134b7a33e9b59cc1fbc8b0b6aac60a0d28869398f00", 
+                    "type": "image/png", 
+                    "id": 168414, 
+                    "filename": "mark_as_resolved.png"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2017-03-13T11:58:22.805Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-13T11:58:22.805Z", 
+            "actor": {
+                "username": "lukasreschke", 
+                "url": "/lukasreschke", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/891/0ddfc05411893988a0d2794cd70d5dc221729713_medium.png?1438782834"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "owncloud", 
+            "message": "Thanks for the patch on that, @ogoffart. Much appreciated.\n\nCan I ask you to close the issue as resolved? This can be done by choosing \"Close report\" in the select box on the top left and then select \"Resolved\" and then pressing the green \"Close Report\" button.\n\n{F168414}", 
+            "markdown_message": "<p>Thanks for the patch on that, <a href=\"/ogoffart\">@ogoffart</a>. Much appreciated.</p>\n\n<p>Can I ask you to close the issue as resolved? This can be done by choosing &quot;Close report&quot; in the select box on the top left and then select &quot;Resolved&quot; and then pressing the green &quot;Close Report&quot; button.</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"mark_as_resolved.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/168/414/f7c5ffa4c0c0e86a2fdd9143a2861062bed9f5ba/mark_as_resolved.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223825Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=7c685de8ea98a6c7d8526d9ec43e286dd96678968b529ca6479d2f63da8686b2\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/168/414/f7c5ffa4c0c0e86a2fdd9143a2861062bed9f5ba/mark_as_resolved.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223825Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=7c685de8ea98a6c7d8526d9ec43e286dd96678968b529ca6479d2f63da8686b2\" class=\"markdown-inline-image\"></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1537088, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "lukasreschke", 
+                "url": "/lukasreschke"
+            }, 
+            "created_at": "2017-03-13T14:16:30.137Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-13T14:16:30.137Z", 
+            "actor": {
+                "username": "pprochaska", 
+                "url": "/pprochaska", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "owncloud", 
+            "message": "Thanks for the hint :-)", 
+            "markdown_message": "<p>Thanks for the hint :-)</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1537479, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-30T07:50:14.041Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-30T07:50:14.041Z", 
+            "actor": {
+                "url": "/owncloud", 
+                "profile": {
+                    "name": "ownCloud"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/059/6af0ec24c370d0d2250fdf2ac3e937f4aab2692d_medium.png?1438786688"
+                }
+            }, 
+            "team_handle": "owncloud", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::NotEligibleForBounty", 
+            "id": 1572360, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-22T21:54:43.926Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-22T21:54:43.926Z", 
+            "actor": {
+                "username": "lukasreschke", 
+                "url": "/lukasreschke", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/891/0ddfc05411893988a0d2794cd70d5dc221729713_medium.png?1438782834"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "owncloud", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1693177, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-23T07:29:33.223Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-23T07:29:33.223Z", 
+            "actor": {
+                "username": "pprochaska", 
+                "url": "/pprochaska", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "owncloud", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1694107, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-23T07:29:33.276Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-23T07:29:33.276Z", 
+            "actor": {
+                "username": "pprochaska", 
+                "url": "/pprochaska", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "owncloud", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1694108, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "lukasreschke", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/lukasreschke", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/037/891/8666abeffab5fc62fe0b8cad0965e5727894b1b2_small.png?1438782834"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 60, 
+        "name": "Cross-site Scripting (XSS) - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -46053821.94475595, 
+    "disclosed_at": "2017-05-23T07:29:33.250Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/206877", 
+    "created_at": "2017-02-16T13:01:16.695Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"problem\">Problem</h1>\n\n<p>There are HTML injections throughout the ownCloud desktop client. A good example of this can be seen in <a href=\"/redirect?signature=9a18a702b670301320d6f186fb02d4c1d24cbca3&amp;url=https%3A%2F%2Fgithub.com%2Fowncloud%2Fclient%2Fblob%2F172689d35cfae5137a316dfdee7dacc9667e1dcc%2Fsrc%2Fgui%2Faccountsettings.cpp%23L641-L705\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>accountsettings.cpp line 641 to 705</span><i class=\"icon-external-link\"></i></a>. For reference purposes this is a trimmed down and slightly commented version of the code:</p>\n<pre class=\"highlight cpp\"><code><span class=\"kt\">void</span> <span class=\"n\">AccountSettings</span><span class=\"o\">::</span><span class=\"n\">refreshSelectiveSyncStatus</span><span class=\"p\">()</span>\n<span class=\"p\">{</span>\n    <span class=\"n\">QString</span> <span class=\"n\">msg</span><span class=\"p\">;</span>\n    <span class=\"kt\">int</span> <span class=\"n\">cnt</span> <span class=\"o\">=</span> <span class=\"mi\">0</span><span class=\"p\">;</span>\n    <span class=\"n\">foreach</span> <span class=\"p\">(</span><span class=\"n\">Folder</span> <span class=\"o\">*</span><span class=\"n\">folder</span><span class=\"p\">,</span> <span class=\"n\">FolderMan</span><span class=\"o\">::</span><span class=\"n\">instance</span><span class=\"p\">()</span><span class=\"o\">-&gt;</span><span class=\"n\">map</span><span class=\"p\">().</span><span class=\"n\">values</span><span class=\"p\">())</span> <span class=\"p\">{</span>\n    <span class=\"p\">...</span>\n        <span class=\"n\">foreach</span><span class=\"p\">(</span><span class=\"k\">const</span> <span class=\"k\">auto</span> <span class=\"o\">&amp;</span><span class=\"n\">it</span><span class=\"p\">,</span> <span class=\"n\">undecidedList</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n            <span class=\"p\">...</span>\n            <span class=\"n\">QString</span> <span class=\"n\">myFolder</span> <span class=\"o\">=</span> <span class=\"p\">(</span><span class=\"n\">it</span><span class=\"p\">);</span>\n            <span class=\"p\">...</span>\n            <span class=\"n\">QModelIndex</span> <span class=\"n\">theIndx</span> <span class=\"o\">=</span> <span class=\"n\">_model</span><span class=\"o\">-&gt;</span><span class=\"n\">indexForPath</span><span class=\"p\">(</span><span class=\"n\">folder</span><span class=\"p\">,</span> <span class=\"n\">myFolder</span><span class=\"p\">);</span>\n            <span class=\"k\">if</span><span class=\"p\">(</span><span class=\"n\">theIndx</span><span class=\"p\">.</span><span class=\"n\">isValid</span><span class=\"p\">())</span> <span class=\"p\">{</span>\n                <span class=\"c1\">// User supplied content is appended to msg\n</span>                <span class=\"n\">msg</span> <span class=\"o\">+=</span> <span class=\"n\">QString</span><span class=\"o\">::</span><span class=\"n\">fromLatin1</span><span class=\"p\">(</span><span class=\"s\">&quot;&lt;a href=</span><span class=\"se\">\\&quot;</span><span class=\"s\">%1?folder=%2</span><span class=\"se\">\\&quot;</span><span class=\"s\">&gt;%1&lt;/a&gt;&quot;</span><span class=\"p\">).</span><span class=\"n\">arg</span><span class=\"p\">(</span><span class=\"n\">myFolder</span><span class=\"p\">).</span><span class=\"n\">arg</span><span class=\"p\">(</span><span class=\"n\">folder</span><span class=\"o\">-&gt;</span><span class=\"n\">alias</span><span class=\"p\">());</span>\n            <span class=\"p\">}</span> <span class=\"k\">else</span> <span class=\"p\">{</span>\n                <span class=\"n\">msg</span> <span class=\"o\">+=</span> <span class=\"n\">myFolder</span><span class=\"p\">;</span> <span class=\"c1\">// no link because we do not know the index yet.\n</span>            <span class=\"p\">}</span>\n        <span class=\"p\">}</span>\n    <span class=\"p\">}</span>\n\n    <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"n\">msg</span><span class=\"p\">.</span><span class=\"n\">isEmpty</span><span class=\"p\">())</span> <span class=\"p\">{</span>\n       <span class=\"p\">...</span>\n    <span class=\"p\">}</span> <span class=\"k\">else</span> <span class=\"p\">{</span>\n        <span class=\"n\">ConfigFile</span> <span class=\"n\">cfg</span><span class=\"p\">;</span>\n        <span class=\"n\">QString</span> <span class=\"n\">info</span> <span class=\"o\">=</span>\n            <span class=\"o\">!</span><span class=\"n\">cfg</span><span class=\"p\">.</span><span class=\"n\">confirmExternalStorage</span><span class=\"p\">()</span> <span class=\"o\">?</span> <span class=\"n\">tr</span><span class=\"p\">(</span><span class=\"s\">&quot;There are folders that were not synchronized because they are too big: &quot;</span><span class=\"p\">)</span> <span class=\"o\">:</span>\n            <span class=\"o\">!</span><span class=\"n\">cfg</span><span class=\"p\">.</span><span class=\"n\">newBigFolderSizeLimit</span><span class=\"p\">().</span><span class=\"n\">first</span> <span class=\"o\">?</span> <span class=\"n\">tr</span><span class=\"p\">(</span><span class=\"s\">&quot;There are folders that were not synchronized because they are external storages: &quot;</span><span class=\"p\">)</span> <span class=\"o\">:</span>\n            <span class=\"n\">tr</span><span class=\"p\">(</span><span class=\"s\">&quot;There are folders that were not synchronized because they are too big or external storages: &quot;</span><span class=\"p\">);</span>\n\n        <span class=\"n\">ui</span><span class=\"o\">-&gt;</span><span class=\"n\">selectiveSyncNotification</span><span class=\"o\">-&gt;</span><span class=\"n\">setText</span><span class=\"p\">(</span><span class=\"n\">info</span> <span class=\"o\">+</span> <span class=\"n\">msg</span><span class=\"p\">);</span>\n        <span class=\"n\">ui</span><span class=\"o\">-&gt;</span><span class=\"n\">selectiveSyncButtons</span><span class=\"o\">-&gt;</span><span class=\"n\">setVisible</span><span class=\"p\">(</span><span class=\"nb\">false</span><span class=\"p\">);</span>\n        <span class=\"n\">ui</span><span class=\"o\">-&gt;</span><span class=\"n\">bigFolderUi</span><span class=\"o\">-&gt;</span><span class=\"n\">setVisible</span><span class=\"p\">(</span><span class=\"nb\">true</span><span class=\"p\">);</span>\n        <span class=\"n\">shouldBeVisible</span> <span class=\"o\">=</span> <span class=\"nb\">true</span><span class=\"p\">;</span>\n    <span class=\"p\">}</span>\n   <span class=\"p\">...</span>\n<span class=\"p\">}</span>\n</code></pre>\n<p><code>msg</code> is assigned <code>QString::fromLatin1(&quot;&lt;a href=\\&quot;%1?folder=%2\\&quot;&gt;%1&lt;/a&gt;&quot;).arg(myFolder).arg(folder-&gt;alias());</code> whereas <code>myFolder</code> and <code>folder-&gt;alias()</code> are user-controlled content.</p>\n\n<p>If an adversary on the instance now shares a folder with someone else that exceeds the &quot;ask for confirmation before synchronising limit&quot; (default: 500MB) this will lead into above execution path.  An example malicious folder name would be:</p>\n\n<blockquote>\n<p><code>&quot;&gt;&lt;&amp;#x2f;a&gt;&lt;p&gt;&lt;center&gt;&lt;h1&gt;&lt;strong&gt;Important!&lt;&amp;#x2f;strong&gt; Please go to nextcloud.com and relogin!&lt;&amp;#x2f;center&gt;&lt;&amp;#x2f;h1&gt;&lt;&amp;#x2f;p&gt;&lt;!--</code> </p>\n</blockquote>\n\n<p>In the user interface this will lead to following view in the 2.3.x client:</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"spoofed-error-message.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/161/217/a4c068bd8471848048c19b04cb47c4abac4bf1fa/spoofed-error-message.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223825Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=0aba7e065c77229389903f8f44a1966c8dd63c98881e05f418380e9d443f8cfc\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/161/217/a4c068bd8471848048c19b04cb47c4abac4bf1fa/spoofed-error-message.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223825Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=0aba7e065c77229389903f8f44a1966c8dd63c98881e05f418380e9d443f8cfc\" class=\"markdown-inline-image\"></a></p>\n\n<p><em>Note that this is also exploitable on 2.2.x. For simplicity, I went with the 2.3.x client as this is the currently developed branch. Exploit has been tested on OS X and may need adjustments for other operating systems.</em></p>\n\n<h1 id=\"patch-proposal\">Patch proposal</h1>\n\n<p>This kind of vulnerability can be addressed by escaping user-supplied content, in this case one approach to patch it would be:</p>\n<pre class=\"highlight diff\"><code><span class=\"gh\">diff --git src/gui/accountsettings.cpp src/gui/accountsettings.cpp\nindex 0fb32cfbf..9c46ce9c1 100644\n</span><span class=\"gd\">--- src/gui/accountsettings.cpp\n</span><span class=\"gi\">+++ src/gui/accountsettings.cpp\n</span><span class=\"gu\">@@ -664,7 +664,7 @@ void AccountSettings::refreshSelectiveSyncStatus()\n</span>             }\n             QModelIndex theIndx = _model-&gt;indexForPath(folder, myFolder);\n             if(theIndx.isValid()) {\n<span class=\"gd\">-                msg += QString::fromLatin1(&quot;&lt;a href=\\&quot;%1?folder=%2\\&quot;&gt;%1&lt;/a&gt;&quot;).arg(myFolder).arg(folder-&gt;alias());\n</span><span class=\"gi\">+                msg += QString::fromLatin1(&quot;&lt;a href=\\&quot;%1?folder=%2\\&quot;&gt;%1&lt;/a&gt;&quot;).arg(myFolder.toHtmlEscaped()).arg(folder-&gt;alias().toHtmlEscaped());\n</span>             } else {\n                 msg += myFolder; // no link because we do not know the index yet.\n             }\n</code></pre>\n<h1 id=\"general-recommendation\">General recommendation</h1>\n\n<p>A quick research on the client application shows that similar vulnerabilities can be found throughout the application. For example when hovering file names as can be seen in <a href=\"#\" class=\"markdown-attachment-link markdown-attachment-reference\" data-attachment-filename=\"font-exploit.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/161/223/dd22834d5b4e602a7af623b0cc26ac76ae794163/font-exploit.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223825Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=f415bf0d59769becf6a5e60920d62d4cce849f6b20ee8e00600aca1b1eedddfb\" data-attachment-type=\"image/png\">font-exploit.png (F161223)</a>. </p>\n\n<p>I&#39;d highly recommend thus to review the whole codebase for similar vulnerabilities.</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.owncloud.com", 
+            "about": "ownCloud GmbH is the company behind the ownCloud Project - the most downloaded open source project for data and file sync, share and view.", 
+            "twitter_handle": "ownCloud", 
+            "name": "ownCloud"
+        }, 
+        "handle": "owncloud", 
+        "url": "https://hackerone.com/owncloud", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/003/059/ef3f773944541857909a6662470c5452b3f94d88_small.png?1438786688", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/003/059/6af0ec24c370d0d2250fdf2ac3e937f4aab2692d_medium.png?1438786688"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 3059, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

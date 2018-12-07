@@ -1,0 +1,584 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "europa", 
+        "jensec", 
+        "pist4chios", 
+        "emitrani", 
+        "eveeez", 
+        "appsecure_in", 
+        "an0nym0us", 
+        "babayaga_", 
+        "mygf", 
+        "craxerbikash", 
+        "and 12 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 273726, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-07-23T14:38:52.462Z", 
+    "vulnerability_information": "Hello team!\nWhile doing a preliminary recon on *.wordpress.org I've come across a few sensitive files that should not be facing the public web; I'll leave you a list organized by criticality and some proof.\n\n\n### High priority\n[.travis.yml](https://codex.wordpress.org/.travis.yml) configuration file with credentials\n```\nphp maintenance/install.php testwiki admin\n--pass travis\n--dbname traviswiki\n--dbuser travis\n--dbpass \"\"\n--scriptpath \"/w\"\n```\n\n\n### Medium priority\n[.htaccess](https://munin-lax.wordpress.org/.htaccess) file for **munin-lax.wordpress.org**\n```\nAuthUserFile /usr/local/etc/munin-htpasswd\nAuthName \"Munin\"\nAuthType Basic\nrequire valid-user\n```\n\n### Low priority\none `.bash_history` file accessible from multiple production vhosts:\n```\nhttp://iphone.git.wordpress.org/.bash_history\nhttp://meta.git.wordpress.org/.bash_history\nhttp://wordpress.git.wordpress.org/.bash_history\nhttp://bbpress.git.wordpress.org/.bash_history\nhttp://buddypress.git.wordpress.org/.bash_history\nhttp://core.git.wordpress.org/.bash_history\nhttp://android.git.wordpress.org/.bash_history\nhttp://ios.git.wordpress.org/.bash_history\nhttp://wordcamp.git.wordpress.org/.bash_history\nhttp://develop.git.wordpress.org/.bash_history\nhttp://evelop.git.wordpress.org/.bash_history\n```\n\none ssh `known_hosts` file accessible from multiple production vhosts:\n```\nhttp://wordcamp.git.wordpress.org/.ssh/known_hosts\nhttp://ios.git.wordpress.org/.ssh/known_hosts\nhttp://android.git.wordpress.org/.ssh/known_hosts\nhttp://core.git.wordpress.org/.ssh/known_hosts\nhttp://buddypress.git.wordpress.org/.ssh/known_hosts\nhttp://bbpress.git.wordpress.org/.ssh/known_hosts\nhttp://wordpress.git.wordpress.org/.ssh/known_hosts\nhttp://meta.git.wordpress.org/.ssh/known_hosts\nhttp://iphone.git.wordpress.org/.ssh/known_hosts\nhttp://develop.git.wordpress.org/.ssh/known_hosts\nhttp://evelop.git.wordpress.org/.ssh/known_hosts\n```\n\n\n### Impact\nObviously there's no critical priority here\u2014there could've been juicer stuff in the `.bash_history` but there wasn't; the publicly accessible `.htaccess` and `.travis.yml` might be serious as long as those credentials are really being used somewhere (and it seems to me the DBMS isn't facing the public internet anyway). The real impact is that finding such files always grabs the attention of a threat actor, which might give up not so easily influenced by the fact that there might be \"more\".\n\n\n### (minor) bonus round: host header injection on wordpress.org\nProbably *informational* but you might still want to look into that: **wordpress.org** is susceptible to \"host header injection\", you can read more about it [here](http://carlos.bueno.org/2008/06/host-header-injection.html) and [here](http://www.skeletonscribe.net/2013/05/practical-http-host-header-attacks.html). Essentially, depending on your internal configuration, this flaw ranges from a self-inflicted open-redirect (wow, such threat), to password reset request hijack, to cache poisoning.\n\n**PoC for the self-inflicted open-redirect (why though)**:\n\n```\n\u276f curl -v -H \"Host: z.xss.ro\" \"https://wordpress.org/themes/search\"\n> GET /themes/search HTTP/2\n> Host: z.xss.ro\n> User-Agent: curl/7.55.1\n> Accept: */*\n> \n< HTTP/2 301 \n< server: nginx\n< date: Mon, 02 Oct 2017 09:12:59 GMT\n< content-type: text/html\n< content-length: 178\n< location: https://z.xss.ro/themes/search/\n< x-frame-options: SAMEORIGIN\n< x-nc: MISS lax 250\n< \n<html>\n<head><title>301 Moved Permanently</title></head>\n```\nthis is also going down on plain HTTP so maybe a MitM scenario is possible in an already compromised business environment / hosting partner but then again, it's pretty low priority.\n\nI obviously can't test the password reset scenario, you might want to test that as follows:\n\n1. go to wordpress.org and begin the procedure to reset your password\n2. intercept the request on Burp\n3. change the host header to evil.com\n4. send the request and check your e-mail\n\nif the threat is real, the password reset link will be generated with evil.com instead of wordpress.org; otherwise it's all good (which should be, as this doesn't work on wordpress.com)", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "User"
+    }, 
+    "title": "Information / sensitive data disclosure on some endpoints", 
+    "is_member_of_team?": null, 
+    "vote_count": 22, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-08-22T14:38:52.567Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-07T16:01:56.254Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-07T16:01:56.254Z", 
+            "actor": {
+                "username": "johnbillion", 
+                "url": "/johnbillion", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/014/083/d2aa5d94732da736a08f022dba3f393e01312ee6_medium.jpg?1484683288"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Thanks for your report, @europa. I've passed this on to the servers team to investigate each of those issues (no idea why there are bash histories in our Git repos...). We'll keep you posted!", 
+            "markdown_message": "<p>Thanks for your report, <a href=\"/europa\">@europa</a>. I&#39;ve passed this on to the servers team to investigate each of those issues (no idea why there are bash histories in our Git repos...). We&#39;ll keep you posted!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2051205, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-16T18:30:14.240Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-16T18:30:14.240Z", 
+            "actor": {
+                "username": "mahmoud0x00", 
+                "url": "/mahmoud0x00", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/112/382/5d6ab7652cb3a2358ae7fb30ae3b16133927f373_medium.jpg?1513081109"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "duplicate_report_id": 277842
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 2070149, 
+            "genius_execution_id": null
+        }, 
+        {
+            "removed_user": {
+                "url": "/mahmoud0x00", 
+                "username": "mahmoud0x00"
+            }, 
+            "automated_response": false, 
+            "created_at": "2017-10-16T18:36:55.174Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-16T18:36:55.174Z", 
+            "actor": {
+                "username": "mahmoud0x00", 
+                "url": "/mahmoud0x00", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/112/382/5d6ab7652cb3a2358ae7fb30ae3b16133927f373_medium.jpg?1513081109"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserRemoved", 
+            "id": 2070173, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-28T01:39:02.878Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-28T01:39:02.878Z", 
+            "actor": {
+                "username": "iandunn", 
+                "url": "/iandunn", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/974/4a74c8e7efc3996e6fff3f72ddccc09ab92986a2_medium.jpg?1506561124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2109715, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-27T17:46:53.006Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-27T17:46:53.006Z", 
+            "actor": {
+                "username": "europa", 
+                "url": "/europa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/189/882/dd8e03ce60a513417afe21ed6bdbedf1dbaa1898_medium.jpg?1533370630"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Any developments on this issue?", 
+            "markdown_message": "<p>Any developments on this issue?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2184498, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-02T16:18:42.659Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-02T16:18:42.659Z", 
+            "actor": {
+                "username": "iandunn", 
+                "url": "/iandunn", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/974/4a74c8e7efc3996e6fff3f72ddccc09ab92986a2_medium.jpg?1506561124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Not yet, sorry. We've got a large backlog that we're working through. This is still in our queue, though. Thanks for your patience!", 
+            "markdown_message": "<p>Not yet, sorry. We&#39;ve got a large backlog that we&#39;re working through. This is still in our queue, though. Thanks for your patience!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2195948, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-02T17:28:24.408Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-02T17:28:24.408Z", 
+            "actor": {
+                "username": "n00bst00rm", 
+                "url": "/n00bst00rm", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/213/707/b611d6a8f4b97fc04872bacc6be6d8c2b56d520c_medium.jpg?1527091517"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "duplicate_report_id": 294500
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 2196008, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-02T18:17:48.173Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-02T18:17:48.173Z", 
+            "actor": {
+                "username": "n00bst00rm", 
+                "url": "/n00bst00rm", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/213/707/b611d6a8f4b97fc04872bacc6be6d8c2b56d520c_medium.jpg?1527091517"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Thanks For Adding me here !!", 
+            "markdown_message": "<p>Thanks For Adding me here !!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2196067, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-02T22:34:58.772Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-02T22:34:58.772Z", 
+            "actor": {
+                "username": "n00bst00rm", 
+                "url": "/n00bst00rm", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/213/707/b611d6a8f4b97fc04872bacc6be6d8c2b56d520c_medium.jpg?1527091517"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "you can add this \nhttp://ssh.meta.git.wordpress.org/.ssh/", 
+            "markdown_message": "<p>you can add this <br>\n<a title=\"http://ssh.meta.git.wordpress.org/.ssh/\" href=\"/redirect?signature=de6c7bf44a5a17fec396219494388024d5954be7&amp;url=http%3A%2F%2Fssh.meta.git.wordpress.org%2F.ssh%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://ssh.meta.git.wordpress.org/.ssh/</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2196236, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "europa", 
+                "url": "/europa"
+            }, 
+            "created_at": "2017-12-03T00:16:19.609Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-03T00:16:19.609Z", 
+            "actor": {
+                "username": "dd32", 
+                "url": "/dd32", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/087/943/d5a3d29ad59e3c64bc1bc470b22f2f99c66f7325_medium.jpg?1511603178"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hi @europa\nI apologise for the delay in having this fixed.\nWhile AFAIK nothing exposed was too sensitive (and years out of date), this has now been fixed.\n\nThanks also to @n00bst00rm for reporting this, sorry you've only reported it to find out that it'd been previously reported already and not been fixed.\n\n@europa With regards to your 2nd bonus report of `host header injection on wordpress.org`, a new report for that would have be appreciated (and still would be), but I'll verify that shortly to determine it's impact - I don't believe this could affect any caches and is only going to affect a few basic redirects which wouldn't affect normal usage of WordPress.org. \n", 
+            "markdown_message": "<p>Hi <a href=\"/europa\">@europa</a><br>\nI apologise for the delay in having this fixed.<br>\nWhile AFAIK nothing exposed was too sensitive (and years out of date), this has now been fixed.</p>\n\n<p>Thanks also to <a href=\"/n00bst00rm\">@n00bst00rm</a> for reporting this, sorry you&#39;ve only reported it to find out that it&#39;d been previously reported already and not been fixed.</p>\n\n<p><a href=\"/europa\">@europa</a> With regards to your 2nd bonus report of <code>host header injection on wordpress.org</code>, a new report for that would have be appreciated (and still would be), but I&#39;ll verify that shortly to determine it&#39;s impact - I don&#39;t believe this could affect any caches and is only going to affect a few basic redirects which wouldn&#39;t affect normal usage of WordPress.org. </p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2196339, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-03T08:27:46.673Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-03T08:28:02.646Z", 
+            "actor": {
+                "username": "europa", 
+                "url": "/europa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/189/882/dd8e03ce60a513417afe21ed6bdbedf1dbaa1898_medium.jpg?1533370630"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "There's nothing to apologise for, absolutely. I'm glad nothing too sensitive was leaking through those endpoints, as we already established when I first submitted this report, as I'm glad it's all been resolved.\nAs far as the Host Header Injection goes, I believe it's not even worth a report as 9 cases out of 10 it's completely harmless and self-inflicted. Do have a quick look if caching is affected, but I'm fairly sure it isn't and it just boils down to a self-open redirect (woah, severe).\nHave a good sunday, and thanks once again!", 
+            "markdown_message": "<p>There&#39;s nothing to apologise for, absolutely. I&#39;m glad nothing too sensitive was leaking through those endpoints, as we already established when I first submitted this report, as I&#39;m glad it&#39;s all been resolved.<br>\nAs far as the Host Header Injection goes, I believe it&#39;s not even worth a report as 9 cases out of 10 it&#39;s completely harmless and self-inflicted. Do have a quick look if caching is affected, but I&#39;m fairly sure it isn&#39;t and it just boils down to a self-open redirect (woah, severe).<br>\nHave a good sunday, and thanks once again!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2196542, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-03T12:01:26.685Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-03T12:01:26.685Z", 
+            "actor": {
+                "username": "n00bst00rm", 
+                "url": "/n00bst00rm", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/213/707/b611d6a8f4b97fc04872bacc6be6d8c2b56d520c_medium.jpg?1527091517"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "@dd32 , You're Welcome \ni think the \"http://ssh.meta.git.wordpress.org/.ssh/\" one is not reported , but it is fixed now .\nHave a good weekend !!\nregards,", 
+            "markdown_message": "<p><a href=\"/dd32\">@dd32</a> , You&#39;re Welcome <br>\ni think the &quot;<a title=\"http://ssh.meta.git.wordpress.org/.ssh/\" href=\"/redirect?signature=de6c7bf44a5a17fec396219494388024d5954be7&amp;url=http%3A%2F%2Fssh.meta.git.wordpress.org%2F.ssh%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://ssh.meta.git.wordpress.org/.ssh/</span><i class=\"icon-external-link\"></i></a>&quot; one is not reported , but it is fixed now .<br>\nHave a good weekend !!<br>\nregards,</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2196713, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-05T21:07:46.686Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-05T21:07:46.686Z", 
+            "actor": {
+                "username": "europa", 
+                "url": "/europa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/189/882/dd8e03ce60a513417afe21ed6bdbedf1dbaa1898_medium.jpg?1533370630"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "@dd32: exclusively in order to avoid confusion\u2014this is not eligible for a bounty, correct?", 
+            "markdown_message": "<p><a href=\"/dd32\">@dd32</a>: exclusively in order to avoid confusion\u2014this is not eligible for a bounty, correct?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2202788, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-06T17:39:30.583Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-06T17:39:30.583Z", 
+            "actor": {
+                "username": "iandunn", 
+                "url": "/iandunn", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/974/4a74c8e7efc3996e6fff3f72ddccc09ab92986a2_medium.jpg?1506561124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "We've got a large backlog of reports that we're working through, which also delays the determination of bounties, but we've started discussing this one. We'll post an update here once we wrap up that conversation.", 
+            "markdown_message": "<p>We&#39;ve got a large backlog of reports that we&#39;re working through, which also delays the determination of bounties, but we&#39;ve started discussing this one. We&#39;ll post an update here once we wrap up that conversation.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2204621, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-08T13:46:51.752Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-08T13:46:51.752Z", 
+            "actor": {
+                "username": "europa", 
+                "url": "/europa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/189/882/dd8e03ce60a513417afe21ed6bdbedf1dbaa1898_medium.jpg?1533370630"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hey @iandunn! Hopefully you and the team will have enjoyed the holidays; have you got any update on this one? Cheers!", 
+            "markdown_message": "<p>Hey <a href=\"/iandunn\">@iandunn</a>! Hopefully you and the team will have enjoyed the holidays; have you got any update on this one? Cheers!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2269872, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-08T20:29:20.981Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-08T20:29:20.981Z", 
+            "actor": {
+                "username": "iandunn", 
+                "url": "/iandunn", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/974/4a74c8e7efc3996e6fff3f72ddccc09ab92986a2_medium.jpg?1506561124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Not yet, I'm sorry for the delay, we're still working on our backlog of issues and bounty determinations. This is still in our queue for determination, though. I appreciate your patience :)", 
+            "markdown_message": "<p>Not yet, I&#39;m sorry for the delay, we&#39;re still working on our backlog of issues and bounty determinations. This is still in our queue for determination, though. I appreciate your patience :)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2270808, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "europa", 
+                "url": "/europa"
+            }, 
+            "created_at": "2018-01-31T18:09:13.983Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-31T18:09:13.983Z", 
+            "actor": {
+                "url": "/wordpress", 
+                "profile": {
+                    "name": "WordPress"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/055/a7e722c23dedc020ade3b6e7f1a96baa455f86d8_medium.jpg?1392934661"
+                }
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hey @europa,\n\nIt looks like there wasn't actually much of a security implication here, but we'd like to say thank you anyway and send you some swag. Please make sure that your address and shirt size are filled out in your hacker profile here.\n\nThanks,\nAaron", 
+            "markdown_message": "<p>Hey <a href=\"/europa\">@europa</a>,</p>\n\n<p>It looks like there wasn&#39;t actually much of a security implication here, but we&#39;d like to say thank you anyway and send you some swag. Please make sure that your address and shirt size are filled out in your hacker profile here.</p>\n\n<p>Thanks,<br>\nAaron</p>\n", 
+            "type": "Activities::SwagAwarded", 
+            "id": 2339370, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-31T18:14:47.540Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-31T18:14:47.540Z", 
+            "actor": {
+                "username": "europa", 
+                "url": "/europa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/189/882/dd8e03ce60a513417afe21ed6bdbedf1dbaa1898_medium.jpg?1533370630"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hey Aaron, thanks for reaching out!\nI agree with your decision, and I confirm my home address and shirt size\nThanks for the swag, and have a nice day, cheers!", 
+            "markdown_message": "<p>Hey Aaron, thanks for reaching out!<br>\nI agree with your decision, and I confirm my home address and shirt size<br>\nThanks for the swag, and have a nice day, cheers!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2339386, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-23T14:38:52.498Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-23T14:38:52.498Z", 
+            "actor": {
+                "username": "aaroncampbell", 
+                "url": "/aaroncampbell", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/821/6f1bfb789e2f97a2c2ca81a5e6ab6f7b3581ad4a_medium.jpg?1515860728"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3084387, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-22T14:39:06.182Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-22T14:39:06.182Z", 
+            "actor": {
+                "url": "/wordpress", 
+                "profile": {
+                    "name": "WordPress"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/055/a7e722c23dedc020ade3b6e7f1a96baa455f86d8_medium.jpg?1392934661"
+                }
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3231034, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "europa", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/europa", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/189/882/4f2eec8d4d5ef4e2aa81d558f03da98e62e83c37_small.jpg?1533370630"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 18, 
+        "name": "Information Disclosure"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -9185925.555545628, 
+    "disclosed_at": "2018-08-22T14:39:06.155Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/273726", 
+    "created_at": "2017-10-02T09:31:58.011Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Hello team!<br>\nWhile doing a preliminary recon on *.wordpress.org I&#39;ve come across a few sensitive files that should not be facing the public web; I&#39;ll leave you a list organized by criticality and some proof.</p>\n\n<h3 id=\"high-priority\">High priority</h3>\n\n<p><a href=\"/redirect?signature=a3d17037d8ade1b3fed0c1305c2673dbef98593e&amp;url=https%3A%2F%2Fcodex.wordpress.org%2F.travis.yml\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>.travis.yml</span><i class=\"icon-external-link\"></i></a> configuration file with credentials</p>\n<pre class=\"highlight plaintext\"><code>php maintenance/install.php testwiki admin\n--pass travis\n--dbname traviswiki\n--dbuser travis\n--dbpass &quot;&quot;\n--scriptpath &quot;/w&quot;\n</code></pre>\n<h3 id=\"medium-priority\">Medium priority</h3>\n\n<p><a href=\"/redirect?signature=70cd5f5815dfb4e95866df3c53ff392bd83fd8d2&amp;url=https%3A%2F%2Fmunin-lax.wordpress.org%2F.htaccess\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>.htaccess</span><i class=\"icon-external-link\"></i></a> file for <strong>munin-lax.wordpress.org</strong></p>\n<pre class=\"highlight plaintext\"><code>AuthUserFile /usr/local/etc/munin-htpasswd\nAuthName &quot;Munin&quot;\nAuthType Basic\nrequire valid-user\n</code></pre>\n<h3 id=\"low-priority\">Low priority</h3>\n\n<p>one <code>.bash_history</code> file accessible from multiple production vhosts:</p>\n<pre class=\"highlight plaintext\"><code>http://iphone.git.wordpress.org/.bash_history\nhttp://meta.git.wordpress.org/.bash_history\nhttp://wordpress.git.wordpress.org/.bash_history\nhttp://bbpress.git.wordpress.org/.bash_history\nhttp://buddypress.git.wordpress.org/.bash_history\nhttp://core.git.wordpress.org/.bash_history\nhttp://android.git.wordpress.org/.bash_history\nhttp://ios.git.wordpress.org/.bash_history\nhttp://wordcamp.git.wordpress.org/.bash_history\nhttp://develop.git.wordpress.org/.bash_history\nhttp://evelop.git.wordpress.org/.bash_history\n</code></pre>\n<p>one ssh <code>known_hosts</code> file accessible from multiple production vhosts:</p>\n<pre class=\"highlight plaintext\"><code>http://wordcamp.git.wordpress.org/.ssh/known_hosts\nhttp://ios.git.wordpress.org/.ssh/known_hosts\nhttp://android.git.wordpress.org/.ssh/known_hosts\nhttp://core.git.wordpress.org/.ssh/known_hosts\nhttp://buddypress.git.wordpress.org/.ssh/known_hosts\nhttp://bbpress.git.wordpress.org/.ssh/known_hosts\nhttp://wordpress.git.wordpress.org/.ssh/known_hosts\nhttp://meta.git.wordpress.org/.ssh/known_hosts\nhttp://iphone.git.wordpress.org/.ssh/known_hosts\nhttp://develop.git.wordpress.org/.ssh/known_hosts\nhttp://evelop.git.wordpress.org/.ssh/known_hosts\n</code></pre>\n<h3 id=\"impact\">Impact</h3>\n\n<p>Obviously there&#39;s no critical priority here\u2014there could&#39;ve been juicer stuff in the <code>.bash_history</code> but there wasn&#39;t; the publicly accessible <code>.htaccess</code> and <code>.travis.yml</code> might be serious as long as those credentials are really being used somewhere (and it seems to me the DBMS isn&#39;t facing the public internet anyway). The real impact is that finding such files always grabs the attention of a threat actor, which might give up not so easily influenced by the fact that there might be &quot;more&quot;.</p>\n\n<h3 id=\"minor-bonus-round-host-header-injection-on-wordpress-org\">(minor) bonus round: host header injection on wordpress.org</h3>\n\n<p>Probably <em>informational</em> but you might still want to look into that: <strong>wordpress.org</strong> is susceptible to &quot;host header injection&quot;, you can read more about it <a href=\"/redirect?signature=1b277a08ceaad7e0630f1fbfc99de7f265f7146c&amp;url=http%3A%2F%2Fcarlos.bueno.org%2F2008%2F06%2Fhost-header-injection.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>here</span><i class=\"icon-external-link\"></i></a> and <a href=\"/redirect?signature=c54a8a6d23baab2c303c52c004a8eaaf8918713c&amp;url=http%3A%2F%2Fwww.skeletonscribe.net%2F2013%2F05%2Fpractical-http-host-header-attacks.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>here</span><i class=\"icon-external-link\"></i></a>. Essentially, depending on your internal configuration, this flaw ranges from a self-inflicted open-redirect (wow, such threat), to password reset request hijack, to cache poisoning.</p>\n\n<p><strong>PoC for the self-inflicted open-redirect (why though)</strong>:</p>\n<pre class=\"highlight html\"><code>\u276f curl -v -H &quot;Host: z.xss.ro&quot; &quot;https://wordpress.org/themes/search&quot;\n&gt; GET /themes/search HTTP/2\n&gt; Host: z.xss.ro\n&gt; User-Agent: curl/7.55.1\n&gt; Accept: */*\n&gt; \n<span class=\"nt\">&lt; HTTP</span><span class=\"err\">/</span><span class=\"na\">2</span> <span class=\"na\">301</span> \n<span class=\"err\">&lt;</span> <span class=\"na\">server:</span> <span class=\"na\">nginx</span>\n<span class=\"err\">&lt;</span> <span class=\"na\">date:</span> <span class=\"na\">Mon</span><span class=\"err\">,</span> <span class=\"na\">02</span> <span class=\"na\">Oct</span> <span class=\"na\">2017</span> <span class=\"na\">09:12:59</span> <span class=\"na\">GMT</span>\n<span class=\"err\">&lt;</span> <span class=\"na\">content-type:</span> <span class=\"na\">text</span><span class=\"err\">/</span><span class=\"na\">html</span>\n<span class=\"err\">&lt;</span> <span class=\"na\">content-length:</span> <span class=\"na\">178</span>\n<span class=\"err\">&lt;</span> <span class=\"na\">location:</span> <span class=\"na\">https:</span><span class=\"err\">//</span><span class=\"na\">z</span><span class=\"err\">.</span><span class=\"na\">xss</span><span class=\"err\">.</span><span class=\"na\">ro</span><span class=\"err\">/</span><span class=\"na\">themes</span><span class=\"err\">/</span><span class=\"na\">search</span><span class=\"err\">/</span>\n<span class=\"err\">&lt;</span> <span class=\"na\">x-frame-options:</span> <span class=\"na\">SAMEORIGIN</span>\n<span class=\"err\">&lt;</span> <span class=\"na\">x-nc:</span> <span class=\"na\">MISS</span> <span class=\"na\">lax</span> <span class=\"na\">250</span>\n<span class=\"err\">&lt;</span> \n<span class=\"err\">&lt;</span><span class=\"na\">html</span><span class=\"nt\">&gt;</span>\n<span class=\"nt\">&lt;head&gt;&lt;title&gt;</span>301 Moved Permanently<span class=\"nt\">&lt;/title&gt;&lt;/head&gt;</span>\n</code></pre>\n<p>this is also going down on plain HTTP so maybe a MitM scenario is possible in an already compromised business environment / hosting partner but then again, it&#39;s pretty low priority.</p>\n\n<p>I obviously can&#39;t test the password reset scenario, you might want to test that as follows:</p>\n\n<ol>\n<li>go to wordpress.org and begin the procedure to reset your password</li>\n<li>intercept the request on Burp</li>\n<li>change the host header to evil.com</li>\n<li>send the request and check your e-mail</li>\n</ol>\n\n<p>if the threat is real, the password reset link will be generated with evil.com instead of wordpress.org; otherwise it&#39;s all good (which should be, as this doesn&#39;t work on wordpress.com)</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://wordpress.org/", 
+            "about": "Beautiful sites of any kind.", 
+            "twitter_handle": "wordpress", 
+            "name": "WordPress"
+        }, 
+        "handle": "wordpress", 
+        "url": "https://hackerone.com/wordpress", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/055/2ded484d947025dc191342c9ccdcf00effc53ff6_small.jpg?1392934661", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/055/a7e722c23dedc020ade3b6e7f1a96baa455f86d8_medium.jpg?1392934661"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 55, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

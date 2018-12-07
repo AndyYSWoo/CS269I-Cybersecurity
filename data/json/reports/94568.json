@@ -1,0 +1,529 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "eveeez", 
+        "craxerbikash", 
+        "japz", 
+        "cryptographer", 
+        "dyabla"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "1500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 94568, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2016-02-12T18:08:03.894Z", 
+    "activity_page_count": 1, 
+    "activity_page_number": 1, 
+    "title": "http_basic_authenticate_with is suseptible to timing attacks.", 
+    "is_member_of_team?": null, 
+    "vote_count": 5, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 1336, 
+            "content": "Timing attack vulnerability in basic authentication in Action Controller.\n\nThere is a timing attack vulnerability in the basic authentication support\nin Action Controller. This vulnerability has been assigned the CVE\nidentifier CVE-2015-7576.\n\nVersions Affected:  All.\nNot affected:       None.\nFixed Versions:     5.0.0.beta1.1, 4.2.5.1, 4.1.14.1, 3.2.22.1\n\nImpact\n------\nDue to the way that Action Controller compares user names and passwords in\nbasic authentication authorization code, it is possible for an attacker to\nanalyze the time taken by a response and intuit the password.\n\nFor example, this string comparison:\n\n  \"foo\" == \"bar\"\n\nis possibly faster than this comparison:\n\n  \"foo\" == \"fo1\"\n\nAttackers can use this information to attempt to guess the username and\npassword used in the basic authentication system.\n\nYou can tell you application is vulnerable to this attack by looking for\n`http_basic_authenticate_with` method calls in your application.\n\nAll users running an affected release should either upgrade or use one of\nthe workarounds immediately.\n\nReleases\n--------\nThe FIXED releases are available at the normal locations.\n\nWorkarounds\n-----------\nIf you can't upgrade, please use the following monkey patch in an initializer\nthat is loaded before your application:\n\n```\n$ cat config/initializers/basic_auth_fix.rb\nmodule ActiveSupport\n  module SecurityUtils\n    def secure_compare(a, b)\n      return false unless a.bytesize == b.bytesize\n\n      l = a.unpack \"C#{a.bytesize}\"\n\n      res = 0\n      b.each_byte { |byte| res |= byte ^ l.shift }\n      res == 0\n    end\n    module_function :secure_compare\n\n    def variable_size_secure_compare(a, b)\n      secure_compare(::Digest::SHA256.hexdigest(a), ::Digest::SHA256.hexdigest(b))\n    end\n    module_function :variable_size_secure_compare\n  end\nend\n\nmodule ActionController\n  class Base\n    def self.http_basic_authenticate_with(options = {})\n      before_action(options.except(:name, :password, :realm)) do\n        authenticate_or_request_with_http_basic(options[:realm] || \"Application\") do |name, password|\n          # This comparison uses & so that it doesn't short circuit and\n          # uses `variable_size_secure_compare` so that length information\n          # isn't leaked.\n          ActiveSupport::SecurityUtils.variable_size_secure_compare(name, options[:name]) &\n            ActiveSupport::SecurityUtils.variable_size_secure_compare(password, options[:password])\n        end\n      end\n    end\n  end\nend\n```\n\n\nPatches\n-------\nTo aid users who aren't able to upgrade immediately we have provided patches for\nthe two supported release series. They are in git-am format and consist of a\nsingle changeset.\n\n* 4-1-basic_auth.patch - Patch for 4.1 series\n* 4-2-basic_auth.patch - Patch for 4.2 series\n* 5-0-basic_auth.patch - Patch for 5.0 series\n\nPlease note that only the 4.1.x and 4.2.x series are supported at present. Users\nof earlier unsupported releases are advised to upgrade as soon as possible as we\ncannot guarantee the continued availability of security fixes for unsupported\nreleases.\n\nCredits\n-------\n\nThank you to Daniel Waterworth for reporting the problem and working with us to\nfix it.", 
+            "content_html": "<p>Timing attack vulnerability in basic authentication in Action Controller.</p>\n\n<p>There is a timing attack vulnerability in the basic authentication support<br>\nin Action Controller. This vulnerability has been assigned the CVE<br>\nidentifier CVE-2015-7576.</p>\n\n<p>Versions Affected:  All.<br>\nNot affected:       None.<br>\nFixed Versions:     5.0.0.beta1.1, 4.2.5.1, 4.1.14.1, 3.2.22.1</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Due to the way that Action Controller compares user names and passwords in<br>\nbasic authentication authorization code, it is possible for an attacker to<br>\nanalyze the time taken by a response and intuit the password.</p>\n\n<p>For example, this string comparison:</p>\n\n<p>&quot;foo&quot; == &quot;bar&quot;</p>\n\n<p>is possibly faster than this comparison:</p>\n\n<p>&quot;foo&quot; == &quot;fo1&quot;</p>\n\n<p>Attackers can use this information to attempt to guess the username and<br>\npassword used in the basic authentication system.</p>\n\n<p>You can tell you application is vulnerable to this attack by looking for<br>\n<code>http_basic_authenticate_with</code> method calls in your application.</p>\n\n<p>All users running an affected release should either upgrade or use one of<br>\nthe workarounds immediately.</p>\n\n<h2 id=\"releases\">Releases</h2>\n\n<p>The FIXED releases are available at the normal locations.</p>\n\n<h2 id=\"workarounds\">Workarounds</h2>\n\n<p>If you can&#39;t upgrade, please use the following monkey patch in an initializer<br>\nthat is loaded before your application:</p>\n<pre class=\"highlight plaintext\"><code>$ cat config/initializers/basic_auth_fix.rb\nmodule ActiveSupport\n  module SecurityUtils\n    def secure_compare(a, b)\n      return false unless a.bytesize == b.bytesize\n\n      l = a.unpack &quot;C#{a.bytesize}&quot;\n\n      res = 0\n      b.each_byte { |byte| res |= byte ^ l.shift }\n      res == 0\n    end\n    module_function :secure_compare\n\n    def variable_size_secure_compare(a, b)\n      secure_compare(::Digest::SHA256.hexdigest(a), ::Digest::SHA256.hexdigest(b))\n    end\n    module_function :variable_size_secure_compare\n  end\nend\n\nmodule ActionController\n  class Base\n    def self.http_basic_authenticate_with(options = {})\n      before_action(options.except(:name, :password, :realm)) do\n        authenticate_or_request_with_http_basic(options[:realm] || &quot;Application&quot;) do |name, password|\n          # This comparison uses &amp; so that it doesn&#39;t short circuit and\n          # uses `variable_size_secure_compare` so that length information\n          # isn&#39;t leaked.\n          ActiveSupport::SecurityUtils.variable_size_secure_compare(name, options[:name]) &amp;\n            ActiveSupport::SecurityUtils.variable_size_secure_compare(password, options[:password])\n        end\n      end\n    end\n  end\nend\n</code></pre>\n<h2 id=\"patches\">Patches</h2>\n\n<p>To aid users who aren&#39;t able to upgrade immediately we have provided patches for<br>\nthe two supported release series. They are in git-am format and consist of a<br>\nsingle changeset.</p>\n\n<ul>\n<li>4-1-basic_auth.patch - Patch for 4.1 series</li>\n<li>4-2-basic_auth.patch - Patch for 4.2 series</li>\n<li>5-0-basic_auth.patch - Patch for 5.0 series</li>\n</ul>\n\n<p>Please note that only the 4.1.x and 4.2.x series are supported at present. Users<br>\nof earlier unsupported releases are advised to upgrade as soon as possible as we<br>\ncannot guarantee the continued availability of security fixes for unsupported<br>\nreleases.</p>\n\n<h2 id=\"credits\">Credits</h2>\n\n<p>Thank you to Daniel Waterworth for reporting the problem and working with us to<br>\nfix it.</p>\n"
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2016-03-13T18:08:04.108Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$1,500", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2015-10-28T20:21:34.901Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-10-28T20:21:34.901Z", 
+            "actor": {
+                "username": "tenderlove", 
+                "url": "/tenderlove", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/318/4b00c3dfa514b00e4c7c2751c97ca93d0f0d7160_medium.png?1393998446"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 635973, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-10-28T20:42:24.135Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-10-28T20:42:24.135Z", 
+            "actor": {
+                "username": "tenderlove", 
+                "url": "/tenderlove", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/318/4b00c3dfa514b00e4c7c2751c97ca93d0f0d7160_medium.png?1393998446"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 636007, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-10-28T21:01:39.339Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-10-28T21:02:11.911Z", 
+            "actor": {
+                "username": "d_w", 
+                "url": "/d_w", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 636020, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-10-28T21:32:59.353Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-10-28T21:32:59.353Z", 
+            "actor": {
+                "username": "tenderlove", 
+                "url": "/tenderlove", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/318/4b00c3dfa514b00e4c7c2751c97ca93d0f0d7160_medium.png?1393998446"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 636046, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-10-28T21:44:56.578Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-10-28T21:44:56.578Z", 
+            "actor": {
+                "username": "d_w", 
+                "url": "/d_w", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 636061, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-10-28T21:52:43.292Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-10-28T21:52:43.292Z", 
+            "actor": {
+                "username": "matthewd", 
+                "url": "/matthewd", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/011/558/d862d7949c3dc3b3706c36aa54878aed925f2006_medium.jpg?1409960100"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 636066, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-10-28T22:05:06.406Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-10-28T22:05:06.406Z", 
+            "actor": {
+                "username": "d_w", 
+                "url": "/d_w", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 636085, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-10-28T22:08:40.102Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-10-28T22:08:40.102Z", 
+            "actor": {
+                "username": "matthewd", 
+                "url": "/matthewd", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/011/558/d862d7949c3dc3b3706c36aa54878aed925f2006_medium.jpg?1409960100"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 636089, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-10-28T22:13:41.137Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-10-28T22:13:41.137Z", 
+            "actor": {
+                "username": "d_w", 
+                "url": "/d_w", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 636096, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-10-28T22:20:22.947Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-10-28T22:20:22.947Z", 
+            "actor": {
+                "username": "tenderlove", 
+                "url": "/tenderlove", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/318/4b00c3dfa514b00e4c7c2751c97ca93d0f0d7160_medium.png?1393998446"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 636106, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-10-28T22:21:49.868Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-10-28T22:21:49.868Z", 
+            "actor": {
+                "username": "d_w", 
+                "url": "/d_w", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 636109, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-10-28T22:23:26.968Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-10-28T22:23:34.978Z", 
+            "actor": {
+                "username": "d_w", 
+                "url": "/d_w", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 636112, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-10-29T17:39:20.112Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-10-29T17:39:20.112Z", 
+            "actor": {
+                "username": "tenderlove", 
+                "url": "/tenderlove", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/318/4b00c3dfa514b00e4c7c2751c97ca93d0f0d7160_medium.png?1393998446"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 637211, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-10-29T18:08:37.297Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-10-29T18:08:37.297Z", 
+            "actor": {
+                "username": "d_w", 
+                "url": "/d_w", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 637278, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "d_w", 
+                "url": "/d_w"
+            }, 
+            "created_at": "2016-01-26T01:55:12.933Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-01-26T01:55:12.933Z", 
+            "actor": {
+                "username": "rafaelfranca", 
+                "url": "/rafaelfranca", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/981/281bfa78e7ec84f83ee4efe2cf53f744cf07b8c0_medium.jpg?1397516124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 771823, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-02-12T18:08:03.918Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-02-12T18:08:03.918Z", 
+            "actor": {
+                "username": "rafaelfranca", 
+                "url": "/rafaelfranca", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/981/281bfa78e7ec84f83ee4efe2cf53f744cf07b8c0_medium.jpg?1397516124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 796032, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-03-13T18:08:12.218Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-03-13T18:08:12.218Z", 
+            "actor": {
+                "url": "/rails", 
+                "profile": {
+                    "name": "Ruby on Rails"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/022/1b2dab688cae8b769493f39137f09274a6b5f156_medium.png?1383736680"
+                }
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 837635, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-02-07T18:27:56.083Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-07T18:27:56.083Z", 
+            "actor": {
+                "url": "/rails", 
+                "profile": {
+                    "name": "Ruby on Rails"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/022/1b2dab688cae8b769493f39137f09274a6b5f156_medium.png?1383736680"
+                }
+            }, 
+            "team_handle": "rails", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "1500.0", 
+            "collaborator": {
+                "username": "d_w", 
+                "url": "/d_w"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2359935, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "d_w", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/d_w", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 27, 
+        "name": "Improper Authentication - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "no-content", 
+    "allow_singular_disclosure_after": -86242753.50165261, 
+    "disclosed_at": "2016-03-13T18:08:12.188Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/94568", 
+    "created_at": "2015-10-19T11:01:33.548Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "", 
+    "vulnerability_information": "", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://rubyonrails.org/security", 
+            "about": "Web development that doesn't hurt.", 
+            "twitter_handle": null, 
+            "name": "Ruby on Rails"
+        }, 
+        "handle": "rails", 
+        "url": "https://hackerone.com/rails", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/022/2883e997d5f9ddf2f1c31365d74abe52fc54c9c9_small.png?1383736680", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/022/1b2dab688cae8b769493f39137f09274a6b5f156_medium.png?1383736680"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 22, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

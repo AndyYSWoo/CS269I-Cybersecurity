@@ -1,0 +1,651 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-02-07T13:28:31.813Z", 
+    "voters": [
+        "irvinlim", 
+        "jin", 
+        "jokebookservice1", 
+        "rc0r", 
+        "totalsx", 
+        "arneswinnen", 
+        "sp1d3rs", 
+        "cache-money", 
+        "bl4de", 
+        "rijalrojan", 
+        "and 175 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "15250.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 300305, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-02-02T21:45:37.463Z", 
+    "vulnerability_information": "I told Pete I would take a look at Spotify, hi Pete.\n\n**Summary**\nIt's possible to take over any store account through partners given an employee email address. This is possible because I found a way to confirm arbitrary emails. I don't know the Shopify ecosystem well enough to know the other ramifications of such a bug.\n\nOn #270981 you wrote:\n> The intention was that, when a partner already had a valid user account on the store, their collaborator account request could be accepted automatically, with the user account converted into a collaborator account.\n\nI tested that functionality and confirmed how it works. I realized that if you can somehow create a partner account with a business email that matched that of an employee, you would be able to take over their employee account, then convert it to a collaborator. The problem is that business accounts need emails to be validated, but this can be bypassed with a race condition.\n\nThe bug works by hitting the email validation endpoint for an email you own, at the same time as changing your email to a victim's. It might take a few tries, but eventually your email will be changed and be validated due to not (properly) using a DB transaction.\n\n**Steps to reproduce**\n1. Create a store account and invite an employee.\n2. Accept the employee invite (maybe not necessary I didn't test).\n3. Login to or create a partner account as the attacker.\n4. Go to your partner settings page `https://partners.shopify.com/[ID]/settings` and change your email to something you own.\n5. Check your email and grab the confirmation link, but don't visit it yet.\n6. Go back to your partner account and change your email to that of the store employee from step 2, but intercept the request to not let it through yet.\n7. Now the tricky part. The \"change email\" takes anywhere from 1,100 - 2,500 ms to load so you need to take that into account. But let the request go through, wait for some milliseconds, then in another tab visit that email confirmation link from step 5.\n8. If done correctly you will now have confirmed an email you do not own.\n9. Visit `https://partners.shopify.com/[ID]/managed_stores`, add the store, and you now have access.\n\nAs proof, look at the email for partner account `698396`. It will be confirmed `cache@hackerone.com`, which I obviously would never be able to validate otherwise.\n\nThanks,\n-- Tanner\n\n## Impact\n\nAbility to take over stores, and possibly perform any other action that relies on a validated email as a security measure.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "high", 
+            "availability": "none"
+        }, 
+        "rating": "critical", 
+        "score": 10.0, 
+        "author_type": "Team"
+    }, 
+    "title": "Ability to bypass partner email confirmation to take over any store given an employee email", 
+    "is_member_of_team?": null, 
+    "vote_count": 185, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 6525, 
+            "content": "@cache-money reported it was possible to bypass the email verification process in our Partners Dashboard. Doing so would have allowed a Partner to request access to a store under an email address the Partner did not own. If the store had a staff account associated with that email address, the staff account would have been automatically converted to a \"collaborator\" account and added to the Partner's dashboard without any merchant interaction. \n\nWe tracked down the bug to a race condition in the logic for changing and verifying email addresses. We fixed it by locking the database record during those actions and requiring store administrators to approve all collaborator requests.\n", 
+            "content_html": "<p><a href=\"/cache-money\">@cache-money</a> reported it was possible to bypass the email verification process in our Partners Dashboard. Doing so would have allowed a Partner to request access to a store under an email address the Partner did not own. If the store had a staff account associated with that email address, the staff account would have been automatically converted to a &quot;collaborator&quot; account and added to the Partner&#39;s dashboard without any merchant interaction. </p>\n\n<p>We tracked down the bug to a race condition in the logic for changing and verifying email addresses. We fixed it by locking the database record during those actions and requiring store administrators to approve all collaborator requests.</p>\n"
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 6532, 
+            "content": "After reading Shopify's summary from #270981 a few of times I was able to replicate the intended behavior. Seeing how it worked, I realized the core behavior to investigate was the automatic conversion aspect of it. In order for the conversion to work, you needed to confirm a store employee's email on a partner account. From there you could add the store on the partner account as a \"managed store\", which will then perform the automatic conversion and give you collaborator access. The bug existed in the email confirmation, which allowed me to confirm arbitrary emails under my partner account via race condition.\n\nThe bug was filed on Christmas Eve, and within 12 hours the Shopify team rolled out a fix to address the immediate issue. It was a pleasure to work with a team that takes security as seriously as they do.", 
+            "content_html": "<p>After reading Shopify&#39;s summary from <a href=\"/reports/270981\">#270981</a> a few of times I was able to replicate the intended behavior. Seeing how it worked, I realized the core behavior to investigate was the automatic conversion aspect of it. In order for the conversion to work, you needed to confirm a store employee&#39;s email on a partner account. From there you could add the store on the partner account as a &quot;managed store&quot;, which will then perform the automatic conversion and give you collaborator access. The bug existed in the email confirmation, which allowed me to confirm arbitrary emails under my partner account via race condition.</p>\n\n<p>The bug was filed on Christmas Eve, and within 12 hours the Shopify team rolled out a fix to address the immediate issue. It was a pleasure to work with a team that takes security as seriously as they do.</p>\n"
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "partners.shopify.com", 
+        "max_severity": "critical", 
+        "databaseId": 422, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$15,250", 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": true, 
+            "created_at": "2017-12-24T08:47:29.352Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-24T08:47:29.352Z", 
+            "actor": {
+                "url": "/shopify", 
+                "profile": {
+                    "name": "Shopify"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+                }
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thank you for reporting this bug! This is an automated response to let you know that we've received your issue, and we'll process it as soon as possible.\n\nDue to the holiday period, it may take us up to 3 weeks to triage any given issue. Don't worry, we'll get to yours!\n\nWhile you are waiting, you can read over our list of non applicable issues listed on our program page: https://hackerone.com/shopify. Make sure your issue isn't listed!", 
+            "markdown_message": "<p>Thank you for reporting this bug! This is an automated response to let you know that we&#39;ve received your issue, and we&#39;ll process it as soon as possible.</p>\n\n<p>Due to the holiday period, it may take us up to 3 weeks to triage any given issue. Don&#39;t worry, we&#39;ll get to yours!</p>\n\n<p>While you are waiting, you can read over our list of non applicable issues listed on our program page: <a title=\"https://hackerone.com/shopify\" href=\"https://hackerone.com/shopify\">https://hackerone.com/shopify</a>. Make sure your issue isn&#39;t listed!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2244842, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-24T13:49:22.214Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-24T13:49:22.214Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hey Tanner, welcome to the Shopify program! Thanks for the report, our engineering team is investigating this now.", 
+            "markdown_message": "<p>Hey Tanner, welcome to the Shopify program! Thanks for the report, our engineering team is investigating this now.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2244995, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-24T21:09:31.915Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-24T21:09:31.915Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thanks again for the report @cache-money! We appreciate you taking the time to improve the security of Shopify rather than Spotify :) \n\nWe shipped a temporary fix to address this today which disables automatically converting accounts. If you're able to bypass it, we'd love to know, otherwise we'll follow up on this first thing in January.\n\nThanks again - happy holidays!\npete", 
+            "markdown_message": "<p>Thanks again for the report <a href=\"/cache-money\">@cache-money</a>! We appreciate you taking the time to improve the security of Shopify rather than Spotify :) </p>\n\n<p>We shipped a temporary fix to address this today which disables automatically converting accounts. If you&#39;re able to bypass it, we&#39;d love to know, otherwise we&#39;ll follow up on this first thing in January.</p>\n\n<p>Thanks again - happy holidays!<br>\npete</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2245255, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-24T22:06:21.326Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-24T22:06:21.326Z", 
+            "actor": {
+                "username": "cache-money", 
+                "url": "/cache-money", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/075/736/7429d4e58ce4deecdf12bf340f641aec1ace9e90_medium.png?1513385369"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "That was quick, 12 hours to report and temp fix!\n\nThat functionality seems to be working properly, accounts are no longer converted. I'll comment if I find another use for a confirmed email.\n\nHappy holidays and apologies for dropping this on Christmas Eve.\n\nThanks,\n-- Tanner", 
+            "markdown_message": "<p>That was quick, 12 hours to report and temp fix!</p>\n\n<p>That functionality seems to be working properly, accounts are no longer converted. I&#39;ll comment if I find another use for a confirmed email.</p>\n\n<p>Happy holidays and apologies for dropping this on Christmas Eve.</p>\n\n<p>Thanks,<br>\n-- Tanner</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2245271, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-05T19:26:13.022Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-05T19:26:13.022Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hey Tanner, happy new year. Just wanted to update you so you knew where we were at and that we haven't forgotten about you. We pushed another change to remove collaborator auto conversions so administrators have to approve all requests. I'm hoping we'll close the report as resolved soon.\n\nAgain, if you can break the new change or still execute the race condition, we'd love to hear about it.\n\nThanks for your patience.\nPete", 
+            "markdown_message": "<p>Hey Tanner, happy new year. Just wanted to update you so you knew where we were at and that we haven&#39;t forgotten about you. We pushed another change to remove collaborator auto conversions so administrators have to approve all requests. I&#39;m hoping we&#39;ll close the report as resolved soon.</p>\n\n<p>Again, if you can break the new change or still execute the race condition, we&#39;d love to hear about it.</p>\n\n<p>Thanks for your patience.<br>\nPete</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2265204, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-06T01:32:54.278Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-06T01:32:54.278Z", 
+            "actor": {
+                "username": "cache-money", 
+                "url": "/cache-money", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/075/736/7429d4e58ce4deecdf12bf340f641aec1ace9e90_medium.png?1513385369"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Happy new year and thanks for the update, @shopify-peteryaworski! I'm still able to execute the race condition but it's certainly much more difficult. It probably took over 30 tries but I was able to get it to work twice. The first time I thought I accidentally confirmed the email myself which is why I then started testing again with an email I do not have access to.\n\nCheck partner account `699617` and notice there is a confirmed email of `cachemoney@hackerone.com`.\n\nThanks,\n-- Tanner", 
+            "markdown_message": "<p>Happy new year and thanks for the update, <a href=\"/shopify-peteryaworski\">@shopify-peteryaworski</a>! I&#39;m still able to execute the race condition but it&#39;s certainly much more difficult. It probably took over 30 tries but I was able to get it to work twice. The first time I thought I accidentally confirmed the email myself which is why I then started testing again with an email I do not have access to.</p>\n\n<p>Check partner account <code>699617</code> and notice there is a confirmed email of <code>cachemoney@hackerone.com</code>.</p>\n\n<p>Thanks,<br>\n-- Tanner</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2266744, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-08T01:05:38.955Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-08T01:05:38.955Z", 
+            "actor": {
+                "username": "cache-money", 
+                "url": "/cache-money", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/075/736/7429d4e58ce4deecdf12bf340f641aec1ace9e90_medium.png?1513385369"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "I tested the approval and it seems to work as intended. The minor problems I see are:\n\n1. The staff user's account gets disabled immediately when you send the request and could potentially cause disruption.\n2. Even if the store owner decides to \"reject\" the request, the staff user account gets completely deleted from the store.\n3. I can request access with different permissions than the staff account currently has. The administrator has no insight into the previous permissions the account had before the conversion request, so extra permissions can be \"slipped in\" and probably go unnoticed.\n\nThanks,\n-- Tanner\n", 
+            "markdown_message": "<p>I tested the approval and it seems to work as intended. The minor problems I see are:</p>\n\n<ol>\n<li>The staff user&#39;s account gets disabled immediately when you send the request and could potentially cause disruption.</li>\n<li>Even if the store owner decides to &quot;reject&quot; the request, the staff user account gets completely deleted from the store.</li>\n<li>I can request access with different permissions than the staff account currently has. The administrator has no insight into the previous permissions the account had before the conversion request, so extra permissions can be &quot;slipped in&quot; and probably go unnoticed.</li>\n</ol>\n\n<p>Thanks,<br>\n-- Tanner</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2268788, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-09T16:05:45.629Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-09T16:06:04.198Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hey @cache-money, thanks for race condition confirmation again and the added considerations. We're ok with those since the process is intended to be initiated from the partner with an existing relationship. We pushed another change this morning targeting the race condition and I'll be testing again but if you're able to still exploited it, we'd love to know.\n\nThanks again for your help and for having reporting this to us.\nPete", 
+            "markdown_message": "<p>Hey <a href=\"/cache-money\">@cache-money</a>, thanks for race condition confirmation again and the added considerations. We&#39;re ok with those since the process is intended to be initiated from the partner with an existing relationship. We pushed another change this morning targeting the race condition and I&#39;ll be testing again but if you&#39;re able to still exploited it, we&#39;d love to know.</p>\n\n<p>Thanks again for your help and for having reporting this to us.<br>\nPete</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2272657, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-11T06:21:09.297Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-11T06:21:09.297Z", 
+            "actor": {
+                "username": "cache-money", 
+                "url": "/cache-money", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/075/736/7429d4e58ce4deecdf12bf340f641aec1ace9e90_medium.png?1513385369"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "This looks fixed, I can't replicate after 100 trials. Thanks,\n-- Tanner", 
+            "markdown_message": "<p>This looks fixed, I can&#39;t replicate after 100 trials. Thanks,<br>\n-- Tanner</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2276776, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-11T17:22:29.456Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-11T17:22:29.456Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Critical", 
+                "old_severity": null
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2278249, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "cache-money", 
+                "url": "/cache-money"
+            }, 
+            "created_at": "2018-01-11T17:22:34.078Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-11T17:22:34.078Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hey @cache-money, thanks again for your report. We believe this issue to be resolved now - thank you for your added help testing the code changes and awesome work discovering this.\n\nOur next round of bounty decisions should happen next week so you should hear from us soon.", 
+            "markdown_message": "<p>Hey <a href=\"/cache-money\">@cache-money</a>, thanks again for your report. We believe this issue to be resolved now - thank you for your added help testing the code changes and awesome work discovering this.</p>\n\n<p>Our next round of bounty decisions should happen next week so you should hear from us soon.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2278250, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-25T00:19:59.807Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-25T00:19:59.807Z", 
+            "actor": {
+                "username": "cache-money", 
+                "url": "/cache-money", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/075/736/7429d4e58ce4deecdf12bf340f641aec1ace9e90_medium.png?1513385369"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hi @shopify-peteryaworski, I was wondering if there was an update on this.\n\nThanks,\n-- Tanner", 
+            "markdown_message": "<p>Hi <a href=\"/shopify-peteryaworski\">@shopify-peteryaworski</a>, I was wondering if there was an update on this.</p>\n\n<p>Thanks,<br>\n-- Tanner</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2315037, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-25T16:35:21.191Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-25T16:35:21.191Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hey @cache-money, sorry for the delay, unfortunately no update right now but it shouldn't be too much longer. Thanks for your patience.\n\nPete", 
+            "markdown_message": "<p>Hey <a href=\"/cache-money\">@cache-money</a>, sorry for the delay, unfortunately no update right now but it shouldn&#39;t be too much longer. Thanks for your patience.</p>\n\n<p>Pete</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2317451, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-02-02T21:42:14.508Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-02T21:42:14.508Z", 
+            "actor": {
+                "url": "/shopify", 
+                "profile": {
+                    "name": "Shopify"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+                }
+            }, 
+            "team_handle": "shopify", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "15000.0", 
+            "collaborator": {
+                "username": "cache-money", 
+                "url": "/cache-money"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2346690, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-02-02T21:43:36.159Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-02T21:43:36.159Z", 
+            "actor": {
+                "url": "/shopify", 
+                "profile": {
+                    "name": "Shopify"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+                }
+            }, 
+            "team_handle": "shopify", 
+            "bonus_amount": "250.0", 
+            "bounty_amount": "0.0", 
+            "collaborator": {
+                "username": "cache-money", 
+                "url": "/cache-money"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2346694, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-02T21:44:13.994Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-02T21:44:13.994Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thanks again for your great work @cache-money. For reference, we awarded a 15k bounty as this would have allowed a Partner to access a store if the store had a staff account associated with the email address the Partner verified using the race condition you discovered. We added a $250 bonus for your help verifying the fix.", 
+            "markdown_message": "<p>Thanks again for your great work <a href=\"/cache-money\">@cache-money</a>. For reference, we awarded a 15k bounty as this would have allowed a Partner to access a store if the store had a staff account associated with the email address the Partner verified using the race condition you discovered. We added a $250 bonus for your help verifying the fix.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2346695, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-02T21:45:37.514Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-02T21:45:37.514Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2346705, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-07T13:28:31.856Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-07T13:28:31.856Z", 
+            "actor": {
+                "username": "cache-money", 
+                "url": "/cache-money", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/075/736/7429d4e58ce4deecdf12bf340f641aec1ace9e90_medium.png?1513385369"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thanks for the huge bounty!!", 
+            "markdown_message": "<p>Thanks for the huge bounty!!</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2358773, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-07T13:28:31.999Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-07T13:28:31.999Z", 
+            "actor": {
+                "username": "cache-money", 
+                "url": "/cache-money", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/075/736/7429d4e58ce4deecdf12bf340f641aec1ace9e90_medium.png?1513385369"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2358774, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-15T18:16:45.596Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-15T18:16:45.596Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "added_weaknesses": [
+                    {
+                        "id": 105, 
+                        "name": "Time-of-check Time-of-use (TOCTOU) Race Condition"
+                    }
+                ], 
+                "removed_weaknesses": [
+                    {
+                        "id": 65, 
+                        "name": "Business Logic Errors"
+                    }
+                ]
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportVulnerabilityTypesUpdated", 
+            "id": 2889926, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-15T18:17:03.628Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-15T18:17:03.628Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Critical (10.0)", 
+                "old_severity": "Critical"
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2889927, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "cache-money", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/cache-money", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/075/736/d1e520b8702feb41267cd419862e89db05be2236_small.png?1513385369"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 105, 
+        "name": "Time-of-check Time-of-use (TOCTOU) Race Condition"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2018-02-07T13:28:31.959Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/300305", 
+    "created_at": "2017-12-24T08:47:29.068Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>I told Pete I would take a look at Spotify, hi Pete.</p>\n\n<p><strong>Summary</strong><br>\nIt&#39;s possible to take over any store account through partners given an employee email address. This is possible because I found a way to confirm arbitrary emails. I don&#39;t know the Shopify ecosystem well enough to know the other ramifications of such a bug.</p>\n\n<p>On <a href=\"/reports/270981\">#270981</a> you wrote:</p>\n\n<blockquote>\n<p>The intention was that, when a partner already had a valid user account on the store, their collaborator account request could be accepted automatically, with the user account converted into a collaborator account.</p>\n</blockquote>\n\n<p>I tested that functionality and confirmed how it works. I realized that if you can somehow create a partner account with a business email that matched that of an employee, you would be able to take over their employee account, then convert it to a collaborator. The problem is that business accounts need emails to be validated, but this can be bypassed with a race condition.</p>\n\n<p>The bug works by hitting the email validation endpoint for an email you own, at the same time as changing your email to a victim&#39;s. It might take a few tries, but eventually your email will be changed and be validated due to not (properly) using a DB transaction.</p>\n\n<p><strong>Steps to reproduce</strong></p>\n\n<ol>\n<li>Create a store account and invite an employee.</li>\n<li>Accept the employee invite (maybe not necessary I didn&#39;t test).</li>\n<li>Login to or create a partner account as the attacker.</li>\n<li>Go to your partner settings page <code>https://partners.shopify.com/[ID]/settings</code> and change your email to something you own.</li>\n<li>Check your email and grab the confirmation link, but don&#39;t visit it yet.</li>\n<li>Go back to your partner account and change your email to that of the store employee from step 2, but intercept the request to not let it through yet.</li>\n<li>Now the tricky part. The &quot;change email&quot; takes anywhere from 1,100 - 2,500 ms to load so you need to take that into account. But let the request go through, wait for some milliseconds, then in another tab visit that email confirmation link from step 5.</li>\n<li>If done correctly you will now have confirmed an email you do not own.</li>\n<li>Visit <code>https://partners.shopify.com/[ID]/managed_stores</code>, add the store, and you now have access.</li>\n</ol>\n\n<p>As proof, look at the email for partner account <code>698396</code>. It will be confirmed <code>cache@hackerone.com</code>, which I obviously would never be able to validate otherwise.</p>\n\n<p>Thanks,<br>\n-- Tanner</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Ability to take over stores, and possibly perform any other action that relies on a validated email as a security measure.</p>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.shopify.com", 
+            "about": "Shopify is a multi-channel commerce platform that helps people sell online, in-store, and everywhere in between.", 
+            "twitter_handle": "", 
+            "name": "Shopify"
+        }, 
+        "handle": "shopify", 
+        "url": "https://hackerone.com/shopify", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/001/382/1e9872bf9cfe04008c2673e07bfecaa83858cca1_small.jpg?1532728703", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 1382, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

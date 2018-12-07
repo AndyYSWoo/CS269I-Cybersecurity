@@ -1,0 +1,383 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-04-24T04:20:25.097Z", 
+    "voters": [
+        "eveeez", 
+        "muhammad_uwais", 
+        "spetr0x"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 220909, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-04-15T12:13:35.457Z", 
+    "activity_page_count": 1, 
+    "activity_page_number": 1, 
+    "title": "Autoclose can close any task regardless of policies/spaces", 
+    "is_member_of_team?": null, 
+    "vote_count": 3, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-05-15T12:13:35.507Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-14T11:43:35.054Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-14T11:43:35.054Z", 
+            "actor": {
+                "username": "epriestley", 
+                "url": "/epriestley", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/043/67210f4155bb8999679d01c81406df1242df0f8c_medium.jpg?1383694450"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "phabricator", 
+            "message": "Hrrm, I think this is a little tricky.\n\nWe can't actually authoritatively tell who authored commits, since we identify authors from the author/committer metadata in the commit itself, which clients are free to rewrite. So if we added a rule about this (\"if commit X is authored by user Y, it can only affect tasks user Y can see\"), Eve could just look up one of Alice's commits, use `git commit --amend --author alice ...` to forge Alice's identity, then push the \"poisoned\" commit to affect the task.\n\nAlthough we can authoritatively identify the *pusher* in the case of hosted repositories, they often aren't the right user to really act as (since you can push commits on behalf of others, and some workflows do this routinely) and many repositories are observed rather than hosted, so we have no clue whose authority commits appeared under (unless GPG is in use, I suppose, although we don't currently support this and haven't seen much interest in it).\n\nI think we probably should respect visibility rules in cases where we can identify an author. Although this doesn't do anything for security, it would limit the impact of mistakes (where someone innocently types the wrong task number in `Fixes XXX`, and a task they can't see gets closed).\n\nI'm *inclined* to continue letting commits we can't attribute to an author close anything, since malicious interaction through this mechanism seems less pretty low-impact, but it's nice if `Fixes XXX` works when you're first setting things up even if your email/author strings aren't all sorted out yet.\n\nIn the context of your own install, would that be a satisfactory fix? Did you run into this because someone made an innocent mistake with the wrong `Fixes XXX`, but had author information configured correctly so that this rule would have prevented this mistake?\n\nSome stronger rules I can imagine are:\n\n- Unattributed commits can't affect anything. I think this is reasonable, but worry it might make the new user experience worse to fix a tiny/mostly theoretical issue with very little meaningful impact.\n- Unattributed commits can't affect things outside the default space. I don't like this because it's weird magic that makes the policy system more complicated with an unintuitive one-off rule.\n- Repositories (or an entire install) can be configured so that unattributed commits can't affect anything. If it's per-repository, this doesn't help with the case where Eve can create her own repository. I tend not to like this because options/settings have a high cost and I think the benefit here is very low (see also: <https://secure.phabricator.com/T8227>).\n- Repositories (or an entre install) can be configured to require GPG signatures, and only act with authority if they're present. I think this is the best actual fix but I can't imagine anyone ever going to this trouble just to prevent this. This would be more reasonable if we had a stronger set of arguments and use cases for trying to support GPG or some other signing mechanism more broadly.\n- We could alternatively work to try to implicitly establish authority through other channels. For example, `arc land` could make an authorized call to Phabricator and say \"I'm Alice, and I'm pushing these commits, so if you later see them and they say they're from me, that's legitimate\". This would possibly let us get some of the benefits of GPG without requiring everyone to configure GPG.\n\nFor now, my inclination is to add the advisory/guard-rail rule (\"if commit X is attributed to author A, it can't affect tasks that author A doesn't have permission to see and edit\"), but not meaningfully try to defuse the \"attack\" part of this where Eve intentionally impersonates Alice.\n\nI don't think GPG or other side-channel authorization are unreasonable, they're currently just a lot of work for both the upstream and users for not much benefit. If/when we have more/better reasons to build them, we could integrate them here at that time.", 
+            "markdown_message": "<p>Hrrm, I think this is a little tricky.</p>\n\n<p>We can&#39;t actually authoritatively tell who authored commits, since we identify authors from the author/committer metadata in the commit itself, which clients are free to rewrite. So if we added a rule about this (&quot;if commit X is authored by user Y, it can only affect tasks user Y can see&quot;), Eve could just look up one of Alice&#39;s commits, use <code>git commit --amend --author alice ...</code> to forge Alice&#39;s identity, then push the &quot;poisoned&quot; commit to affect the task.</p>\n\n<p>Although we can authoritatively identify the <em>pusher</em> in the case of hosted repositories, they often aren&#39;t the right user to really act as (since you can push commits on behalf of others, and some workflows do this routinely) and many repositories are observed rather than hosted, so we have no clue whose authority commits appeared under (unless GPG is in use, I suppose, although we don&#39;t currently support this and haven&#39;t seen much interest in it).</p>\n\n<p>I think we probably should respect visibility rules in cases where we can identify an author. Although this doesn&#39;t do anything for security, it would limit the impact of mistakes (where someone innocently types the wrong task number in <code>Fixes XXX</code>, and a task they can&#39;t see gets closed).</p>\n\n<p>I&#39;m <em>inclined</em> to continue letting commits we can&#39;t attribute to an author close anything, since malicious interaction through this mechanism seems less pretty low-impact, but it&#39;s nice if <code>Fixes XXX</code> works when you&#39;re first setting things up even if your email/author strings aren&#39;t all sorted out yet.</p>\n\n<p>In the context of your own install, would that be a satisfactory fix? Did you run into this because someone made an innocent mistake with the wrong <code>Fixes XXX</code>, but had author information configured correctly so that this rule would have prevented this mistake?</p>\n\n<p>Some stronger rules I can imagine are:</p>\n\n<ul>\n<li>Unattributed commits can&#39;t affect anything. I think this is reasonable, but worry it might make the new user experience worse to fix a tiny/mostly theoretical issue with very little meaningful impact.</li>\n<li>Unattributed commits can&#39;t affect things outside the default space. I don&#39;t like this because it&#39;s weird magic that makes the policy system more complicated with an unintuitive one-off rule.</li>\n<li>Repositories (or an entire install) can be configured so that unattributed commits can&#39;t affect anything. If it&#39;s per-repository, this doesn&#39;t help with the case where Eve can create her own repository. I tend not to like this because options/settings have a high cost and I think the benefit here is very low (see also: <a title=\"https://secure.phabricator.com/T8227\" href=\"/redirect?signature=3b4fc78fc9167e43655b11e1e21e0fcdb53784d1&amp;url=https%3A%2F%2Fsecure.phabricator.com%2FT8227\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://secure.phabricator.com/T8227</span><i class=\"icon-external-link\"></i></a>).</li>\n<li>Repositories (or an entre install) can be configured to require GPG signatures, and only act with authority if they&#39;re present. I think this is the best actual fix but I can&#39;t imagine anyone ever going to this trouble just to prevent this. This would be more reasonable if we had a stronger set of arguments and use cases for trying to support GPG or some other signing mechanism more broadly.</li>\n<li>We could alternatively work to try to implicitly establish authority through other channels. For example, <code>arc land</code> could make an authorized call to Phabricator and say &quot;I&#39;m Alice, and I&#39;m pushing these commits, so if you later see them and they say they&#39;re from me, that&#39;s legitimate&quot;. This would possibly let us get some of the benefits of GPG without requiring everyone to configure GPG.</li>\n</ul>\n\n<p>For now, my inclination is to add the advisory/guard-rail rule (&quot;if commit X is attributed to author A, it can&#39;t affect tasks that author A doesn&#39;t have permission to see and edit&quot;), but not meaningfully try to defuse the &quot;attack&quot; part of this where Eve intentionally impersonates Alice.</p>\n\n<p>I don&#39;t think GPG or other side-channel authorization are unreasonable, they&#39;re currently just a lot of work for both the upstream and users for not much benefit. If/when we have more/better reasons to build them, we could integrate them here at that time.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1611338, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-14T12:41:33.921Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-14T12:41:33.921Z", 
+            "actor": {
+                "username": "epriestley", 
+                "url": "/epriestley", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/043/67210f4155bb8999679d01c81406df1242df0f8c_medium.jpg?1383694450"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "phabricator", 
+            "message": "Here's an upstream change to implement the \"guard rail\" rule:\n\n> If we identify the author of a commit as user X, that commit can only affect tasks which user X can see and edit.\n\nhttps://secure.phabricator.com/D17688", 
+            "markdown_message": "<p>Here&#39;s an upstream change to implement the &quot;guard rail&quot; rule:</p>\n\n<blockquote>\n<p>If we identify the author of a commit as user X, that commit can only affect tasks which user X can see and edit.</p>\n</blockquote>\n\n<p><a title=\"https://secure.phabricator.com/D17688\" href=\"/redirect?signature=074095b6b14098194a1d4d85f53b72032135c86b&amp;url=https%3A%2F%2Fsecure.phabricator.com%2FD17688\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://secure.phabricator.com/D17688</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1611400, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-14T15:07:08.431Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-14T15:07:08.431Z", 
+            "actor": {
+                "username": "epriestley", 
+                "url": "/epriestley", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/043/67210f4155bb8999679d01c81406df1242df0f8c_medium.jpg?1383694450"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "phabricator", 
+            "message": "The improvement above is now available at `HEAD` of `master`, and should promote to `stable` within the next 12 hours:\n\nhttps://secure.phabricator.com/rP1e43d57c81252c4921d1999db9423a7232ed5976", 
+            "markdown_message": "<p>The improvement above is now available at <code>HEAD</code> of <code>master</code>, and should promote to <code>stable</code> within the next 12 hours:</p>\n\n<p><a title=\"https://secure.phabricator.com/rP1e43d57c81252c4921d1999db9423a7232ed5976\" href=\"/redirect?signature=d8aac73f4847e2c53db92150fa61835faa77ae9a&amp;url=https%3A%2F%2Fsecure.phabricator.com%2FrP1e43d57c81252c4921d1999db9423a7232ed5976\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://secure.phabricator.com/rP1e43d57c81252c4921d1999db9423a7232ed5976</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1611608, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-15T05:12:50.547Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-15T05:12:50.547Z", 
+            "actor": {
+                "username": "almanac", 
+                "url": "/almanac", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "phabricator", 
+            "message": "Thanks, yes, this would have worked in the context of my install. In the one specific case it was an innocent mistake by a user who did have properly configured author information\u200b, and in general the teams on my install aren't maliciously attacking each other.\n\nSorry for the delay in writing back; I had to think long and hard about everything you wrote. You weren't kidding when you said it's a little tricky!\n\nMy initial idea was in fact to look at the pusher's identity because 1) as you mentioned, the pusher's information can't be missing or faked, and 2) before pushing any commits authored by other people, the pusher would have (or should have) reviewed the commits, including making sure there weren't any sneaky autocloses. But I also understand that in workflows where, say, a small number of dedicated accounts push commits on behalf of developers, we'd still run into the same issues of how to decide which pushers should be able to close what tasks, and how those pushers (which could be bot accounts or understaffed build engineers) can possibly be expected to check the legitimacy of every autoclose commit message.\n\nSo now I agree with you, ultimately it's the author that writes the commit message that triggers autoclose, so it has to be the author that's trusted or not. On that note, though, wouldn't the `arc land` side channel still be relying on the pusher's identity?\n\nYou mentioned that this isn't foolproof since author info can be spoofed. Since that's a problem faced by distributed revision control in general, and having committers sign their commits is a (or the?) recognized solution, I also agree that requiring signatures is a good solution to implement in the future if needed.\n\nI'm still a little wary of having permissive behavior be the default when the author can't be identified. Of course, this goes away if Phabricator ever starts requiring signed commits. Barring that, though, I actually lean toward the first stronger rule that you mentioned, \"unattributed commits can't affect anything.\" To mitigate worsening the new user experience, could autoclose say something like \"I saw that this commit wanted to autoclose stuff, and I would have done it, but I couldn't recognize the author\"? For example, have the Autoclose status in Edit Commit say \"Yes, but author not recognized,\" or have the commit's activity feed say \"Diffusion didn't recognize the author, so refused to add a task: TXXX\"?\n\nRegarding the second rule you mentioned, \"unattributed commits can't affect things outside the default space\": originally I would have suggested a slightly different rule, \"commits in a space can't affect things in a different space\" because in my mental model, spaces were supposed to act as strict containers/boundaries. I now realize that spaces never claimed to do that. A lot of users on my install, including me, came in with a \"containers\" mindset, so it was surprising that using a restricted space didn't prevent Eve from autoclosing. But this one's easy, I can just educate the users on my install.", 
+            "markdown_message": "<p>Thanks, yes, this would have worked in the context of my install. In the one specific case it was an innocent mistake by a user who did have properly configured author information\u200b, and in general the teams on my install aren&#39;t maliciously attacking each other.</p>\n\n<p>Sorry for the delay in writing back; I had to think long and hard about everything you wrote. You weren&#39;t kidding when you said it&#39;s a little tricky!</p>\n\n<p>My initial idea was in fact to look at the pusher&#39;s identity because 1) as you mentioned, the pusher&#39;s information can&#39;t be missing or faked, and 2) before pushing any commits authored by other people, the pusher would have (or should have) reviewed the commits, including making sure there weren&#39;t any sneaky autocloses. But I also understand that in workflows where, say, a small number of dedicated accounts push commits on behalf of developers, we&#39;d still run into the same issues of how to decide which pushers should be able to close what tasks, and how those pushers (which could be bot accounts or understaffed build engineers) can possibly be expected to check the legitimacy of every autoclose commit message.</p>\n\n<p>So now I agree with you, ultimately it&#39;s the author that writes the commit message that triggers autoclose, so it has to be the author that&#39;s trusted or not. On that note, though, wouldn&#39;t the <code>arc land</code> side channel still be relying on the pusher&#39;s identity?</p>\n\n<p>You mentioned that this isn&#39;t foolproof since author info can be spoofed. Since that&#39;s a problem faced by distributed revision control in general, and having committers sign their commits is a (or the?) recognized solution, I also agree that requiring signatures is a good solution to implement in the future if needed.</p>\n\n<p>I&#39;m still a little wary of having permissive behavior be the default when the author can&#39;t be identified. Of course, this goes away if Phabricator ever starts requiring signed commits. Barring that, though, I actually lean toward the first stronger rule that you mentioned, &quot;unattributed commits can&#39;t affect anything.&quot; To mitigate worsening the new user experience, could autoclose say something like &quot;I saw that this commit wanted to autoclose stuff, and I would have done it, but I couldn&#39;t recognize the author&quot;? For example, have the Autoclose status in Edit Commit say &quot;Yes, but author not recognized,&quot; or have the commit&#39;s activity feed say &quot;Diffusion didn&#39;t recognize the author, so refused to add a task: TXXX&quot;?</p>\n\n<p>Regarding the second rule you mentioned, &quot;unattributed commits can&#39;t affect things outside the default space&quot;: originally I would have suggested a slightly different rule, &quot;commits in a space can&#39;t affect things in a different space&quot; because in my mental model, spaces were supposed to act as strict containers/boundaries. I now realize that spaces never claimed to do that. A lot of users on my install, including me, came in with a &quot;containers&quot; mindset, so it was surprising that using a restricted space didn&#39;t prevent Eve from autoclosing. But this one&#39;s easy, I can just educate the users on my install.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1612796, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-15T12:06:53.573Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-15T12:06:53.573Z", 
+            "actor": {
+                "username": "epriestley", 
+                "url": "/epriestley", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/043/67210f4155bb8999679d01c81406df1242df0f8c_medium.jpg?1383694450"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "phabricator", 
+            "message": "> On that note, though, wouldn't the arc land side channel still be relying on the pusher's identity?\n\nYeah, we'd be limited in what we could do with this: the authority granted by the pusher's identity could be extended to repositories we observe (not just host), provided they were being pushed with `arc land`. This would only be good for implementing the rule \"Alice pushed commit X, so if commit X claims to be authored by Alice, that authorship is authentic\". That would catch a lot of common cases, but still leave a lot of other reasonable cases out in the cold.\n\nThere are other side channels available, at least in theory, which could improve coverage here. For example, if Alice clicks \"Land Revision\" on a revision that Bailey authored, we can trust that both are authentic and that the action is permissible because \"Land Revision\" obeys review rules.\n\nThis currently is a long road through unmapped territory, and not something that makes sense to try to pursue in the short term. But I could imagine that we might start building this mechanism eventually.\n\n> \"I saw that this commit wanted to autoclose stuff, and I would have done it, but I couldn't recognize the author\"\n\nCurrently, we somewhat often see confusion around how branch/ref tracking and autoclose work and why things were or weren't autoclosed despite all the hinting. This isn't the best example -- just the most recent public one that springs to mind -- but here's a somewhat-recent case where a user manually changed the repository \"Autoclose\" setting to \"Disabled\", and was then confused that the UI said `Autoclose: Disabled`:\n\n<https://secure.phabricator.com/T12051>\n\nThese issues can largely be fixed or improved, but some of them are very complicated (like <https://secure.phabricator.com/T11314>).\n\nThis part of the product broadly feels like it has too much complexity for many users right now and represents a stumbling block in adopting and using Phabricator. I'd like to avoid adding *more* complexity until we have these difficulties under control when the value is marginal, and I think this case is not *really* a security issue and probably not terribly likely to cause much product confusion either, since users who have learned about `Fixes` (which is a relatively more-advanced feature) have probably also configured commit authorship to work right (which is a relatively less-advanced feature).\n\n(The \"Explain Why\" tools are also partly to help help *us* debug things when users come to us for support: users still get confused, but now we can say \"can you take a screenshot of 'Explain Why' and show me?\" and then walk them through things from there instead of saying \"can you run all these weird commands from the command line?\".)\n\nIf we did add this message, it's also very hard for users to *fix* it, especially until we implement this:\n\n<https://secure.phabricator.com/T12164>\n\nWhen we give users an error with no next steps or obvious way to resolve it, that can be a pretty negative experience. Either they can't fix the problem, or they have to come ask us for help. Today, the \"next steps\" would be very involved and require CLI access. After T12164, they could be far more reasonable.\n\nI generally agree that the proposed behavior is conceptually better in some sense -- maybe \"more pure\" -- but I think we have a lot of sort of \"product debt\" in this area of the product right now: things that are too complicated and too hard to use, and need work to simplify them and explain them better.\n\nI think this is something that makes sense to keep in mind, and maybe revisit in the future when we have a better handle on product complexity here, but the benefit seems very small to me and not worth the additional complexity at the present time.\n\nIf you wanted to implement this behavior locally (albeit without the hinting) you could do so like this:\n\n```diff\ndiff --git a/src/applications/repository/worker/commitmessageparser/PhabricatorRepositoryCommitMessageParserWorker.php b/src/applications/repository/worker/commitmessageparser/PhabricatorRepositoryCommitMessageParserWorker.php\nindex 767cfe5290..f8ceb06839 100644\n--- a/src/applications/repository/worker/commitmessageparser/PhabricatorRepositoryCommitMessageParserWorker.php\n+++ b/src/applications/repository/worker/commitmessageparser/PhabricatorRepositoryCommitMessageParserWorker.php\n@@ -304,6 +304,8 @@ abstract class PhabricatorRepositoryCommitMessageParserWorker\n     // make behavior less confusing for new installs.\n \n     if (!$acting_user) {\n+      // LOCAL PATCH: When a commit is unattributed, don't affect tasks.\n+      return;\n       $acting_user = $actor;\n     }\n```\n\nAnother consideration here is that I didn't touch Differential behaviors, which still use the old rules. I think this is basically fine because it's almost impossible to commit a change with `Differential Revision: XXX` by mistake where `XXX` is some hidden resource, but probably worth considering if we try to make this more formal in the future.\n\nBroadly, see also here for a general overview of roadmap and complexity concerns in this area of the product:\n\n<https://secure.phabricator.com/T12010>\n\nUpshot:\n\n  - I agree that disempowering unattributed commits is conceptually better in some sense, but think it would harm users on the balance today by adding more complexity than value. If we have more headroom and support in the product in the future I'd consider adopting a stricter rule, but don't plan to adopt one for now.\n  - At some point in the future we may implement signing support or side channels or other audit/identity features in this vein. If we do, revisiting this behavior would make sense. But this is very complicated and doesn't motivate other improvements today, so I don't plan to pursue it until we build a stronger case for it.", 
+            "markdown_message": "<blockquote>\n<p>On that note, though, wouldn&#39;t the arc land side channel still be relying on the pusher&#39;s identity?</p>\n</blockquote>\n\n<p>Yeah, we&#39;d be limited in what we could do with this: the authority granted by the pusher&#39;s identity could be extended to repositories we observe (not just host), provided they were being pushed with <code>arc land</code>. This would only be good for implementing the rule &quot;Alice pushed commit X, so if commit X claims to be authored by Alice, that authorship is authentic&quot;. That would catch a lot of common cases, but still leave a lot of other reasonable cases out in the cold.</p>\n\n<p>There are other side channels available, at least in theory, which could improve coverage here. For example, if Alice clicks &quot;Land Revision&quot; on a revision that Bailey authored, we can trust that both are authentic and that the action is permissible because &quot;Land Revision&quot; obeys review rules.</p>\n\n<p>This currently is a long road through unmapped territory, and not something that makes sense to try to pursue in the short term. But I could imagine that we might start building this mechanism eventually.</p>\n\n<blockquote>\n<p>&quot;I saw that this commit wanted to autoclose stuff, and I would have done it, but I couldn&#39;t recognize the author&quot;</p>\n</blockquote>\n\n<p>Currently, we somewhat often see confusion around how branch/ref tracking and autoclose work and why things were or weren&#39;t autoclosed despite all the hinting. This isn&#39;t the best example -- just the most recent public one that springs to mind -- but here&#39;s a somewhat-recent case where a user manually changed the repository &quot;Autoclose&quot; setting to &quot;Disabled&quot;, and was then confused that the UI said <code>Autoclose: Disabled</code>:</p>\n\n<p><a title=\"https://secure.phabricator.com/T12051\" href=\"/redirect?signature=49aa3573767a98ada95fd380f706dae5bde1a9e5&amp;url=https%3A%2F%2Fsecure.phabricator.com%2FT12051\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://secure.phabricator.com/T12051</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>These issues can largely be fixed or improved, but some of them are very complicated (like <a title=\"https://secure.phabricator.com/T11314\" href=\"/redirect?signature=fedb17acb285fbb2f66641231a700460a344b32a&amp;url=https%3A%2F%2Fsecure.phabricator.com%2FT11314\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://secure.phabricator.com/T11314</span><i class=\"icon-external-link\"></i></a>).</p>\n\n<p>This part of the product broadly feels like it has too much complexity for many users right now and represents a stumbling block in adopting and using Phabricator. I&#39;d like to avoid adding <em>more</em> complexity until we have these difficulties under control when the value is marginal, and I think this case is not <em>really</em> a security issue and probably not terribly likely to cause much product confusion either, since users who have learned about <code>Fixes</code> (which is a relatively more-advanced feature) have probably also configured commit authorship to work right (which is a relatively less-advanced feature).</p>\n\n<p>(The &quot;Explain Why&quot; tools are also partly to help help <em>us</em> debug things when users come to us for support: users still get confused, but now we can say &quot;can you take a screenshot of &#39;Explain Why&#39; and show me?&quot; and then walk them through things from there instead of saying &quot;can you run all these weird commands from the command line?&quot;.)</p>\n\n<p>If we did add this message, it&#39;s also very hard for users to <em>fix</em> it, especially until we implement this:</p>\n\n<p><a title=\"https://secure.phabricator.com/T12164\" href=\"/redirect?signature=954a882f6658e99055148a515e5caabbb8c2a89e&amp;url=https%3A%2F%2Fsecure.phabricator.com%2FT12164\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://secure.phabricator.com/T12164</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>When we give users an error with no next steps or obvious way to resolve it, that can be a pretty negative experience. Either they can&#39;t fix the problem, or they have to come ask us for help. Today, the &quot;next steps&quot; would be very involved and require CLI access. After T12164, they could be far more reasonable.</p>\n\n<p>I generally agree that the proposed behavior is conceptually better in some sense -- maybe &quot;more pure&quot; -- but I think we have a lot of sort of &quot;product debt&quot; in this area of the product right now: things that are too complicated and too hard to use, and need work to simplify them and explain them better.</p>\n\n<p>I think this is something that makes sense to keep in mind, and maybe revisit in the future when we have a better handle on product complexity here, but the benefit seems very small to me and not worth the additional complexity at the present time.</p>\n\n<p>If you wanted to implement this behavior locally (albeit without the hinting) you could do so like this:</p>\n<pre class=\"highlight diff\"><code><span class=\"gh\">diff --git a/src/applications/repository/worker/commitmessageparser/PhabricatorRepositoryCommitMessageParserWorker.php b/src/applications/repository/worker/commitmessageparser/PhabricatorRepositoryCommitMessageParserWorker.php\nindex 767cfe5290..f8ceb06839 100644\n</span><span class=\"gd\">--- a/src/applications/repository/worker/commitmessageparser/PhabricatorRepositoryCommitMessageParserWorker.php\n</span><span class=\"gi\">+++ b/src/applications/repository/worker/commitmessageparser/PhabricatorRepositoryCommitMessageParserWorker.php\n</span><span class=\"gu\">@@ -304,6 +304,8 @@ abstract class PhabricatorRepositoryCommitMessageParserWorker\n</span>     // make behavior less confusing for new installs.\n\n     if (!$acting_user) {\n<span class=\"gi\">+      // LOCAL PATCH: When a commit is unattributed, don&#39;t affect tasks.\n+      return;\n</span>       $acting_user = $actor;\n     }\n</code></pre>\n<p>Another consideration here is that I didn&#39;t touch Differential behaviors, which still use the old rules. I think this is basically fine because it&#39;s almost impossible to commit a change with <code>Differential Revision: XXX</code> by mistake where <code>XXX</code> is some hidden resource, but probably worth considering if we try to make this more formal in the future.</p>\n\n<p>Broadly, see also here for a general overview of roadmap and complexity concerns in this area of the product:</p>\n\n<p><a title=\"https://secure.phabricator.com/T12010\" href=\"/redirect?signature=fb3f461c019ad2f0d5b46df5928a908e66195167&amp;url=https%3A%2F%2Fsecure.phabricator.com%2FT12010\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://secure.phabricator.com/T12010</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>Upshot:</p>\n\n<ul>\n<li>I agree that disempowering unattributed commits is conceptually better in some sense, but think it would harm users on the balance today by adding more complexity than value. If we have more headroom and support in the product in the future I&#39;d consider adopting a stricter rule, but don&#39;t plan to adopt one for now.</li>\n<li>At some point in the future we may implement signing support or side channels or other audit/identity features in this vein. If we do, revisiting this behavior would make sense. But this is very complicated and doesn&#39;t motivate other improvements today, so I don&#39;t plan to pursue it until we build a stronger case for it.</li>\n</ul>\n", 
+            "type": "Activities::Comment", 
+            "id": 1613048, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "almanac", 
+                "url": "/almanac"
+            }, 
+            "created_at": "2017-04-15T12:09:43.092Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-15T12:09:43.092Z", 
+            "actor": {
+                "username": "epriestley", 
+                "url": "/epriestley", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/043/67210f4155bb8999679d01c81406df1242df0f8c_medium.jpg?1383694450"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "phabricator", 
+            "message": "I believe we've resolved this as thoroughly as we can today, considering the balance of product complexity concerns. This resolution isn't completely satisfactory, but I think all the ways forward from here require significant additional application/product support which is likely far in the future.", 
+            "markdown_message": "<p>I believe we&#39;ve resolved this as thoroughly as we can today, considering the balance of product complexity concerns. This resolution isn&#39;t completely satisfactory, but I think all the ways forward from here require significant additional application/product support which is likely far in the future.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1613049, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-15T12:12:53.158Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-15T12:12:53.158Z", 
+            "actor": {
+                "url": "/phabricator", 
+                "profile": {
+                    "name": "Phabricator"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/018/29aa105aca62b26e62c64e57c902e5db2bb8daf6_medium.jpg?1487955532"
+                }
+            }, 
+            "team_handle": "phabricator", 
+            "message": "I'm not awarding a bounty for this report because I think it didn't quite rise to the level of a real security issue. It was still an informative and useful report, and we were happy to receive it, and reporting it on this channel was appropriate because of the borderline nature of the behavior.", 
+            "markdown_message": "<p>I&#39;m not awarding a bounty for this report because I think it didn&#39;t quite rise to the level of a real security issue. It was still an informative and useful report, and we were happy to receive it, and reporting it on this channel was appropriate because of the borderline nature of the behavior.</p>\n", 
+            "type": "Activities::NotEligibleForBounty", 
+            "id": 1613050, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-15T12:13:35.479Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-15T12:13:35.479Z", 
+            "actor": {
+                "username": "epriestley", 
+                "url": "/epriestley", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/043/67210f4155bb8999679d01c81406df1242df0f8c_medium.jpg?1383694450"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "phabricator", 
+            "first_to_agree": true, 
+            "message": "This can be disclosed at any time, as substantially similar discussion is publicly available in the upstream commit history and changelog.", 
+            "markdown_message": "<p>This can be disclosed at any time, as substantially similar discussion is publicly available in the upstream commit history and changelog.</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1613051, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-15T12:18:39.199Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-15T12:18:39.199Z", 
+            "actor": {
+                "username": "epriestley", 
+                "url": "/epriestley", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/043/67210f4155bb8999679d01c81406df1242df0f8c_medium.jpg?1383694450"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "phabricator", 
+            "message": "Thanks for the report! Please let us know if you run into anything else in the future.\n\nThis resolution feels a little unsatisfactory but I think it's about the best we can do today. I'll keep this in mind in the future.\n\n(I remain open to discussing this further if you have other ideas here, or to awarding a bounty if you can construct a realistic attack scenario where an attacker does more than annoy co-workers while leaving an audit trail a mile wide and then immediately being fired, I'm just erring on the side of resolving this since I don't see any clear next steps.)", 
+            "markdown_message": "<p>Thanks for the report! Please let us know if you run into anything else in the future.</p>\n\n<p>This resolution feels a little unsatisfactory but I think it&#39;s about the best we can do today. I&#39;ll keep this in mind in the future.</p>\n\n<p>(I remain open to discussing this further if you have other ideas here, or to awarding a bounty if you can construct a realistic attack scenario where an attacker does more than annoy co-workers while leaving an audit trail a mile wide and then immediately being fired, I&#39;m just erring on the side of resolving this since I don&#39;t see any clear next steps.)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1613055, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-24T04:20:00.898Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-24T04:20:00.898Z", 
+            "actor": {
+                "username": "almanac", 
+                "url": "/almanac", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "phabricator", 
+            "message": "> If we did add this message, it's also very hard for users to *fix* it\n\nYeah, I hadn't considered that. I had imagined a user would just fix their author info and then `commit --amend` or push a new commit on top. But if they'd never run into this issue before, they wouldn't even know that that was a possible solution unless the autoclose status message were pretty wordy. And that solution still wouldn't be as nice as T12164.\n\n> I believe we've resolved this as thoroughly as we can today, considering the balance of product complexity concerns. \n\nI'm fine with the outcome since you of course have a much clearer view of how this issue fits into Phabricator's design and whatever upcoming changes you're planning (we all eagerly await!). And as always, you addressed the issue uncannily fast, so thanks for that, too.\n\n> awarding a bounty if you can construct a realistic attack scenario where an attacker does more than annoy co-workers while leaving an audit trail a mile wide and then immediately being fired\n\nNope, I didn't think this was a security vulnerability or deserved a bounty. My apologies to HackerOne for not quite using the platform for what it was meant for.\n\nThanks!", 
+            "markdown_message": "<blockquote>\n<p>If we did add this message, it&#39;s also very hard for users to <em>fix</em> it</p>\n</blockquote>\n\n<p>Yeah, I hadn&#39;t considered that. I had imagined a user would just fix their author info and then <code>commit --amend</code> or push a new commit on top. But if they&#39;d never run into this issue before, they wouldn&#39;t even know that that was a possible solution unless the autoclose status message were pretty wordy. And that solution still wouldn&#39;t be as nice as T12164.</p>\n\n<blockquote>\n<p>I believe we&#39;ve resolved this as thoroughly as we can today, considering the balance of product complexity concerns. </p>\n</blockquote>\n\n<p>I&#39;m fine with the outcome since you of course have a much clearer view of how this issue fits into Phabricator&#39;s design and whatever upcoming changes you&#39;re planning (we all eagerly await!). And as always, you addressed the issue uncannily fast, so thanks for that, too.</p>\n\n<blockquote>\n<p>awarding a bounty if you can construct a realistic attack scenario where an attacker does more than annoy co-workers while leaving an audit trail a mile wide and then immediately being fired</p>\n</blockquote>\n\n<p>Nope, I didn&#39;t think this was a security vulnerability or deserved a bounty. My apologies to HackerOne for not quite using the platform for what it was meant for.</p>\n\n<p>Thanks!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1629410, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-24T04:20:25.115Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-24T04:20:25.115Z", 
+            "actor": {
+                "username": "almanac", 
+                "url": "/almanac", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "phabricator", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1629412, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-24T04:20:25.164Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-24T04:20:25.164Z", 
+            "actor": {
+                "username": "almanac", 
+                "url": "/almanac", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "phabricator", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1629413, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "almanac", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/almanac", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -49285595.41964954, 
+    "disclosed_at": "2017-04-24T04:20:25.148Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/220909", 
+    "created_at": "2017-04-14T03:03:43.117Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"description\">Description</h1>\n\n<p>If a user can push to a repository that has autoclose enabled, they can close //any// Maniphest task on the install, including tasks whose policies otherwise restrict the user from viewing or editing, and tasks inside Spaces that the user can&#39;t view.</p>\n\n<p>I don&#39;t think this rises to the level of &quot;security vulnerability.&quot; In particular, I don&#39;t think this is an issue on installs that operate like the upstream, where the repositories and projects are all related, and the developers who can push to the repositories are trusted throughout the install. On my install, though, the users are multiple, disparate teams who want to restrict access from each other, and they shouldn&#39;t be able to close each other&#39;s tickets. The only reason I&#39;m filing here instead of as a normal bug report is so that in case there are other installs like mine, the issue doesn&#39;t become public before Phacility has a chance to review it.</p>\n\n<h1 id=\"steps-to-reproduce\">Steps to Reproduce</h1>\n\n<p>These steps involve an administrator and two users, Alice and Eve.</p>\n\n<ol>\n<li>As an administrator:\n\n<ol>\n<li>Create a repository R and configure it so that it&#39;s Visible To, Editable By, and Pushable By Eve, and Autoclose is On. OR Configure Diffusion&#39;s policies, setting the Default Edit Policy and Can Create Repositories to All Users.</li>\n<li>(Optional) Create a Space S, and make it visible to only Alice.</li>\n</ol>\n</li>\n<li>As Alice:\n\n<ol>\n<li>Create a Maniphest task T. Set policies so it&#39;s Visible To and Editable By only Alice. If the administrator created Space S, then also make the task visible to Space S instead of the default space.</li>\n</ol>\n</li>\n<li>As Eve:\n\n<ol>\n<li>Confirm that task T is not visible.</li>\n<li>If the administrator created repository R, then clone it. If instead the administrator configured Diffusion to allow anyone to create repositories, then create a new repository R with Autoclose turned On, and clone it.</li>\n<li>Commit something. The author can be anyone and doesn&#39;t need to be a Phabricator user. In the commit message, write something about a mongoose, and use autoclose syntax to close task T.</li>\n<li>Push the commit.</li>\n</ol>\n</li>\n<li>As Alice again:\n\n<ol>\n<li>Confirm that task T has been closed despite policies and restricted spaces.</li>\n<li>Hunt down and destroy Eve. (Being hunted down and destroyed is probably a security vulnerability?)</li>\n</ol>\n</li>\n</ol>\n\n<h1 id=\"versions\">Versions</h1>\n\n<p>I reproduced this on a test instance on Phacility with the following versions:</p>\n\n<ul>\n<li>\n<strong>phabricator:</strong> 699ab153e3751e5389c69db4387d261e358de290 (Fri, Apr 7) (branched from 7707685733d26bf1c7278a2f338416a038c2709b on origin)</li>\n<li>\n<strong>arcanist:</strong> 3512c4ab86d66a103a6733a0589177f93b6d6811 (Fri, Apr 7) (branched from a59cfca5f190c44403dfc7449c678a2aa1626bb4 on origin)</li>\n<li>\n<strong>phutil:</strong> f568eb7b9542259cd3c0dcb3405cc9a83c90a2f5 (Mon, Apr 3) (branched from c581e769f10c6d2b427900897edba74e01a572bd on origin)</li>\n<li>\n<strong>libcore:</strong> 3eebdfca5b325792fdd2003a261e1ab94b919322 (Fri, Mar 24)</li>\n<li>\n<strong>services:</strong> 198eb67bd82296b6938d038836c7269c84bad98f (Feb 13 2017) (branched from 772620edd80ce593b104dba7721db42b9eb020a2 on origin)</li>\n</ul>\n", 
+    "vulnerability_information": "# Description\n\nIf a user can push to a repository that has autoclose enabled, they can close //any// Maniphest task on the install, including tasks whose policies otherwise restrict the user from viewing or editing, and tasks inside Spaces that the user can't view.\n\nI don't think this rises to the level of \"security vulnerability.\" In particular, I don't think this is an issue on installs that operate like the upstream, where the repositories and projects are all related, and the developers who can push to the repositories are trusted throughout the install. On my install, though, the users are multiple, disparate teams who want to restrict access from each other, and they shouldn't be able to close each other's tickets. The only reason I'm filing here instead of as a normal bug report is so that in case there are other installs like mine, the issue doesn't become public before Phacility has a chance to review it.\n\n# Steps to Reproduce\n\nThese steps involve an administrator and two users, Alice and Eve.\n\n1. As an administrator:\n  1. Create a repository R and configure it so that it's Visible To, Editable By, and Pushable By Eve, and Autoclose is On. OR Configure Diffusion's policies, setting the Default Edit Policy and Can Create Repositories to All Users.\n  1. (Optional) Create a Space S, and make it visible to only Alice.\n1. As Alice:\n  1. Create a Maniphest task T. Set policies so it's Visible To and Editable By only Alice. If the administrator created Space S, then also make the task visible to Space S instead of the default space.\n1. As Eve:\n  1. Confirm that task T is not visible.\n  1. If the administrator created repository R, then clone it. If instead the administrator configured Diffusion to allow anyone to create repositories, then create a new repository R with Autoclose turned On, and clone it.\n  1. Commit something. The author can be anyone and doesn't need to be a Phabricator user. In the commit message, write something about a mongoose, and use autoclose syntax to close task T.\n  1. Push the commit.\n1. As Alice again:\n  1. Confirm that task T has been closed despite policies and restricted spaces.\n  1. Hunt down and destroy Eve. (Being hunted down and destroyed is probably a security vulnerability?)\n\n# Versions\n\nI reproduced this on a test instance on Phacility with the following versions:\n\n* **phabricator:** 699ab153e3751e5389c69db4387d261e358de290 (Fri, Apr 7) (branched from 7707685733d26bf1c7278a2f338416a038c2709b on origin)\n* **arcanist:** 3512c4ab86d66a103a6733a0589177f93b6d6811 (Fri, Apr 7) (branched from a59cfca5f190c44403dfc7449c678a2aa1626bb4 on origin)\n* **phutil:** f568eb7b9542259cd3c0dcb3405cc9a83c90a2f5 (Mon, Apr 3) (branched from c581e769f10c6d2b427900897edba74e01a572bd on origin)\n* **libcore:** 3eebdfca5b325792fdd2003a261e1ab94b919322 (Fri, Mar 24)\n* **services:** 198eb67bd82296b6938d038836c7269c84bad98f (Feb 13 2017) (branched from 772620edd80ce593b104dba7721db42b9eb020a2 on origin)\n\n", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://phacility.com/phabricator/", 
+            "about": "Phabricator is a collection of open source web applications that help software companies build better software.", 
+            "twitter_handle": "phabricator", 
+            "name": "Phabricator"
+        }, 
+        "handle": "phabricator", 
+        "url": "https://hackerone.com/phabricator", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/018/8f0130b0439b00cdeeddd76246ec8063cac6495f_small.jpg?1487955532", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/018/29aa105aca62b26e62c64e57c902e5db2bb8daf6_medium.jpg?1487955532"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 18, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

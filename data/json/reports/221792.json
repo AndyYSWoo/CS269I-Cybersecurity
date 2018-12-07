@@ -1,0 +1,315 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-05-25T01:32:36.018Z", 
+    "voters": [
+        "eveeez", 
+        "mpz", 
+        "japz", 
+        "smit", 
+        "spetr0x"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 221792, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-05-24T16:14:15.620Z", 
+    "vulnerability_information": "This issue is very similar to CVE-2016-6307. The underlying defect is different\nbut the security analysis and impacts are the same except that it impacts DTLS.\n\nA DTLS message includes 3 bytes for its length in the header for the message.\nThis would allow for messages up to 16Mb in length. Messages of this length are\nexcessive and OpenSSL includes a check to ensure that a peer is sending\nreasonably sized messages in order to avoid too much memory being consumed to\nservice a connection. A flaw in the logic of version 1.1.0 means that memory for\nthe message is allocated too early, prior to the excessive message length\ncheck. Due to way memory is allocated in OpenSSL this could mean an attacker\ncould force up to 21Mb to be allocated to service a connection. This could lead\nto a Denial of Service through memory exhaustion. However, the excessive message\nlength check still takes place, and this would cause the connection to\nimmediately fail. Assuming that the application calls SSL_free() on the failed\nconneciton in a timely manner then the 21Mb of allocated memory will then be\nimmediately freed again. Therefore the excessive memory allocation will be\ntransitory in nature. This then means that there is only a security impact if:\n\n1) The application does not call SSL_free() in a timely manner in the\nevent that the connection fails\nor\n2) The application is working in a constrained environment where there\nis very little free memory\nor\n3) The attacker initiates multiple connection attempts such that there\nare multiple connections in a state where memory has been allocated for\nthe connection; SSL_free() has not yet been called; and there is\ninsufficient memory to service the multiple requests.\n\nExcept in the instance of (1) above any Denial Of Service is likely to\nbe transitory because as soon as the connection fails the memory is\nsubsequently freed again in the SSL_free() call. However there is an\nincreased risk during this period of application crashes due to the lack\nof memory - which would then mean a more serious Denial of Service.\n\nThis issue does not affect TLS users.\n\nrefer:\nhttps://www.openssl.org/news/secadv/20160922.txt", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "User"
+    }, 
+    "title": "Excessive allocation of memory in dtls1_preprocess_fragment() (CVE-2016-6308)", 
+    "is_member_of_team?": null, 
+    "vote_count": 5, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 4186, 
+            "content": "This issue is very similar to CVE-2016-6307. The underlying defect is different but the security analysis and impacts are the same except that it impacts DTLS.\n\nA DTLS message includes 3 bytes for its length in the header for the message.\n\nThis would allow for messages up to 16Mb in length. Messages of this length are excessive and OpenSSL includes a check to ensure that a peer is sending reasonably sized messages in order to avoid too much memory being consumed to service a connection. A flaw in the logic of version 1.1.0 means that memory for the message is allocated too early, prior to the excessive message length check. Due to way memory is allocated in OpenSSL this could mean an attacker could force up to 21Mb to be allocated to service a connection. This could lead to a Denial of Service through memory exhaustion. However, the excessive message length check still takes place, and this would cause the connection to immediately fail. Assuming that the application calls SSL_free() on the failed conneciton in a timely manner then the 21Mb of allocated memory will then be immediately freed again. Therefore the excessive memory allocation will be transitory in nature. This then means that there is only a security impact if:\n\n1) The application does not call SSL_free() in a timely manner in the event that the connection fails\nor\n2) The application is working in a constrained environment where there is very little free memory\nor\n3) The attacker initiates multiple connection attempts such that there are multiple connections in a state where memory has been allocated for the connection; SSL_free() has not yet been called; and there is insufficient memory to service the multiple requests.\n\nExcept in the instance of (1) above any Denial Of Service is likely to be transitory because as soon as the connection fails the memory is subsequently freed again in the SSL_free() call. However there is an increased risk during this period of application crashes due to the lack of memory - which would then mean a more serious Denial of Service.\n\nThis issue does not affect TLS users.\n\nOpenSSL 1.1.0 DTLS users should upgrade to 1.1.0a\n\nThis issue was reported to OpenSSL on 18th September 2016 by Shi Lei (Gear Team, Qihoo 360 Inc.). The fix was developed by Matt Caswell of the OpenSSL development team.", 
+            "content_html": "<p>This issue is very similar to CVE-2016-6307. The underlying defect is different but the security analysis and impacts are the same except that it impacts DTLS.</p>\n\n<p>A DTLS message includes 3 bytes for its length in the header for the message.</p>\n\n<p>This would allow for messages up to 16Mb in length. Messages of this length are excessive and OpenSSL includes a check to ensure that a peer is sending reasonably sized messages in order to avoid too much memory being consumed to service a connection. A flaw in the logic of version 1.1.0 means that memory for the message is allocated too early, prior to the excessive message length check. Due to way memory is allocated in OpenSSL this could mean an attacker could force up to 21Mb to be allocated to service a connection. This could lead to a Denial of Service through memory exhaustion. However, the excessive message length check still takes place, and this would cause the connection to immediately fail. Assuming that the application calls SSL_free() on the failed conneciton in a timely manner then the 21Mb of allocated memory will then be immediately freed again. Therefore the excessive memory allocation will be transitory in nature. This then means that there is only a security impact if:</p>\n\n<p>1) The application does not call SSL_free() in a timely manner in the event that the connection fails<br>\nor<br>\n2) The application is working in a constrained environment where there is very little free memory<br>\nor<br>\n3) The attacker initiates multiple connection attempts such that there are multiple connections in a state where memory has been allocated for the connection; SSL_free() has not yet been called; and there is insufficient memory to service the multiple requests.</p>\n\n<p>Except in the instance of (1) above any Denial Of Service is likely to be transitory because as soon as the connection fails the memory is subsequently freed again in the SSL_free() call. However there is an increased risk during this period of application crashes due to the lack of memory - which would then mean a more serious Denial of Service.</p>\n\n<p>This issue does not affect TLS users.</p>\n\n<p>OpenSSL 1.1.0 DTLS users should upgrade to 1.1.0a</p>\n\n<p>This issue was reported to OpenSSL on 18th September 2016 by Shi Lei (Gear Team, Qihoo 360 Inc.). The fix was developed by Matt Caswell of the OpenSSL development team.</p>\n"
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-06-23T16:14:15.671Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2016-6308"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$500", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-24T16:13:55.236Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-24T16:13:55.236Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-openssl", 
+            "cve_ids": [
+                "CVE-2016-6308"
+            ], 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::CveIdAdded", 
+            "id": 1698101, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-24T16:14:00.327Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-28T13:11:07.922Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "added_weaknesses": [
+                    {
+                        "id": 48, 
+                        "name": "Denial of Service"
+                    }
+                ], 
+                "removed_weaknesses": []
+            }, 
+            "team_handle": "ibb-openssl", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportVulnerabilityTypesUpdated", 
+            "id": 1698102, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "theyarestone", 
+                "url": "/theyarestone"
+            }, 
+            "created_at": "2017-05-24T16:14:06.447Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-24T16:14:06.447Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-openssl", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 1698103, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-05-24T16:14:11.371Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-24T16:14:11.371Z", 
+            "actor": {
+                "url": "/ibb-openssl", 
+                "profile": {
+                    "name": "OpenSSL (IBB)"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/024/e7fbd40dac4117a139413866b5ecda76d66c8346_medium.png?1384251609"
+                }
+            }, 
+            "team_handle": "ibb-openssl", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "500.0", 
+            "collaborator": {
+                "username": "theyarestone", 
+                "url": "/theyarestone"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1698104, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-24T16:14:15.639Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-24T16:14:15.639Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-openssl", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1698105, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-25T01:32:36.037Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-25T01:32:36.037Z", 
+            "actor": {
+                "username": "theyarestone", 
+                "url": "/theyarestone", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-openssl", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1699580, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-25T01:32:36.088Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-25T01:32:36.088Z", 
+            "actor": {
+                "username": "theyarestone", 
+                "url": "/theyarestone", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-openssl", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1699581, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "theyarestone", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/theyarestone", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 48, 
+        "name": "Denial of Service"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -45901444.55323485, 
+    "disclosed_at": "2017-05-25T01:32:36.072Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/221792", 
+    "created_at": "2017-04-18T07:42:44.573Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>This issue is very similar to CVE-2016-6307. The underlying defect is different<br>\nbut the security analysis and impacts are the same except that it impacts DTLS.</p>\n\n<p>A DTLS message includes 3 bytes for its length in the header for the message.<br>\nThis would allow for messages up to 16Mb in length. Messages of this length are<br>\nexcessive and OpenSSL includes a check to ensure that a peer is sending<br>\nreasonably sized messages in order to avoid too much memory being consumed to<br>\nservice a connection. A flaw in the logic of version 1.1.0 means that memory for<br>\nthe message is allocated too early, prior to the excessive message length<br>\ncheck. Due to way memory is allocated in OpenSSL this could mean an attacker<br>\ncould force up to 21Mb to be allocated to service a connection. This could lead<br>\nto a Denial of Service through memory exhaustion. However, the excessive message<br>\nlength check still takes place, and this would cause the connection to<br>\nimmediately fail. Assuming that the application calls SSL_free() on the failed<br>\nconneciton in a timely manner then the 21Mb of allocated memory will then be<br>\nimmediately freed again. Therefore the excessive memory allocation will be<br>\ntransitory in nature. This then means that there is only a security impact if:</p>\n\n<p>1) The application does not call SSL_free() in a timely manner in the<br>\nevent that the connection fails<br>\nor<br>\n2) The application is working in a constrained environment where there<br>\nis very little free memory<br>\nor<br>\n3) The attacker initiates multiple connection attempts such that there<br>\nare multiple connections in a state where memory has been allocated for<br>\nthe connection; SSL_free() has not yet been called; and there is<br>\ninsufficient memory to service the multiple requests.</p>\n\n<p>Except in the instance of (1) above any Denial Of Service is likely to<br>\nbe transitory because as soon as the connection fails the memory is<br>\nsubsequently freed again in the SSL_free() call. However there is an<br>\nincreased risk during this period of application crashes due to the lack<br>\nof memory - which would then mean a more serious Denial of Service.</p>\n\n<p>This issue does not affect TLS users.</p>\n\n<p>refer:<br>\n<a title=\"https://www.openssl.org/news/secadv/20160922.txt\" href=\"/redirect?signature=df30b1af1d3b014e0bcce383a72a33dfa69a0f95&amp;url=https%3A%2F%2Fwww.openssl.org%2Fnews%2Fsecadv%2F20160922.txt\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.openssl.org/news/secadv/20160922.txt</span><i class=\"icon-external-link\"></i></a></p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.openssl.org", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "OpenSSL (IBB)"
+        }, 
+        "handle": "ibb-openssl", 
+        "url": "https://hackerone.com/ibb-openssl", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/024/75262df009f3ef03cea184defe7c7b10a728f58a_small.png?1384251609", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/024/e7fbd40dac4117a139413866b5ecda76d66c8346_medium.png?1384251609"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 24, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

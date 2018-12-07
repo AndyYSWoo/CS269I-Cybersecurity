@@ -1,0 +1,459 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2016-12-17T20:07:10.125Z", 
+    "voters": [
+        "eveeez", 
+        "madrobot", 
+        "c1231665", 
+        "japz", 
+        "linkks", 
+        "spetr0x", 
+        "callibrator", 
+        "hackerjuan", 
+        "xcom"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "8000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 184712, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2016-12-16T20:24:00.236Z", 
+    "vulnerability_information": "Hi,\n\nThe following file causes a segmentation fault in mruby, which also causes a segmentation fault in mruby-engine. I've minimized this file down to the bare bones what crashes it, then renamed variables and tidied so you can see what is needed and what isn't.\n\n```\ncase \"\"\n  when 0\nend\nx *case\n  when true\n    * = 0\nend\n```\n\nAlso this file causes the same issue:\n\n```\ncase \"\"\n  when 0\nend\nx = *case\n  when 0\n    * = 0\nend\n```\n\nDifference between the two is one is a method call, and one is assignment.\n\n```\n$ ./dev/bin/mruby --version\nmruby 1.2.0 (2015-11-17)\n```\n\n```\n$ ./dev/bin/mruby crash-1.rb\ncrash-1.rb:4:3: '*' interpreted as argument prefix\nSegmentation fault: 11\n```\n\n```\n$ lldb ./dev/bin/mruby crash-1.rb\n(lldb) target create \"./dev/bin/mruby\"\nCurrent executable set to './dev/bin/mruby' (x86_64).\n(lldb) settings set -- target.run-args  \"crash-1.rb\"\n(lldb) r\nProcess 54552 launched: './dev/bin/mruby' (x86_64)\ncrash-1.rb:4:3: '*' interpreted as argument prefix\nProcess 54552 stopped\n* thread #1: tid = 0x652cabc, 0x0000000100001837 mruby`ary_modify + 55, queue = 'com.apple.main-thread', stop reason = EXC_BAD_ACCESS (code=1, address=0x4800000019)\n    frame #0: 0x0000000100001837 mruby`ary_modify + 55\nmruby`ary_modify:\n->  0x100001837 <+55>: cmpl   $0x1, (%rax)\n    0x10000183a <+58>: jne    0x100001889               ; <+137>\n    0x100001840 <+64>: movq   -0x10(%rbp), %rax\n    0x100001844 <+68>: movq   0x28(%rax), %rax\n(lldb) bt\n* thread #1: tid = 0x652cabc, 0x0000000100001837 mruby`ary_modify + 55, queue = 'com.apple.main-thread', stop reason = EXC_BAD_ACCESS (code=1, address=0x4800000019)\n  * frame #0: 0x0000000100001837 mruby`ary_modify + 55\n    frame #1: 0x0000000100001ca1 mruby`ary_concat + 49\n    frame #2: 0x0000000100001c66 mruby`mrb_ary_concat + 70\n    frame #3: 0x000000010004263f mruby`mrb_vm_exec + 25439\n    frame #4: 0x000000010003c2c7 mruby`mrb_vm_run + 135\n    frame #5: 0x00000001000446b4 mruby`mrb_top_run + 100\n    frame #6: 0x000000010006f19f mruby`load_exec + 1183\n    frame #7: 0x000000010006ece3 mruby`mrb_load_file_cxt + 67\n    frame #8: 0x0000000100000d78 mruby`main + 904\n    frame #9: 0x00007fff8a9db5ad libdyld.dylib`start + 1\n    frame #10: 0x00007fff8a9db5ad libdyld.dylib`start + 1\n(lldb) register read\nGeneral Purpose Registers:\n       rax = 0x0000004800000019\n       rbx = 0x0000000000000000\n       rcx = 0x0000000000200086\n       rdx = 0x0000000100000000  mruby`_mh_execute_header\n       rdi = 0x00000001002029f0\n       rsi = 0x0000000100000000  mruby`_mh_execute_header\n       rbp = 0x00007fff5fbfc9d0\n       rsp = 0x00007fff5fbfc9a0\n        r8 = 0x0000000000000001\n        r9 = 0x0000000000000000\n       r10 = 0x0000000000000001\n       r11 = 0x0000000100200000\n       r12 = 0x0000000000000000\n       r13 = 0x0000000000000000\n       r14 = 0x0000000000000000\n       r15 = 0x0000000000000000\n       rip = 0x0000000100001837  mruby`ary_modify + 55\n    rflags = 0x0000000000010206\n        cs = 0x000000000000002b\n        fs = 0x0000000000000000\n        gs = 0x0000000000000000\n\n(lldb) q\nQuitting LLDB will kill one or more processes. Do you really want to proceed: [Y/n] y\n\n```\n\nand the second file:\n\n```\n$ ./dev/bin/mruby crash-2.rb\nSegmentation fault: 11\n```\n\n```\n$ lldb ./dev/bin/mruby crash-2.rb\n(lldb) target create \"./dev/bin/mruby\"\nCurrent executable set to './dev/bin/mruby' (x86_64).\n(lldb) settings set -- target.run-args  \"crash-2.rb\"\n(lldb) r\nProcess 66755 launched: './dev/bin/mruby' (x86_64)\nProcess 66755 stopped\n* thread #1: tid = 0x652fc10, 0x0000000100001837 mruby`ary_modify + 55, queue = 'com.apple.main-thread', stop reason = EXC_BAD_ACCESS (code=1, address=0x4800000019)\n    frame #0: 0x0000000100001837 mruby`ary_modify + 55\nmruby`ary_modify:\n->  0x100001837 <+55>: cmpl   $0x1, (%rax)\n    0x10000183a <+58>: jne    0x100001889               ; <+137>\n    0x100001840 <+64>: movq   -0x10(%rbp), %rax\n    0x100001844 <+68>: movq   0x28(%rax), %rax\n(lldb) bt\n* thread #1: tid = 0x652fc10, 0x0000000100001837 mruby`ary_modify + 55, queue = 'com.apple.main-thread', stop reason = EXC_BAD_ACCESS (code=1, address=0x4800000019)\n  * frame #0: 0x0000000100001837 mruby`ary_modify + 55\n    frame #1: 0x0000000100001ca1 mruby`ary_concat + 49\n    frame #2: 0x0000000100001c66 mruby`mrb_ary_concat + 70\n    frame #3: 0x000000010004263f mruby`mrb_vm_exec + 25439\n    frame #4: 0x000000010003c2c7 mruby`mrb_vm_run + 135\n    frame #5: 0x00000001000446b4 mruby`mrb_top_run + 100\n    frame #6: 0x000000010006f19f mruby`load_exec + 1183\n    frame #7: 0x000000010006ece3 mruby`mrb_load_file_cxt + 67\n    frame #8: 0x0000000100000d78 mruby`main + 904\n    frame #9: 0x00007fff8a9db5ad libdyld.dylib`start + 1\n    frame #10: 0x00007fff8a9db5ad libdyld.dylib`start + 1\n(lldb) register read\nGeneral Purpose Registers:\n       rax = 0x0000004800000019\n       rbx = 0x0000000000000000\n       rcx = 0x0000000000200086\n       rdx = 0x0000000100000000  mruby`_mh_execute_header\n       rdi = 0x00000001002029f0\n       rsi = 0x0000000100000000  mruby`_mh_execute_header\n       rbp = 0x00007fff5fbfc9d0\n       rsp = 0x00007fff5fbfc9a0\n        r8 = 0x0000000000000001\n        r9 = 0x0000000000000000\n       r10 = 0x0000000000000001\n       r11 = 0x0000000100700000\n       r12 = 0x0000000000000000\n       r13 = 0x0000000000000000\n       r14 = 0x0000000000000000\n       r15 = 0x0000000000000000\n       rip = 0x0000000100001837  mruby`ary_modify + 55\n    rflags = 0x0000000000010206\n        cs = 0x000000000000002b\n        fs = 0x0000000000000000\n        gs = 0x0000000000000000\n\n(lldb) q\nQuitting LLDB will kill one or more processes. Do you really want to proceed: [Y/n] y\n\n```\n\nI took a look at the cause in the codegeneration, ... and gave up. But in the `src/array.c` I could fix these two issues with one patch, as follows:\n\n```\ndiff --git a/src/array.c b/src/array.c\nindex 5a319d8..4814968 100644\n--- a/src/array.c\n+++ b/src/array.c\n@@ -259,6 +259,15 @@ ary_concat(mrb_state *mrb, struct RArray *a, mrb_value *ptr, mrb_int blen)\n MRB_API void\n mrb_ary_concat(mrb_state *mrb, mrb_value self, mrb_value other)\n {\n+  if (!mrb_array_p(self)) {\n+    mrb_raisef(mrb, E_TYPE_ERROR, \"expecting Array, got %S\", mrb_obj_value(mrb_obj_class(mrb, self)));\n+    return;\n+  }\n+  if (!mrb_array_p(other)) {\n+    mrb_raisef(mrb, E_TYPE_ERROR, \"expecting Array, got %S\", mrb_obj_value(mrb_obj_class(mrb, other)));\n+    return;\n+  }\n+\n   struct RArray *a2 = mrb_ary_ptr(other);\n \n   ary_concat(mrb, mrb_ary_ptr(self), a2->ptr, a2->len);\n```\n\nAs mentioned above, both these files affect mruby-engine as well:\n\n```\n./bin/sandbox:20: [BUG] Segmentation fault at 0x00000000000019\nruby 2.3.0p0 (2015-12-25 revision 53290) [x86_64-darwin15]\n\n-- Crash Report log information --------------------------------------------\n   See Crash Report log file under the one of following:\n     * ~/Library/Logs/CrashReporter\n     * /Library/Logs/CrashReporter\n     * ~/Library/Logs/DiagnosticReports\n     * /Library/Logs/DiagnosticReports\n   for more details.\nDon't forget to include the above Crash Report log file in bug reports.\n\n-- Control frame information -----------------------------------------------\nc:0003 p:---- s:0010 e:000009 CFUNC  :sandbox_eval\nc:0002 p:0201 s:0005 E:0006b8 EVAL   ./bin/sandbox:20 [FINISH]\nc:0001 p:0000 s:0002 E:002310 (none) [FINISH]\n\n-- Ruby level backtrace information ----------------------------------------\n./bin/sandbox:20:in `<main>'\n./bin/sandbox:20:in `sandbox_eval'\n\n-- Machine register context ------------------------------------------------\n rax: 0x000000011061c3f0 rbx: 0x0000000110674668 rcx: 0x0000000000000004\n rdx: 0x000000011061c3f0 rdi: 0x0000000110614440 rsi: 0x0000000000000001\n rbp: 0x00007fff50037f40 rsp: 0x00007fff50037f10  r8: 0x0000000000000003\n  r9: 0x0000000000000000 r10: 0x0000000000000000 r11: 0x00000001106145a8\n r12: 0x00000001106145a8 r13: 0x000000011063b2f0 r14: 0x0000000000000001\n r15: 0x0000000000000001 rip: 0x00000001104f233d rfl: 0x0000000000010246\n\n-- C level backtrace information -------------------------------------------\n0   ruby                                0x000000010fd645d4 rb_vm_bugreport + 388\n1   ruby                                0x000000010fc06023 rb_bug_context + 483\n2   ruby                                0x000000010fcd9653 sigsegv + 83\n3   libsystem_platform.dylib            0x00007fff9826d52a _sigtramp + 26\n4   mruby_engine.bundle                 0x00000001104f233d mrb_ary_concat + 29\n5   ???                                 0x0000000110614440 0x0 + 4569777216\n\n-- Other runtime information -----------------------------------------------\n\n* Loaded script: ./bin/sandbox\n\n* Loaded features:\n\n    0 enumerator.so\n    1 thread.rb\n    2 rational.so\n    3 complex.so\n<snip various gems>\n  185 /Users/<snip>/mruby-engine/lib/mruby_engine/mruby_engine.bundle\n  186 /Users/<snip>/mruby-engine/lib/mruby_engine.rb\n\n[NOTE]\nYou may have encountered a bug in the Ruby interpreter or extension libraries.\nBug reports are welcome.\nFor details: http://www.ruby-lang.org/bugreport.html\n\n```\n\nThe second file produced same backtrace, but different register values.\n\nAfter applying that patch to `ext/mruby_engine/mruby` and recompiling, these two files no longer crash.\n\nIf you end up finding a better patch elsewhere for the root cause, can you let me know what you end up applying so I can change what I fuzz against?\n\nCheers,\n\nHugh", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "Team"
+    }, 
+    "title": "Denial of service due to invalid memory access in mrb_ary_concat", 
+    "is_member_of_team?": null, 
+    "vote_count": 9, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-01-15T20:24:00.266Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$8,000", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/136/645/701c0bdb501b8a987c56844701b6d76f69a67df3/crash-184712-2.rb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ3XJAUJU3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224540Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDFhsOVc%2BLBuZJpN2%2FSK3A3ZSLRshQ37cr%2FnNfrsDZBl9Q9MwEJMM1w9f3SvUV6XmoP9nE3PeRToIYvFP152VEnHi03BXq%2BWX7mrp9duCLiSGu%2BuVj85dqXhL9hy5iZ8Baa9Dz1PfTpOuhKCmbaYzCWIDNTGGHjLe%2FHfj5BNMi3SKneAl%2FX0h%2BZqSIdJKDz1SK5Y92eHwZBEL8GznF9GsT%2Fe6zDxKRumhz8Vkk3IGYi5pwUBa6qmtuvb0%2FFBueYSgxUsIbsmK0uIt1sxLJbfLOybgHUA18Z80yVa0KlQc%2BgoSsS484NaEhLTbRqdlZ%2BxywVi8oiNq8ePPGFix9FXwU3HcD5DsyS3oPWa%2BzB9%2FB%2Fj5i%2F%2B%2Fdj%2Fww%2BhTYa6J%2BrE25cJz8f7DhYt5rCg9X8q2TCUwBOYuOUl5A0l4eFCWneCTq2xxhRjl1g1J%2BaAUAShH%2BiAD7%2BKi%2B3APDa6E97UEIGwiReOW1M7p2dsYu%2BTRFAcWFkx%2FfdNcmK%2F1EAANP1i4cT%2FBf2l24Vc5LPZJjCm1RkrTRxc90qzl8fyslqz595eagGsI73K0uzaibH5HvlrUQwLfX4TmlW%2Foze1zEhFUOiAB5qs%2FM3wow8am4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=0ec4dc0746fb2a72d7fa9f1f868b125d14c7bd6402dedddadeca549c74c6ce3f", 
+                    "type": "text/x-c++", 
+                    "id": 136645, 
+                    "filename": "crash-184712-2.rb"
+                }, 
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/136/644/d1de0f8c0686d6d94551e8f34754bd464ed0066e/bug-184712.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ3XJAUJU3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224540Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDFhsOVc%2BLBuZJpN2%2FSK3A3ZSLRshQ37cr%2FnNfrsDZBl9Q9MwEJMM1w9f3SvUV6XmoP9nE3PeRToIYvFP152VEnHi03BXq%2BWX7mrp9duCLiSGu%2BuVj85dqXhL9hy5iZ8Baa9Dz1PfTpOuhKCmbaYzCWIDNTGGHjLe%2FHfj5BNMi3SKneAl%2FX0h%2BZqSIdJKDz1SK5Y92eHwZBEL8GznF9GsT%2Fe6zDxKRumhz8Vkk3IGYi5pwUBa6qmtuvb0%2FFBueYSgxUsIbsmK0uIt1sxLJbfLOybgHUA18Z80yVa0KlQc%2BgoSsS484NaEhLTbRqdlZ%2BxywVi8oiNq8ePPGFix9FXwU3HcD5DsyS3oPWa%2BzB9%2FB%2Fj5i%2F%2B%2Fdj%2Fww%2BhTYa6J%2BrE25cJz8f7DhYt5rCg9X8q2TCUwBOYuOUl5A0l4eFCWneCTq2xxhRjl1g1J%2BaAUAShH%2BiAD7%2BKi%2B3APDa6E97UEIGwiReOW1M7p2dsYu%2BTRFAcWFkx%2FfdNcmK%2F1EAANP1i4cT%2FBf2l24Vc5LPZJjCm1RkrTRxc90qzl8fyslqz595eagGsI73K0uzaibH5HvlrUQwLfX4TmlW%2Foze1zEhFUOiAB5qs%2FM3wow8am4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=cd0d306b350f459c984fdb38a6fe7a386523583b323c94d998acadf9521a3f4b", 
+                    "type": "text/x-diff", 
+                    "id": 136644, 
+                    "filename": "bug-184712.patch"
+                }, 
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/136/643/e4c8f8cf454989f5519421bc266308e3a861ee86/crash-184712-1.rb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ3XJAUJU3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224540Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDFhsOVc%2BLBuZJpN2%2FSK3A3ZSLRshQ37cr%2FnNfrsDZBl9Q9MwEJMM1w9f3SvUV6XmoP9nE3PeRToIYvFP152VEnHi03BXq%2BWX7mrp9duCLiSGu%2BuVj85dqXhL9hy5iZ8Baa9Dz1PfTpOuhKCmbaYzCWIDNTGGHjLe%2FHfj5BNMi3SKneAl%2FX0h%2BZqSIdJKDz1SK5Y92eHwZBEL8GznF9GsT%2Fe6zDxKRumhz8Vkk3IGYi5pwUBa6qmtuvb0%2FFBueYSgxUsIbsmK0uIt1sxLJbfLOybgHUA18Z80yVa0KlQc%2BgoSsS484NaEhLTbRqdlZ%2BxywVi8oiNq8ePPGFix9FXwU3HcD5DsyS3oPWa%2BzB9%2FB%2Fj5i%2F%2B%2Fdj%2Fww%2BhTYa6J%2BrE25cJz8f7DhYt5rCg9X8q2TCUwBOYuOUl5A0l4eFCWneCTq2xxhRjl1g1J%2BaAUAShH%2BiAD7%2BKi%2B3APDa6E97UEIGwiReOW1M7p2dsYu%2BTRFAcWFkx%2FfdNcmK%2F1EAANP1i4cT%2FBf2l24Vc5LPZJjCm1RkrTRxc90qzl8fyslqz595eagGsI73K0uzaibH5HvlrUQwLfX4TmlW%2Foze1zEhFUOiAB5qs%2FM3wow8am4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=2653c344bda37d19d428d590eaaaa5cad26c38d72e13a68631e8926c1a9d6f37", 
+                    "type": "text/plain", 
+                    "id": 136643, 
+                    "filename": "crash-184712-1.rb"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2016-11-24T04:36:24.373Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-24T04:36:24.373Z", 
+            "actor": {
+                "username": "haquaman", 
+                "url": "/haquaman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/646/00e8f30e9c2903d8cd0fc7e31caadc141a3a9841_medium.png?1424925238"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Attached the two crash files, and the potential patch to fix.", 
+            "markdown_message": "<p>Attached the two crash files, and the potential patch to fix.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1316891, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/136/646/ea80f421201e5678de84b2429c8b33dd4159daad/crash-184712-2.rb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ3XJAUJU3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224540Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDFhsOVc%2BLBuZJpN2%2FSK3A3ZSLRshQ37cr%2FnNfrsDZBl9Q9MwEJMM1w9f3SvUV6XmoP9nE3PeRToIYvFP152VEnHi03BXq%2BWX7mrp9duCLiSGu%2BuVj85dqXhL9hy5iZ8Baa9Dz1PfTpOuhKCmbaYzCWIDNTGGHjLe%2FHfj5BNMi3SKneAl%2FX0h%2BZqSIdJKDz1SK5Y92eHwZBEL8GznF9GsT%2Fe6zDxKRumhz8Vkk3IGYi5pwUBa6qmtuvb0%2FFBueYSgxUsIbsmK0uIt1sxLJbfLOybgHUA18Z80yVa0KlQc%2BgoSsS484NaEhLTbRqdlZ%2BxywVi8oiNq8ePPGFix9FXwU3HcD5DsyS3oPWa%2BzB9%2FB%2Fj5i%2F%2B%2Fdj%2Fww%2BhTYa6J%2BrE25cJz8f7DhYt5rCg9X8q2TCUwBOYuOUl5A0l4eFCWneCTq2xxhRjl1g1J%2BaAUAShH%2BiAD7%2BKi%2B3APDa6E97UEIGwiReOW1M7p2dsYu%2BTRFAcWFkx%2FfdNcmK%2F1EAANP1i4cT%2FBf2l24Vc5LPZJjCm1RkrTRxc90qzl8fyslqz595eagGsI73K0uzaibH5HvlrUQwLfX4TmlW%2Foze1zEhFUOiAB5qs%2FM3wow8am4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=7cc5605a826c6dad92375dbd899baa2294b36e27cc2d17813acd43151f9213e6", 
+                    "type": "text/plain", 
+                    "id": 136646, 
+                    "filename": "crash-184712-2.rb"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2016-11-24T04:37:28.166Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-24T04:37:28.166Z", 
+            "actor": {
+                "username": "haquaman", 
+                "url": "/haquaman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/646/00e8f30e9c2903d8cd0fc7e31caadc141a3a9841_medium.png?1424925238"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Whoops, wrong crash file for -2.rb, this one instead.", 
+            "markdown_message": "<p>Whoops, wrong crash file for -2.rb, this one instead.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1316893, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-24T19:29:18.530Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-24T19:29:18.530Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for your report. We've reproduced the issue, and our engineering team is investigating.", 
+            "markdown_message": "<p>Thank you for your report. We&#39;ve reproduced the issue, and our engineering team is investigating.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1318281, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-24T19:29:24.884Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-24T19:29:24.884Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "High", 
+                "old_severity": null
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1318282, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "haquaman", 
+                "url": "/haquaman"
+            }, 
+            "created_at": "2016-11-25T22:03:04.864Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-25T22:03:04.864Z", 
+            "actor": {
+                "username": "francoischagnon", 
+                "url": "/francoischagnon", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/168/3b5130025fbf90eaeb1c9234baa340dfead68f44_medium.jpg?1429126005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Hi @haquaman, thanks again for reporting this issue! We've pushed a fix for this issue to our production environment.\n\nI'm marking this issue as resolved now but we still need to fix this bug upstream before we can assess the impact & determine a final bounty amount. This may take a few weeks since we received a large number of valid issues and we want to calibrate our payouts across all of them.", 
+            "markdown_message": "<p>Hi <a href=\"/haquaman\">@haquaman</a>, thanks again for reporting this issue! We&#39;ve pushed a fix for this issue to our production environment.</p>\n\n<p>I&#39;m marking this issue as resolved now but we still need to fix this bug upstream before we can assess the impact &amp; determine a final bounty amount. This may take a few weeks since we received a large number of valid issues and we want to calibrate our payouts across all of them.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1319993, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-26T02:52:51.911Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-26T02:52:51.911Z", 
+            "actor": {
+                "username": "haquaman", 
+                "url": "/haquaman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/646/00e8f30e9c2903d8cd0fc7e31caadc141a3a9841_medium.png?1424925238"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Cool thanks", 
+            "markdown_message": "<p>Cool thanks</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1320292, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-28T17:11:16.987Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-28T17:11:16.987Z", 
+            "actor": {
+                "username": "haquaman", 
+                "url": "/haquaman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/646/00e8f30e9c2903d8cd0fc7e31caadc141a3a9841_medium.png?1424925238"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Hi Francois. Would you be able to share the patch you've applied?\n\nCheers,\n\nHugh", 
+            "markdown_message": "<p>Hi Francois. Would you be able to share the patch you&#39;ve applied?</p>\n\n<p>Cheers,</p>\n\n<p>Hugh</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1323419, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-28T17:42:51.734Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-28T17:42:51.734Z", 
+            "actor": {
+                "username": "francoischagnon", 
+                "url": "/francoischagnon", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/168/3b5130025fbf90eaeb1c9234baa340dfead68f44_medium.jpg?1429126005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "here it is:\n\n```patch\nFrom 9f877dcdce33d336224d71754463b799acb42bbd Mon Sep 17 00:00:00 2001\nFrom: Bouke van der Bijl <boukevanderbijl@gmail.com>\nDate: Thu, 24 Nov 2016 13:31:47 -0500\nSubject: [PATCH] Fix segfault when using result of rest assignment\n\nReported by https://hackerone.com/haquaman\n---\n mrbgems/mruby-compiler/core/codegen.c | 4 +++-\n test/t/codegen.rb                     | 9 +++++++++\n 2 files changed, 12 insertions(+), 1 deletion(-)\n\ndiff --git a/mrbgems/mruby-compiler/core/codegen.c b/mrbgems/mruby-compiler/core/codegen.c\nindex 0b870f3..89c12eb 100644\n--- a/mrbgems/mruby-compiler/core/codegen.c\n+++ b/mrbgems/mruby-compiler/core/codegen.c\n@@ -1057,7 +1057,9 @@ gen_vmassignment(codegen_scope *s, node *tree, int rhs, int val)\n         n++;\n       }\n     }\n-    push();\n+    if (!val) {\n+      push();\n+    }\n   }\n }\n \ndiff --git a/test/t/codegen.rb b/test/t/codegen.rb\nindex ad36e19..a78576a 100644\n--- a/test/t/codegen.rb\n+++ b/test/t/codegen.rb\n@@ -68,3 +68,12 @@ def method\n     A ||= break while break\n   end\n end\n+\n+assert('splat in case splat') do\n+  a = *case\n+    when 0\n+      * = 1\n+  end\n+\n+  assert_equal [1], a\n+end\n```", 
+            "markdown_message": "<p>here it is:</p>\n<pre class=\"highlight diff\"><code>From 9f877dcdce33d336224d71754463b799acb42bbd Mon Sep 17 00:00:00 2001\nFrom: Bouke van der Bijl &lt;boukevanderbijl@gmail.com&gt;\nDate: Thu, 24 Nov 2016 13:31:47 -0500\nSubject: [PATCH] Fix segfault when using result of rest assignment\n\nReported by https://hackerone.com/haquaman\n---\n mrbgems/mruby-compiler/core/codegen.c | 4 +++-\n test/t/codegen.rb                     | 9 +++++++++\n 2 files changed, 12 insertions(+), 1 deletion(-)\n\n<span class=\"gh\">diff --git a/mrbgems/mruby-compiler/core/codegen.c b/mrbgems/mruby-compiler/core/codegen.c\nindex 0b870f3..89c12eb 100644\n</span><span class=\"gd\">--- a/mrbgems/mruby-compiler/core/codegen.c\n</span><span class=\"gi\">+++ b/mrbgems/mruby-compiler/core/codegen.c\n</span><span class=\"gu\">@@ -1057,7 +1057,9 @@ gen_vmassignment(codegen_scope *s, node *tree, int rhs, int val)\n</span>         n++;\n       }\n     }\n<span class=\"gd\">-    push();\n</span><span class=\"gi\">+    if (!val) {\n+      push();\n+    }\n</span>   }\n }\n\n<span class=\"gh\">diff --git a/test/t/codegen.rb b/test/t/codegen.rb\nindex ad36e19..a78576a 100644\n</span><span class=\"gd\">--- a/test/t/codegen.rb\n</span><span class=\"gi\">+++ b/test/t/codegen.rb\n</span><span class=\"gu\">@@ -68,3 +68,12 @@ def method\n</span>     A ||= break while break\n   end\n end\n<span class=\"gi\">+\n+assert(&#39;splat in case splat&#39;) do\n+  a = *case\n+    when 0\n+      * = 1\n+  end\n+\n+  assert_equal [1], a\n+end\n</span></code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 1323476, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-28T17:45:23.312Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-28T17:45:23.312Z", 
+            "actor": {
+                "username": "haquaman", 
+                "url": "/haquaman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/646/00e8f30e9c2903d8cd0fc7e31caadc141a3a9841_medium.png?1424925238"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Ta", 
+            "markdown_message": "<p>Ta</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1323482, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2016-12-16T20:23:54.834Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-16T20:23:54.834Z", 
+            "actor": {
+                "url": "/shopify-scripts", 
+                "profile": {
+                    "name": "shopify-scripts"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+                }
+            }, 
+            "team_handle": "shopify-scripts", 
+            "bounty_amount": "8000.0", 
+            "collaborator": {
+                "username": "haquaman", 
+                "url": "/haquaman"
+            }, 
+            "message": "Thanks for helping improve the security of Shopify Scripts and the mruby project!", 
+            "markdown_message": "<p>Thanks for helping improve the security of Shopify Scripts and the mruby project!</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1370166, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-16T20:24:00.251Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-16T20:24:00.251Z", 
+            "actor": {
+                "username": "andrewdunbar", 
+                "url": "/andrewdunbar", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/164/cd46f5270ea41c5f0da3bea93e2eca7a95858caf_medium.jpg?1427927985"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1370167, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-17T20:07:10.140Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-17T20:07:10.140Z", 
+            "actor": {
+                "username": "haquaman", 
+                "url": "/haquaman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/646/00e8f30e9c2903d8cd0fc7e31caadc141a3a9841_medium.png?1424925238"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Hey thanks for the bounty!", 
+            "markdown_message": "<p>Hey thanks for the bounty!</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1371649, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-17T20:07:10.183Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-17T20:07:10.183Z", 
+            "actor": {
+                "username": "haquaman", 
+                "url": "/haquaman", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/646/00e8f30e9c2903d8cd0fc7e31caadc141a3a9841_medium.png?1424925238"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1371650, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "haquaman", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/haquaman", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/017/646/dc284cea5e3d18b7d17719465c17723a8349a967_small.png?1424925238"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 48, 
+        "name": "Denial of Service"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -59624499.64995326, 
+    "disclosed_at": "2016-12-17T20:07:10.168Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/184712", 
+    "created_at": "2016-11-24T04:35:19.514Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Hi,</p>\n\n<p>The following file causes a segmentation fault in mruby, which also causes a segmentation fault in mruby-engine. I&#39;ve minimized this file down to the bare bones what crashes it, then renamed variables and tidied so you can see what is needed and what isn&#39;t.</p>\n<pre class=\"highlight plaintext\"><code>case &quot;&quot;\n  when 0\nend\nx *case\n  when true\n    * = 0\nend\n</code></pre>\n<p>Also this file causes the same issue:</p>\n<pre class=\"highlight plaintext\"><code>case &quot;&quot;\n  when 0\nend\nx = *case\n  when 0\n    * = 0\nend\n</code></pre>\n<p>Difference between the two is one is a method call, and one is assignment.</p>\n<pre class=\"highlight plaintext\"><code>$ ./dev/bin/mruby --version\nmruby 1.2.0 (2015-11-17)\n</code></pre><pre class=\"highlight plaintext\"><code>$ ./dev/bin/mruby crash-1.rb\ncrash-1.rb:4:3: &#39;*&#39; interpreted as argument prefix\nSegmentation fault: 11\n</code></pre><pre class=\"highlight plaintext\"><code>$ lldb ./dev/bin/mruby crash-1.rb\n(lldb) target create &quot;./dev/bin/mruby&quot;\nCurrent executable set to &#39;./dev/bin/mruby&#39; (x86_64).\n(lldb) settings set -- target.run-args  &quot;crash-1.rb&quot;\n(lldb) r\nProcess 54552 launched: &#39;./dev/bin/mruby&#39; (x86_64)\ncrash-1.rb:4:3: &#39;*&#39; interpreted as argument prefix\nProcess 54552 stopped\n* thread #1: tid = 0x652cabc, 0x0000000100001837 mruby`ary_modify + 55, queue = &#39;com.apple.main-thread&#39;, stop reason = EXC_BAD_ACCESS (code=1, address=0x4800000019)\n    frame #0: 0x0000000100001837 mruby`ary_modify + 55\nmruby`ary_modify:\n-&gt;  0x100001837 &lt;+55&gt;: cmpl   $0x1, (%rax)\n    0x10000183a &lt;+58&gt;: jne    0x100001889               ; &lt;+137&gt;\n    0x100001840 &lt;+64&gt;: movq   -0x10(%rbp), %rax\n    0x100001844 &lt;+68&gt;: movq   0x28(%rax), %rax\n(lldb) bt\n* thread #1: tid = 0x652cabc, 0x0000000100001837 mruby`ary_modify + 55, queue = &#39;com.apple.main-thread&#39;, stop reason = EXC_BAD_ACCESS (code=1, address=0x4800000019)\n  * frame #0: 0x0000000100001837 mruby`ary_modify + 55\n    frame #1: 0x0000000100001ca1 mruby`ary_concat + 49\n    frame #2: 0x0000000100001c66 mruby`mrb_ary_concat + 70\n    frame #3: 0x000000010004263f mruby`mrb_vm_exec + 25439\n    frame #4: 0x000000010003c2c7 mruby`mrb_vm_run + 135\n    frame #5: 0x00000001000446b4 mruby`mrb_top_run + 100\n    frame #6: 0x000000010006f19f mruby`load_exec + 1183\n    frame #7: 0x000000010006ece3 mruby`mrb_load_file_cxt + 67\n    frame #8: 0x0000000100000d78 mruby`main + 904\n    frame #9: 0x00007fff8a9db5ad libdyld.dylib`start + 1\n    frame #10: 0x00007fff8a9db5ad libdyld.dylib`start + 1\n(lldb) register read\nGeneral Purpose Registers:\n       rax = 0x0000004800000019\n       rbx = 0x0000000000000000\n       rcx = 0x0000000000200086\n       rdx = 0x0000000100000000  mruby`_mh_execute_header\n       rdi = 0x00000001002029f0\n       rsi = 0x0000000100000000  mruby`_mh_execute_header\n       rbp = 0x00007fff5fbfc9d0\n       rsp = 0x00007fff5fbfc9a0\n        r8 = 0x0000000000000001\n        r9 = 0x0000000000000000\n       r10 = 0x0000000000000001\n       r11 = 0x0000000100200000\n       r12 = 0x0000000000000000\n       r13 = 0x0000000000000000\n       r14 = 0x0000000000000000\n       r15 = 0x0000000000000000\n       rip = 0x0000000100001837  mruby`ary_modify + 55\n    rflags = 0x0000000000010206\n        cs = 0x000000000000002b\n        fs = 0x0000000000000000\n        gs = 0x0000000000000000\n\n(lldb) q\nQuitting LLDB will kill one or more processes. Do you really want to proceed: [Y/n] y\n\n</code></pre>\n<p>and the second file:</p>\n<pre class=\"highlight plaintext\"><code>$ ./dev/bin/mruby crash-2.rb\nSegmentation fault: 11\n</code></pre><pre class=\"highlight plaintext\"><code>$ lldb ./dev/bin/mruby crash-2.rb\n(lldb) target create &quot;./dev/bin/mruby&quot;\nCurrent executable set to &#39;./dev/bin/mruby&#39; (x86_64).\n(lldb) settings set -- target.run-args  &quot;crash-2.rb&quot;\n(lldb) r\nProcess 66755 launched: &#39;./dev/bin/mruby&#39; (x86_64)\nProcess 66755 stopped\n* thread #1: tid = 0x652fc10, 0x0000000100001837 mruby`ary_modify + 55, queue = &#39;com.apple.main-thread&#39;, stop reason = EXC_BAD_ACCESS (code=1, address=0x4800000019)\n    frame #0: 0x0000000100001837 mruby`ary_modify + 55\nmruby`ary_modify:\n-&gt;  0x100001837 &lt;+55&gt;: cmpl   $0x1, (%rax)\n    0x10000183a &lt;+58&gt;: jne    0x100001889               ; &lt;+137&gt;\n    0x100001840 &lt;+64&gt;: movq   -0x10(%rbp), %rax\n    0x100001844 &lt;+68&gt;: movq   0x28(%rax), %rax\n(lldb) bt\n* thread #1: tid = 0x652fc10, 0x0000000100001837 mruby`ary_modify + 55, queue = &#39;com.apple.main-thread&#39;, stop reason = EXC_BAD_ACCESS (code=1, address=0x4800000019)\n  * frame #0: 0x0000000100001837 mruby`ary_modify + 55\n    frame #1: 0x0000000100001ca1 mruby`ary_concat + 49\n    frame #2: 0x0000000100001c66 mruby`mrb_ary_concat + 70\n    frame #3: 0x000000010004263f mruby`mrb_vm_exec + 25439\n    frame #4: 0x000000010003c2c7 mruby`mrb_vm_run + 135\n    frame #5: 0x00000001000446b4 mruby`mrb_top_run + 100\n    frame #6: 0x000000010006f19f mruby`load_exec + 1183\n    frame #7: 0x000000010006ece3 mruby`mrb_load_file_cxt + 67\n    frame #8: 0x0000000100000d78 mruby`main + 904\n    frame #9: 0x00007fff8a9db5ad libdyld.dylib`start + 1\n    frame #10: 0x00007fff8a9db5ad libdyld.dylib`start + 1\n(lldb) register read\nGeneral Purpose Registers:\n       rax = 0x0000004800000019\n       rbx = 0x0000000000000000\n       rcx = 0x0000000000200086\n       rdx = 0x0000000100000000  mruby`_mh_execute_header\n       rdi = 0x00000001002029f0\n       rsi = 0x0000000100000000  mruby`_mh_execute_header\n       rbp = 0x00007fff5fbfc9d0\n       rsp = 0x00007fff5fbfc9a0\n        r8 = 0x0000000000000001\n        r9 = 0x0000000000000000\n       r10 = 0x0000000000000001\n       r11 = 0x0000000100700000\n       r12 = 0x0000000000000000\n       r13 = 0x0000000000000000\n       r14 = 0x0000000000000000\n       r15 = 0x0000000000000000\n       rip = 0x0000000100001837  mruby`ary_modify + 55\n    rflags = 0x0000000000010206\n        cs = 0x000000000000002b\n        fs = 0x0000000000000000\n        gs = 0x0000000000000000\n\n(lldb) q\nQuitting LLDB will kill one or more processes. Do you really want to proceed: [Y/n] y\n\n</code></pre>\n<p>I took a look at the cause in the codegeneration, ... and gave up. But in the <code>src/array.c</code> I could fix these two issues with one patch, as follows:</p>\n<pre class=\"highlight diff\"><code><span class=\"gh\">diff --git a/src/array.c b/src/array.c\nindex 5a319d8..4814968 100644\n</span><span class=\"gd\">--- a/src/array.c\n</span><span class=\"gi\">+++ b/src/array.c\n</span><span class=\"gu\">@@ -259,6 +259,15 @@ ary_concat(mrb_state *mrb, struct RArray *a, mrb_value *ptr, mrb_int blen)\n</span> MRB_API void\n mrb_ary_concat(mrb_state *mrb, mrb_value self, mrb_value other)\n {\n<span class=\"gi\">+  if (!mrb_array_p(self)) {\n+    mrb_raisef(mrb, E_TYPE_ERROR, &quot;expecting Array, got %S&quot;, mrb_obj_value(mrb_obj_class(mrb, self)));\n+    return;\n+  }\n+  if (!mrb_array_p(other)) {\n+    mrb_raisef(mrb, E_TYPE_ERROR, &quot;expecting Array, got %S&quot;, mrb_obj_value(mrb_obj_class(mrb, other)));\n+    return;\n+  }\n+\n</span>   struct RArray *a2 = mrb_ary_ptr(other);\n\n   ary_concat(mrb, mrb_ary_ptr(self), a2-&gt;ptr, a2-&gt;len);\n</code></pre>\n<p>As mentioned above, both these files affect mruby-engine as well:</p>\n<pre class=\"highlight plaintext\"><code>./bin/sandbox:20: [BUG] Segmentation fault at 0x00000000000019\nruby 2.3.0p0 (2015-12-25 revision 53290) [x86_64-darwin15]\n\n-- Crash Report log information --------------------------------------------\n   See Crash Report log file under the one of following:\n     * ~/Library/Logs/CrashReporter\n     * /Library/Logs/CrashReporter\n     * ~/Library/Logs/DiagnosticReports\n     * /Library/Logs/DiagnosticReports\n   for more details.\nDon&#39;t forget to include the above Crash Report log file in bug reports.\n\n-- Control frame information -----------------------------------------------\nc:0003 p:---- s:0010 e:000009 CFUNC  :sandbox_eval\nc:0002 p:0201 s:0005 E:0006b8 EVAL   ./bin/sandbox:20 [FINISH]\nc:0001 p:0000 s:0002 E:002310 (none) [FINISH]\n\n-- Ruby level backtrace information ----------------------------------------\n./bin/sandbox:20:in `&lt;main&gt;&#39;\n./bin/sandbox:20:in `sandbox_eval&#39;\n\n-- Machine register context ------------------------------------------------\n rax: 0x000000011061c3f0 rbx: 0x0000000110674668 rcx: 0x0000000000000004\n rdx: 0x000000011061c3f0 rdi: 0x0000000110614440 rsi: 0x0000000000000001\n rbp: 0x00007fff50037f40 rsp: 0x00007fff50037f10  r8: 0x0000000000000003\n  r9: 0x0000000000000000 r10: 0x0000000000000000 r11: 0x00000001106145a8\n r12: 0x00000001106145a8 r13: 0x000000011063b2f0 r14: 0x0000000000000001\n r15: 0x0000000000000001 rip: 0x00000001104f233d rfl: 0x0000000000010246\n\n-- C level backtrace information -------------------------------------------\n0   ruby                                0x000000010fd645d4 rb_vm_bugreport + 388\n1   ruby                                0x000000010fc06023 rb_bug_context + 483\n2   ruby                                0x000000010fcd9653 sigsegv + 83\n3   libsystem_platform.dylib            0x00007fff9826d52a _sigtramp + 26\n4   mruby_engine.bundle                 0x00000001104f233d mrb_ary_concat + 29\n5   ???                                 0x0000000110614440 0x0 + 4569777216\n\n-- Other runtime information -----------------------------------------------\n\n* Loaded script: ./bin/sandbox\n\n* Loaded features:\n\n    0 enumerator.so\n    1 thread.rb\n    2 rational.so\n    3 complex.so\n&lt;snip various gems&gt;\n  185 /Users/&lt;snip&gt;/mruby-engine/lib/mruby_engine/mruby_engine.bundle\n  186 /Users/&lt;snip&gt;/mruby-engine/lib/mruby_engine.rb\n\n[NOTE]\nYou may have encountered a bug in the Ruby interpreter or extension libraries.\nBug reports are welcome.\nFor details: http://www.ruby-lang.org/bugreport.html\n\n</code></pre>\n<p>The second file produced same backtrace, but different register values.</p>\n\n<p>After applying that patch to <code>ext/mruby_engine/mruby</code> and recompiling, these two files no longer crash.</p>\n\n<p>If you end up finding a better patch elsewhere for the root cause, can you let me know what you end up applying so I can change what I fuzz against?</p>\n\n<p>Cheers,</p>\n\n<p>Hugh</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.mruby.science", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "shopify-scripts"
+        }, 
+        "handle": "shopify-scripts", 
+        "url": "https://hackerone.com/shopify-scripts", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/015/668/9f47d94cbd9e4311b57f1ab05f67fb5c26fd2e78_small.jpg?1475592254", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 15668, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

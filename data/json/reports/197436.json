@@ -1,0 +1,388 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-10-11T23:08:04.054Z", 
+    "voters": [
+        "sp1d3rs", 
+        "eveeez", 
+        "axolotl", 
+        "japz", 
+        "spetr0x"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 197436, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-10-11T22:25:41.299Z", 
+    "vulnerability_information": "In this vulnerability, a restricted user is able to edit the alert conditions of a synthetics monitor, even if he is unauthorized to do so. \n\n**Steps to reproduce:** \n\n- Admin user invites User1 to New Relic account as a restricted user\n- User1 accepts invitation, joins the account\n- Admin goes to Synthetics > Permissions and creates Group1. Admin adds User1 to Group1 and sets the following restrictions for monitors:\n\nView all monitors = checked\nEdit all monitors = unchecked\nPrivate locations = checked\nEdit all private locations = unchecked\n\nWith these settings, User1, the restricted user, can view *but not modify* any of the settings within the monitors. \n\n- Admin creates a second group, called Group2. In this group, the admin adds himself and sets the following restrictions for monitors: \n\nView all monitors = checked\nEdit all monitors = checked\nPrivate locations = checked\nEdit all private locations = checked\n\nWith these settings, only the admin account has full control to view, edit, and modify any of the settings within the monitors. \n\n- Admin account creates two monitors. The monitors are called: Monitor1 and Monitor2.\n\n- In Monitor1, it does not matter what is filled out, except #5: Get Notified. The admin selects \u201cDo not notify anyone\u201d as the setting for this monitor. \n- For Monitor2, the admin uses an email as the \u201cGet Notified\u201d setting. Please see Fig. 1, this is what the settings should like like to the admin for Monitor2. \n\nWith this logic, the following is true:\n\n1. Monitor1 alerts no-one\n2. Monitor2 alerts \u201cexample@gmail.com\u201d of issues\n3. In all situations, User1 is _supposed to not be able to edit any of the monitors_ because he is a restricted user and in Group1, which explicitly states that editing of monitors is not allowed (is unchecked). \n\n- User1 navigates to Synthetics and clicks on \u201cMonitor1\u201d. The URL should look something like this: https://synthetics.newrelic.com/accounts/1523936/monitors/5b8d01f9-389e-4120-aa83-20baa98e086c/\n- User1 appends `/conditions` at the end of the URL. The URL now looks like this: https://synthetics.newrelic.com/accounts/1523936/monitors/8f4a3a49-6355-4455-8480-79d93acdfda7/conditions\n- User1 should not be able to be here! He isn\u2019t authorized to make edits to Monitors! User1 clicks on \u201cAdd to another alert policy\u201d on this page\n- User1 can now choose to add another alert policy to this monitor. User1 clicks on Monitor2 from the alert policy settings. \n- User1 clicks on save. \n- User1 has successfully edited Monitor1, enabling email alerts to be sent to example@gmail.com for Monitor1 because the alert policies for Monitor2 allow email alerts. \n- If Admin goes back to the https://synthetics.newrelic.com/accounts/1523936/monitors/8f4a3a49-6355-4455-8480-79d93acdfda7/conditions section for Monitor1, he will be able to see that an alert condition has been added without his authorization! \n\nHere is the raw request of the Restricted User when he clicks on \"Save\":\n\n```\nRequest URL:https://synthetics.newrelic.com/accounts/1523936/alerts/8f4a3a49-6355-4455-8480-79d93acdfda7/conditions.json\nRequest Method:POST\nStatus Code:200 OK\nRemote Address:52.72.47.111:443\n\nResponse Headers\naccess-control-allow-credentials:true\naccess-control-allow-origin:https://synthetics.newrelic.com\naccess-control-expose-headers:ETag, Link\naccess-control-max-age:86400\nCache-Control:private, no-cache, no-store, max-age=0, must-revalidate\nConnection:keep-alive\ncontent-encoding:gzip\nContent-Type:application/json\nDate:Wed, 11 Jan 2017 01:21:02 GMT\nExpires:Fri, 01 Jan 1990 00:00:00 GMT\nPragma:no-cache\nProxied-By:Service Gateway\nSet-Cookie:XSRF-TOKEN=GZZ3jOvBLVY6x11su86uk5hSC2FCKUYtE6o5rI25isLl6VhaaO1uVr9XDdNH41oh;Version=1;Path=/;Max-Age=31449600;Secure\nStrict-Transport-Security:max-age=31536000; includeSubdomains\ntransfer-encoding:chunked\nvary:Origin, Access-Control-Allow-Origin, Access-Control-Request-Method, Access-Control-Request-Headers\nX-Frame-Options:Deny\nX-NewRelic-App-Data:PxQGQldSDAQEXUNOFWZSBDBDV10RBwAWWQ1WPhdqUUFHMlwDYgRBFA1VUj1JAltQXxEPFkRtGB0FUlVcFwgXK1QfZE1ZVFFARxZlTkoMXAwNQlgTLwcCE2sFTBh2HG1WSQhqb087GFEGTkUfZBdXXV0BUBVYDl0RRB5nLjU3EREcVE9SGwEZVFUCBgNUVVBOHVMUQF0IBwFQUA5TBAIFUlRTVAREPg==\n\nRequest Headers\nAccept:application/json, text/plain, */*\nAccept-Encoding:gzip, deflate, br\nAccept-Language:en-US,en;q=0.8\nConnection:keep-alive\nContent-Length:208\nContent-Type:application/json;charset=UTF-8\nCookie:ajs_anonymous_id=%225f89d111-e552-4583-ab52-10b9a12a5035%22; optimizelyEndUserId=oeu1484014963631r0.32557837963963276; hit_signup_confirmation=1; __qca=P0-1015391273-1484014969570; __insp_wid=833722916; __insp_slim=1484038002136; __insp_nv=true; __insp_targlpu=https%3A%2F%2Fdiscuss.newrelic.com%2Ft%2Fnr-user-roles-and-insights%2F1079; __insp_targlpt=NR%20User%20roles%20and%20Insights%20-%20Insights%20-%20New%20Relic%20Online%20Technical%20Community; NRREFL=https://www.google.com/; NRREFP=https://www.google.com/; _mkto_trk=id:412-MZS-894&token:_mch-newrelic.com-1484014970019-86872; optimizelySegments=%7B%22171941824%22%3A%22gc%22%2C%22172184284%22%3A%22false%22%2C%22172242367%22%3A%22search%22%2C%221025373943%22%3A%22none%22%7D; optimizelyBuckets=%7B%7D; ei_client_id=58757dc4ec30d60012aec58d; __ar_v4=JBSCNJNEJVESXE5GXBKROX%3A20170109%3A1%7CYCNZVXZ6TJDJ3KMJRVGKFH%3A20170109%3A6%7CI7ZJI4CQMBCNHGOQ27AYQZ%3A20170109%3A6%7CX524XMXO4FFB5H6B4GWKPS%3A20170109%3A4%7CDLQZ5QQWIFBZZM5ECJME6X%3A20170109%3A1; _ceg.s=ojlays; _ceg.u=ojlays; nr_zd_logged_in=true; login_service_login_newrelic_com_tokens=%7B%22token%22%3A+%22pD%2B8AuyEmqRinwcl6NgwrqQN%2F15juEbuj9jkpL%2F%2B9Rqr91fXnq%2FDjQtzljHqEiUFSmnwmxX9bqA%2BCLmx3Qwh0m7UekKTFwUEMgE5DrB7fyGQslUBo%2B5dIl%2Ffu1RIPtRzBYBbn%2BelpqdSRFu6zPLzvgGYeRgo0le%2B08CDp8tn36JUmWFI3Hie%2FGOdAn6M0zJ%2BbV7eI8thx75a%2FfpH5WNHxMXyDpGeQuxDz%2FvnVxJrKQTrGfzlJXYXZp2xFBe3m44bI3gvz9GTuKU3hRciGzQx%2BPbOqFSyerQ7tHv5kJoyQEn1KrZRXIR%2BfmgH2hFNCFaMmVNcq5nqZWN9t3wBSFzsEA%3D%3D%22%2C+%22refresh_token%22%3A+%22nLt6gEDiJHh7cTIwWOLQstYP4Qq8Ayz%2FMowIaLMb0%2Bokd6eKSPxHaoL9nrz5a59GOVtbfhNu787sYKfcR9awrFut3RRuZJiN9jCg5lfoufe0PHmTqJHbbgYg6F2gLMESBVUX2qi6RStopMK4x6aURRaYQ6dn5CtSptKZcVAVTCimwnpx8OEpy3FGy3McLHxcoa9EssjPCWm5Xn5wDxRtzSsp1aSbhI34jKWiJgnNYJDE1kKQnvB%2BGu55Gq3%2BulZHJ1mi%2BLxHU7DWfOG%2F0bSkKySPiO7j4ojWjm8mkQnRzNokaZXpkwtr1HEaL%2FtjGXmZ1mA4NdZBBES4wWjVqEIwdg%3D%3D%22%7D; XSRF-TOKEN=mHXGz4gcxUgoh6HFoZU5SVqHLGYLCEEK9F1EeoHWivjt1gloe3RCMeTAWZRVGqF6; TSNGUID=73d3c835-326d-43a8-aa10-2d437c434378; ajs_user_id=1798936; ajs_group_id=1523936; _ga=GA1.2.26295853.1484008238; intercom-session-cyym0u3i=cG5vZWVvRG5hVFh1WkMvQ1JkSGJwYnp0T0VIdFJJaCtzYngwZ0JBM3FVaVJpTUcvYy8rVVJyWFVtZEJTWS9ZUS0tNTh4NjZsVjAwZDVkUXEweGVJK3ZMUT09--99e3fa70d0965c0c7cdae88b582e0dd471e9d409; login_idle_session_timeout={\"lastInteractionAt\":1484097662,\"warningTime\":180,\"lastIdleLimitCheck\":1484097349,\"idleLimit\":1577880000}\nHost:synthetics.newrelic.com\nOrigin:https://synthetics.newrelic.com\nReferer:https://synthetics.newrelic.com/accounts/1523936/monitors/8f4a3a49-6355-4455-8480-79d93acdfda7/conditions\nUser-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.95 Safari/537.36\nX-XSRF-TOKEN:mHXGz4gcxUgoh6HFoZU5SVqHLGYLCEEK9F1EeoHWivjt1gloe3RCMeTAWZRVGqF6\n\nRequest Payload\n{\"id\":111235,\"accountId\":1523936,\"name\":\"Monitor2\",\"enabled\":true,\"isDefaultPolicy\":false,\"accountPolicyId\":32094,\"description\":\"No applicable conditions for this policy - No notification channels associated\"}\n```\n\nNormally, this should return a 401 Not Authorized error. It seems like there is nothing to check to see if the Restricted User is actually authorized to perform the actions at this endpoint.\n\nPlease let me know if you need additional information, \n\nJon Bottarini", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "Team"
+    }, 
+    "title": "Restricted User is able to edit Alert Conditions of Synthetics Monitors even if Synthetics Permissions is enabled by an admin", 
+    "is_member_of_team?": null, 
+    "vote_count": 5, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 5546, 
+            "content": "This is a very simple and straightforward case of not checking to ensure that the user visiting the specific URL endpoint is authorized based on the RBAC they were given. There was limited actions that the restricted user could perform, hence the \"Low\" rating. \n\nThis was fixed with an overhaul of the permissions model across all of New Relic. You can read more about what they changed here:  https://blog.newrelic.com/2017/09/06/role-based-access-control-rbac/", 
+            "content_html": "<p>This is a very simple and straightforward case of not checking to ensure that the user visiting the specific URL endpoint is authorized based on the RBAC they were given. There was limited actions that the restricted user could perform, hence the &quot;Low&quot; rating. </p>\n\n<p>This was fixed with an overhaul of the permissions model across all of New Relic. You can read more about what they changed here:  <a title=\"https://blog.newrelic.com/2017/09/06/role-based-access-control-rbac/\" href=\"/redirect?signature=6c423c39961bef8bdd7c1d84d09ede22e58642c3&amp;url=https%3A%2F%2Fblog.newrelic.com%2F2017%2F09%2F06%2Frole-based-access-control-rbac%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://blog.newrelic.com/2017/09/06/role-based-access-control-rbac/</span><i class=\"icon-external-link\"></i></a></p>\n"
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-11-10T22:25:41.354Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "Fig._1.png", 
+            "type": "image/png", 
+            "id": 151430, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/151/430/6d751768f5ba749aa1cabe0361b7388519ad4bfd/Fig._1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223140Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=c3bc67c5bf4cbbb64740607f204a61e6e4d2778538b47ddced87f46763891d4b"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-12T19:32:48.870Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-12T19:32:48.870Z", 
+            "actor": {
+                "username": "dmcmahon", 
+                "url": "/dmcmahon", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Low", 
+                "old_severity": "High"
+            }, 
+            "team_handle": "newrelic", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1416724, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-12T19:35:04.419Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-12T19:35:04.419Z", 
+            "actor": {
+                "username": "dmcmahon", 
+                "url": "/dmcmahon", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "newrelic", 
+            "message": "Hi @jon_bottarini,\n\nThanks for reporting this issue. We've been able to replicate this functionality on our end.\n\nWe've escalated this to the team responsible and will follow up with a resolution.", 
+            "markdown_message": "<p>Hi <a href=\"/jon_bottarini\">@jon_bottarini</a>,</p>\n\n<p>Thanks for reporting this issue. We&#39;ve been able to replicate this functionality on our end.</p>\n\n<p>We&#39;ve escalated this to the team responsible and will follow up with a resolution.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1416727, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-29T21:03:32.770Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-29T21:03:32.770Z", 
+            "actor": {
+                "username": "jon_bottarini", 
+                "url": "/jon_bottarini", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/784/58f1137f8bb0dc03ec52f7f930e371dabcc7f8ed_medium.jpg?1483036767"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "newrelic", 
+            "message": "Hello - just checking to see if there is any update to this report, thanks. \n", 
+            "markdown_message": "<p>Hello - just checking to see if there is any update to this report, thanks. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1571542, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-29T22:13:48.247Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-29T22:13:48.247Z", 
+            "actor": {
+                "username": "dmcmahon", 
+                "url": "/dmcmahon", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "newrelic", 
+            "message": "Hi @jon_bottarini,\n\nThis issue has been escalated to the appropriate engineering team. We will update this report after it has been remediated.", 
+            "markdown_message": "<p>Hi <a href=\"/jon_bottarini\">@jon_bottarini</a>,</p>\n\n<p>This issue has been escalated to the appropriate engineering team. We will update this report after it has been remediated.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1571651, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-03T22:14:00.297Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-03T22:14:00.297Z", 
+            "actor": {
+                "username": "nrjensen", 
+                "url": "/nrjensen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/048/502/9e9a6522b8f8a9abca1c81bedee6ff3ad052e8eb_medium.jpg?1451516871"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "newrelic", 
+            "message": "Discussed with Synthetics today, and it is a little more complicated.  These alerts are actually using the New Relic Alerts which does not integrate with Synthetics. Synthetics and Alerts are going to integrate with our new ACL policy but this will not be a quick fix.", 
+            "markdown_message": "<p>Discussed with Synthetics today, and it is a little more complicated.  These alerts are actually using the New Relic Alerts which does not integrate with Synthetics. Synthetics and Alerts are going to integrate with our new ACL policy but this will not be a quick fix.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1652599, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-04T18:08:17.774Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-04T18:08:17.774Z", 
+            "actor": {
+                "username": "jon_bottarini", 
+                "url": "/jon_bottarini", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/784/58f1137f8bb0dc03ec52f7f930e371dabcc7f8ed_medium.jpg?1483036767"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "newrelic", 
+            "message": "Thank you for the update on this issue. Looking forward to a resolution in the future.", 
+            "markdown_message": "<p>Thank you for the update on this issue. Looking forward to a resolution in the future.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1654412, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "jon_bottarini", 
+                "url": "/jon_bottarini"
+            }, 
+            "created_at": "2017-06-13T19:55:18.693Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-13T19:55:18.693Z", 
+            "actor": {
+                "username": "dmcmahon", 
+                "url": "/dmcmahon", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "newrelic", 
+            "message": "Hi @jon_bottarini,\n\nThis issue has been triaged with the appropriate engineering teams but there is no definite timeline on a fix. As such, we'll mark this issue as Resolved in anticipation of a future improvement to our permissions scheme.", 
+            "markdown_message": "<p>Hi <a href=\"/jon_bottarini\">@jon_bottarini</a>,</p>\n\n<p>This issue has been triaged with the appropriate engineering teams but there is no definite timeline on a fix. As such, we&#39;ll mark this issue as Resolved in anticipation of a future improvement to our permissions scheme.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1753543, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-11T22:25:41.328Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-11T22:25:41.328Z", 
+            "actor": {
+                "username": "imelven", 
+                "url": "/imelven", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/036/153/4df54ed716b59237add2eccc46f1f39b24d6feef_medium.jpeg?1454633488"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "newrelic", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2060283, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-11T23:08:04.093Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-11T23:08:04.093Z", 
+            "actor": {
+                "username": "jon_bottarini", 
+                "url": "/jon_bottarini", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/784/58f1137f8bb0dc03ec52f7f930e371dabcc7f8ed_medium.jpg?1483036767"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "newrelic", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2060372, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-11T23:08:04.151Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-11T23:08:04.151Z", 
+            "actor": {
+                "username": "jon_bottarini", 
+                "url": "/jon_bottarini", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/784/58f1137f8bb0dc03ec52f7f930e371dabcc7f8ed_medium.jpg?1483036767"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "newrelic", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2060373, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-03T03:34:53.774Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-03T03:34:53.774Z", 
+            "actor": {
+                "url": "/newrelic", 
+                "profile": {
+                    "name": "New Relic"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/011/94822999c270d791d185b40e07d36cc864e96faa_medium.?1482361910"
+                }
+            }, 
+            "team_handle": "newrelic", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::NotEligibleForBounty", 
+            "id": 2694287, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "jon_bottarini", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/jon_bottarini", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/013/784/31a023f205afe234c3ef611e252a3c3df96df1f3_small.jpg?1483036767"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 27, 
+        "name": "Improper Authentication - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -33782758.928877, 
+    "disclosed_at": "2017-10-11T23:08:04.131Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/197436", 
+    "created_at": "2017-01-11T01:35:05.816Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>In this vulnerability, a restricted user is able to edit the alert conditions of a synthetics monitor, even if he is unauthorized to do so. </p>\n\n<p><strong>Steps to reproduce:</strong> </p>\n\n<ul>\n<li>Admin user invites User1 to New Relic account as a restricted user</li>\n<li>User1 accepts invitation, joins the account</li>\n<li>Admin goes to Synthetics &gt; Permissions and creates Group1. Admin adds User1 to Group1 and sets the following restrictions for monitors:</li>\n</ul>\n\n<p>View all monitors = checked<br>\nEdit all monitors = unchecked<br>\nPrivate locations = checked<br>\nEdit all private locations = unchecked</p>\n\n<p>With these settings, User1, the restricted user, can view <em>but not modify</em> any of the settings within the monitors. </p>\n\n<ul>\n<li>Admin creates a second group, called Group2. In this group, the admin adds himself and sets the following restrictions for monitors: </li>\n</ul>\n\n<p>View all monitors = checked<br>\nEdit all monitors = checked<br>\nPrivate locations = checked<br>\nEdit all private locations = checked</p>\n\n<p>With these settings, only the admin account has full control to view, edit, and modify any of the settings within the monitors. </p>\n\n<ul>\n<li><p>Admin account creates two monitors. The monitors are called: Monitor1 and Monitor2.</p></li>\n<li><p>In Monitor1, it does not matter what is filled out, except #5: Get Notified. The admin selects \u201cDo not notify anyone\u201d as the setting for this monitor. </p></li>\n<li><p>For Monitor2, the admin uses an email as the \u201cGet Notified\u201d setting. Please see Fig. 1, this is what the settings should like like to the admin for Monitor2. </p></li>\n</ul>\n\n<p>With this logic, the following is true:</p>\n\n<ol>\n<li>Monitor1 alerts no-one</li>\n<li>Monitor2 alerts \u201c<a title=\"example@gmail.com\" href=\"mailto:example@gmail.com\" rel=\"nofollow noopener noreferrer\">example@gmail.com</a>\u201d of issues</li>\n<li>In all situations, User1 is <u>supposed to not be able to edit any of the monitors</u> because he is a restricted user and in Group1, which explicitly states that editing of monitors is not allowed (is unchecked). </li>\n</ol>\n\n<ul>\n<li>User1 navigates to Synthetics and clicks on \u201cMonitor1\u201d. The URL should look something like this: <a title=\"https://synthetics.newrelic.com/accounts/1523936/monitors/5b8d01f9-389e-4120-aa83-20baa98e086c/\" href=\"/redirect?signature=f22adb4be15932c3545a1e58a6b702554f8063a7&amp;url=https%3A%2F%2Fsynthetics.newrelic.com%2Faccounts%2F1523936%2Fmonitors%2F5b8d01f9-389e-4120-aa83-20baa98e086c%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://synthetics.newrelic.com/accounts/1523936/monitors/5b8d01f9-389e-4120-aa83-20baa98e086c/</span><i class=\"icon-external-link\"></i></a>\n</li>\n<li>User1 appends <code>/conditions</code> at the end of the URL. The URL now looks like this: <a title=\"https://synthetics.newrelic.com/accounts/1523936/monitors/8f4a3a49-6355-4455-8480-79d93acdfda7/conditions\" href=\"/redirect?signature=6b9ab75645c9c1c9003f0b80499354b467f4223b&amp;url=https%3A%2F%2Fsynthetics.newrelic.com%2Faccounts%2F1523936%2Fmonitors%2F8f4a3a49-6355-4455-8480-79d93acdfda7%2Fconditions\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://synthetics.newrelic.com/accounts/1523936/monitors/8f4a3a49-6355-4455-8480-79d93acdfda7/conditions</span><i class=\"icon-external-link\"></i></a>\n</li>\n<li>User1 should not be able to be here! He isn\u2019t authorized to make edits to Monitors! User1 clicks on \u201cAdd to another alert policy\u201d on this page</li>\n<li>User1 can now choose to add another alert policy to this monitor. User1 clicks on Monitor2 from the alert policy settings. </li>\n<li>User1 clicks on save. </li>\n<li>User1 has successfully edited Monitor1, enabling email alerts to be sent to <a title=\"example@gmail.com\" href=\"mailto:example@gmail.com\" rel=\"nofollow noopener noreferrer\">example@gmail.com</a> for Monitor1 because the alert policies for Monitor2 allow email alerts. </li>\n<li>If Admin goes back to the <a title=\"https://synthetics.newrelic.com/accounts/1523936/monitors/8f4a3a49-6355-4455-8480-79d93acdfda7/conditions\" href=\"/redirect?signature=6b9ab75645c9c1c9003f0b80499354b467f4223b&amp;url=https%3A%2F%2Fsynthetics.newrelic.com%2Faccounts%2F1523936%2Fmonitors%2F8f4a3a49-6355-4455-8480-79d93acdfda7%2Fconditions\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://synthetics.newrelic.com/accounts/1523936/monitors/8f4a3a49-6355-4455-8480-79d93acdfda7/conditions</span><i class=\"icon-external-link\"></i></a> section for Monitor1, he will be able to see that an alert condition has been added without his authorization! </li>\n</ul>\n\n<p>Here is the raw request of the Restricted User when he clicks on &quot;Save&quot;:</p>\n<pre class=\"highlight plaintext\"><code>Request URL:https://synthetics.newrelic.com/accounts/1523936/alerts/8f4a3a49-6355-4455-8480-79d93acdfda7/conditions.json\nRequest Method:POST\nStatus Code:200 OK\nRemote Address:52.72.47.111:443\n\nResponse Headers\naccess-control-allow-credentials:true\naccess-control-allow-origin:https://synthetics.newrelic.com\naccess-control-expose-headers:ETag, Link\naccess-control-max-age:86400\nCache-Control:private, no-cache, no-store, max-age=0, must-revalidate\nConnection:keep-alive\ncontent-encoding:gzip\nContent-Type:application/json\nDate:Wed, 11 Jan 2017 01:21:02 GMT\nExpires:Fri, 01 Jan 1990 00:00:00 GMT\nPragma:no-cache\nProxied-By:Service Gateway\nSet-Cookie:XSRF-TOKEN=GZZ3jOvBLVY6x11su86uk5hSC2FCKUYtE6o5rI25isLl6VhaaO1uVr9XDdNH41oh;Version=1;Path=/;Max-Age=31449600;Secure\nStrict-Transport-Security:max-age=31536000; includeSubdomains\ntransfer-encoding:chunked\nvary:Origin, Access-Control-Allow-Origin, Access-Control-Request-Method, Access-Control-Request-Headers\nX-Frame-Options:Deny\nX-NewRelic-App-Data:PxQGQldSDAQEXUNOFWZSBDBDV10RBwAWWQ1WPhdqUUFHMlwDYgRBFA1VUj1JAltQXxEPFkRtGB0FUlVcFwgXK1QfZE1ZVFFARxZlTkoMXAwNQlgTLwcCE2sFTBh2HG1WSQhqb087GFEGTkUfZBdXXV0BUBVYDl0RRB5nLjU3EREcVE9SGwEZVFUCBgNUVVBOHVMUQF0IBwFQUA5TBAIFUlRTVAREPg==\n\nRequest Headers\nAccept:application/json, text/plain, */*\nAccept-Encoding:gzip, deflate, br\nAccept-Language:en-US,en;q=0.8\nConnection:keep-alive\nContent-Length:208\nContent-Type:application/json;charset=UTF-8\nCookie:ajs_anonymous_id=%225f89d111-e552-4583-ab52-10b9a12a5035%22; optimizelyEndUserId=oeu1484014963631r0.32557837963963276; hit_signup_confirmation=1; __qca=P0-1015391273-1484014969570; __insp_wid=833722916; __insp_slim=1484038002136; __insp_nv=true; __insp_targlpu=https%3A%2F%2Fdiscuss.newrelic.com%2Ft%2Fnr-user-roles-and-insights%2F1079; __insp_targlpt=NR%20User%20roles%20and%20Insights%20-%20Insights%20-%20New%20Relic%20Online%20Technical%20Community; NRREFL=https://www.google.com/; NRREFP=https://www.google.com/; _mkto_trk=id:412-MZS-894&amp;token:_mch-newrelic.com-1484014970019-86872; optimizelySegments=%7B%22171941824%22%3A%22gc%22%2C%22172184284%22%3A%22false%22%2C%22172242367%22%3A%22search%22%2C%221025373943%22%3A%22none%22%7D; optimizelyBuckets=%7B%7D; ei_client_id=58757dc4ec30d60012aec58d; __ar_v4=JBSCNJNEJVESXE5GXBKROX%3A20170109%3A1%7CYCNZVXZ6TJDJ3KMJRVGKFH%3A20170109%3A6%7CI7ZJI4CQMBCNHGOQ27AYQZ%3A20170109%3A6%7CX524XMXO4FFB5H6B4GWKPS%3A20170109%3A4%7CDLQZ5QQWIFBZZM5ECJME6X%3A20170109%3A1; _ceg.s=ojlays; _ceg.u=ojlays; nr_zd_logged_in=true; login_service_login_newrelic_com_tokens=%7B%22token%22%3A+%22pD%2B8AuyEmqRinwcl6NgwrqQN%2F15juEbuj9jkpL%2F%2B9Rqr91fXnq%2FDjQtzljHqEiUFSmnwmxX9bqA%2BCLmx3Qwh0m7UekKTFwUEMgE5DrB7fyGQslUBo%2B5dIl%2Ffu1RIPtRzBYBbn%2BelpqdSRFu6zPLzvgGYeRgo0le%2B08CDp8tn36JUmWFI3Hie%2FGOdAn6M0zJ%2BbV7eI8thx75a%2FfpH5WNHxMXyDpGeQuxDz%2FvnVxJrKQTrGfzlJXYXZp2xFBe3m44bI3gvz9GTuKU3hRciGzQx%2BPbOqFSyerQ7tHv5kJoyQEn1KrZRXIR%2BfmgH2hFNCFaMmVNcq5nqZWN9t3wBSFzsEA%3D%3D%22%2C+%22refresh_token%22%3A+%22nLt6gEDiJHh7cTIwWOLQstYP4Qq8Ayz%2FMowIaLMb0%2Bokd6eKSPxHaoL9nrz5a59GOVtbfhNu787sYKfcR9awrFut3RRuZJiN9jCg5lfoufe0PHmTqJHbbgYg6F2gLMESBVUX2qi6RStopMK4x6aURRaYQ6dn5CtSptKZcVAVTCimwnpx8OEpy3FGy3McLHxcoa9EssjPCWm5Xn5wDxRtzSsp1aSbhI34jKWiJgnNYJDE1kKQnvB%2BGu55Gq3%2BulZHJ1mi%2BLxHU7DWfOG%2F0bSkKySPiO7j4ojWjm8mkQnRzNokaZXpkwtr1HEaL%2FtjGXmZ1mA4NdZBBES4wWjVqEIwdg%3D%3D%22%7D; XSRF-TOKEN=mHXGz4gcxUgoh6HFoZU5SVqHLGYLCEEK9F1EeoHWivjt1gloe3RCMeTAWZRVGqF6; TSNGUID=73d3c835-326d-43a8-aa10-2d437c434378; ajs_user_id=1798936; ajs_group_id=1523936; _ga=GA1.2.26295853.1484008238; intercom-session-cyym0u3i=cG5vZWVvRG5hVFh1WkMvQ1JkSGJwYnp0T0VIdFJJaCtzYngwZ0JBM3FVaVJpTUcvYy8rVVJyWFVtZEJTWS9ZUS0tNTh4NjZsVjAwZDVkUXEweGVJK3ZMUT09--99e3fa70d0965c0c7cdae88b582e0dd471e9d409; login_idle_session_timeout={&quot;lastInteractionAt&quot;:1484097662,&quot;warningTime&quot;:180,&quot;lastIdleLimitCheck&quot;:1484097349,&quot;idleLimit&quot;:1577880000}\nHost:synthetics.newrelic.com\nOrigin:https://synthetics.newrelic.com\nReferer:https://synthetics.newrelic.com/accounts/1523936/monitors/8f4a3a49-6355-4455-8480-79d93acdfda7/conditions\nUser-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.95 Safari/537.36\nX-XSRF-TOKEN:mHXGz4gcxUgoh6HFoZU5SVqHLGYLCEEK9F1EeoHWivjt1gloe3RCMeTAWZRVGqF6\n\nRequest Payload\n{&quot;id&quot;:111235,&quot;accountId&quot;:1523936,&quot;name&quot;:&quot;Monitor2&quot;,&quot;enabled&quot;:true,&quot;isDefaultPolicy&quot;:false,&quot;accountPolicyId&quot;:32094,&quot;description&quot;:&quot;No applicable conditions for this policy - No notification channels associated&quot;}\n</code></pre>\n<p>Normally, this should return a 401 Not Authorized error. It seems like there is nothing to check to see if the Restricted User is actually authorized to perform the actions at this endpoint.</p>\n\n<p>Please let me know if you need additional information, </p>\n\n<p>Jon Bottarini</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://newrelic.com", 
+            "about": "New Relic's Coordinated Disclosure Program", 
+            "twitter_handle": "newrelic", 
+            "name": "New Relic"
+        }, 
+        "handle": "newrelic", 
+        "url": "https://hackerone.com/newrelic", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/017/011/4a259e2f731f105c784b1279db99215cefb8abbd_small.?1482361910", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/017/011/94822999c270d791d185b40e07d36cc864e96faa_medium.?1482361910"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 17011, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

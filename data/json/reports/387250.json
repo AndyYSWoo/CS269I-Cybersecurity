@@ -1,0 +1,379 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-10-19T14:46:00.227Z", 
+    "voters": [
+        "kapytein", 
+        "0x9090", 
+        "eveeez", 
+        "mygf", 
+        "japz", 
+        "cryptographer", 
+        "iheb_hamad", 
+        "semvoigtlander", 
+        "tylereckstein", 
+        "jhonwick"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 387250, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-10-19T21:59:23.921Z", 
+    "vulnerability_information": "When two OpenSSL::X509::Name objects are compared using ==, depending on the ordering, non-equal objects will return true. When the first argument is one character longer than the second, or the second argument contains a character that is one less than a character in the same position of the first argument, the result of == will be true. Example below:\n\nirb(main):001:0> require 'openssl'\n=> true\nirb(main):002:0> a = OpenSSL::X509::Name.new([[\"CN\", \"www.example.com\"]])\n=> #<OpenSSL::X509::Name:0x007fa127cdf3f0>\nirb(main):003:0> b = OpenSSL::X509::Name.new([[\"CN\", \"www.example.co\"]])\n=> #<OpenSSL::X509::Name:0x007fa127cd0260>\nirb(main):004:0> c = OpenSSL::X509::Name.new([[\"CN\", \"www.exbmple.com\"]])\n=> #<OpenSSL::X509::Name:0x007fa127cb68b0>\nirb(main):005:0> a == b\n=> true                    # Should NOT be true\nirb(main):006:0> a == c\n=> false\nirb(main):007:0> c == a\n=> true                    # Should NOT be true\nirb(main):008:0> b == a\n=> false\n\n\n\nThis appears to be from the ossl_x509name_cmp function and I was able to fix this with the following diff, with included tests that would fail without the change to ossl_x509name_cmp:\n\ndiff --git a/ext/openssl/ossl_x509name.c b/ext/openssl/ossl_x509name.c\nindex c900bcb..15e4bb0 100644\n--- a/ext/openssl/ossl_x509name.c\n+++ b/ext/openssl/ossl_x509name.c\n@@ -400,7 +400,7 @@ ossl_x509name_cmp(VALUE self, VALUE other)\n\n     result = ossl_x509name_cmp0(self, other);\n     if (result < 0) return INT2FIX(-1);\n-    if (result > 1) return INT2FIX(1);\n+    if (result > 0) return INT2FIX(1);\n\n     return INT2FIX(0);\n }\ndiff --git a/test/test_x509name.rb b/test/test_x509name.rb\nindex 2d92e64..ae8a8fb 100644\n--- a/test/test_x509name.rb\n+++ b/test/test_x509name.rb\n@@ -426,10 +426,24 @@ class OpenSSL::TestX509Name < OpenSSL::TestCase\n     name0 = OpenSSL::X509::Name.new([[\"DC\", \"org\"], [\"DC\", \"ruby-lang\"], [\"CN\", \"bar.ruby-lang.org\"]])\n     name1 = OpenSSL::X509::Name.new([[\"DC\", \"org\"], [\"DC\", \"ruby-lang\"], [\"CN\", \"bar.ruby-lang.org\"]])\n     name2 = OpenSSL::X509::Name.new([[\"DC\", \"org\"], [\"DC\", \"ruby-lang\"], [\"CN\", \"baz.ruby-lang.org\"]])\n+    name3 = OpenSSL::X509::Name.new([[\"DC\", \"org\"], [\"DC\", \"ruby-lang\"], [\"CN\", \"bar.ruby-langg.org\"]])\n+    name4 = OpenSSL::X509::Name.new([[\"DC\", \"org\"], [\"DC\", \"ruby-lang\"], [\"CN\", \"bbz.ruby-lang.org\"]])\n     assert_equal true, name0 == name1\n     assert_equal true, name0.eql?(name1)\n+    assert_equal true, name1 == name0\n+    assert_equal true, name1.eql?(name0)\n     assert_equal false, name0 == name2\n     assert_equal false, name0.eql?(name2)\n+    assert_equal false, name2 == name0\n+    assert_equal false, name2.eql?(name0)\n+    assert_equal false, name0 == name3\n+    assert_equal false, name0.eql?(name3)\n+    assert_equal false, name3 == name0\n+    assert_equal false, name3.eql?(name0)\n+    assert_equal false, name0 == name4\n+    assert_equal false, name0.eql?(name4)\n+    assert_equal false, name4 == name0\n+    assert_equal false, name4.eql?(name0)\n   end\n\n## Impact\n\nWhenever names are compared during certificate validation an attacker could use a certificate with a different name, but the comparison will return that they are equal. This would allow an attacker to create an illegitimate certificate that may be accepted as legitimate and then used in signing or encryption operations.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "User"
+    }, 
+    "title": "OpenSSL::X509::Name Equality Check Does Not Work, Patch included", 
+    "is_member_of_team?": null, 
+    "vote_count": 10, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-11-18T14:46:00.287Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2018-16395"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$500", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/324/918/440722d2021cd4b9c46cf446d276b94c702ba1ac/rubySSLNameDiff.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2G5YP65E%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221528Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDBU1F5krpICaZ0NqsCK3A6VE3SvOEqtR6mTF0RGsq2RFtP%2BeCnscHc5QWUWgfaEy6uXh0YyE%2Bu%2FBf1bgQOuQySCtb1Z%2BZ6sLON3HRMq%2BgYmhgdN4si0rU1p4nOiBj6crMBDlPKrwCFw0SRWaa%2FeWJtScRo9HMxA318TQuy1cnz2RYUYCxaU0Jci%2BrDGNmR0becuinzwZxwbm9sdysqqkTqFq64D7gI7nTrej5s6rDW11vFWqHpUP2d1FhvBaFOAjy8GP523rvRQSSyFkXe9YJUVlNrSLtqEAenEAnsweq3B3e669G9C%2FHm8G06ThADW69XI9pnMKVDT3FsJRtvkiltR9fsPJGB94knGZqwwdAK33UZ6TzU7QFoNEMoH%2BuvrEkO7SW8nmlfngtoX7AqMEGVMNAktUrQgR3jBfz1AXbDyaVpNINObIwvcxkjAPeH%2BJ9fJANeefQc2S9wtnpHnZGI8bjrMu%2F%2BBZHNLud7642CzhDwWVt363%2B%2B45PABKA6apczYhBSmM6I6woOQCnxMCpcKiqGyhztmN1LCRqv7FY5wPxjrGQArJvuYDfVGrN5Q7QMy6qocAzCdmYXfTag83vWxBpO15sjYooKOm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=3982e4b90d33736c7dbb8523eea40fccbca5a30c68a8d7ab51ab138d1c0b3d81", 
+                    "type": "text/x-diff", 
+                    "id": 324918, 
+                    "filename": "rubySSLNameDiff.txt"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2018-07-26T17:30:38.342Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-26T17:30:38.342Z", 
+            "actor": {
+                "username": "tylereckstein", 
+                "url": "/tylereckstein", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/317/542/0ea20f171ae4b68df4c7f788ef5bfbb7f5a6ef10_medium.png?1535132418"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Looks like the diff formatting is messed up, attaching a .txt file version of the diff", 
+            "markdown_message": "<p>Looks like the diff formatting is messed up, attaching a .txt file version of the diff</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3101715, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-04T13:01:49.581Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-04T13:01:49.581Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 3140892, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-24T17:43:16.016Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-24T17:43:16.016Z", 
+            "actor": {
+                "username": "tylereckstein", 
+                "url": "/tylereckstein", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/317/542/0ea20f171ae4b68df4c7f788ef5bfbb7f5a6ef10_medium.png?1535132418"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Any update?", 
+            "markdown_message": "<p>Any update?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3241456, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-03T07:38:56.513Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-03T07:38:56.513Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "@tylereckstein We handle your report with a vulnerability of the Ruby language. Please wait for the next release of ruby. We are arranging its plan.", 
+            "markdown_message": "<p><a href=\"/tylereckstein\">@tylereckstein</a> We handle your report with a vulnerability of the Ruby language. Please wait for the next release of ruby. We are arranging its plan.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3282797, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-04T01:10:25.130Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-04T01:10:25.130Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "cve_ids": [
+                "CVE-2018-16395"
+            ], 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::CveIdAdded", 
+            "id": 3287087, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "tylereckstein", 
+                "url": "/tylereckstein"
+            }, 
+            "created_at": "2018-10-18T23:47:04.557Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-18T23:47:04.557Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Fixed and Disclosed https://www.ruby-lang.org/en/news/2018/10/17/openssl-x509-name-equality-check-does-not-work-correctly-cve-2018-16395/", 
+            "markdown_message": "<p>Fixed and Disclosed <a title=\"https://www.ruby-lang.org/en/news/2018/10/17/openssl-x509-name-equality-check-does-not-work-correctly-cve-2018-16395/\" href=\"/redirect?signature=eff44f2ca7f3ea58800693f5f5ff563bdd13d623&amp;url=https%3A%2F%2Fwww.ruby-lang.org%2Fen%2Fnews%2F2018%2F10%2F17%2Fopenssl-x509-name-equality-check-does-not-work-correctly-cve-2018-16395%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.ruby-lang.org/en/news/2018/10/17/openssl-x509-name-equality-check-does-not-work-correctly-cve-2018-16395/</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3500968, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-10-18T23:47:12.040Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-18T23:47:12.040Z", 
+            "actor": {
+                "url": "/ruby", 
+                "profile": {
+                    "name": "Ruby"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/724/0c1556227f51c9b2b13ada11ccd2fb02cc9fa257_medium.png?1449271894"
+                }
+            }, 
+            "team_handle": "ruby", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "500.0", 
+            "collaborator": {
+                "username": "tylereckstein", 
+                "url": "/tylereckstein"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 3500970, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-19T14:46:00.255Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-19T14:46:00.255Z", 
+            "actor": {
+                "username": "tylereckstein", 
+                "url": "/tylereckstein", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/317/542/0ea20f171ae4b68df4c7f788ef5bfbb7f5a6ef10_medium.png?1535132418"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3503005, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-19T21:59:23.944Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-19T21:59:23.944Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3505777, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-19T21:59:24.006Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-19T21:59:24.006Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3505778, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "tylereckstein", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/tylereckstein", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/317/542/e6cd1c78f6383ce288b6452c823467f24d8432cf_small.png?1535132418"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 28, 
+        "name": "Improper Certificate Validation"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -1582168.470571204, 
+    "disclosed_at": "2018-10-19T21:59:23.989Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/387250", 
+    "created_at": "2018-07-26T17:24:30.371Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>When two OpenSSL::X509::Name objects are compared using ==, depending on the ordering, non-equal objects will return true. When the first argument is one character longer than the second, or the second argument contains a character that is one less than a character in the same position of the first argument, the result of == will be true. Example below:</p>\n\n<p>irb(main):001:0&gt; require &#39;openssl&#39;<br>\n=&gt; true<br>\nirb(main):002:0&gt; a = OpenSSL::X509::Name.new([[&quot;CN&quot;, &quot;<a href=\"/redirect?signature=3c1e29118495fa934ff338c373c3dea1fa2e57cc&amp;url=http%3A%2F%2Fwww.example.com%22%5D%5D\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>www.example.com&quot;]]</span><i class=\"icon-external-link\"></i></a>)<br>\n=&gt; #openssl::X509::Name:0x007fa127cdf3f0<br>\nirb(main):003:0&gt; b = OpenSSL::X509::Name.new([[&quot;CN&quot;, &quot;<a href=\"/redirect?signature=80fa43ee63738cc9fd5072c373f8ffe59ef91e26&amp;url=http%3A%2F%2Fwww.example.co%22%5D%5D\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>www.example.co&quot;]]</span><i class=\"icon-external-link\"></i></a>)<br>\n=&gt; #openssl::X509::Name:0x007fa127cd0260<br>\nirb(main):004:0&gt; c = OpenSSL::X509::Name.new([[&quot;CN&quot;, &quot;<a href=\"/redirect?signature=7cb5948c440e169b4339b78054e04c20d127e0f4&amp;url=http%3A%2F%2Fwww.exbmple.com%22%5D%5D\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>www.exbmple.com&quot;]]</span><i class=\"icon-external-link\"></i></a>)<br>\n=&gt; #openssl::X509::Name:0x007fa127cb68b0<br>\nirb(main):005:0&gt; a == b<br>\n=&gt; true                    # Should NOT be true<br>\nirb(main):006:0&gt; a == c<br>\n=&gt; false<br>\nirb(main):007:0&gt; c == a<br>\n=&gt; true                    # Should NOT be true<br>\nirb(main):008:0&gt; b == a<br>\n=&gt; false</p>\n\n<p>This appears to be from the ossl_x509name_cmp function and I was able to fix this with the following diff, with included tests that would fail without the change to ossl_x509name_cmp:</p>\n\n<p>diff --git a/ext/openssl/ossl_x509name.c b/ext/openssl/ossl_x509name.c<br>\nindex c900bcb..15e4bb0 100644<br>\n--- a/ext/openssl/ossl_x509name.c<br>\n+++ b/ext/openssl/ossl_x509name.c<br>\n@@ -400,7 +400,7 @@ ossl_x509name_cmp(VALUE self, VALUE other)</p>\n<pre class=\"highlight plaintext\"><code> result = ossl_x509name_cmp0(self, other);\n if (result &lt; 0) return INT2FIX(-1);\n</code></pre>\n<ul>\n<li>   if (result &gt; 1) return INT2FIX(1);</li>\n<li>\n<p>if (result &gt; 0) return INT2FIX(1);</p>\n\n<p>return INT2FIX(0);<br>\n}<br>\ndiff --git a/test/test_x509name.rb b/test/test_x509name.rb<br>\nindex 2d92e64..ae8a8fb 100644<br>\n--- a/test/test_x509name.rb<br>\n+++ b/test/test_x509name.rb<br>\n@@ -426,10 +426,24 @@ class OpenSSL::TestX509Name &lt; OpenSSL::TestCase<br>\n name0 = OpenSSL::X509::Name.new([[&quot;DC&quot;, &quot;org&quot;], [&quot;DC&quot;, &quot;ruby-lang&quot;], [&quot;CN&quot;, &quot;bar.ruby-lang.org&quot;]])<br>\n name1 = OpenSSL::X509::Name.new([[&quot;DC&quot;, &quot;org&quot;], [&quot;DC&quot;, &quot;ruby-lang&quot;], [&quot;CN&quot;, &quot;bar.ruby-lang.org&quot;]])<br>\n name2 = OpenSSL::X509::Name.new([[&quot;DC&quot;, &quot;org&quot;], [&quot;DC&quot;, &quot;ruby-lang&quot;], [&quot;CN&quot;, &quot;baz.ruby-lang.org&quot;]])</p>\n</li>\n<li><p>name3 = OpenSSL::X509::Name.new([[&quot;DC&quot;, &quot;org&quot;], [&quot;DC&quot;, &quot;ruby-lang&quot;], [&quot;CN&quot;, &quot;bar.ruby-langg.org&quot;]])</p></li>\n<li><p>name4 = OpenSSL::X509::Name.new([[&quot;DC&quot;, &quot;org&quot;], [&quot;DC&quot;, &quot;ruby-lang&quot;], [&quot;CN&quot;, &quot;bbz.ruby-lang.org&quot;]])<br>\n assert_equal true, name0 == name1<br>\n assert_equal true, name0.eql?(name1)</p></li>\n<li><p>assert_equal true, name1 == name0</p></li>\n<li><p>assert_equal true, name1.eql?(name0)<br>\n assert_equal false, name0 == name2<br>\n assert_equal false, name0.eql?(name2)</p></li>\n<li><p>assert_equal false, name2 == name0</p></li>\n<li><p>assert_equal false, name2.eql?(name0)</p></li>\n<li><p>assert_equal false, name0 == name3</p></li>\n<li><p>assert_equal false, name0.eql?(name3)</p></li>\n<li><p>assert_equal false, name3 == name0</p></li>\n<li><p>assert_equal false, name3.eql?(name0)</p></li>\n<li><p>assert_equal false, name0 == name4</p></li>\n<li><p>assert_equal false, name0.eql?(name4)</p></li>\n<li><p>assert_equal false, name4 == name0</p></li>\n<li><p>assert_equal false, name4.eql?(name0)<br>\nend</p></li>\n</ul>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Whenever names are compared during certificate validation an attacker could use a certificate with a different name, but the comparison will return that they are equal. This would allow an attacker to create an illegitimate certificate that may be accepted as legitimate and then used in signing or encryption operations.</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.ruby-lang.org", 
+            "about": "A Programmer's Best Friend", 
+            "twitter_handle": "", 
+            "name": "Ruby"
+        }, 
+        "handle": "ruby", 
+        "url": "https://hackerone.com/ruby", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/007/724/36e273f967b252ae8b4051d09ffc08f7de16d7d5_small.png?1449271894", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/007/724/0c1556227f51c9b2b13ada11ccd2fb02cc9fa257_medium.png?1449271894"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 7724, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

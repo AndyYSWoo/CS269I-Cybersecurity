@@ -1,0 +1,315 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-01-12T00:37:02.763Z", 
+    "voters": [
+        "dkasak", 
+        "dgaletic", 
+        "michiel", 
+        "eveeez", 
+        "mpz", 
+        "babayaga_", 
+        "japz", 
+        "spetr0x"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "1000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 191689, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-01-11T21:56:20.390Z", 
+    "vulnerability_information": "Introduction\n============\n\nNot using the result of `NODE_NEGATE` leads to incorrect code generation which could possibly result in arbitrary bytecode generation. Currently it is possible to produce a crash through a SIGABRT via an `assert` failure.\n\nProof of concept\n================\n\nassert_failure.rb\n-------------\n\n    -0E00;0\n\n1. Run either:\n\n    a. `mruby assert_failure.rb`\n    b. `sandbox assert_failure.rb`\n\n2. Both cause a crash via an `assert` failure.\n\nDiscussion\n==========\n\nThe flaw was introduced in commit `d56a19cbf526190de036130fe3a5bf14a0705ee2`.\n\nThe problem is that `codegen` is called recursively on the argument of `NODE_NEGATE` without checking whether it is a valid node. This is problematic because `codegen` assumes that its `tree` argument is a valid node (i.e. that the node's type is stored under the `car` member, further nodes or data under the `cdr` member and that `filename_index` and `lineno` are set properly). This creates an opportunity for the attacker to control further code generation, though it might not be possible to place a valid node type in `car` with the current codebase. Nevertheless, `filename_index` *can* be controlled and this is what allows the POC to make the assertion on line 135 of `debug.c` fail:\n\n    ruby: ext/mruby_engine/mruby/src/debug.c:135: mrb_debug_info_append_file: Assertion `irep->filename' failed.\n    zsh: abort      mruby-engine/bin/sandbox assert_failure.rb\n\nRunning mruby with the following input in gdb:\n\n    -0.5555555555555555555;0\n\nAnd breaking on `parse.y:2885`, we can see that `filename_index` is set to 13621 (which is two '5' characters interpreted as an integer):\n\n    (gdb) x/16hd yyvsp[0].nd->cdr\n    0x79162c:       11824   13621   13621   13621   13621   13621   13621   13621\n    0x79163c:       13621   13621   53      0       52      0       0       0\n    (gdb) p yyvsp[0].nd->cdr->filename_index \n    $21 = 13621\n\nThen, breaking `codegen.c:1230`, we see that `tree->filename_index` is indeed set to 13621:\n\n    (gdb) p tree->filename_index\n    $22 = 13621\n\nThis eventually leads to `assert` to fail.\n\nSolution\n========\n\nTo fix the problem, we should ensure `tree->car` is a valid node before calling `codegen` on `tree` in the case of `NODE_NEGATE`.\n\nnegate_node.patch\n-----------------\n\n    diff --git a/mrbgems/mruby-compiler/core/codegen.c b/mrbgems/mruby-compiler/core/codegen.c\n    index 90bafb3..9d47cca 100644\n    --- a/mrbgems/mruby-compiler/core/codegen.c\n    +++ b/mrbgems/mruby-compiler/core/codegen.c\n    @@ -2232,7 +2232,9 @@ codegen(codegen_scope *s, node *tree, int val)\n        nt = (intptr_t)tree->car;\n        tree = tree->cdr;\n        if (!val) {\n    -        codegen(s, tree, NOVAL);\n    +        if (tree && (intptr_t)tree->car < NODE_LAST) {\n    +          codegen(s, tree, NOVAL);\n    +        }\n            break;\n        }\n        switch (nt) {\n\n--\nDenis Kasak\n", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "User"
+    }, 
+    "title": "Incorrect code generation when result of NODE_NEGATE is not used", 
+    "is_member_of_team?": null, 
+    "vote_count": 8, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-02-10T21:56:20.435Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$1,000", 
+    "attachments": [
+        {
+            "file_name": "assert_failure.rb", 
+            "type": "text/plain", 
+            "id": 144130, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/144/130/200d3b6b50a398142e12f71cc7e3f642abfaae8c/assert_failure.rb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVYUZEEBI%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224501Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDMO36pSTeUTC%2FSulZyK3A%2F5%2B%2FTOIgP6UP6H0wSySVBbyL4FQzfP8bav04ajjwBBaxmOhkHA2wujzRb5TbhMhSerMFHQMs%2BlaWPr9zHOl9bbpq8AObWm7%2BuYiH%2BdA7DVleq4N%2BRlVWG6ukszpeguapBWm%2BeaJz0G%2BtsAf0URs%2FZMn4gmiEGoILlZfH0Rxga04TPWKr%2BmJq3DgVJVO8RtbrjLs0%2BhbTb5D6fQvXvZFqnYE5Cq1E4wzEU6Z0Vk16WfzancxdjY7xdYjXkaE4By4xpRprbRaCsQPyDiBmTv0e4fZZUzHn9AjPRxIaswdwrcjaXpaPttjxFnmTigGxFQd%2FIk%2BnLBRveHtHrDZMcPESe9UFT8iakt2ZZLVeHA2xYnKx1ntoUshuUm75iMCEVRsFrVOfDopKYAuhSUTkGAp4XOliz2GytEQUQkeqhliO5VdioSueZvZadU9HHNOh5%2B90tBDDLxOK4Kh1FDQaJDMx84K%2FsBLvwqLH2hzqyXyNTjWFchQyXDNcu04rcBuH9%2BWWM9YV2K9gLNj%2BPuUU2uBat%2FkH9T3MGSQLTZehkqVxj%2BKPShN9%2Bsy39j%2FW%2BarOzYC1kRM0e%2F%2FsEso25Km4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=fd18cf711b081820690ba205a3b23d2d95a68a5b20d6a0db959c90d24e47e77b"
+        }, 
+        {
+            "file_name": "0001-Fix-code-generation-when-NODE_NEGATE-result-is-not-u.patch", 
+            "type": "text/x-diff", 
+            "id": 144131, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/144/131/b396c83028ce6fdff43e401e9b80362f8d891920/0001-Fix-code-generation-when-NODE_NEGATE-result-is-not-u.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVYUZEEBI%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224501Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDMO36pSTeUTC%2FSulZyK3A%2F5%2B%2FTOIgP6UP6H0wSySVBbyL4FQzfP8bav04ajjwBBaxmOhkHA2wujzRb5TbhMhSerMFHQMs%2BlaWPr9zHOl9bbpq8AObWm7%2BuYiH%2BdA7DVleq4N%2BRlVWG6ukszpeguapBWm%2BeaJz0G%2BtsAf0URs%2FZMn4gmiEGoILlZfH0Rxga04TPWKr%2BmJq3DgVJVO8RtbrjLs0%2BhbTb5D6fQvXvZFqnYE5Cq1E4wzEU6Z0Vk16WfzancxdjY7xdYjXkaE4By4xpRprbRaCsQPyDiBmTv0e4fZZUzHn9AjPRxIaswdwrcjaXpaPttjxFnmTigGxFQd%2FIk%2BnLBRveHtHrDZMcPESe9UFT8iakt2ZZLVeHA2xYnKx1ntoUshuUm75iMCEVRsFrVOfDopKYAuhSUTkGAp4XOliz2GytEQUQkeqhliO5VdioSueZvZadU9HHNOh5%2B90tBDDLxOK4Kh1FDQaJDMx84K%2FsBLvwqLH2hzqyXyNTjWFchQyXDNcu04rcBuH9%2BWWM9YV2K9gLNj%2BPuUU2uBat%2FkH9T3MGSQLTZehkqVxj%2BKPShN9%2Bsy39j%2FW%2BarOzYC1kRM0e%2F%2FsEso25Km4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=e738f3de2ca132a19ac53ee28a4e82fb6f54968d169dbe9de6f4b51239dec22d"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-16T17:59:04.107Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-16T17:59:04.107Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for your report. We've reproduced the issue, and opened an issue upstream: https://github.com/mruby/mruby/issues/3348", 
+            "markdown_message": "<p>Thank you for your report. We&#39;ve reproduced the issue, and opened an issue upstream: <a title=\"https://github.com/mruby/mruby/issues/3348\" href=\"/redirect?signature=a6a509586d3b4c8bda43012a8c7d8b0c82ae9e99&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fissues%2F3348\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/issues/3348</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1369652, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "dkasak", 
+                "url": "/dkasak"
+            }, 
+            "created_at": "2017-01-09T19:02:02.298Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-09T19:02:02.298Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thanks again for your report. This issue has been resolved upstream, and we're running a patched version in our production environment.\n\nOur next round of bounty decisions will take place within two weeks, so we'll be in touch with you again soon.", 
+            "markdown_message": "<p>Thanks again for your report. This issue has been resolved upstream, and we&#39;re running a patched version in our production environment.</p>\n\n<p>Our next round of bounty decisions will take place within two weeks, so we&#39;ll be in touch with you again soon.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1409280, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-01-11T21:56:16.207Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-11T21:56:16.207Z", 
+            "actor": {
+                "url": "/shopify-scripts", 
+                "profile": {
+                    "name": "shopify-scripts"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+                }
+            }, 
+            "team_handle": "shopify-scripts", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "1000.0", 
+            "collaborator": {
+                "username": "dkasak", 
+                "url": "/dkasak"
+            }, 
+            "message": "Thanks for helping improve the security of Shopify Scripts and the mruby project!", 
+            "markdown_message": "<p>Thanks for helping improve the security of Shopify Scripts and the mruby project!</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1414751, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-11T21:56:20.409Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-11T21:56:20.409Z", 
+            "actor": {
+                "username": "andrewdunbar", 
+                "url": "/andrewdunbar", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/164/cd46f5270ea41c5f0da3bea93e2eca7a95858caf_medium.jpg?1427927985"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1414752, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-12T00:36:02.417Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-12T00:36:46.489Z", 
+            "actor": {
+                "username": "dkasak", 
+                "url": "/dkasak", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/122/858/741782c4a124d498cf0070511e4c112f6ef73e5d_medium.png?1481406790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for the bounty. As before, it was a pleasure of working on this with you, Shopify.", 
+            "markdown_message": "<p>Thank you for the bounty. As before, it was a pleasure of working on this with you, Shopify.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1415094, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-12T00:37:02.781Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-12T00:37:02.781Z", 
+            "actor": {
+                "username": "dkasak", 
+                "url": "/dkasak", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/122/858/741782c4a124d498cf0070511e4c112f6ef73e5d_medium.png?1481406790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1415096, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-12T00:37:02.825Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-12T00:37:02.825Z", 
+            "actor": {
+                "username": "dkasak", 
+                "url": "/dkasak", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/122/858/741782c4a124d498cf0070511e4c112f6ef73e5d_medium.png?1481406790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1415097, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "dkasak", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/dkasak", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/122/858/9cb96e9ee0a0a51253abc1d38190bed32bcb7087_small.png?1481406790"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 48, 
+        "name": "Denial of Service"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -57372521.24712269, 
+    "disclosed_at": "2017-01-12T00:37:02.807Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/191689", 
+    "created_at": "2016-12-16T13:39:39.239Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"introduction\">Introduction</h1>\n\n<p>Not using the result of <code>NODE_NEGATE</code> leads to incorrect code generation which could possibly result in arbitrary bytecode generation. Currently it is possible to produce a crash through a SIGABRT via an <code>assert</code> failure.</p>\n\n<h1 id=\"proof-of-concept\">Proof of concept</h1>\n\n<h2 id=\"assert_failure-rb\">assert_failure.rb</h2>\n<pre class=\"highlight plaintext\"><code>-0E00;0\n</code></pre>\n<ol>\n<li>\n<p>Run either:</p>\n\n<p>a. <code>mruby assert_failure.rb</code><br>\nb. <code>sandbox assert_failure.rb</code></p>\n</li>\n<li><p>Both cause a crash via an <code>assert</code> failure.</p></li>\n</ol>\n\n<h1 id=\"discussion\">Discussion</h1>\n\n<p>The flaw was introduced in commit <code>d56a19cbf526190de036130fe3a5bf14a0705ee2</code>.</p>\n\n<p>The problem is that <code>codegen</code> is called recursively on the argument of <code>NODE_NEGATE</code> without checking whether it is a valid node. This is problematic because <code>codegen</code> assumes that its <code>tree</code> argument is a valid node (i.e. that the node&#39;s type is stored under the <code>car</code> member, further nodes or data under the <code>cdr</code> member and that <code>filename_index</code> and <code>lineno</code> are set properly). This creates an opportunity for the attacker to control further code generation, though it might not be possible to place a valid node type in <code>car</code> with the current codebase. Nevertheless, <code>filename_index</code> <em>can</em> be controlled and this is what allows the POC to make the assertion on line 135 of <code>debug.c</code> fail:</p>\n<pre class=\"highlight plaintext\"><code>ruby: ext/mruby_engine/mruby/src/debug.c:135: mrb_debug_info_append_file: Assertion `irep-&gt;filename&#39; failed.\nzsh: abort      mruby-engine/bin/sandbox assert_failure.rb\n</code></pre>\n<p>Running mruby with the following input in gdb:</p>\n<pre class=\"highlight plaintext\"><code>-0.5555555555555555555;0\n</code></pre>\n<p>And breaking on <code>parse.y:2885</code>, we can see that <code>filename_index</code> is set to 13621 (which is two &#39;5&#39; characters interpreted as an integer):</p>\n<pre class=\"highlight plaintext\"><code>(gdb) x/16hd yyvsp[0].nd-&gt;cdr\n0x79162c:       11824   13621   13621   13621   13621   13621   13621   13621\n0x79163c:       13621   13621   53      0       52      0       0       0\n(gdb) p yyvsp[0].nd-&gt;cdr-&gt;filename_index \n$21 = 13621\n</code></pre>\n<p>Then, breaking <code>codegen.c:1230</code>, we see that <code>tree-&gt;filename_index</code> is indeed set to 13621:</p>\n<pre class=\"highlight plaintext\"><code>(gdb) p tree-&gt;filename_index\n$22 = 13621\n</code></pre>\n<p>This eventually leads to <code>assert</code> to fail.</p>\n\n<h1 id=\"solution\">Solution</h1>\n\n<p>To fix the problem, we should ensure <code>tree-&gt;car</code> is a valid node before calling <code>codegen</code> on <code>tree</code> in the case of <code>NODE_NEGATE</code>.</p>\n\n<h2 id=\"negate_node-patch\">negate_node.patch</h2>\n<pre class=\"highlight diff\"><code><span class=\"gh\">diff --git a/mrbgems/mruby-compiler/core/codegen.c b/mrbgems/mruby-compiler/core/codegen.c\nindex 90bafb3..9d47cca 100644\n</span><span class=\"gd\">--- a/mrbgems/mruby-compiler/core/codegen.c\n</span><span class=\"gi\">+++ b/mrbgems/mruby-compiler/core/codegen.c\n</span><span class=\"gu\">@@ -2232,7 +2232,9 @@ codegen(codegen_scope *s, node *tree, int val)\n</span>    nt = (intptr_t)tree-&gt;car;\n    tree = tree-&gt;cdr;\n    if (!val) {\n<span class=\"gd\">-        codegen(s, tree, NOVAL);\n</span><span class=\"gi\">+        if (tree &amp;&amp; (intptr_t)tree-&gt;car &lt; NODE_LAST) {\n+          codegen(s, tree, NOVAL);\n+        }\n</span>        break;\n    }\n    switch (nt) {\n</code></pre>\n<p>--<br>\nDenis Kasak</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.mruby.science", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "shopify-scripts"
+        }, 
+        "handle": "shopify-scripts", 
+        "url": "https://hackerone.com/shopify-scripts", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/015/668/9f47d94cbd9e4311b57f1ab05f67fb5c26fd2e78_small.jpg?1475592254", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 15668, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

@@ -1,0 +1,462 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "eveeez", 
+        "axolotl", 
+        "cryptographer", 
+        "equim", 
+        "arham-siddiqui", 
+        "gwedd"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 361269, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-07-06T07:17:35.705Z", 
+    "vulnerability_information": "**Summary:**\nIf torsocks(1) or proxychains(1) is enforced when using Monero wallet with a remote node without explicit `--untrusted-daemon` arguments given, the application will assume the daemon is trusted.\n\n**Description:**\nBy default, the wallet checks if the daemon address can be trusted by calling `tools::is_local_address` when `--trust-daemon` is not set. However, if the process is proxied through torsocks(1) or proxychains(1), which resolves onion addresses into a loopback address that is handled by them internally, `is_local_address` will return `true` on such address, while the actual node should be considered untrusted.\n\nThis issue may sound trivial and I also noticed a new argument `--untrusted-daemon` has been added in commit [c4907d24cb32129ee52a53711547c5d54960c431](https://github.com/monero-project/monero/commit/c4907d24cb32129ee52a53711547c5d54960c431), but not all users using a remote node with torsocks or proxychains are aware of this. Essentially, we can't really tell if the address is really local, and current judgement of it doesn't make a sufficient condition that the daemon can be trusted.\n\n## Releases Affected:\n* Monero CLI wallet (@master)\n* Monero GUI wallet (@master)\n\n## Steps To Reproduce:\n1. Run the CLI wallet with `torsocks monero-wallet-cli --daemon-address zdhkwneu7lfaum2p.onion:18099`\n1. Authenticate the wallet and sync.\n1. Send command `rescan_bc`, which should be available only if the daemon is trusted.\n1. The command executed successfully.\n\n## Supporting Material/References:\nNone\n\n## Possible Solutions:\n1. Add an extra condition in src/common/util.cpp function is_local_address to judge if the daemon address ends with .onion or .i2p etc..\n1. Prompt the user explicitly if the daemon can be trusted.\n\n## Impact\n\nPossible private data disclosure to the untrusted remote node.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "User"
+    }, 
+    "title": "Trusted daemon check fails when proxied through torsocks or proxychains", 
+    "is_member_of_team?": null, 
+    "vote_count": 6, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-08-05T07:17:35.782Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T06:12:39.648Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T06:14:55.716Z", 
+            "actor": {
+                "username": "equim", 
+                "url": "/equim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/286/653/0b6f3b216dfc7a0bb796d9b8112abc24c8d38238_medium.jpg?1528011650"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Plus, my mistake. In previous example `rescan_bc` should be `rescan_spent` since `rescan_bc` doesn't really require a trusted daemon.\n\nHere is yet another discovery. If we launch `monero-wallet-cli` without any argument, and we haven't set up any local daemon, then use command `set_daemon` to set the daemon, the trusted daemon check is also skipped, silently. As a proof we can run `rescan_spent`, and it will just proceed successfully, instead of saying `Error: this command requires a trusted daemon. Enable with --trusted-daemon` in the case we use `--daemon-address` in the first place. \n\nAnd this doesn't even need torsocks(1) or proxychains(1).\n", 
+            "markdown_message": "<p>Plus, my mistake. In previous example <code>rescan_bc</code> should be <code>rescan_spent</code> since <code>rescan_bc</code> doesn&#39;t really require a trusted daemon.</p>\n\n<p>Here is yet another discovery. If we launch <code>monero-wallet-cli</code> without any argument, and we haven&#39;t set up any local daemon, then use command <code>set_daemon</code> to set the daemon, the trusted daemon check is also skipped, silently. As a proof we can run <code>rescan_spent</code>, and it will just proceed successfully, instead of saying <code>Error: this command requires a trusted daemon. Enable with --trusted-daemon</code> in the case we use <code>--daemon-address</code> in the first place. </p>\n\n<p>And this doesn&#39;t even need torsocks(1) or proxychains(1).</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2842857, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T06:24:42.699Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T06:24:42.699Z", 
+            "actor": {
+                "username": "anonimal", 
+                "url": "/anonimal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/857/5d3774e5d965a4122d4364133d467ea77fc31acd_medium.png?1449305173"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Hi @equim, let's wait for an official response from @moneromooo.", 
+            "markdown_message": "<p>Hi <a href=\"/equim\">@equim</a>, let&#39;s wait for an official response from <a href=\"/moneromooo\">@moneromooo</a>.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2842868, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T08:05:03.470Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T08:05:03.470Z", 
+            "actor": {
+                "username": "moneromooo", 
+                "url": "/moneromooo", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "You might well connect to your own node on a hidden service, or to a local node run by your system operator on a multiuser system. This is a heuristic, which is why you can override it.\nThe set_daemon one's a good one, will fix.\n", 
+            "markdown_message": "<p>You might well connect to your own node on a hidden service, or to a local node run by your system operator on a multiuser system. This is a heuristic, which is why you can override it.<br>\nThe set_daemon one&#39;s a good one, will fix.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2843048, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T08:32:42.394Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T08:34:47.198Z", 
+            "actor": {
+                "username": "equim", 
+                "url": "/equim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/286/653/0b6f3b216dfc7a0bb796d9b8112abc24c8d38238_medium.jpg?1528011650"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "I know whether a daemon is trusted or not this should be determined by the actual user and the automatic judgement only serves as a reference, and we have already made `--trusted-daemon` and `--untrusted-daemon` options for it.\n\nHowever, since most wallet functions already work properly upon an untrusted daemon, like `balance`, `refresh` and `transfer` etc, and there are just few exceptions like `rescan_spent` or `start_mining` that are meanwhile not so frequently used, in my opinion it's better to assume whatever daemon given is untrusted, unless the user explicitly set it as trusted.", 
+            "markdown_message": "<p>I know whether a daemon is trusted or not this should be determined by the actual user and the automatic judgement only serves as a reference, and we have already made <code>--trusted-daemon</code> and <code>--untrusted-daemon</code> options for it.</p>\n\n<p>However, since most wallet functions already work properly upon an untrusted daemon, like <code>balance</code>, <code>refresh</code> and <code>transfer</code> etc, and there are just few exceptions like <code>rescan_spent</code> or <code>start_mining</code> that are meanwhile not so frequently used, in my opinion it&#39;s better to assume whatever daemon given is untrusted, unless the user explicitly set it as trusted.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2843219, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T10:27:02.150Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T10:27:02.150Z", 
+            "actor": {
+                "username": "moneromooo", 
+                "url": "/moneromooo", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "If you pull the conservative lever right to the max, then sure. We can certainly add a note in the README too along with the Tor instructions. I'll ask around for opinions on the default.\n\nThe set_daemon problem is now patched here: https://github.com/monero-project/monero/pull/3932. I'll add a i2p/onion check next.\n", 
+            "markdown_message": "<p>If you pull the conservative lever right to the max, then sure. We can certainly add a note in the README too along with the Tor instructions. I&#39;ll ask around for opinions on the default.</p>\n\n<p>The set_daemon problem is now patched here: <a title=\"https://github.com/monero-project/monero/pull/3932\" href=\"/redirect?signature=d0b984ed58e758dd144ffb1db2bf6aaa4a119a8b&amp;url=https%3A%2F%2Fgithub.com%2Fmonero-project%2Fmonero%2Fpull%2F3932\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/monero-project/monero/pull/3932</span><i class=\"icon-external-link\"></i></a>. I&#39;ll add a i2p/onion check next.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2844130, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-21T04:35:29.658Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-21T04:35:29.658Z", 
+            "actor": {
+                "username": "equim", 
+                "url": "/equim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/286/653/0b6f3b216dfc7a0bb796d9b8112abc24c8d38238_medium.jpg?1528011650"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Good, I see it's merged now.", 
+            "markdown_message": "<p>Good, I see it&#39;s merged now.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2914285, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-22T10:57:29.848Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-22T10:57:29.848Z", 
+            "actor": {
+                "username": "equim", 
+                "url": "/equim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/286/653/0b6f3b216dfc7a0bb796d9b8112abc24c8d38238_medium.jpg?1528011650"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Will a release be tagged?", 
+            "markdown_message": "<p>Will a release be tagged?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2921436, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-24T16:02:05.246Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-24T16:02:05.246Z", 
+            "actor": {
+                "username": "moneromooo", 
+                "url": "/moneromooo", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "There's at least one every 6 months, so next one is about september. Whether there is one before that depends on whether there's anything bad to fix. I think the timeout system might qualify, but that's up to fluffypony, who does the release work.", 
+            "markdown_message": "<p>There&#39;s at least one every 6 months, so next one is about september. Whether there is one before that depends on whether there&#39;s anything bad to fix. I think the timeout system might qualify, but that&#39;s up to fluffypony, who does the release work.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2927955, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-30T05:01:44.574Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-30T05:01:44.574Z", 
+            "actor": {
+                "username": "anonimal", 
+                "url": "/anonimal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/857/5d3774e5d965a4122d4364133d467ea77fc31acd_medium.png?1449305173"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "@equim If you'd like bounty, please paste an XMR address.", 
+            "markdown_message": "<p><a href=\"/equim\">@equim</a> If you&#39;d like bounty, please paste an XMR address.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2963207, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-30T05:04:42.956Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-30T05:04:42.956Z", 
+            "actor": {
+                "username": "equim", 
+                "url": "/equim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/286/653/0b6f3b216dfc7a0bb796d9b8112abc24c8d38238_medium.jpg?1528011650"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "`4777777jHFbZB4gyqrB1JHDtrGFusyj4b3M2nScYDPKEM133ng2QDrK9ycqizXS2XofADw5do5rU19LQmpTGCfeQTerm1Ti`", 
+            "markdown_message": "<p><code>4777777jHFbZB4gyqrB1JHDtrGFusyj4b3M2nScYDPKEM133ng2QDrK9ycqizXS2XofADw5do5rU19LQmpTGCfeQTerm1Ti</code></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2963210, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-06T05:28:47.226Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-06T05:28:47.226Z", 
+            "actor": {
+                "username": "luigi1111w", 
+                "url": "/luigi1111w", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Sent 5 XMR: <36837198cfda72f0a6b67a6383ca8c4d9f44ecb8c755d7a6eaff7436c070c3c3>", 
+            "markdown_message": "<p>Sent 5 XMR: &lt;36837198cfda72f0a6b67a6383ca8c4d9f44ecb8c755d7a6eaff7436c070c3c3&gt;</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2997569, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "equim", 
+                "url": "/equim"
+            }, 
+            "created_at": "2018-07-06T07:16:13.179Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-06T07:16:13.179Z", 
+            "actor": {
+                "url": "/monero", 
+                "profile": {
+                    "name": "Monero"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/731/3428da1efb473c529a0d2e5836012a846f8b8d1e_medium.png?1484006970"
+                }
+            }, 
+            "team_handle": "monero", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::SwagAwarded", 
+            "id": 2998026, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "equim", 
+                "url": "/equim"
+            }, 
+            "created_at": "2018-07-06T07:16:49.852Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-06T07:16:49.852Z", 
+            "actor": {
+                "username": "anonimal", 
+                "url": "/anonimal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/857/5d3774e5d965a4122d4364133d467ea77fc31acd_medium.png?1449305173"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2998029, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-06T07:17:35.729Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-06T07:17:35.729Z", 
+            "actor": {
+                "username": "anonimal", 
+                "url": "/anonimal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/857/5d3774e5d965a4122d4364133d467ea77fc31acd_medium.png?1449305173"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2998031, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-02T00:26:29.005Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-02T00:26:29.005Z", 
+            "actor": {
+                "username": "anonimal", 
+                "url": "/anonimal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/857/5d3774e5d965a4122d4364133d467ea77fc31acd_medium.png?1449305173"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ManuallyDisclosed", 
+            "id": 3130835, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "equim", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/equim", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/286/653/9fc037ebd7297b9e7bbca35fe271d0c7c4bb614e_small.jpg?1528011650"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 46, 
+        "name": "Privacy Violation"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -10681247.24212821, 
+    "disclosed_at": "2018-08-02T00:26:29.075Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/361269", 
+    "created_at": "2018-06-03T08:02:27.484Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p><strong>Summary:</strong><br>\nIf torsocks(1) or proxychains(1) is enforced when using Monero wallet with a remote node without explicit <code>--untrusted-daemon</code> arguments given, the application will assume the daemon is trusted.</p>\n\n<p><strong>Description:</strong><br>\nBy default, the wallet checks if the daemon address can be trusted by calling <code>tools::is_local_address</code> when <code>--trust-daemon</code> is not set. However, if the process is proxied through torsocks(1) or proxychains(1), which resolves onion addresses into a loopback address that is handled by them internally, <code>is_local_address</code> will return <code>true</code> on such address, while the actual node should be considered untrusted.</p>\n\n<p>This issue may sound trivial and I also noticed a new argument <code>--untrusted-daemon</code> has been added in commit <a href=\"/redirect?signature=822a2d83615ecae5b5cc8523b939a5513f06e4c5&amp;url=https%3A%2F%2Fgithub.com%2Fmonero-project%2Fmonero%2Fcommit%2Fc4907d24cb32129ee52a53711547c5d54960c431\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>c4907d24cb32129ee52a53711547c5d54960c431</span><i class=\"icon-external-link\"></i></a>, but not all users using a remote node with torsocks or proxychains are aware of this. Essentially, we can&#39;t really tell if the address is really local, and current judgement of it doesn&#39;t make a sufficient condition that the daemon can be trusted.</p>\n\n<h2 id=\"releases-affected\">Releases Affected:</h2>\n\n<ul>\n<li>Monero CLI wallet (@master)</li>\n<li>Monero GUI wallet (@master)</li>\n</ul>\n\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<ol>\n<li>Run the CLI wallet with <code>torsocks monero-wallet-cli --daemon-address zdhkwneu7lfaum2p.onion:18099</code>\n</li>\n<li>Authenticate the wallet and sync.</li>\n<li>Send command <code>rescan_bc</code>, which should be available only if the daemon is trusted.</li>\n<li>The command executed successfully.</li>\n</ol>\n\n<h2 id=\"supporting-material-references\">Supporting Material/References:</h2>\n\n<p>None</p>\n\n<h2 id=\"possible-solutions\">Possible Solutions:</h2>\n\n<ol>\n<li>Add an extra condition in src/common/util.cpp function is_local_address to judge if the daemon address ends with .onion or .i2p etc..</li>\n<li>Prompt the user explicitly if the daemon can be trusted.</li>\n</ol>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Possible private data disclosure to the untrusted remote node.</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://getmonero.org", 
+            "about": " Monero: the secure, private, untraceable cryptocurrency", 
+            "twitter_handle": "monerocurrency", 
+            "name": "Monero"
+        }, 
+        "handle": "monero", 
+        "url": "https://hackerone.com/monero", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/007/731/e9db7ce84f372b423c4d212b494be78c2e0a571e_small.png?1484006970", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/007/731/3428da1efb473c529a0d2e5836012a846f8b8d1e_medium.png?1484006970"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 7731, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

@@ -1,0 +1,365 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-07-04T20:23:31.159Z", 
+    "voters": [
+        "michiel", 
+        "z3t", 
+        "foobar7", 
+        "haones", 
+        "eveeez", 
+        "babayaga_", 
+        "mygf", 
+        "apapedulimu", 
+        "japz", 
+        "protector47", 
+        "and 4 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "1000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 275269, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "# Summary\n\nInconsistencies in how `gem` processes gem files make it possible to reuse a signature from an existing signed gem and apply it to arbitrary contents. The forged gem will install even with `-P HighSecurity`.\n\nThe attached file multi_json-1.12.2.gem is a forged version of the genuine [multi_json-1.12.2.gem](https://rubygems.org/gems/multi_json/versions/1.12.2) gem with faked contents (just a single text file called HACKED). Here is how to check it. You must first trust the original developer's public key.\n```\n$ gem --version\n2.5.2\n$ wget https://raw.githubusercontent.com/intridea/multi_json/master/certs/rwz.pem\n$ gem cert --add rwz.pem\nAdded '/CN=pavel/DC=pravosud/DC=com'\n$ gem install --install-dir install -P HighSecurity multi_json-1.12.2.gem\nSuccessfully installed multi_json-1.12.2\n1 gem installed\n$ ls install/gems/multi_json-1.12.2/\nHACKED\n```\n\n\n# Details\n\nThe vulnerability stems from inconsistencies in how `gem` interprets the entries of the tar container. A tar file may contain multiple entries with the same name. When there are two data.tar.gz entries, for example, `gem` will honor the *second* one when verifying the signature, but the *first* one when installing files. The proof of concept gem uses this trick: it prepends an additional data.tar.gz entry to the genuine multi_json-1.12.2.gem. (The attached forge-gem.sh script was used to make it.)\n```\n$ tar tvf multi_json-1.12.2.gem\n-r--r--r-- wheel/wheel     163 2017-10-05 16:05 data.tar.gz\n-r--r--r-- wheel/wheel    1840 2017-09-04 21:51 metadata.gz\n-r--r--r-- wheel/wheel     256 2017-09-04 21:51 metadata.gz.sig\n-r--r--r-- wheel/wheel   16908 2017-09-04 21:51 data.tar.gz\n-r--r--r-- wheel/wheel     256 2017-09-04 21:51 data.tar.gz.sig\n-r--r--r-- wheel/wheel     270 2017-09-04 21:51 checksums.yaml.gz\n-r--r--r-- wheel/wheel     256 2017-09-04 21:51 checksums.yaml.gz.sig\n```\n\nA similar bug affects checksums.yaml.gz: checksums are read from the first such entry, while the signature is verified on the last. This table summarizes the inconsistencies:\n\n| file              | `extract_files` uses | `verify` uses |\n|-------------------|----------------------|---------------|\n| data.tar.gz       | first                | last          |\n| checksums.yaml.gz | first                | last          |\n| metadata.gz       | last                 | last          |\n\n\n## Source code references\n\nHere are the pieces of code that are responsible for the inconsistencies in processing.\n\n[`extract_files`](https://github.com/rubygems/rubygems/blob/v2.6.13/lib/rubygems/package.rb#L334-L350) takes the *first* data.tar.gz entry:\n```\n  def extract_files destination_dir, pattern = \"*\"\n    verify unless @spec\n\n    FileUtils.mkdir_p destination_dir\n\n    @gem.with_read_io do |io|\n      reader = Gem::Package::TarReader.new io\n\n      reader.each do |entry|\n        next unless entry.full_name == 'data.tar.gz'\n\n        extract_tar_gz entry, destination_dir, pattern\n\n        return # ignore further entries\n      end\n    end\n  end\n```\n\n[`read_checksums`](https://github.com/rubygems/rubygems/blob/v2.6.13/lib/rubygems/package.rb#L466-L474) [seeks](https://github.com/rubygems/rubygems/blob/v2.6.13/lib/rubygems/package/tar_reader.rb#L109-L119) to the *first* checksums.yaml.gz entry:\n```\n  def read_checksums gem\n    Gem.load_yaml\n\n    @checksums = gem.seek 'checksums.yaml.gz' do |entry|\n      Zlib::GzipReader.wrap entry do |gz_io|\n        YAML.load gz_io.read\n      end\n    end\n  end\n```\n\n[`verify_files`](https://github.com/rubygems/rubygems/blob/v2.6.13/lib/rubygems/package.rb#L593-L606) and [`verify_entry`](https://github.com/rubygems/rubygems/blob/v2.6.13/lib/rubygems/package.rb#L566-L588) iterate over all entries in the tar file, filling in `@signatures` and `@digests`. In the case of entries with duplicate names, it overwrites previous values, meaning that the *last* result wins. `verify_entry` also handles metadata.gz, calling [`load_spec`](https://github.com/rubygems/rubygems/blob/v2.6.13/lib/rubygems/package.rb#L436-L450) afresh each time:\n```\n  def verify_entry entry\n    file_name = entry.full_name\n    @files << file_name\n\n    case file_name\n    when /\\.sig$/ then\n      @signatures[$`] = entry.read if @security_policy\n      return\n    else\n      digest entry\n    end\n\n    case file_name\n    when /^metadata(.gz)?$/ then\n      load_spec entry\n    when 'data.tar.gz' then\n      verify_gz entry\n    end\n  rescue => e\n    message = \"package is corrupt, exception while verifying: \" +\n              \"#{e.message} (#{e.class})\"\n    raise Gem::Package::FormatError.new message, @gem\n  end\n```\n[`verify_checksums`](https://github.com/rubygems/rubygems/blob/v2.6.13/lib/rubygems/package.rb#L548-L561) and [`verify_signatures`](https://github.com/rubygems/rubygems/blob/v2.6.13/lib/rubygems/security/policy.rb#L283-L291) operate only on the precomputed `@checksums`, `@signatures`, and `@digests`.\n\nIncidentally, [`get_metadata`](https://github.com/rubygems/rubygems/blob/v2.6.13/lib/rubygems/commands/unpack_command.rb#L161-L177), used by the `unpack` command, has its own extractor for metadata.gz, but it happens to grab the last entry, just like `verify_files`.\n\n\n# Mitigation\n\nThe attached patch 0001-Add-tests-that-Gem-Package-verify-checks-duplicate-f.patch adds two new tests (both currently failing) that check signature verification when bogus files come before or after the genuine files.\n\nThe essential mitigation is to ensure that there is no ambiguity when processing a tar file that has multiple entries for the same file name. E.g., \"data.tar.gz\" must refer to one and only one entry in the tar file. One way to do it would be to set a policy in the code: e.g., last entry always wins (which would be consistent with the `tar` command). But that would be hard to enforce, especially in new code going forward. Another way would be not to permit duplicate entries; e.g., `verify_entry` could check whenever it is about to overwrite something in `@signatures`, `@digests`, or `@spec`, and return an error. This needs some care, as metadata and metadata.gz are both processed equivalently. It is possible, using symlinks, to create entries that effectively point to the same file, even though the paths differ; e.g.:\n```\ndata.tar.gz\ndir/ -> ..\ndir/data.tar.gz\n```\nBut this shouldn't be a problem for `gem`, as long as it continues to use strict string equality with unadorned paths like `\"data.tar.gz\"`.\n\nEven when this bug is fixed, a weaker form of signature forgery is possible. There is nothing in a gem file that binds data.tar.gz and metadata.gz together: they are signed independently. It is possible to mix and match files from different signed gems. Suppose a signed gem example-1.0 has a security vulnerability, and the authors release a new signed update example-1.1. Someone (perhaps a malicious rubygems.org admin) could forge a gem containing data.tar.gz from example-1.0 and metadata.gz from example-1.1. Users would think they are running the updated code, but they are still running the old vulnerable code. Fixing this weaker form of forgery seems like it would require a redesign of the signature format. Ideally, the signature would be over the entire gem, and verified before any unpacking.\n\nIt seems that not many people are sign their gems or verify signatures. For most users the possibility of signature forgery doesn't put them at additional risk beyond the (already risky) status quo. The flaw affects only those users who use the `MediumSecurity` or `HighSecurity` profiles.\n\n\n# Attachments\n\n- **multi_json-1.12.2.gem** is a gem with a forged signature.\n- **0001-Add-tests-that-Gem-Package-verify-checks-duplicate-f.patch** adds tests for specific instances of gem files that contain multiple entries with the same name.\n- **forge-gem.sh** takes an existing signed gem and produces a forged gem containing an arbitrary data.tar.gz file.\n\nHow to run forge-gem.sh:\n```\n$ gem fetch multi_json\n$ mkdir orig\n$ mv multi_json-1.12.2.gem orig/\n$ echo hacked > HACKED\n$ tar czf data.tar.gz HACKED\n$ ./forge-gem.sh orig/multi_json-1.12.2.gem data.tar.gz forged.gem\n```\nBe aware that if the original multi_json-1.12.2.gem and the new forged.gem are both in the same directory, then `gem install ./forged.gem` will\u2014for some reason\u2014install multi_json-1.12.2.gem instead. You have to hide the original file in another directory first.\n", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "none", 
+            "privileges_required": "high", 
+            "user_interaction": "required", 
+            "attack_vector": "local", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "high", 
+            "availability": "none"
+        }, 
+        "rating": "medium", 
+        "score": 5.5, 
+        "author_type": "User"
+    }, 
+    "title": "Gem signature forgery", 
+    "is_member_of_team?": null, 
+    "vote_count": 14, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "https://github.com/rubygems/rubygems", 
+        "max_severity": "critical", 
+        "databaseId": 2043, 
+        "asset_type": "SOURCE_CODE"
+    }, 
+    "allow_singular_disclosure_at": "2018-08-03T20:23:31.255Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$1,000", 
+    "attachments": [
+        {
+            "file_name": "multi_json-1.12.2.gem", 
+            "type": "application/x-tar", 
+            "id": 227013, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/227/013/f89fa0fa02e595d89bf4e2a641308061555de204/multi_json-1.12.2.gem?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ6DOF4BH7%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221819Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDAsIeiAo1xTw4kIWniK3AwV1z%2FDNuc2GpLi7AJOEJ0e4NWAql7yl6ReQj30YP2K5FBrc9xv0H8z3PZE4N7C099Z%2FTC7v7C1gzo54Jgi%2FX3cl%2B1K8PJ1QoShLHpAAjRjf5ciIakpyJZtfax9fUrlrfbg93561WLH%2BcAlYZYP%2FDoT4YEiEnKFoc6r1kz0vtgQeOMs4HdHNkjkFGMI77%2BHQkyTCbcJv5zS%2BkPk%2FmeIs5TPwLonNR3KC9vVtG8%2FxH87F2PEClO9BEdrskZjtMWY6P010JBQmt1CorTu4hj%2BXFqvR%2F690HP1hcC8CWJCyppmtZv0XEClGLMVyC6ib3jbvYHrbrPEHfmQP2RQi0FwMeueNkOH5qbyGqwmmxB4agSDiXM3XAl%2BTc87Wf5p1e%2Bc0zjzZ0xQeKM%2F%2B6b6TparaVSEWnYgYleztcjU3fPWHAZNwL16PwqewCVGh0Qp%2BPnUemfdihk3MmFQeIjHmE7sOQgXva7HlIEEEJ1hyrapkEutFP16gxCQzYqmfLGEsK0wbCxHgen0YqfDv81EZR726krPSisHScLMujI0SnwbcN8IyUwIYqnw663l%2FY9Dhpcje1uM19tGvbMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=fc09fdf24117e511d2b3675616ec999c26df8552e481e081933c0c3d0ee7b579"
+        }, 
+        {
+            "file_name": "0001-Add-tests-that-Gem-Package-verify-checks-duplicate-f.patch", 
+            "type": "text/x-diff", 
+            "id": 227014, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/227/014/d70774534929603debdfecb454f877374ccaf4f2/0001-Add-tests-that-Gem-Package-verify-checks-duplicate-f.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ6DOF4BH7%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221819Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDAsIeiAo1xTw4kIWniK3AwV1z%2FDNuc2GpLi7AJOEJ0e4NWAql7yl6ReQj30YP2K5FBrc9xv0H8z3PZE4N7C099Z%2FTC7v7C1gzo54Jgi%2FX3cl%2B1K8PJ1QoShLHpAAjRjf5ciIakpyJZtfax9fUrlrfbg93561WLH%2BcAlYZYP%2FDoT4YEiEnKFoc6r1kz0vtgQeOMs4HdHNkjkFGMI77%2BHQkyTCbcJv5zS%2BkPk%2FmeIs5TPwLonNR3KC9vVtG8%2FxH87F2PEClO9BEdrskZjtMWY6P010JBQmt1CorTu4hj%2BXFqvR%2F690HP1hcC8CWJCyppmtZv0XEClGLMVyC6ib3jbvYHrbrPEHfmQP2RQi0FwMeueNkOH5qbyGqwmmxB4agSDiXM3XAl%2BTc87Wf5p1e%2Bc0zjzZ0xQeKM%2F%2B6b6TparaVSEWnYgYleztcjU3fPWHAZNwL16PwqewCVGh0Qp%2BPnUemfdihk3MmFQeIjHmE7sOQgXva7HlIEEEJ1hyrapkEutFP16gxCQzYqmfLGEsK0wbCxHgen0YqfDv81EZR726krPSisHScLMujI0SnwbcN8IyUwIYqnw663l%2FY9Dhpcje1uM19tGvbMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=8f647ed57cb11f404e9bf230fb22effd28d508cf65cf6663da1b2425e3756943"
+        }, 
+        {
+            "file_name": "forge-gem.sh", 
+            "type": "text/x-shellscript", 
+            "id": 227015, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/227/015/2b53fef97a7f9a8b1e9ba80fedf2dad0c036acf8/forge-gem.sh?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ6DOF4BH7%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221819Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDAsIeiAo1xTw4kIWniK3AwV1z%2FDNuc2GpLi7AJOEJ0e4NWAql7yl6ReQj30YP2K5FBrc9xv0H8z3PZE4N7C099Z%2FTC7v7C1gzo54Jgi%2FX3cl%2B1K8PJ1QoShLHpAAjRjf5ciIakpyJZtfax9fUrlrfbg93561WLH%2BcAlYZYP%2FDoT4YEiEnKFoc6r1kz0vtgQeOMs4HdHNkjkFGMI77%2BHQkyTCbcJv5zS%2BkPk%2FmeIs5TPwLonNR3KC9vVtG8%2FxH87F2PEClO9BEdrskZjtMWY6P010JBQmt1CorTu4hj%2BXFqvR%2F690HP1hcC8CWJCyppmtZv0XEClGLMVyC6ib3jbvYHrbrPEHfmQP2RQi0FwMeueNkOH5qbyGqwmmxB4agSDiXM3XAl%2BTc87Wf5p1e%2Bc0zjzZ0xQeKM%2F%2B6b6TparaVSEWnYgYleztcjU3fPWHAZNwL16PwqewCVGh0Qp%2BPnUemfdihk3MmFQeIjHmE7sOQgXva7HlIEEEJ1hyrapkEutFP16gxCQzYqmfLGEsK0wbCxHgen0YqfDv81EZR726krPSisHScLMujI0SnwbcN8IyUwIYqnw663l%2FY9Dhpcje1uM19tGvbMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=7853dab4b04511dea4bd5f9225d9e6bf2f35f088a8fe78d27db15bd5bb1bc8ff"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": true, 
+            "created_at": "2017-10-06T23:57:18.014Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-06T23:57:18.014Z", 
+            "actor": {
+                "url": "/rubygems", 
+                "profile": {
+                    "name": "RubyGems"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/008/212/fb193d1c05feff770bc8d4a69e09613b5f9f4c3d_medium.png?1469676240"
+                }
+            }, 
+            "team_handle": "rubygems", 
+            "message": "Thanks for submitting this report to RubyGems. Our team will review and investigate the issue. Please note that only issues in the rubygems library are eligible for our bug bounty program.", 
+            "markdown_message": "<p>Thanks for submitting this report to RubyGems. Our team will review and investigate the issue. Please note that only issues in the rubygems library are eligible for our bug bounty program.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2050562, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-19T04:00:59.096Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-19T04:00:59.096Z", 
+            "actor": {
+                "username": "segiddins", 
+                "url": "/segiddins", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "@plover we have a fix developed for this, just waiting on someone to have the time to do a security patch release", 
+            "markdown_message": "<p><a href=\"/plover\">@plover</a> we have a fix developed for this, just waiting on someone to have the time to do a security patch release</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2299404, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-12T23:51:06.362Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-12T23:51:06.362Z", 
+            "actor": {
+                "username": "claudijd", 
+                "url": "/claudijd", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/131/80363bc2e114aa297d4a15f2deba7621642c6ec1_medium.jpeg?1491096375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2377063, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-18T06:34:11.892Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-18T06:34:11.892Z", 
+            "actor": {
+                "username": "plover", 
+                "url": "/plover", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "Credit for this bug also goes to Nathan Malkin (nmalkin). We were working as a team.", 
+            "markdown_message": "<p>Credit for this bug also goes to Nathan Malkin (nmalkin). We were working as a team.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2395876, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-02-22T00:09:50.981Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-22T00:10:21.354Z", 
+            "actor": {
+                "url": "/rubygems", 
+                "profile": {
+                    "name": "RubyGems"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/008/212/fb193d1c05feff770bc8d4a69e09613b5f9f4c3d_medium.png?1469676240"
+                }
+            }, 
+            "team_handle": "rubygems", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "1000.0", 
+            "collaborator": {
+                "username": "plover", 
+                "url": "/plover"
+            }, 
+            "message": "Congrats on finding this bug. \ud83c\udf89", 
+            "markdown_message": "<p>Congrats on finding this bug. \ud83c\udf89</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2413749, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "plover", 
+                "url": "/plover"
+            }, 
+            "created_at": "2018-06-22T07:30:49.297Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-22T07:30:49.297Z", 
+            "actor": {
+                "username": "sonalkr132", 
+                "url": "/sonalkr132", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/110/393/286fbb423c982c65e4fe2a7494f47e827564fdee_medium.jpeg?1529081518"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "This bug was fixed in RubyGems 2.7.6\n\nhttp://blog.rubygems.org/2018/02/15/2.7.6-released.html\n\nThanks!", 
+            "markdown_message": "<p>This bug was fixed in RubyGems 2.7.6</p>\n\n<p><a title=\"http://blog.rubygems.org/2018/02/15/2.7.6-released.html\" href=\"/redirect?signature=d8cdaad4881e8c927af839705a45c9c3186f7bdd&amp;url=http%3A%2F%2Fblog.rubygems.org%2F2018%2F02%2F15%2F2.7.6-released.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://blog.rubygems.org/2018/02/15/2.7.6-released.html</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>Thanks!</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2919899, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-04T20:23:31.200Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-04T20:23:31.200Z", 
+            "actor": {
+                "username": "plover", 
+                "url": "/plover", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2988933, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-03T20:23:47.996Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-03T20:23:47.996Z", 
+            "actor": {
+                "url": "/rubygems", 
+                "profile": {
+                    "name": "RubyGems"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/008/212/fb193d1c05feff770bc8d4a69e09613b5f9f4c3d_medium.png?1469676240"
+                }
+            }, 
+            "team_handle": "rubygems", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3138748, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "plover", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/plover", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 32, 
+        "name": "Cryptographic Issues - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -10806888.4350023, 
+    "disclosed_at": "2018-08-03T20:23:47.955Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/275269", 
+    "created_at": "2017-10-06T23:57:17.767Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"summary\">Summary</h1>\n\n<p>Inconsistencies in how <code>gem</code> processes gem files make it possible to reuse a signature from an existing signed gem and apply it to arbitrary contents. The forged gem will install even with <code>-P HighSecurity</code>.</p>\n\n<p>The attached file multi_json-1.12.2.gem is a forged version of the genuine <a href=\"/redirect?signature=047e973cccbe9bb3af367df928fdc096bd8eb4bb&amp;url=https%3A%2F%2Frubygems.org%2Fgems%2Fmulti_json%2Fversions%2F1.12.2\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>multi_json-1.12.2.gem</span><i class=\"icon-external-link\"></i></a> gem with faked contents (just a single text file called HACKED). Here is how to check it. You must first trust the original developer&#39;s public key.</p>\n<pre class=\"highlight plaintext\"><code>$ gem --version\n2.5.2\n$ wget https://raw.githubusercontent.com/intridea/multi_json/master/certs/rwz.pem\n$ gem cert --add rwz.pem\nAdded &#39;/CN=pavel/DC=pravosud/DC=com&#39;\n$ gem install --install-dir install -P HighSecurity multi_json-1.12.2.gem\nSuccessfully installed multi_json-1.12.2\n1 gem installed\n$ ls install/gems/multi_json-1.12.2/\nHACKED\n</code></pre>\n<h1 id=\"details\">Details</h1>\n\n<p>The vulnerability stems from inconsistencies in how <code>gem</code> interprets the entries of the tar container. A tar file may contain multiple entries with the same name. When there are two data.tar.gz entries, for example, <code>gem</code> will honor the <em>second</em> one when verifying the signature, but the <em>first</em> one when installing files. The proof of concept gem uses this trick: it prepends an additional data.tar.gz entry to the genuine multi_json-1.12.2.gem. (The attached forge-gem.sh script was used to make it.)</p>\n<pre class=\"highlight plaintext\"><code>$ tar tvf multi_json-1.12.2.gem\n-r--r--r-- wheel/wheel     163 2017-10-05 16:05 data.tar.gz\n-r--r--r-- wheel/wheel    1840 2017-09-04 21:51 metadata.gz\n-r--r--r-- wheel/wheel     256 2017-09-04 21:51 metadata.gz.sig\n-r--r--r-- wheel/wheel   16908 2017-09-04 21:51 data.tar.gz\n-r--r--r-- wheel/wheel     256 2017-09-04 21:51 data.tar.gz.sig\n-r--r--r-- wheel/wheel     270 2017-09-04 21:51 checksums.yaml.gz\n-r--r--r-- wheel/wheel     256 2017-09-04 21:51 checksums.yaml.gz.sig\n</code></pre>\n<p>A similar bug affects checksums.yaml.gz: checksums are read from the first such entry, while the signature is verified on the last. This table summarizes the inconsistencies:</p>\n\n<table>\n<thead>\n<tr>\n<th>file</th>\n<th>\n<code>extract_files</code> uses</th>\n<th>\n<code>verify</code> uses</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>data.tar.gz</td>\n<td>first</td>\n<td>last</td>\n</tr>\n<tr>\n<td>checksums.yaml.gz</td>\n<td>first</td>\n<td>last</td>\n</tr>\n<tr>\n<td>metadata.gz</td>\n<td>last</td>\n<td>last</td>\n</tr>\n</tbody>\n</table>\n\n<h2 id=\"source-code-references\">Source code references</h2>\n\n<p>Here are the pieces of code that are responsible for the inconsistencies in processing.</p>\n\n<p><a href=\"/redirect?signature=cca5489ae2e74ce8a730916154dfa63c9e9afa63&amp;url=https%3A%2F%2Fgithub.com%2Frubygems%2Frubygems%2Fblob%2Fv2.6.13%2Flib%2Frubygems%2Fpackage.rb%23L334-L350\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span><code>extract_files</code></span><i class=\"icon-external-link\"></i></a> takes the <em>first</em> data.tar.gz entry:</p>\n<pre class=\"highlight plaintext\"><code>  def extract_files destination_dir, pattern = &quot;*&quot;\n    verify unless [@spec](/spec)\n\n    FileUtils.mkdir_p destination_dir\n\n    [@gem](/gem).with_read_io do |io|\n      reader = Gem::Package::TarReader.new io\n\n      reader.each do |entry|\n        next unless entry.full_name == &#39;data.tar.gz&#39;\n\n        extract_tar_gz entry, destination_dir, pattern\n\n        return # ignore further entries\n      end\n    end\n  end\n</code></pre>\n<p><a href=\"/redirect?signature=c5cbc7d274b2c9f0a96e6e0bae863e76b7b8f2e2&amp;url=https%3A%2F%2Fgithub.com%2Frubygems%2Frubygems%2Fblob%2Fv2.6.13%2Flib%2Frubygems%2Fpackage.rb%23L466-L474\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span><code>read_checksums</code></span><i class=\"icon-external-link\"></i></a> <a href=\"/redirect?signature=1f6ce06b01037d96d11a229b33044195bf645dc2&amp;url=https%3A%2F%2Fgithub.com%2Frubygems%2Frubygems%2Fblob%2Fv2.6.13%2Flib%2Frubygems%2Fpackage%2Ftar_reader.rb%23L109-L119\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>seeks</span><i class=\"icon-external-link\"></i></a> to the <em>first</em> checksums.yaml.gz entry:</p>\n<pre class=\"highlight plaintext\"><code>  def read_checksums gem\n    Gem.load_yaml\n\n    [@checksums](/checksums) = gem.seek &#39;checksums.yaml.gz&#39; do |entry|\n      Zlib::GzipReader.wrap entry do |gz_io|\n        YAML.load gz_io.read\n      end\n    end\n  end\n</code></pre>\n<p><a href=\"/redirect?signature=da8697f8b571c184ad7a6eb09d0a0e76300e0eb2&amp;url=https%3A%2F%2Fgithub.com%2Frubygems%2Frubygems%2Fblob%2Fv2.6.13%2Flib%2Frubygems%2Fpackage.rb%23L593-L606\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span><code>verify_files</code></span><i class=\"icon-external-link\"></i></a> and <a href=\"/redirect?signature=7b716cf1dfdcfe35ccb7f1ea574947c05257958a&amp;url=https%3A%2F%2Fgithub.com%2Frubygems%2Frubygems%2Fblob%2Fv2.6.13%2Flib%2Frubygems%2Fpackage.rb%23L566-L588\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span><code>verify_entry</code></span><i class=\"icon-external-link\"></i></a> iterate over all entries in the tar file, filling in <code>@signatures</code> and <code>@digests</code>. In the case of entries with duplicate names, it overwrites previous values, meaning that the <em>last</em> result wins. <code>verify_entry</code> also handles metadata.gz, calling <a href=\"/redirect?signature=5843d2e0cffc78ed1ffc3b4d9402477ee0303381&amp;url=https%3A%2F%2Fgithub.com%2Frubygems%2Frubygems%2Fblob%2Fv2.6.13%2Flib%2Frubygems%2Fpackage.rb%23L436-L450\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span><code>load_spec</code></span><i class=\"icon-external-link\"></i></a> afresh each time:</p>\n<pre class=\"highlight plaintext\"><code>  def verify_entry entry\n    file_name = entry.full_name\n    [@files](/files) &lt;&lt; file_name\n\n    case file_name\n    when /\\.sig$/ then\n      [@signatures](/signatures)[$`] = entry.read if [@security_policy](/security_policy)\n      return\n    else\n      digest entry\n    end\n\n    case file_name\n    when /^metadata(.gz)?$/ then\n      load_spec entry\n    when &#39;data.tar.gz&#39; then\n      verify_gz entry\n    end\n  rescue =&gt; e\n    message = &quot;package is corrupt, exception while verifying: &quot; +\n              &quot;#{e.message} (#{e.class})&quot;\n    raise Gem::Package::FormatError.new message, [@gem](/gem)\n  end\n</code></pre>\n<p><a href=\"/redirect?signature=8bfda07dc3df65a1d3bee73a59308e1be6e5a478&amp;url=https%3A%2F%2Fgithub.com%2Frubygems%2Frubygems%2Fblob%2Fv2.6.13%2Flib%2Frubygems%2Fpackage.rb%23L548-L561\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span><code>verify_checksums</code></span><i class=\"icon-external-link\"></i></a> and <a href=\"/redirect?signature=3e5a91f2cf1b162080a67ecd760b5c1e67f5e06f&amp;url=https%3A%2F%2Fgithub.com%2Frubygems%2Frubygems%2Fblob%2Fv2.6.13%2Flib%2Frubygems%2Fsecurity%2Fpolicy.rb%23L283-L291\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span><code>verify_signatures</code></span><i class=\"icon-external-link\"></i></a> operate only on the precomputed <code>@checksums</code>, <code>@signatures</code>, and <code>@digests</code>.</p>\n\n<p>Incidentally, <a href=\"/redirect?signature=c07f9b4039108a330b2eddc5670d6974701daad2&amp;url=https%3A%2F%2Fgithub.com%2Frubygems%2Frubygems%2Fblob%2Fv2.6.13%2Flib%2Frubygems%2Fcommands%2Funpack_command.rb%23L161-L177\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span><code>get_metadata</code></span><i class=\"icon-external-link\"></i></a>, used by the <code>unpack</code> command, has its own extractor for metadata.gz, but it happens to grab the last entry, just like <code>verify_files</code>.</p>\n\n<h1 id=\"mitigation\">Mitigation</h1>\n\n<p>The attached patch 0001-Add-tests-that-Gem-Package-verify-checks-duplicate-f.patch adds two new tests (both currently failing) that check signature verification when bogus files come before or after the genuine files.</p>\n\n<p>The essential mitigation is to ensure that there is no ambiguity when processing a tar file that has multiple entries for the same file name. E.g., &quot;data.tar.gz&quot; must refer to one and only one entry in the tar file. One way to do it would be to set a policy in the code: e.g., last entry always wins (which would be consistent with the <code>tar</code> command). But that would be hard to enforce, especially in new code going forward. Another way would be not to permit duplicate entries; e.g., <code>verify_entry</code> could check whenever it is about to overwrite something in <code>@signatures</code>, <code>@digests</code>, or <code>@spec</code>, and return an error. This needs some care, as metadata and metadata.gz are both processed equivalently. It is possible, using symlinks, to create entries that effectively point to the same file, even though the paths differ; e.g.:</p>\n<pre class=\"highlight plaintext\"><code>data.tar.gz\ndir/ -&gt; ..\ndir/data.tar.gz\n</code></pre>\n<p>But this shouldn&#39;t be a problem for <code>gem</code>, as long as it continues to use strict string equality with unadorned paths like <code>&quot;data.tar.gz&quot;</code>.</p>\n\n<p>Even when this bug is fixed, a weaker form of signature forgery is possible. There is nothing in a gem file that binds data.tar.gz and metadata.gz together: they are signed independently. It is possible to mix and match files from different signed gems. Suppose a signed gem example-1.0 has a security vulnerability, and the authors release a new signed update example-1.1. Someone (perhaps a malicious rubygems.org admin) could forge a gem containing data.tar.gz from example-1.0 and metadata.gz from example-1.1. Users would think they are running the updated code, but they are still running the old vulnerable code. Fixing this weaker form of forgery seems like it would require a redesign of the signature format. Ideally, the signature would be over the entire gem, and verified before any unpacking.</p>\n\n<p>It seems that not many people are sign their gems or verify signatures. For most users the possibility of signature forgery doesn&#39;t put them at additional risk beyond the (already risky) status quo. The flaw affects only those users who use the <code>MediumSecurity</code> or <code>HighSecurity</code> profiles.</p>\n\n<h1 id=\"attachments\">Attachments</h1>\n\n<ul>\n<li>\n<strong>multi_json-1.12.2.gem</strong> is a gem with a forged signature.</li>\n<li>\n<strong>0001-Add-tests-that-Gem-Package-verify-checks-duplicate-f.patch</strong> adds tests for specific instances of gem files that contain multiple entries with the same name.</li>\n<li>\n<strong>forge-gem.sh</strong> takes an existing signed gem and produces a forged gem containing an arbitrary data.tar.gz file.</li>\n</ul>\n\n<p>How to run forge-gem.sh:</p>\n<pre class=\"highlight plaintext\"><code>$ gem fetch multi_json\n$ mkdir orig\n$ mv multi_json-1.12.2.gem orig/\n$ echo hacked &gt; HACKED\n$ tar czf data.tar.gz HACKED\n$ ./forge-gem.sh orig/multi_json-1.12.2.gem data.tar.gz forged.gem\n</code></pre>\n<p>Be aware that if the original multi_json-1.12.2.gem and the new forged.gem are both in the same directory, then <code>gem install ./forged.gem</code> will\u2014for some reason\u2014install multi_json-1.12.2.gem instead. You have to hide the original file in another directory first.</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://rubygems.org", 
+            "about": "RubyGems.org is the Ruby community\u2019s gem hosting service.", 
+            "twitter_handle": "rubygems_status", 
+            "name": "RubyGems"
+        }, 
+        "handle": "rubygems", 
+        "url": "https://hackerone.com/rubygems", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/008/212/0e820a45b51fb96fad86945c67150263527c69ed_small.png?1469676240", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/008/212/fb193d1c05feff770bc8d4a69e09613b5f9f4c3d_medium.png?1469676240"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 8212, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

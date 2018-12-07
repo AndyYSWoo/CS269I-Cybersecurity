@@ -1,0 +1,1211 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": true, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-07-11T23:20:49.848Z", 
+    "voters": [
+        "jokebookservice1", 
+        "jin", 
+        "irek", 
+        "tomdev", 
+        "sp1d3rs", 
+        "cache-money", 
+        "michiel", 
+        "bl4de", 
+        "spam404", 
+        "preben", 
+        "and 125 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "5000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 219205, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-07-13T00:43:06.056Z", 
+    "vulnerability_information": "## Summary\nThis is not a standard vulnerability, but a chain of two more exotic vulnerabilities leading to a full authentication bypass of your SSO login system at auth.uber.com (via saostatic.uber.com). The root cause of this authentication bypass is two-fold:\n\n1. Subdomain saostatic.uber.com was pointing to Amazon Cloudfront CDN, but the hostname was not registered there anymore. This allowed me to fully takeover this domain. It is now serving content of my own webserver, both over http and https (highly similar to [175070](https://hackerone.com/reports/175070) - however, I must disagree with \"there are some mitigating factors (cookie scope) that make this not as bad as it might appear at first blush.\"). \n2. Your SSO system at auth.uber.com issues session cookies which are temporarily shared between all https://*.uber.com subdomains through its \"domain=.uber.com\" attribute. Although there were some countermeasures to prevent theft, the current setup still allows leakage of these high-value session cookies to the overtaken subdomain https://saostatic.uber.com in all modern browsers, leading to a full Authentication Bypass (highly similar to [172137](https://hackerone.com/reports/172137)).\n\n## Security Impact\nThe security impact of the subdomain takeover is that Uber can be impersonated via this webpage. A valid SSL certificate could easily be generated for this domain via Let's Encrypt, which would make it ideal for e.g. phishing attacks. \n\nThe security impact of the SSO system using shared session cookies for https://*.uber.com is, in combination with the subdomain takeover vulnerability, an Authentication Bypass via session hijacking. A victim must be authenticated to auth.uber.com and then visit a webpage under the attacker's control to be exploited successfully - no further interaction is required from the victim, the attack can be performed stealthily without the user noticing or being notified by Uber. The end result is that the attacker can now impersonate the victim on any of the *.uber.com which rely on auth.uber.com for authentication, such as riders.uber.com, partners.uber.com, developer.uber.com, bonjour.uber.com, etc. \n\n# 1. Subdomain Takeover\n\nThe subdomain \"saostatic.uber.com\" was (and still is) a CNAME pointing to a AWS Cloudfront CDN server (depending on your location, the latter will resolve differently):\n```\n# nslookup saostatic.uber.com 8.8.8.8\nServer:\t\t8.8.8.8\nAddress:\t8.8.8.8#53\n\nNon-authoritative answer:\nsaostatic.uber.com\tcanonical name = d3i4yxtzktqr9n.cloudfront.net.\n```\nHowever, the hostname \"saostatic.uber.com\" was not claimed anymore on Cloudfront, resulting in a Cloudfront error page when visiting the subdomain before the takeover:\n\n{F173887}\n\nSubsequently, a new Amazon Cloudfront CDN endpoint was created and linked to an attacker-controlled origin server. For the new Cloudfront CDN endpoint, \"saostatic.uber.com\" was designated as hostname successfully:\n\n{F173885}\n\nThis concluded the subdomain takeover. Visual proof can be found at http://saostatic.uber.com/subdomaintakeoverbyarneswinnen.html (unguessable filename chosen to not negatively affect Uber's reputation during takeover period) :\n\n {F173884}\n\n#2. Authentication Bypass\n\nIn Uber's SSO system, auth.uber.com acts as Identity Provider and issues temporarily shared session cookies for https://*.uber.com to communicate identities to Service Providers (e.g. riders.uber.com, partners.uber.com, etc). Service Providers on their end immediately destroy the incoming temporary shared session cookies in case of erroneous (e.g. issued for other Service Provider) or successful authentication, ensuring the window for theft is small:\n\n {F202679}\n\nThe precious shared session cookie \"_csid\" can thus only be stolen between step 9 and 10, which is a very short period (automatic browser redirect). Although not impossible to exploit, a more convenient flaw was identified that allows the shared session cookie to remain alive after step 9 in the browser's cookie store in the diagram above. The issue is that, if the victim is already logged in at https://riders.uber.com (situation after last step 12 in diagram) when receiving a request containing a valid newly generated shared session cookie \"_csid\", it is simply ignored. Hence it stays alive in the browser until its cookie store is cleared. An attacker simply needs to directly issue another login scenario starting from step 3 in the above diagram, and end with an additional hidden request to https://saostatic.uber.com to steal the precious session cookie:\n\n{F202676}\n\nSo now an attacker has his/her hands on the victim's \"_csid\" shared session cookie for https://riders.uber.com, he/she can execute the normal login flow in their own browser and replace the issued \"_csid\" cookie value in step 9 of the first Uber SSO Login diagram to be logged in as the victim, right? Wrong. There's another countermeasure in place, namely a variant of login cross-site request forgery protection. This is the actual updated Uber SSO Login 2 diagram:\n\n{F202678}\n\nThe problem here are the GET param state=CSRFTOKEN and locally scoped state cookie that are added in step 3 by the Service Provider riders.uber.com and verified in step 11. Since we can't steal these values from the victim's browser, but only the \"_csid\" shared session cookie, this means game over, right?\n\nNo! An attacker can obtain a proper CSRFTOKEN value and accompanying state cookie value from https://riders.uber.com by starting a normal login scenario on their end (e.g. in their own browser or via a simple script). He/she can then relay the auth.uber.com URL to the victim's browser to get the \"_csid\" shared session cookie for these values, and inject these in his/her own browser login scenario again in step 9. In this manner, the victim effectively generates the \"_csid\" temporary session token for the attacker's login scenario in a separate browser, but this works flawlessly. This still allows exploitation and thus victim impersonation in the following manner (we still assume that the victim is already logged in to auth.uber.com and visits a webpage under control by the attacker, so we basically continue the flow from the above third and last diagram): \n\n{F202677}\n\n# PoC\n\nIn the PoC below, the assumption is made that https://saostatic.uber.com is actually serving a valid certificate in the victim's browser, which currently is not the case (so there is currently no actual exposed risk). I figured you might not appreciate that. \n\n1. Open the victim's browser & browse to https://riders.uber.com . After being redirected to https://auth.uber.com , login with the victim's credentials so you end up on https://riders.uber.com trips dashboard again.\n2. Open a second browser tab in the victim's browser and browse to https://saostatic.uber.com/prepareuberattack.php . Accept any certificate warnings that you may receive here - again, we're only simulating that the domain has a valid SSL certificate. Once the page has finished loading you should see a URL, \"Cookie: \" string and a \"Set-Cookie: \" strings underneath each other. This is all info gathered under the hood by the attacker's webserver that is required to login as the victim now.\n3. Open the separate attacker's browser and setup an intercepting proxy tool to intercept requests and responses. Browse to the URL displayed on the prepareuberattack.php page output and intercept this request. Now copy the \"Cookie: ...\" string displayed on prepareuberattack.php and paste it into the request headers. \n4. The response should be a redirect to https://riders.uber.com/trips, indicating successful authentication bypass. Last but not least, copy all the \"Set-Cookie: \" lines from the prepareuberattack.php page output and paste them in the response before forwarding it to the browser. This ensures that the stolen cookies are properly injected in the attacker's browser. \n5. You are now logged in as the victim in the attacker's browser \n\nIn a real attack scenario, an attacker would stealthily load https://saostatic.uber.com/prepareuberattack.php in the victim's browser, e.g. through an iframe. Likewise, he/she would probably not display the URL and all the cookies on the PHP page, but store this on the server-side, ready to be abused in a stealthy fashion. \n\nYou can see all these PoC steps executed in attachment \"8. Authentication Bypass PoC video.mp4\", where browser 1 and browser 2 had separate upstream servers and thus even other IP addresses to prove this is a plausible threat. The code of the https://saostatic.uber.com/prepareuberattack.php and https://saostatic.uber.com/uberattack.php pages is also attached (\"9. prepareuberattack.php\" and \"10. uberattack.php\"). This was written quick & dirty for PoC purposes - I know the code is pretty hacky.\n\n# Recommendations\n1. The recommendation for the subdomain takeover is straightforward: remove the dangling DNS CNAME pointer to Amazon CloudFront and the issue is resolved.\n2. The recommendation for the generic Authentication Bypass issue is a bit more problematic. The fact that identities supplied to Service Providers by the Identity Provider are communicated via shared *.uber.com cookies make them susceptible for all vulnerabilities that allows insight in cookies on any *.uber.com subdomain. This includes remote code execution, subdomain takeover,  debug logs, etc and has a very serious impact on Uber's overall security, even when the subdomain is hosted in a completely isolated environment. \nFor example, all the mentioned out of scope *.uber.com subdomains in the program's listing (bizblog.uber.com, newsroom.uber.com etc) have the inherent ability to bypass authentication of any Uber user, even though they might be remotely managed by an external party with lower security standards than Uber. Ironically enough, any service that wants to benefit from the current Uber SSO system will have to receive a *.uber.com subdomain, as this is required by design. This in its turn increases the attack surface for abuse of the generic Authentication Bypass. \nOn the short term I would recommend fixing the fact that the \"_csid\" cookie can remain alive in a browser once a user is already logged in (although [Jack Whitton already showed that CSP could be abused to prevent a victim to make the request back to the Service Provider and invalidate the token](https://whitton.io/articles/uber-turning-self-xss-into-good-xss/), so I wouldn't put too much trust in that). On the mid-to-long term I would advise Uber to migrate to a real OAuth SSO system that communicates identity secrets and proofs by other means than shared cookies, e.g. GET parameters (OAuth \"code\" flow) or window.location.hash values (e.g. OAuth \"access tokens\" flow). \n\nLet me know if anything is unclear.\n\nCheers,\n\nArne Swinnen\nhttps://www.arneswinnen.net", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "none", 
+            "user_interaction": "required", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "high", 
+            "availability": "none"
+        }, 
+        "rating": "critical", 
+        "score": 9.3, 
+        "author_type": "User"
+    }, 
+    "title": "Authentication bypass on auth.uber.com via subdomain takeover of saostatic.uber.com", 
+    "is_member_of_team?": null, 
+    "vote_count": 135, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 4793, 
+            "content": "subdomain takeover of saostatic.uber.com allowed for access to *.uber.com scoped SSO cookies. In response to this report, we immediately fixed the subdomain takeover and then added additional protections (IP restriction) to our *.uber.com SSO cookies to mitigate ATO possibility of subdomain takeover in the future.\n\nWe appreciate @arneswinnen's high quality report and the open interaction on the tradeoffs between various SSO schemes -- we look forward to future reports and interactions with him in the future.", 
+            "content_html": "<p>subdomain takeover of saostatic.uber.com allowed for access to *.uber.com scoped SSO cookies. In response to this report, we immediately fixed the subdomain takeover and then added additional protections (IP restriction) to our *.uber.com SSO cookies to mitigate ATO possibility of subdomain takeover in the future.</p>\n\n<p>We appreciate <a href=\"/arneswinnen\">@arneswinnen</a>&#39;s high quality report and the open interaction on the tradeoffs between various SSO schemes -- we look forward to future reports and interactions with him in the future.</p>\n"
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 4785, 
+            "content": "Technical summary: https://www.arneswinnen.net/2017/06/authentication-bypass-on-ubers-sso-via-subdomain-takeover/", 
+            "content_html": "<p>Technical summary: <a title=\"https://www.arneswinnen.net/2017/06/authentication-bypass-on-ubers-sso-via-subdomain-takeover/\" href=\"/redirect?signature=6f9c36c1237cf506706c83aefb590c6ef2cc6506&amp;url=https%3A%2F%2Fwww.arneswinnen.net%2F2017%2F06%2Fauthentication-bypass-on-ubers-sso-via-subdomain-takeover%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.arneswinnen.net/2017/06/authentication-bypass-on-ubers-sso-via-subdomain-takeover/</span><i class=\"icon-external-link\"></i></a></p>\n"
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$5,000", 
+    "attachments": [
+        {
+            "file_name": "3._Subdomain_Hijacked.png", 
+            "type": "image/png", 
+            "id": 173884, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/173/884/d29f38689bdf5601a60efa4435bb6d9cecb59a66/3._Subdomain_Hijacked.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223540Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=d9c2a1da93080889d2b60e7c465fc9eed35fa29c2e9a736c40792e2d70456d2d"
+        }, 
+        {
+            "file_name": "2._AWS_CloudFront_Claiming_of_Subdomain.png", 
+            "type": "image/png", 
+            "id": 173885, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/173/885/525ee26f7f8fd8a1078481fdc43538d0712d4e6e/2._AWS_CloudFront_Claiming_of_Subdomain.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223540Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=2631c7b1d9bf4a377ee1b1352c63419940c9984c227b8c2ac93767a9604c4376"
+        }, 
+        {
+            "file_name": "1._CloudFront_Error_Page_Indicating_Takeover_Susceptibility.png", 
+            "type": "image/png", 
+            "id": 173887, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/173/887/252c1a056dcd6551f8e0807c54394f7f8a2b10db/1._CloudFront_Error_Page_Indicating_Takeover_Susceptibility.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223540Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=4aec1073e64ddc3af965afeb40e4cfd9776f46c9a30faf84b88385f46a89bad4"
+        }, 
+        {
+            "file_name": "9._prepareuberattack.php", 
+            "type": "text/html", 
+            "id": 173939, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/173/939/5b40819255053460e6073d1aac6619df2e360d52/9._prepareuberattack.php?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223540Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=dae3091b74a6083bf7d0e7f66a87054dea7406695db5a0e58b74ffe1e65e660f"
+        }, 
+        {
+            "file_name": "10._uberattack.php", 
+            "type": "text/html", 
+            "id": 173940, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/173/940/855a7e0e309b7f77517da9ec5a27410edcba4c9a/10._uberattack.php?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223540Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=1bd3cb2c7b1b6e248bb3f957bacd8d7d679ab46d1fce04a251425948fe5797d4"
+        }
+    ], 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-07T21:13:30.478Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-07T21:13:30.478Z", 
+            "actor": {
+                "username": "tno", 
+                "url": "/tno", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "@arneswinnen -- Thanks for this detailed report!  We'll take a look and get back to you asap.", 
+            "markdown_message": "<p><a href=\"/arneswinnen\">@arneswinnen</a> -- Thanks for this detailed report!  We&#39;ll take a look and get back to you asap.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1590200, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-09T21:38:14.134Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-09T21:38:14.134Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi Uber,\n\nSure, take your time and let me know if you have any additional questions. \n\nI wanted to add one other remark: In order to reduce the current risk of Authentication Bypass via session hijacking, you could already do the following. When Identity Provider auth.uber.com issues a valid shared \"_csid\" cookie token for a Service Provider, store the IP address of the visitor who requested the \"_csid\" on the server-side database. Every Service Provider should then always verify that the visitor who's trying to authenticate with a \"_csid\" cookie has the same IP address as the original requesting visitor of this cookie from auth.uber.com against the server-side database. \n\nI have seen similar countermeasure implementations on SSO systems which use shared session cookies to communicate identities. This would prevent the session relay attack which I described partially: only when an attacker and a victim have the same external IP address, the relay attack I described above could still work. The risk is thus not fully mitigated and I would still recommend migrating to a SSO system which does not rely on shared session cookies at all. However, as a temporary countermeasure, this would already reduce the current risk greatly. Note that IP spoofing (e.g. via [HTTP Header \"X-Forwarded-For\"](http://blog.ircmaxell.com/2012/11/anatomy-of-attack-how-i-hacked.html)) should also be impossible.\n\nCheers,\n\nArne \n\n\n", 
+            "markdown_message": "<p>Hi Uber,</p>\n\n<p>Sure, take your time and let me know if you have any additional questions. </p>\n\n<p>I wanted to add one other remark: In order to reduce the current risk of Authentication Bypass via session hijacking, you could already do the following. When Identity Provider auth.uber.com issues a valid shared &quot;_csid&quot; cookie token for a Service Provider, store the IP address of the visitor who requested the &quot;_csid&quot; on the server-side database. Every Service Provider should then always verify that the visitor who&#39;s trying to authenticate with a &quot;_csid&quot; cookie has the same IP address as the original requesting visitor of this cookie from auth.uber.com against the server-side database. </p>\n\n<p>I have seen similar countermeasure implementations on SSO systems which use shared session cookies to communicate identities. This would prevent the session relay attack which I described partially: only when an attacker and a victim have the same external IP address, the relay attack I described above could still work. The risk is thus not fully mitigated and I would still recommend migrating to a SSO system which does not rely on shared session cookies at all. However, as a temporary countermeasure, this would already reduce the current risk greatly. Note that IP spoofing (e.g. via <a href=\"/redirect?signature=380da496de43d3ea91b5ab5ab4331c54924236dc&amp;url=http%3A%2F%2Fblog.ircmaxell.com%2F2012%2F11%2Fanatomy-of-attack-how-i-hacked.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>HTTP Header &quot;X-Forwarded-For&quot;</span><i class=\"icon-external-link\"></i></a>) should also be impossible.</p>\n\n<p>Cheers,</p>\n\n<p>Arne </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1601373, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-10T12:31:54.777Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-10T12:31:54.777Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi Uber,\n\nJust came across this: https://ma.ttias.be/caa-checking-becomes-mandatory-ssltls-certificates/\n\nWhen implemented correctly by Uber, this would prevent issuing a valid SSL certificate for hijacked subdomains, hence preventing read access to the shared session cookie \"_csid\" since it has the Secure flag and is only sent via HTTPS automatically by modern browsers. Another defense in depth measure you might consider. \n\nCheers,\n\nArne", 
+            "markdown_message": "<p>Hi Uber,</p>\n\n<p>Just came across this: <a title=\"https://ma.ttias.be/caa-checking-becomes-mandatory-ssltls-certificates/\" href=\"/redirect?signature=415735e014bacb4c7b5d046f3a47e4985cec865d&amp;url=https%3A%2F%2Fma.ttias.be%2Fcaa-checking-becomes-mandatory-ssltls-certificates%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://ma.ttias.be/caa-checking-becomes-mandatory-ssltls-certificates/</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>When implemented correctly by Uber, this would prevent issuing a valid SSL certificate for hijacked subdomains, hence preventing read access to the shared session cookie &quot;_csid&quot; since it has the Secure flag and is only sent via HTTPS automatically by modern browsers. Another defense in depth measure you might consider. </p>\n\n<p>Cheers,</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1602168, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-11T20:36:22.040Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-11T20:36:22.040Z", 
+            "actor": {
+                "username": "lindsey-uber", 
+                "url": "/lindsey-uber", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Thank you for your report! We have triaged to the relevant team so they can investigate. We will keep you updated.", 
+            "markdown_message": "<p>Thank you for your report! We have triaged to the relevant team so they can investigate. We will keep you updated.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1605863, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-04-14T15:22:05.325Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-14T15:22:05.325Z", 
+            "actor": {
+                "url": "/uber", 
+                "profile": {
+                    "name": "Uber"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/314/0010251d7088db2a1b236eb594b6371af4492609_medium.png?1514905146"
+                }
+            }, 
+            "team_handle": "uber", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "500.0", 
+            "collaborator": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen"
+            }, 
+            "message": "Hi @arneswinnen,\n \nWe have a couple of exciting updates to our bug bounty program that we'd like to share with you! We have raised our minimum bounty to $500, and will be awarding the minimum bounty to eligible reports at the time of triage moving forward. \n\nWe appreciate your continued patience as we thoroughly investigate complex issues and identify long-term, sustainable fixes. This new process enables us to recognize your efforts while we work to investigate the full impact of an issue.  You can read more about the improvements to our program here: [https://medium.com/uber-security-privacy/uber-security-bug-bounty-updates-b8256494fd04]\n\nWe will award the rest of the bounty (if eligible) once this report is resolved. ", 
+            "markdown_message": "<p>Hi <a href=\"/arneswinnen\">@arneswinnen</a>,</p>\n\n<p>We have a couple of exciting updates to our bug bounty program that we&#39;d like to share with you! We have raised our minimum bounty to $500, and will be awarding the minimum bounty to eligible reports at the time of triage moving forward. </p>\n\n<p>We appreciate your continued patience as we thoroughly investigate complex issues and identify long-term, sustainable fixes. This new process enables us to recognize your efforts while we work to investigate the full impact of an issue.  You can read more about the improvements to our program here: [<a title=\"https://medium.com/uber-security-privacy/uber-security-bug-bounty-updates-b8256494fd04\" href=\"/redirect?signature=fe1a3aac6d5e2245e0a81a42687963e981d93f94&amp;url=https%3A%2F%2Fmedium.com%2Fuber-security-privacy%2Fuber-security-bug-bounty-updates-b8256494fd04\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://medium.com/uber-security-privacy/uber-security-bug-bounty-updates-b8256494fd04</span><i class=\"icon-external-link\"></i></a>]</p>\n\n<p>We will award the rest of the bounty (if eligible) once this report is resolved. </p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1611672, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-18T23:35:28.860Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-18T23:35:28.860Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Critical (9.3)", 
+                "old_severity": null
+            }, 
+            "team_handle": "uber", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1619837, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-18T23:42:23.482Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-18T23:43:43.171Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi Uber,\n\nGreat that you already award the minimum bounty immediately after triage, thank you! I've just updated the CVSS score based on my understanding - let me know if you see this otherwise.\n\nCheers,\n\nArne", 
+            "markdown_message": "<p>Hi Uber,</p>\n\n<p>Great that you already award the minimum bounty immediately after triage, thank you! I&#39;ve just updated the CVSS score based on my understanding - let me know if you see this otherwise.</p>\n\n<p>Cheers,</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1619849, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-26T15:38:04.579Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-26T15:38:04.579Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi Uber,\n\nWould you have any update about either the subdomain takeover and/or the SSO session cookies vulnerabilities? I have noticed that the subdomain is still hosting my content, after 3 weeks since I reported it. Would you like me to release it again or...?\n\nArne", 
+            "markdown_message": "<p>Hi Uber,</p>\n\n<p>Would you have any update about either the subdomain takeover and/or the SSO session cookies vulnerabilities? I have noticed that the subdomain is still hosting my content, after 3 weeks since I reported it. Would you like me to release it again or...?</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1637877, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-02T16:44:19.770Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-12T16:44:31.663Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi Uber,\n\nIn retrospect, I noticed that I often referenced \u2588\u2588\u2588\u2588\u2588\u2588 whereas I actually meant uber.com in the diagrams (mainly browser cookie stores). I recently wrote a completely different submission to \u2588\u2588\u2588\u2588\u2588\u2588\u2588's bug bounty program at HackerOne, which must have anchored this inside my head. Apologies. \n\nSimply interpreting all \"\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\" references as \"uber.com\" should be correct. Let me know if you have any difficulties and I'll visually fix them in newly supplied diagrams.\n\nArne", 
+            "markdown_message": "<p>Hi Uber,</p>\n\n<p>In retrospect, I noticed that I often referenced \u2588\u2588\u2588\u2588\u2588\u2588 whereas I actually meant uber.com in the diagrams (mainly browser cookie stores). I recently wrote a completely different submission to \u2588\u2588\u2588\u2588\u2588\u2588\u2588&#39;s bug bounty program at HackerOne, which must have anchored this inside my head. Apologies. </p>\n\n<p>Simply interpreting all &quot;\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&quot; references as &quot;uber.com&quot; should be correct. Let me know if you have any difficulties and I&#39;ll visually fix them in newly supplied diagrams.</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1649329, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-06T09:59:03.506Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-06T09:59:03.506Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi @Uber,\n\nAny updates about this one? Are you perhaps replacing the whole SSO system behind auth.uber.com ? \n\nIn any case, would it be possible to already remove the DNS CNAME record for saostatic.uber.com or reclaim it again, so I don't have to keep a hold of it on your behalf? It's still serving my webserver's content at this very moment...\n\nThanks,\n\nArne", 
+            "markdown_message": "<p>Hi <a href=\"/uber\">@Uber</a>,</p>\n\n<p>Any updates about this one? Are you perhaps replacing the whole SSO system behind auth.uber.com ? </p>\n\n<p>In any case, would it be possible to already remove the DNS CNAME record for saostatic.uber.com or reclaim it again, so I don&#39;t have to keep a hold of it on your behalf? It&#39;s still serving my webserver&#39;s content at this very moment...</p>\n\n<p>Thanks,</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1734234, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-06T16:02:12.028Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-06T16:02:12.028Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Heyo @arneswinnen,\n\nI managed to miss this (awesomely written) report -- I'm going to catch myself up on it and will follow-up in a bit; apologies for any delay.\n\nThanks,\nRob\n\n", 
+            "markdown_message": "<p>Heyo <a href=\"/arneswinnen\">@arneswinnen</a>,</p>\n\n<p>I managed to miss this (awesomely written) report -- I&#39;m going to catch myself up on it and will follow-up in a bit; apologies for any delay.</p>\n\n<p>Thanks,<br>\nRob</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1735069, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-06T18:40:41.755Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-06T18:40:41.755Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Ok, I've followed up with the internal team to delete the CNAME record associated with `saostatic.uber.com`  and I'll update this report once I've got more details.\n\nWe will not be addressing the SSO and cookie scoping issues at this time as the exploit scenario is unlikely and convoluted. Also, some of the recommendations you suggest have similar downfalls -- for example, using the fragment identifier to hold an OAuth token can result in token exposure if there is an unrestricted open redirect (since fragment identifiers persist on redirects unless explicitly overwritten via `Location:` HTTP header).\n\nThanks for the great report and apologies again for the delay.\n\nCheers,\nRob\n\n ", 
+            "markdown_message": "<p>Ok, I&#39;ve followed up with the internal team to delete the CNAME record associated with <code>saostatic.uber.com</code>  and I&#39;ll update this report once I&#39;ve got more details.</p>\n\n<p>We will not be addressing the SSO and cookie scoping issues at this time as the exploit scenario is unlikely and convoluted. Also, some of the recommendations you suggest have similar downfalls -- for example, using the fragment identifier to hold an OAuth token can result in token exposure if there is an unrestricted open redirect (since fragment identifiers persist on redirects unless explicitly overwritten via <code>Location:</code> HTTP header).</p>\n\n<p>Thanks for the great report and apologies again for the delay.</p>\n\n<p>Cheers,<br>\nRob</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1735515, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-06T19:16:32.933Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-06T19:30:13.745Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi @fletcher,\n\nThanks for the feedback. Let me know if you'd like to keep the saostatic.uber.com subdomain on Cloudfront, I'll release asap in that case.\n\nCould you elaborate on your decision to not address the SSO issue? Maybe I have not been clear with the attack scenario, but it's **exactly** the same as the typical OAuth attack you describe, only on *.uber.com instead of on one single subdomain:\n1. Victim logs in on any *.uber.com domain via auth.uber.com\n2. Victim visits a website partly under the control of the attacker in another tab (e.g. a purchased ad on a popular website such as youtube.com or even *.uber.com, a waterhole attack)\n3. Attacker can now stealthily generate and steal session cookies for any *.uber.com site on behalf of the victim. That means riders.uber.com, partners.uber.com, bonjour.uber.com, developer.uber.com, ...\n\nIn my opinion, it's not extremely unlikely or convoluted. It's literally the same attack as the OAuth redirect you describe, except this attack can be performed on all *.uber.com subdomains, not just one for which the redirect_uri is not strictly checked. [Other](http://thehackernews.com/2016/04/microsoft-bug-bounty.html) [bug](http://blog.mish.re/index.php/2017/04/29/yahoo-bug-bounty-chaining-3-minor-issues-to-takeover-flickr-accounts/) [bounty](https://hackerone.com/reports/110467 ) [programs](https://stephensclafani.com/2017/03/21/stealing-messenger-com-login-nonces/) have estimated this as high/critical risk. Could you elaborate why you see this differently, and make a CVSS score calculation on your end as well? \n\nIn general, I believe the current SSO system should really be replaced to standard OAuth on the long term for the following reasons:\n- Its flaws are impossible to mitigate, they are here by design and they will always stay. In a hardened OAuth system where redirect_uri's are properly checked (no wildcards for subdomains or paths) and you only use site-specific authentication codes instead of tokens, there are very few possible attacks. Standard OAuth 2 libraries support all of this out of the box. \n- The current system encourages to put anything under \\*.uber.com, to leverage the SSO. This increases the attack surface by design. From a risk point of view, it would not make any sense to exclude \\*.uber.com from your bug bounty program, as a compromise of any \\*.uber.com subdomain may result in the aforementioned Authentication Bypass for **any** uber.com subdomain asset for your [40 million monthly active users](http://expandedramblings.com/index.php/uber-statistics/). \n\nLast but not least, I was also hoping that I could publicly disclose this issue once it's been resolved, as it's a great example of the inherent risks of an SSO system based on shared cookies. But of course, if you're not planning on resolving this, I'm not sure if you would be supportive of that. Let me know what your stance is on this (I won't give you trouble, no matter the outcome). \n\nArne\nhttps://www.arneswinnen.net", 
+            "markdown_message": "<p>Hi <a href=\"/fletcher\">@fletcher</a>,</p>\n\n<p>Thanks for the feedback. Let me know if you&#39;d like to keep the saostatic.uber.com subdomain on Cloudfront, I&#39;ll release asap in that case.</p>\n\n<p>Could you elaborate on your decision to not address the SSO issue? Maybe I have not been clear with the attack scenario, but it&#39;s <strong>exactly</strong> the same as the typical OAuth attack you describe, only on *.uber.com instead of on one single subdomain:</p>\n\n<ol>\n<li>Victim logs in on any *.uber.com domain via auth.uber.com</li>\n<li>Victim visits a website partly under the control of the attacker in another tab (e.g. a purchased ad on a popular website such as youtube.com or even *.uber.com, a waterhole attack)</li>\n<li>Attacker can now stealthily generate and steal session cookies for any *.uber.com site on behalf of the victim. That means riders.uber.com, partners.uber.com, bonjour.uber.com, developer.uber.com, ...</li>\n</ol>\n\n<p>In my opinion, it&#39;s not extremely unlikely or convoluted. It&#39;s literally the same attack as the OAuth redirect you describe, except this attack can be performed on all *.uber.com subdomains, not just one for which the redirect_uri is not strictly checked. <a href=\"/redirect?signature=d00f9fd5cfd73a5b8a9d490e072c45917eea8068&amp;url=http%3A%2F%2Fthehackernews.com%2F2016%2F04%2Fmicrosoft-bug-bounty.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>Other</span><i class=\"icon-external-link\"></i></a> <a href=\"/redirect?signature=c98456eb8558cca134ad3ed7f763148709f138dc&amp;url=http%3A%2F%2Fblog.mish.re%2Findex.php%2F2017%2F04%2F29%2Fyahoo-bug-bounty-chaining-3-minor-issues-to-takeover-flickr-accounts%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>bug</span><i class=\"icon-external-link\"></i></a> <a href=\"https://hackerone.com/reports/110467\">bounty</a> <a href=\"/redirect?signature=25b899c4ede8a3c3918c43532157fae9ac47a4bd&amp;url=https%3A%2F%2Fstephensclafani.com%2F2017%2F03%2F21%2Fstealing-messenger-com-login-nonces%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>programs</span><i class=\"icon-external-link\"></i></a> have estimated this as high/critical risk. Could you elaborate why you see this differently, and make a CVSS score calculation on your end as well? </p>\n\n<p>In general, I believe the current SSO system should really be replaced to standard OAuth on the long term for the following reasons:</p>\n\n<ul>\n<li>Its flaws are impossible to mitigate, they are here by design and they will always stay. In a hardened OAuth system where redirect_uri&#39;s are properly checked (no wildcards for subdomains or paths) and you only use site-specific authentication codes instead of tokens, there are very few possible attacks. Standard OAuth 2 libraries support all of this out of the box. </li>\n<li>The current system encourages to put anything under *.uber.com, to leverage the SSO. This increases the attack surface by design. From a risk point of view, it would not make any sense to exclude *.uber.com from your bug bounty program, as a compromise of any *.uber.com subdomain may result in the aforementioned Authentication Bypass for <strong>any</strong> uber.com subdomain asset for your <a href=\"/redirect?signature=43d0f6486292d37715f144550e4e3a4e3465394c&amp;url=http%3A%2F%2Fexpandedramblings.com%2Findex.php%2Fuber-statistics%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>40 million monthly active users</span><i class=\"icon-external-link\"></i></a>. </li>\n</ul>\n\n<p>Last but not least, I was also hoping that I could publicly disclose this issue once it&#39;s been resolved, as it&#39;s a great example of the inherent risks of an SSO system based on shared cookies. But of course, if you&#39;re not planning on resolving this, I&#39;m not sure if you would be supportive of that. Let me know what your stance is on this (I won&#39;t give you trouble, no matter the outcome). </p>\n\n<p>Arne<br>\n<a title=\"https://www.arneswinnen.net\" href=\"/redirect?signature=b36b3bff6f7228758fa087b6c9a475c8d1dd90a6&amp;url=https%3A%2F%2Fwww.arneswinnen.net\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.arneswinnen.net</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1735591, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-07T19:04:27.359Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-07T19:04:27.359Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Using cookie scoping to enable SSO across subdomains is a commonly used best practice -- for example, if you login to mail.google.com and then navigate to keep.google.com, you will notice that there is no keep.google.com auth cookie but instead a *.google.com auth cookie that allows for SSO across google.com subdomains.\n\nAs with all SSO schemes, there are known advantages and disadvantages that are a balance of security and UX. With both 2-legged and 3-legged OAuth flows, there are potential vulnerabilities with how you redirect the user in the flow which can result in token exposure. Using a cookie scoped approach for SSO, means we have to be sure any auth cookies are marked HttpOnly and we have to avoid subdomain takeovers.\n\nBased on our experience, open-redirects are more common than subdomain takeovers. To mitigate this potential exposure, we are working on consolidating our subdomains and monitoring/enforcing DNS hygiene.\n\nHttpOnly flag is not something unique to this SSO setup -- any authenticated session will have the concept of a bearer token that if not marked HttpOnly (or stored in localStorage) will be vulnerable to exfiltration via XSS attacks. Either way, we mitigate this by investing in frameworks that are secure by default (e.g. automatically set cookies to HttpOnly) and have automation in place to identify when auth cookies aren't marked HttpOnly.\n\nFor the reasons above, we believe cookie-scoping based SSO to be secure while also maintaining desirable characteristics like 'universal' SSO for uber.com subdomains without the need to explicitly grant authorization to individual to unique apps at different subdomains.", 
+            "markdown_message": "<p>Using cookie scoping to enable SSO across subdomains is a commonly used best practice -- for example, if you login to mail.google.com and then navigate to keep.google.com, you will notice that there is no keep.google.com auth cookie but instead a *.google.com auth cookie that allows for SSO across google.com subdomains.</p>\n\n<p>As with all SSO schemes, there are known advantages and disadvantages that are a balance of security and UX. With both 2-legged and 3-legged OAuth flows, there are potential vulnerabilities with how you redirect the user in the flow which can result in token exposure. Using a cookie scoped approach for SSO, means we have to be sure any auth cookies are marked HttpOnly and we have to avoid subdomain takeovers.</p>\n\n<p>Based on our experience, open-redirects are more common than subdomain takeovers. To mitigate this potential exposure, we are working on consolidating our subdomains and monitoring/enforcing DNS hygiene.</p>\n\n<p>HttpOnly flag is not something unique to this SSO setup -- any authenticated session will have the concept of a bearer token that if not marked HttpOnly (or stored in localStorage) will be vulnerable to exfiltration via XSS attacks. Either way, we mitigate this by investing in frameworks that are secure by default (e.g. automatically set cookies to HttpOnly) and have automation in place to identify when auth cookies aren&#39;t marked HttpOnly.</p>\n\n<p>For the reasons above, we believe cookie-scoping based SSO to be secure while also maintaining desirable characteristics like &#39;universal&#39; SSO for uber.com subdomains without the need to explicitly grant authorization to individual to unique apps at different subdomains.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1738359, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen"
+            }, 
+            "created_at": "2017-06-07T19:06:05.303Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-07T19:06:05.303Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "@arneswinnen,\n\nWe've gone ahead and deleted the CNAME for `saostatic.uber.com` and this should now be resolved -- can please verify on your end?\n\nWe have weekly bounty payout meetings and will discuss this report in our next one to come to a determination on bounty amount.\n\nThanks again for the report!\nRob", 
+            "markdown_message": "<p><a href=\"/arneswinnen\">@arneswinnen</a>,</p>\n\n<p>We&#39;ve gone ahead and deleted the CNAME for <code>saostatic.uber.com</code> and this should now be resolved -- can please verify on your end?</p>\n\n<p>We have weekly bounty payout meetings and will discuss this report in our next one to come to a determination on bounty amount.</p>\n\n<p>Thanks again for the report!<br>\nRob</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1738360, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-07T20:25:19.535Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-07T20:31:41.625Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi @Fletcher,\n\nThanks for your extensive feedback, much appreciated. I can confirm the DNS CNAME record has been removed and the subdomain takeover threat is mitigated. Here are my final two cents on the SSO discussion:\n\nI can confirm that when logging in to mail.google.com and then browsing to keep.google.com, there is no hidden redirect via accounts.google.com (their SSO). However, when doing it the other way around, there is (https://accounts.google.com/ServiceLogin?service=mail, which redirects back to mail.google.com with several OAuth-like tokens through some GET parameters). This is because Google only relies on the shared session cookie for their non-critical services, but they have a \"proper\" OAuth-like SSO re-authentication for their critical subdomains (drive.google.com as well, for example). Based on your [treasure map](https://eng.uber.com/bug-bounty/), these would be riders.uber.com, partners.uber.com and vault.uber.com for Uber (and maybe some others). \n\nI also don't fully understand your argument. In Uber's current implementation, if you first login to riders.uber.com and then go to partners.uber.com, you will be redirected via auth.uber.com. The real issue is that the identity is communicated via shared session cookies which are by design shared with *.uber.com and thus more vulnerable for theft, unlike GET parameters in hardcoded redirects. \n\nI have tested **many** SSO implementations, and have found it much more difficult to compromise a decently configured OAuth SSO system with hardcoded redirect_uri's and only the \"code\" authorization flow, instead of a full shared SSO session cookie system. No open redirect vulnerability will aid in exploitation of a properly configured OAuth flow anymore: [modifying the redirect_uri to an open redirect endpoint on the same domain these days prevents exchanging a \"code\" for an \"access token\"](https://developers.facebook.com/docs/facebook-login/manually-build-a-login-flow#exchangecode) and thus yields the attacker nothing:\n> redirect_uri. This argument is required and must be the same as the original request_uri that you used when starting the OAuth login process.\n\nYou can test this by simply changing/appending one character to an original redirect_uri when performing a \"Login with Facebook\" OAuth code flow. It will not work anymore, this attack you speak of has been mitigated universally a while ago. Google, Linkedin and other major players have the same technique implemented at this moment. All self-respecting OAuth libraries have this functionality built-in as well (the good ones have it enabled by default). \n\nAs far for UX and HttpOnly attributes on any session cookies, I don't see any difference between the two SSO options. The current auth.uber.com implementation has the HttpOnly attribute set on all issued temporary session cookies, but this didn't prevent the attack. \n\nHowever, I would still completely understand that you don't want to go through all the effort of changing the SSO system because of this, and accept this inherent risk. In that case, I do believe this should yield the following consequences:\n- Any vulnerability on an \\*.uber.com subdomain that yields visibility into incoming cookies with the Secure and HttpOnly attributes set (not XSS, but e.g. subdomain takeover, debug logs exposure, RCE, ...) would have a high/critical impact. The attack and PoC video I supplied shows that the attack scenario is exactly the same as for theft of an OAuth access token, except that this works for *any* \\*.uber.com subdomain (riders, partners, vault, ...) as opposed to just one in a typical OAuth exploit scenario. It's very similar to many recent [other](http://thehackernews.com/2016/04/microsoft-bug-bounty.html) [bug](http://blog.mish.re/index.php/2017/04/29/yahoo-bug-bounty-chaining-3-minor-issues-to-takeover-flickr-accounts/) [bounty](https://hackerone.com/reports/110467) [program]( https://stephensclafani.com/2017/03/21/stealing-messenger-com-login-nonces/ ) submissions I also mentioned before, just worse for Uber. \n- Based on the aforementioned point, it would not make any sense anymore to exclude any \\*.uber.com subdomain from your bug bounty program's scope, as they carry an inherent high/critical risk should they be compromised (most notably \\*.dev.uber.com, \\*.et.uber.com, bizblog.uber.com, newsroom.uber.com, love.uber.com, drive.uber.com, eng.uber.com, people.uber.com, ...). Especially the first two seem problematic to me. \n\nIf you opt to keep the current SSO system (which, again, I would completely understand from a pragmatic ROI perspective), I would however still advice to implement the check I mentioned in a comment. This would **greatly** reduce the exposed current risk:\n>I wanted to add one other remark: In order to reduce the current risk of Authentication Bypass via session hijacking, you could already do the following. When Identity Provider auth.uber.com issues a valid shared \"_csid\" cookie token for a Service Provider, store the IP address of the visitor who requested the \"_csid\" on the server-side database. Every Service Provider should then always verify that the visitor who's trying to authenticate with a \"_csid\" cookie has the same IP address as the original requesting visitor of this cookie from auth.uber.com against the server-side database.\n\n>I have seen similar countermeasure implementations on SSO systems which use shared session cookies to communicate identities. This would prevent the session relay attack which I described partially: only when an attacker and a victim have the same external IP address, the relay attack I described above could still work. The risk is thus not fully mitigated and I would still recommend migrating to a SSO system which does not rely on shared session cookies at all. However, as a temporary countermeasure, this would already reduce the current risk greatly. Note that IP spoofing (e.g. via HTTP Header \"X-Forwarded-For\") should also be impossible.\n\nLooking forward to your response. By any means, if you fundamentally disagree with any of my arguments or anything is unclear, let me know.\n\nArne\n\n\n", 
+            "markdown_message": "<p>Hi <a href=\"/fletcher\">@Fletcher</a>,</p>\n\n<p>Thanks for your extensive feedback, much appreciated. I can confirm the DNS CNAME record has been removed and the subdomain takeover threat is mitigated. Here are my final two cents on the SSO discussion:</p>\n\n<p>I can confirm that when logging in to mail.google.com and then browsing to keep.google.com, there is no hidden redirect via accounts.google.com (their SSO). However, when doing it the other way around, there is (<a title=\"https://accounts.google.com/ServiceLogin?service=mail\" href=\"/redirect?signature=a4b0b3da7806845e3ad3678f169c669fca41e9b4&amp;url=https%3A%2F%2Faccounts.google.com%2FServiceLogin%3Fservice%3Dmail\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://accounts.google.com/ServiceLogin?service=mail</span><i class=\"icon-external-link\"></i></a>, which redirects back to mail.google.com with several OAuth-like tokens through some GET parameters). This is because Google only relies on the shared session cookie for their non-critical services, but they have a &quot;proper&quot; OAuth-like SSO re-authentication for their critical subdomains (drive.google.com as well, for example). Based on your <a href=\"/redirect?signature=563856844ba21cc54a3fb53713d28c6253cd95e1&amp;url=https%3A%2F%2Feng.uber.com%2Fbug-bounty%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>treasure map</span><i class=\"icon-external-link\"></i></a>, these would be riders.uber.com, partners.uber.com and vault.uber.com for Uber (and maybe some others). </p>\n\n<p>I also don&#39;t fully understand your argument. In Uber&#39;s current implementation, if you first login to riders.uber.com and then go to partners.uber.com, you will be redirected via auth.uber.com. The real issue is that the identity is communicated via shared session cookies which are by design shared with *.uber.com and thus more vulnerable for theft, unlike GET parameters in hardcoded redirects. </p>\n\n<p>I have tested <strong>many</strong> SSO implementations, and have found it much more difficult to compromise a decently configured OAuth SSO system with hardcoded redirect_uri&#39;s and only the &quot;code&quot; authorization flow, instead of a full shared SSO session cookie system. No open redirect vulnerability will aid in exploitation of a properly configured OAuth flow anymore: <a href=\"/redirect?signature=548c59fc591943a4fec49df41dd989b848497be5&amp;url=https%3A%2F%2Fdevelopers.facebook.com%2Fdocs%2Ffacebook-login%2Fmanually-build-a-login-flow%23exchangecode\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>modifying the redirect_uri to an open redirect endpoint on the same domain these days prevents exchanging a &quot;code&quot; for an &quot;access token&quot;</span><i class=\"icon-external-link\"></i></a> and thus yields the attacker nothing:</p>\n\n<blockquote>\n<p>redirect_uri. This argument is required and must be the same as the original request_uri that you used when starting the OAuth login process.</p>\n</blockquote>\n\n<p>You can test this by simply changing/appending one character to an original redirect_uri when performing a &quot;Login with Facebook&quot; OAuth code flow. It will not work anymore, this attack you speak of has been mitigated universally a while ago. Google, Linkedin and other major players have the same technique implemented at this moment. All self-respecting OAuth libraries have this functionality built-in as well (the good ones have it enabled by default). </p>\n\n<p>As far for UX and HttpOnly attributes on any session cookies, I don&#39;t see any difference between the two SSO options. The current auth.uber.com implementation has the HttpOnly attribute set on all issued temporary session cookies, but this didn&#39;t prevent the attack. </p>\n\n<p>However, I would still completely understand that you don&#39;t want to go through all the effort of changing the SSO system because of this, and accept this inherent risk. In that case, I do believe this should yield the following consequences:</p>\n\n<ul>\n<li>Any vulnerability on an *.uber.com subdomain that yields visibility into incoming cookies with the Secure and HttpOnly attributes set (not XSS, but e.g. subdomain takeover, debug logs exposure, RCE, ...) would have a high/critical impact. The attack and PoC video I supplied shows that the attack scenario is exactly the same as for theft of an OAuth access token, except that this works for <em>any</em> *.uber.com subdomain (riders, partners, vault, ...) as opposed to just one in a typical OAuth exploit scenario. It&#39;s very similar to many recent <a href=\"/redirect?signature=d00f9fd5cfd73a5b8a9d490e072c45917eea8068&amp;url=http%3A%2F%2Fthehackernews.com%2F2016%2F04%2Fmicrosoft-bug-bounty.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>other</span><i class=\"icon-external-link\"></i></a> <a href=\"/redirect?signature=c98456eb8558cca134ad3ed7f763148709f138dc&amp;url=http%3A%2F%2Fblog.mish.re%2Findex.php%2F2017%2F04%2F29%2Fyahoo-bug-bounty-chaining-3-minor-issues-to-takeover-flickr-accounts%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>bug</span><i class=\"icon-external-link\"></i></a> <a href=\"https://hackerone.com/reports/110467\">bounty</a> <a href=\"/redirect?signature=25b899c4ede8a3c3918c43532157fae9ac47a4bd&amp;url=https%3A%2F%2Fstephensclafani.com%2F2017%2F03%2F21%2Fstealing-messenger-com-login-nonces%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>program</span><i class=\"icon-external-link\"></i></a> submissions I also mentioned before, just worse for Uber. </li>\n<li>Based on the aforementioned point, it would not make any sense anymore to exclude any *.uber.com subdomain from your bug bounty program&#39;s scope, as they carry an inherent high/critical risk should they be compromised (most notably *.dev.uber.com, *.et.uber.com, bizblog.uber.com, newsroom.uber.com, love.uber.com, drive.uber.com, eng.uber.com, people.uber.com, ...). Especially the first two seem problematic to me. </li>\n</ul>\n\n<p>If you opt to keep the current SSO system (which, again, I would completely understand from a pragmatic ROI perspective), I would however still advice to implement the check I mentioned in a comment. This would <strong>greatly</strong> reduce the exposed current risk:</p>\n\n<blockquote>\n<p>I wanted to add one other remark: In order to reduce the current risk of Authentication Bypass via session hijacking, you could already do the following. When Identity Provider auth.uber.com issues a valid shared &quot;_csid&quot; cookie token for a Service Provider, store the IP address of the visitor who requested the &quot;_csid&quot; on the server-side database. Every Service Provider should then always verify that the visitor who&#39;s trying to authenticate with a &quot;_csid&quot; cookie has the same IP address as the original requesting visitor of this cookie from auth.uber.com against the server-side database.</p>\n\n<p>I have seen similar countermeasure implementations on SSO systems which use shared session cookies to communicate identities. This would prevent the session relay attack which I described partially: only when an attacker and a victim have the same external IP address, the relay attack I described above could still work. The risk is thus not fully mitigated and I would still recommend migrating to a SSO system which does not rely on shared session cookies at all. However, as a temporary countermeasure, this would already reduce the current risk greatly. Note that IP spoofing (e.g. via HTTP Header &quot;X-Forwarded-For&quot;) should also be impossible.</p>\n</blockquote>\n\n<p>Looking forward to your response. By any means, if you fundamentally disagree with any of my arguments or anything is unclear, let me know.</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1738508, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-09T21:26:05.329Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-09T21:26:05.329Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "This is awesome! I love conversations like this, so I appreciate the thoughtful response. I also want to emphasize that my comments weren't an attempt to disprove your claims -- I'm was attempting to highlight our thought process and openly consider the different tradeoffs of various SSO systems.\n\nWhen I was talking about the threats around OAuth redirects I was alluding to these two issues ([1](https://tools.ietf.org/html/rfc6819#section-4.1.5), [2](https://tools.ietf.org/html/rfc6819#section-4.2.4)) specifically.\n\nI do agree with this statement \"much more difficult to compromise a decently configured OAuth SSO\", but I think you could apply the same logic to a cookie based SSO system. If we have a \"decently configured\" cookie SSO system, then we are just as secure with a better user experience based on our needs.\n\nWith regards to your suggested IP address mitigation, I completely agree and that's something we already have on our list for future enhancements.\n\nTo summarize our position, we believe that cookie based SSO affords us the security, functionality, and scalability that we need at this time.\n\nThanks again for the detailed responses and look forward to interacting more in the future! ", 
+            "markdown_message": "<p>This is awesome! I love conversations like this, so I appreciate the thoughtful response. I also want to emphasize that my comments weren&#39;t an attempt to disprove your claims -- I&#39;m was attempting to highlight our thought process and openly consider the different tradeoffs of various SSO systems.</p>\n\n<p>When I was talking about the threats around OAuth redirects I was alluding to these two issues (<a href=\"/redirect?signature=caebca664de4adbc1d2baf1bed154e59a2c450e6&amp;url=https%3A%2F%2Ftools.ietf.org%2Fhtml%2Frfc6819%23section-4.1.5\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>1</span><i class=\"icon-external-link\"></i></a>, <a href=\"/redirect?signature=820436a45dd29033901c424729630cd7a29e0a0a&amp;url=https%3A%2F%2Ftools.ietf.org%2Fhtml%2Frfc6819%23section-4.2.4\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>2</span><i class=\"icon-external-link\"></i></a>) specifically.</p>\n\n<p>I do agree with this statement &quot;much more difficult to compromise a decently configured OAuth SSO&quot;, but I think you could apply the same logic to a cookie based SSO system. If we have a &quot;decently configured&quot; cookie SSO system, then we are just as secure with a better user experience based on our needs.</p>\n\n<p>With regards to your suggested IP address mitigation, I completely agree and that&#39;s something we already have on our list for future enhancements.</p>\n\n<p>To summarize our position, we believe that cookie based SSO affords us the security, functionality, and scalability that we need at this time.</p>\n\n<p>Thanks again for the detailed responses and look forward to interacting more in the future! </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1745735, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-09T22:47:32.016Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-09T22:47:32.016Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi @fletcher,\n\nAwesome to hear my input is appreciated and considered! I greatly appreciate your responses as well. \n\nI fully agree that implementing the IP check and ensuring proper DNS hygiene would reduce the currently exposed risk to an acceptable level. This would also dismiss the need to take all *.uber.com properties into bug bounty program scope, which I believe is very desirable from your point of view (*.dev.uber.com and *.et.uber.com is a lot on first sight).  \n\nOne last question: once the IP-based check has been implemented on your end, would you allow me to write this issue up in a blogpost of mine (which you of course get to validate first before being published)? \n\nCheers,\n\nArne\n\n\n\n", 
+            "markdown_message": "<p>Hi <a href=\"/fletcher\">@fletcher</a>,</p>\n\n<p>Awesome to hear my input is appreciated and considered! I greatly appreciate your responses as well. </p>\n\n<p>I fully agree that implementing the IP check and ensuring proper DNS hygiene would reduce the currently exposed risk to an acceptable level. This would also dismiss the need to take all <em>.uber.com properties into bug bounty program scope, which I believe is very desirable from your point of view (</em>.dev.uber.com and *.et.uber.com is a lot on first sight).  </p>\n\n<p>One last question: once the IP-based check has been implemented on your end, would you allow me to write this issue up in a blogpost of mine (which you of course get to validate first before being published)? </p>\n\n<p>Cheers,</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1745908, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-09T23:21:20.788Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-09T23:21:20.788Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Most definitely -- I'll check with the team to see if there is a defined timeline on when we want to add it. If it's a ways out, I'm happy to publicly disclose this sooner so you can write the post.\n\nCheers and thanks again for the fun conversation,\nRob", 
+            "markdown_message": "<p>Most definitely -- I&#39;ll check with the team to see if there is a defined timeline on when we want to add it. If it&#39;s a ways out, I&#39;m happy to publicly disclose this sooner so you can write the post.</p>\n\n<p>Cheers and thanks again for the fun conversation,<br>\nRob</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1745958, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-09T23:28:24.624Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-12T16:44:31.652Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Great, thanks! I'll stay put. I would also prefer to disclose this on my own blog, since this original report contained the diagrams with \"\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\" instead of \"uber.com\". I'll fix these, and perhaps we can do a limited disclosure of this report on hackerone, where I can refer to my blogpost on https://www.arneswinnen.net if that's OK with you?", 
+            "markdown_message": "<p>Great, thanks! I&#39;ll stay put. I would also prefer to disclose this on my own blog, since this original report contained the diagrams with &quot;\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&quot; instead of &quot;uber.com&quot;. I&#39;ll fix these, and perhaps we can do a limited disclosure of this report on hackerone, where I can refer to my blogpost on <a title=\"https://www.arneswinnen.net\" href=\"/redirect?signature=b36b3bff6f7228758fa087b6c9a475c8d1dd90a6&amp;url=https%3A%2F%2Fwww.arneswinnen.net\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.arneswinnen.net</span><i class=\"icon-external-link\"></i></a> if that&#39;s OK with you?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1745968, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-09T23:41:06.983Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-09T23:41:06.983Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Ah ok, gotcha -- yep, that sounds reasonable to me.\n\n(p.s. we'll be discussing the bounty for this report in a week or so and will follow-up with full bounty amount then)", 
+            "markdown_message": "<p>Ah ok, gotcha -- yep, that sounds reasonable to me.</p>\n\n<p>(p.s. we&#39;ll be discussing the bounty for this report in a week or so and will follow-up with full bounty amount then)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1745981, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-09T23:48:07.111Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-09T23:48:07.111Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Perfect! I'm not in a rush to disclose this, so I'd prefer to wait until the IP check is in place (unless it will take several months before it's implemented). I'll await more time details for your end, as well as the final bounty decision.\n\nThanks again for the great conversations!\n\nArne", 
+            "markdown_message": "<p>Perfect! I&#39;m not in a rush to disclose this, so I&#39;d prefer to wait until the IP check is in place (unless it will take several months before it&#39;s implemented). I&#39;ll await more time details for your end, as well as the final bounty decision.</p>\n\n<p>Thanks again for the great conversations!</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1745990, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-06-14T20:58:46.711Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-14T20:58:46.711Z", 
+            "actor": {
+                "url": "/uber", 
+                "profile": {
+                    "name": "Uber"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/314/0010251d7088db2a1b236eb594b6371af4492609_medium.png?1514905146"
+                }
+            }, 
+            "team_handle": "uber", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "4500.0", 
+            "collaborator": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen"
+            }, 
+            "message": "Thanks for the great report @arneswinnen! Looking forward to your next submission. ", 
+            "markdown_message": "<p>Thanks for the great report <a href=\"/arneswinnen\">@arneswinnen</a>! Looking forward to your next submission. </p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1756300, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-14T21:11:36.631Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-14T21:11:36.631Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi,\n\nThank you very much for the generous bounty!\n\nWould you have any ETA for the IP check? I'll already create a draft blogpost and provide it to you here in a comment, for your review & validation. But I prefer to publish only when the IP check has been effectively implemented.\n\nThanks in advance,\n\nArne", 
+            "markdown_message": "<p>Hi,</p>\n\n<p>Thank you very much for the generous bounty!</p>\n\n<p>Would you have any ETA for the IP check? I&#39;ll already create a draft blogpost and provide it to you here in a comment, for your review &amp; validation. But I prefer to publish only when the IP check has been effectively implemented.</p>\n\n<p>Thanks in advance,</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1756321, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-25T04:03:11.223Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-25T04:03:11.223Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi Uber,\n\nI've written a draft blogpost, feel free to review it before I officially publish it: https://www.arneswinnen.net/2017/06/authentication-bypass-on-ubers-sso-via-subdomain-takeover/ (password: uber_for_your_review).\n\nI had two remaining questions from my end:\n- Has it been decided yet whether Uber will implement the IP check or not? And if yes, any ETA?\n- In my blogpost, I mention the recently published report [\\[Uber 8k bounty\\] Login CSRF + Open Redirect -> Account Takeover\n](http://ngailong.com/uber-login-csrf-open-redirect-account-takeover/) from @ngalog. I couldn't help noticing that his report was awarded 8k vs 5k for my report here. I don't want to complain about the bounty that was awarded to me, but I'm bound to get the same question once I publish my blogpost. I've been trying to find arguments that explain this significant difference in bounty amount, but I can only find counterarguments for now, so could you please enlighten me in case I'm overseeing any?\n * The prerequisites for both attacks are exactly the same, victim must be logged in to Uber SSO system (login.uber.com for OAuth, auth.uber.com for shared cookies system)\n * The report of ngalog only affects central.uber.com, whereas my report affects **every** uber.com domain, including central.uber.com but also more valuable ones such as vault, riders, partners, developer, etc. \n * My report actually highlights two vulnerabilities, namely the SSO system vulnerability as well as a subdomain takeover. The latter could also be exploited in other ways than Authentication Bypass, e.g. to impersonate Uber by hosting convincing phishing pages. \n * I'm not entirely sure, but the report from ngalog shows how to steal an access_token value from the OAuth system. Can this actually be used via an Uber API or some sort? Because if not, I don't see how this could've led to Authentication Bypass / Account takeover like in my case. \n\nThanks in advance,\n\nArne ", 
+            "markdown_message": "<p>Hi Uber,</p>\n\n<p>I&#39;ve written a draft blogpost, feel free to review it before I officially publish it: <a title=\"https://www.arneswinnen.net/2017/06/authentication-bypass-on-ubers-sso-via-subdomain-takeover/\" href=\"/redirect?signature=6f9c36c1237cf506706c83aefb590c6ef2cc6506&amp;url=https%3A%2F%2Fwww.arneswinnen.net%2F2017%2F06%2Fauthentication-bypass-on-ubers-sso-via-subdomain-takeover%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.arneswinnen.net/2017/06/authentication-bypass-on-ubers-sso-via-subdomain-takeover/</span><i class=\"icon-external-link\"></i></a> (password: uber_for_your_review).</p>\n\n<p>I had two remaining questions from my end:</p>\n\n<ul>\n<li>Has it been decided yet whether Uber will implement the IP check or not? And if yes, any ETA?</li>\n<li>In my blogpost, I mention the recently published report <a href=\"/redirect?signature=484b699185b9591ddf02e72599d732936729b2c3&amp;url=http%3A%2F%2Fngailong.com%2Fuber-login-csrf-open-redirect-account-takeover%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>[Uber 8k bounty] Login CSRF + Open Redirect -&amp;gt; Account Takeover\n</span><i class=\"icon-external-link\"></i></a> from <a href=\"/ngalog\">@ngalog</a>. I couldn&#39;t help noticing that his report was awarded 8k vs 5k for my report here. I don&#39;t want to complain about the bounty that was awarded to me, but I&#39;m bound to get the same question once I publish my blogpost. I&#39;ve been trying to find arguments that explain this significant difference in bounty amount, but I can only find counterarguments for now, so could you please enlighten me in case I&#39;m overseeing any?\n\n<ul>\n<li>The prerequisites for both attacks are exactly the same, victim must be logged in to Uber SSO system (login.uber.com for OAuth, auth.uber.com for shared cookies system)</li>\n<li>The report of ngalog only affects central.uber.com, whereas my report affects <strong>every</strong> uber.com domain, including central.uber.com but also more valuable ones such as vault, riders, partners, developer, etc. </li>\n<li>My report actually highlights two vulnerabilities, namely the SSO system vulnerability as well as a subdomain takeover. The latter could also be exploited in other ways than Authentication Bypass, e.g. to impersonate Uber by hosting convincing phishing pages. </li>\n<li>I&#39;m not entirely sure, but the report from ngalog shows how to steal an access_token value from the OAuth system. Can this actually be used via an Uber API or some sort? Because if not, I don&#39;t see how this could&#39;ve led to Authentication Bypass / Account takeover like in my case. </li>\n</ul>\n</li>\n</ul>\n\n<p>Thanks in advance,</p>\n\n<p>Arne </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1779184, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-28T00:55:33.124Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-28T00:55:33.124Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "@arneswinnen,\n\nBeen a crazy few days/weeks, but I plan to look into this tomorrow and will follow-up then.\n\nCheers,\nRob", 
+            "markdown_message": "<p><a href=\"/arneswinnen\">@arneswinnen</a>,</p>\n\n<p>Been a crazy few days/weeks, but I plan to look into this tomorrow and will follow-up then.</p>\n\n<p>Cheers,<br>\nRob</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1786397, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-30T11:30:47.314Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-30T11:30:47.314Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi @fletcher,\n\nJust a small heads up that I've added a small paragraph after the source code of the two PHP PoC files in the blogpost yesterday evening. Figured you might have already proofread the blogpost yesterday or the day before, but are still working out my other questions at this moment. Nothing else on the blogpost has changed, so please validate that last extra paragraph as well if you can. \n\nLooking forward to your reply,\n\nArne", 
+            "markdown_message": "<p>Hi <a href=\"/fletcher\">@fletcher</a>,</p>\n\n<p>Just a small heads up that I&#39;ve added a small paragraph after the source code of the two PHP PoC files in the blogpost yesterday evening. Figured you might have already proofread the blogpost yesterday or the day before, but are still working out my other questions at this moment. Nothing else on the blogpost has changed, so please validate that last extra paragraph as well if you can. </p>\n\n<p>Looking forward to your reply,</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1793952, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-01T02:28:48.176Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-01T02:28:48.176Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hey @arneswinnen,\n\nAppreciate your patience as we finalize our technical mitigation efforts. We will let you know once that work is complete, so you can confidently publish your post without creating additional risk.\n\nIn the meantime, I thought you might appreciate some additional context on our decision to use cookie based SSO instead of OAuth SSO since this is clearly something you\u2019ve thought about a lot. Every company needs to understand their own environment, so this might not be the best decision for everyone.\n\nSimilar to other large-scale companies, Uber adopted cookie based SSO to better secure our login system while also decreasing complexity and inefficiencies. As you may already know, OAuth was not designed for SSO, and using it for that purpose not only abuses the protocol, it doesn\u2019t protect against the most likely attack scenario of open redirects. Cookie based SSO also makes single-logout far more trivial compared to OAuth, reducing the likelihood of a situation where session invalidation bugs occur.  Ultimately, it\u2019s been our experience that cookie based SSO is more effective in decreasing the potential for ATO.\n\nThanks again for your patience!  Hope to have another update for you soon.\n\nCheers,\nRob", 
+            "markdown_message": "<p>Hey <a href=\"/arneswinnen\">@arneswinnen</a>,</p>\n\n<p>Appreciate your patience as we finalize our technical mitigation efforts. We will let you know once that work is complete, so you can confidently publish your post without creating additional risk.</p>\n\n<p>In the meantime, I thought you might appreciate some additional context on our decision to use cookie based SSO instead of OAuth SSO since this is clearly something you\u2019ve thought about a lot. Every company needs to understand their own environment, so this might not be the best decision for everyone.</p>\n\n<p>Similar to other large-scale companies, Uber adopted cookie based SSO to better secure our login system while also decreasing complexity and inefficiencies. As you may already know, OAuth was not designed for SSO, and using it for that purpose not only abuses the protocol, it doesn\u2019t protect against the most likely attack scenario of open redirects. Cookie based SSO also makes single-logout far more trivial compared to OAuth, reducing the likelihood of a situation where session invalidation bugs occur.  Ultimately, it\u2019s been our experience that cookie based SSO is more effective in decreasing the potential for ATO.</p>\n\n<p>Thanks again for your patience!  Hope to have another update for you soon.</p>\n\n<p>Cheers,<br>\nRob</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1795836, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-02T23:12:23.369Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-02T23:13:55.389Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi,\n\nThank you for the elaboration. I can understand that Uber opted for a cookie based SSO for convenience and maintenance reasons, but from a security perspective, I'm still convinced it is the least secure of all SSO types out there:\n- Even after you implement the IP based check, any attacker that resides on the same corporate network / wifi / ... as the victim (same external IP address) must only compromise one *.uber.com subdomain to fully compromise the SSO system, including all existing service providers. This is impossible to prevent technically by design on a cookie based SSO, and is a residual risk I would personally not be comfortable with. Especially when looking at the sheer number of subdomains under *.dev.uber.com and *.et.uber.com and/or hosted externally (newsroom.uber.com, bizblog.uber.com, etc).\n- The OAuth open redirect chain vulnerabilities you speak of typically only impact one service provider (one \\*.uber.com subdomain in your case), not **every** service provider. They can be easily prevented by proper redirect_uri whitelisting and CSRF protection via the \"state\" parameter for all service providers at once, without any residual risk. \n\nI will remain standby and await further news about:\n- ETA of the IP based check.\n- Explanation of the 5k bounty for this report vs the 8k bounty for report [\\[Uber 8k bounty\\] Login CSRF + Open Redirect -> Account Takeover](http://ngailong.com/uber-login-csrf-open-redirect-account-takeover/) , which had a significantly smaller impact (see previous comments). \n- Permission to publish my blogpost (I've updated the recommendations paragraph, which now states that Uber decided to implement the IP based check).\n\nCheers,\n\nArne", 
+            "markdown_message": "<p>Hi,</p>\n\n<p>Thank you for the elaboration. I can understand that Uber opted for a cookie based SSO for convenience and maintenance reasons, but from a security perspective, I&#39;m still convinced it is the least secure of all SSO types out there:</p>\n\n<ul>\n<li>Even after you implement the IP based check, any attacker that resides on the same corporate network / wifi / ... as the victim (same external IP address) must only compromise one *.uber.com subdomain to fully compromise the SSO system, including all existing service providers. This is impossible to prevent technically by design on a cookie based SSO, and is a residual risk I would personally not be comfortable with. Especially when looking at the sheer number of subdomains under *.dev.uber.com and *.et.uber.com and/or hosted externally (newsroom.uber.com, bizblog.uber.com, etc).</li>\n<li>The OAuth open redirect chain vulnerabilities you speak of typically only impact one service provider (one *.uber.com subdomain in your case), not <strong>every</strong> service provider. They can be easily prevented by proper redirect_uri whitelisting and CSRF protection via the &quot;state&quot; parameter for all service providers at once, without any residual risk. </li>\n</ul>\n\n<p>I will remain standby and await further news about:</p>\n\n<ul>\n<li>ETA of the IP based check.</li>\n<li>Explanation of the 5k bounty for this report vs the 8k bounty for report <a href=\"/redirect?signature=484b699185b9591ddf02e72599d732936729b2c3&amp;url=http%3A%2F%2Fngailong.com%2Fuber-login-csrf-open-redirect-account-takeover%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>[Uber 8k bounty] Login CSRF + Open Redirect -&amp;gt; Account Takeover</span><i class=\"icon-external-link\"></i></a> , which had a significantly smaller impact (see previous comments). </li>\n<li>Permission to publish my blogpost (I&#39;ve updated the recommendations paragraph, which now states that Uber decided to implement the IP based check).</li>\n</ul>\n\n<p>Cheers,</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1798091, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-07T02:45:56.985Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-07T02:45:56.985Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hey Arne,\n\nThanks again for your patience while we tested and rolled out the IP check -- feel free to verify on your end.\n\nCheers,\nRob", 
+            "markdown_message": "<p>Hey Arne,</p>\n\n<p>Thanks again for your patience while we tested and rolled out the IP check -- feel free to verify on your end.</p>\n\n<p>Cheers,<br>\nRob</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1813171, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-07T08:54:00.835Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-07T08:54:00.835Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi @fletcher,\n\nI just retested and the fix works like a charm. I get redirected back to auth.uber.com by any service provider in case the IP changes between the SSO IP -> SP redirect, which effectively prevents the relay attack I described (again, only when the attacker is external and has a different IP). I've tried bypassing it via several IP-spoofing HTTP Headers (X-Forwarded-For, X-Real-IP, Client-IP, True-Client-IP), but to no avail. Good job!\n\nI'll await your final OK to publish my blogpost. I updated its timeline with today's date for the IP-based check deployment & retest. Also looking forward to your reasoning on the difference between the 5k - 8k bounties (I won't give you any trouble in case the bounty remains the same, just curious for the arguments).\n\nArne", 
+            "markdown_message": "<p>Hi <a href=\"/fletcher\">@fletcher</a>,</p>\n\n<p>I just retested and the fix works like a charm. I get redirected back to auth.uber.com by any service provider in case the IP changes between the SSO IP -&gt; SP redirect, which effectively prevents the relay attack I described (again, only when the attacker is external and has a different IP). I&#39;ve tried bypassing it via several IP-spoofing HTTP Headers (X-Forwarded-For, X-Real-IP, Client-IP, True-Client-IP), but to no avail. Good job!</p>\n\n<p>I&#39;ll await your final OK to publish my blogpost. I updated its timeline with today&#39;s date for the IP-based check deployment &amp; retest. Also looking forward to your reasoning on the difference between the 5k - 8k bounties (I won&#39;t give you any trouble in case the bounty remains the same, just curious for the arguments).</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1813600, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-10T15:00:50.763Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-10T15:00:50.763Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "@arneswinnen,\n\nAwesome, thanks for verifying -- I'll be taking a look at everything else today and will follow-up.\n\nThanks,\nRob", 
+            "markdown_message": "<p><a href=\"/arneswinnen\">@arneswinnen</a>,</p>\n\n<p>Awesome, thanks for verifying -- I&#39;ll be taking a look at everything else today and will follow-up.</p>\n\n<p>Thanks,<br>\nRob</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1820216, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-11T19:54:41.768Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-11T19:54:41.768Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "@arneswinnen,\n\nNow that the fix is rolled out and verified, please feel free to publish your blog post at your convenience. We appreciate your patience as we worked toward full resolution and we\u2019ll do a full disclosure on this report once your post is live. \n\nI understand and apologize for the confusion regarding the difference in bounty amounts for this report and @ngalog\u2019s report. In hindsight, we shouldn\u2019t have paid $8K for the previous report and the current max for this kind of bug is $5K.  As we continue to fine tune our bounty amounts, we\u2019ll do our best to explain the reasoning behind these decisions.  \n\nThanks again for the report and help keeping our users secure.\n\nCheers,\nRob", 
+            "markdown_message": "<p><a href=\"/arneswinnen\">@arneswinnen</a>,</p>\n\n<p>Now that the fix is rolled out and verified, please feel free to publish your blog post at your convenience. We appreciate your patience as we worked toward full resolution and we\u2019ll do a full disclosure on this report once your post is live. </p>\n\n<p>I understand and apologize for the confusion regarding the difference in bounty amounts for this report and <a href=\"/ngalog\">@ngalog</a>\u2019s report. In hindsight, we shouldn\u2019t have paid $8K for the previous report and the current max for this kind of bug is $5K.  As we continue to fine tune our bounty amounts, we\u2019ll do our best to explain the reasoning behind these decisions.  </p>\n\n<p>Thanks again for the report and help keeping our users secure.</p>\n\n<p>Cheers,<br>\nRob</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1826063, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-11T23:09:21.335Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-12T16:44:31.641Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi @fletcher,\n\nThanks for the explanation. Would it be possible to do a limited disclosure (title & summaries only) instead of a full one on the HackerOne platform (e.g. https://hackerone.com/reports/202823), as I've mentioned before? Again, I made some silly mistakes in my first diagrams which I've corrected in my blogpost (\u2588\u2588\u2588 instead of uber.com, which points to \u2588\u2588\u2588\u2588\u2588\u2588\u2588's bug bounty program). Therefore, I would like to opt for limited disclosure in this case.\n\nI've just published my blogpost and put its link in my limited disclosure summary, and you can voice your view on this issue in yours. Sounds good?\n\nArne", 
+            "markdown_message": "<p>Hi <a href=\"/fletcher\">@fletcher</a>,</p>\n\n<p>Thanks for the explanation. Would it be possible to do a limited disclosure (title &amp; summaries only) instead of a full one on the HackerOne platform (e.g. <a title=\"https://hackerone.com/reports/202823\" href=\"https://hackerone.com/reports/202823\">https://hackerone.com/reports/202823</a>), as I&#39;ve mentioned before? Again, I made some silly mistakes in my first diagrams which I&#39;ve corrected in my blogpost (\u2588\u2588\u2588 instead of uber.com, which points to \u2588\u2588\u2588\u2588\u2588\u2588\u2588&#39;s bug bounty program). Therefore, I would like to opt for limited disclosure in this case.</p>\n\n<p>I&#39;ve just published my blogpost and put its link in my limited disclosure summary, and you can voice your view on this issue in yours. Sounds good?</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1826682, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-11T23:20:49.869Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-11T23:20:49.869Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "first_to_agree": true, 
+            "message": "**Limited disclosure**, please. See https://hackerone.com/reports/202823 for an example. Feel free to add your summary as well, of course. \n\nThanks again for the great cooperation on this one!\n\nArne", 
+            "markdown_message": "<p><strong>Limited disclosure</strong>, please. See <a title=\"https://hackerone.com/reports/202823\" href=\"https://hackerone.com/reports/202823\">https://hackerone.com/reports/202823</a> for an example. Feel free to add your summary as well, of course. </p>\n\n<p>Thanks again for the great cooperation on this one!</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1826725, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-12T03:09:01.240Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-12T03:09:01.240Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hey @arneswinnen,\n\nWe\u2019re opting for full-disclosure so that the open interaction we had, including our position on our SSO system, is available for everyone to read.\n\nWe really appreciate the openness and interaction in this report, so we\u2019d like to use it as an example for other researchers.\n\nCheers,\nRob\n", 
+            "markdown_message": "<p>Hey <a href=\"/arneswinnen\">@arneswinnen</a>,</p>\n\n<p>We\u2019re opting for full-disclosure so that the open interaction we had, including our position on our SSO system, is available for everyone to read.</p>\n\n<p>We really appreciate the openness and interaction in this report, so we\u2019d like to use it as an example for other researchers.</p>\n\n<p>Cheers,<br>\nRob</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1827015, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-12T07:28:39.134Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-12T07:28:39.134Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi @fletcher,\n\nI would really prefer either limited disclosure or no disclosure at all, since my initial post contained references to other bug bounty programs and some other sensitive information that I removed in my blogpost. If you really don't want limited disclosure, feel free to reject my disclosure request. \n\nThanks,\n\nArne", 
+            "markdown_message": "<p>Hi <a href=\"/fletcher\">@fletcher</a>,</p>\n\n<p>I would really prefer either limited disclosure or no disclosure at all, since my initial post contained references to other bug bounty programs and some other sensitive information that I removed in my blogpost. If you really don&#39;t want limited disclosure, feel free to reject my disclosure request. </p>\n\n<p>Thanks,</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1827388, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-12T15:57:34.948Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-12T15:57:34.948Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hey @arneswinnen,\n\nHackerOne disclosure gives us the ability to redact text in a report, so if you\u2019d like to list the program names or sensitive content you\u2019d like redacted, I\u2019d be happy to do so.\n\nI can also check to see if we can replace your initial images with new ones if you\u2019re concerned with the typo in them.\n\nIf we don\u2019t hear anything by the end of today, we will move forward with full disclosure.\n\nThanks,\nRob", 
+            "markdown_message": "<p>Hey <a href=\"/arneswinnen\">@arneswinnen</a>,</p>\n\n<p>HackerOne disclosure gives us the ability to redact text in a report, so if you\u2019d like to list the program names or sensitive content you\u2019d like redacted, I\u2019d be happy to do so.</p>\n\n<p>I can also check to see if we can replace your initial images with new ones if you\u2019re concerned with the typo in them.</p>\n\n<p>If we don\u2019t hear anything by the end of today, we will move forward with full disclosure.</p>\n\n<p>Thanks,<br>\nRob</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1828885, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-12T16:20:05.916Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-12T16:44:14.853Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi @fletcher,\n\nVery well, if you insist:\n- I would prefer that all diagrams and the PoC video attachments are replaced by the versions on my blog, as they've been slightly updated. This means attachment 4-5-6-7-8. Especially the PoC video is very important to me (I simply removed references to other, private bug bounty programs I am **really** not allowed to disclose in the original video, not more). \n- All my comments mentioning \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588's bug bounty program or discussions around it (May 2nd, June 10th, all comments as of Jul 12th including this one).\n\nIf this is not possible, again, I would prefer that nothing is disclosed as opposed to everything. Is there a way to allow me to validate the redacted report before being disclosed? That would make me feel a lot more comfortable. \n\nThanks in advance,\n\nArne", 
+            "markdown_message": "<p>Hi <a href=\"/fletcher\">@fletcher</a>,</p>\n\n<p>Very well, if you insist:</p>\n\n<ul>\n<li>I would prefer that all diagrams and the PoC video attachments are replaced by the versions on my blog, as they&#39;ve been slightly updated. This means attachment 4-5-6-7-8. Especially the PoC video is very important to me (I simply removed references to other, private bug bounty programs I am <strong>really</strong> not allowed to disclose in the original video, not more). </li>\n<li>All my comments mentioning \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&#39;s bug bounty program or discussions around it (May 2nd, June 10th, all comments as of Jul 12th including this one).</li>\n</ul>\n\n<p>If this is not possible, again, I would prefer that nothing is disclosed as opposed to everything. Is there a way to allow me to validate the redacted report before being disclosed? That would make me feel a lot more comfortable. </p>\n\n<p>Thanks in advance,</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1828967, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-12T16:42:35.422Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-12T16:44:31.632Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "@arneswinnen,\n\nAwesome, happy to get those things addressed -- based on those details, we are going to do the following:\n* replace video in `F173941` with a link to this video from blog post\n* `F173903` replaced with https://www.arneswinnen.net/wp-content/uploads/2017/06/Uber-SSO.png\n* `F173904` replaced with https://www.arneswinnen.net/wp-content/uploads/2017/06/Uber-SSO-Login-2-1.png\n*  `F173905` replaced with https://www.arneswinnen.net/wp-content/uploads/2017/06/Uber-SSO-Attack-1.png\n* `F173935` replaced with https://www.arneswinnen.net/wp-content/uploads/2017/06/Uber-SSO-Attack-2.png\n* redact text strings \"\u2588\u2588\u2588\u2588\u2588\" and \"\u2588\u2588\u2588\u2588\u2588\" from entire report\n\nI'll let you know once the revised version is published.\n\nThanks,\nRob\n", 
+            "markdown_message": "<p><a href=\"/arneswinnen\">@arneswinnen</a>,</p>\n\n<p>Awesome, happy to get those things addressed -- based on those details, we are going to do the following:</p>\n\n<ul>\n<li>replace video in <code>F173941</code> with a link to this video from blog post</li>\n<li>\n<code>F173903</code> replaced with <a title=\"https://www.arneswinnen.net/wp-content/uploads/2017/06/Uber-SSO.png\" href=\"/redirect?signature=c27efab6eb3fc08cfc11bad98a753bbb3dacada8&amp;url=https%3A%2F%2Fwww.arneswinnen.net%2Fwp-content%2Fuploads%2F2017%2F06%2FUber-SSO.png\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.arneswinnen.net/wp-content/uploads/2017/06/Uber-SSO.png</span><i class=\"icon-external-link\"></i></a>\n</li>\n<li>\n<code>F173904</code> replaced with <a title=\"https://www.arneswinnen.net/wp-content/uploads/2017/06/Uber-SSO-Login-2-1.png\" href=\"/redirect?signature=eae040c40d0545d6b549ff1613f0017ced3e3869&amp;url=https%3A%2F%2Fwww.arneswinnen.net%2Fwp-content%2Fuploads%2F2017%2F06%2FUber-SSO-Login-2-1.png\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.arneswinnen.net/wp-content/uploads/2017/06/Uber-SSO-Login-2-1.png</span><i class=\"icon-external-link\"></i></a>\n</li>\n<li> <code>F173905</code> replaced with <a title=\"https://www.arneswinnen.net/wp-content/uploads/2017/06/Uber-SSO-Attack-1.png\" href=\"/redirect?signature=8594e89c60cd6a75fdd61ea5dc38a921f5c78dd2&amp;url=https%3A%2F%2Fwww.arneswinnen.net%2Fwp-content%2Fuploads%2F2017%2F06%2FUber-SSO-Attack-1.png\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.arneswinnen.net/wp-content/uploads/2017/06/Uber-SSO-Attack-1.png</span><i class=\"icon-external-link\"></i></a>\n</li>\n<li>\n<code>F173935</code> replaced with <a title=\"https://www.arneswinnen.net/wp-content/uploads/2017/06/Uber-SSO-Attack-2.png\" href=\"/redirect?signature=ecd81abff69789db8cecb6eaede29e36a8d1618e&amp;url=https%3A%2F%2Fwww.arneswinnen.net%2Fwp-content%2Fuploads%2F2017%2F06%2FUber-SSO-Attack-2.png\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.arneswinnen.net/wp-content/uploads/2017/06/Uber-SSO-Attack-2.png</span><i class=\"icon-external-link\"></i></a>\n</li>\n<li>redact text strings &quot;\u2588\u2588\u2588\u2588\u2588&quot; and &quot;\u2588\u2588\u2588\u2588\u2588&quot; from entire report</li>\n</ul>\n\n<p>I&#39;ll let you know once the revised version is published.</p>\n\n<p>Thanks,<br>\nRob</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1829016, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-12T16:50:29.222Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-12T17:04:13.955Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi,\n\nSounds like a plan. I would only prefer that you redact/blur the entire comments where references to other bug bounty programs are mentioned, as opposed to just the words themselves. I want to avoid explicitly mentioning this, because there still are some in my PoC video that were too hard to remove if you look closely. Could you do that? \n\nIt seems that I can view the redacted version of the report. Could you please let me validate one last time once you think it's ready, but before you publicly disclose?\n\nApologies for all this hassle, I'm really bothered by it myself. Won't be so sloppy next time. \nThanks,\n\nArne", 
+            "markdown_message": "<p>Hi,</p>\n\n<p>Sounds like a plan. I would only prefer that you redact/blur the entire comments where references to other bug bounty programs are mentioned, as opposed to just the words themselves. I want to avoid explicitly mentioning this, because there still are some in my PoC video that were too hard to remove if you look closely. Could you do that? </p>\n\n<p>It seems that I can view the redacted version of the report. Could you please let me validate one last time once you think it&#39;s ready, but before you publicly disclose?</p>\n\n<p>Apologies for all this hassle, I&#39;m really bothered by it myself. Won&#39;t be so sloppy next time. <br>\nThanks,</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1829184, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/202/679/54d216a3805d12fb7e88b7ac962b9f389bf183dc/Uber-SSO.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223541Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=ba9b06da000f27b78a5624ec899692513a4d6603d1dd407281f8aea9f3c4a84f", 
+                    "type": "image/png", 
+                    "id": 202679, 
+                    "filename": "Uber-SSO.png"
+                }, 
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/202/678/210967a92d5cc4aaa15ea5294719cb9ec29755f1/Uber-SSO-Login-2-1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223541Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=ecda2ab18f95979ca306a25856ed6aba2265893f6de159726f36ebda4f1ba2f2", 
+                    "type": "image/png", 
+                    "id": 202678, 
+                    "filename": "Uber-SSO-Login-2-1.png"
+                }, 
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/202/677/c44875a3e29f210f07cd737b9cbb377a7d94ec44/Uber-SSO-Attack-2.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223541Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=cb4309913dd20f83d3eb26a0f36f99c28fb8233094ea3b09f2b270fdba006425", 
+                    "type": "image/png", 
+                    "id": 202677, 
+                    "filename": "Uber-SSO-Attack-2.png"
+                }, 
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/202/676/ea1fb8dab524c0910b8f3b08707a3ef04b3e99f1/Uber-SSO-Attack-1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223541Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=187ebf1596e43ef38a0cd1b52633c47025e66c43f3c65d562d988f52aae46619", 
+                    "type": "image/png", 
+                    "id": 202676, 
+                    "filename": "Uber-SSO-Attack-1.png"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2017-07-12T23:28:40.804Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-13T02:01:35.608Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Uploading new files.", 
+            "markdown_message": "<p>Uploading new files.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1830731, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-13T00:42:57.293Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-13T00:42:57.293Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hey @arneswinnen,\n\nAwesome, we worked with HackerOne to replace the images with the ones you've got in your blog post and deleted the video upload. We've also redacted the references to other programs as you requested, but believe it's important for our community that Uber be as transparent as possible regarding our comments, so we will be leaving those comments as they do not relate to other programs and are not sensitive.\n\nThanks again for the great report (and cool CSP trick) -- I look forward to working with you again!\n\nThanks,\nRob", 
+            "markdown_message": "<p>Hey <a href=\"/arneswinnen\">@arneswinnen</a>,</p>\n\n<p>Awesome, we worked with HackerOne to replace the images with the ones you&#39;ve got in your blog post and deleted the video upload. We&#39;ve also redacted the references to other programs as you requested, but believe it&#39;s important for our community that Uber be as transparent as possible regarding our comments, so we will be leaving those comments as they do not relate to other programs and are not sensitive.</p>\n\n<p>Thanks again for the great report (and cool CSP trick) -- I look forward to working with you again!</p>\n\n<p>Thanks,<br>\nRob</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1830843, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-13T00:43:06.084Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-13T00:43:06.084Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1830844, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-13T00:43:06.145Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-13T00:43:06.145Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1830845, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-13T00:53:52.517Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-13T00:53:52.517Z", 
+            "actor": {
+                "url": "/uber", 
+                "profile": {
+                    "name": "Uber"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/314/0010251d7088db2a1b236eb594b6371af4492609_medium.png?1514905146"
+                }
+            }, 
+            "team_handle": "uber", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::CommentsClosed", 
+            "id": 1830861, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "arneswinnen", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/arneswinnen", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/061/086/b0d69107cdd8b47f2226431d3cd85241611c19ae_small.JPG?1458046997"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 27, 
+        "name": "Improper Authentication - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2017-07-13T00:43:06.116Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/219205", 
+    "created_at": "2017-04-07T03:29:14.613Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"summary\">Summary</h2>\n\n<p>This is not a standard vulnerability, but a chain of two more exotic vulnerabilities leading to a full authentication bypass of your SSO login system at auth.uber.com (via saostatic.uber.com). The root cause of this authentication bypass is two-fold:</p>\n\n<ol>\n<li>Subdomain saostatic.uber.com was pointing to Amazon Cloudfront CDN, but the hostname was not registered there anymore. This allowed me to fully takeover this domain. It is now serving content of my own webserver, both over http and https (highly similar to <a href=\"https://hackerone.com/reports/175070\">175070</a> - however, I must disagree with &quot;there are some mitigating factors (cookie scope) that make this not as bad as it might appear at first blush.&quot;). </li>\n<li>Your SSO system at auth.uber.com issues session cookies which are temporarily shared between all https://*.uber.com subdomains through its &quot;domain=.uber.com&quot; attribute. Although there were some countermeasures to prevent theft, the current setup still allows leakage of these high-value session cookies to the overtaken subdomain <a title=\"https://saostatic.uber.com\" href=\"/redirect?signature=ca17e4108212a1a191f9600ccabcd403fdf0beb4&amp;url=https%3A%2F%2Fsaostatic.uber.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://saostatic.uber.com</span><i class=\"icon-external-link\"></i></a> in all modern browsers, leading to a full Authentication Bypass (highly similar to <a href=\"https://hackerone.com/reports/172137\">172137</a>).</li>\n</ol>\n\n<h2 id=\"security-impact\">Security Impact</h2>\n\n<p>The security impact of the subdomain takeover is that Uber can be impersonated via this webpage. A valid SSL certificate could easily be generated for this domain via Let&#39;s Encrypt, which would make it ideal for e.g. phishing attacks. </p>\n\n<p>The security impact of the SSO system using shared session cookies for https://*.uber.com is, in combination with the subdomain takeover vulnerability, an Authentication Bypass via session hijacking. A victim must be authenticated to auth.uber.com and then visit a webpage under the attacker&#39;s control to be exploited successfully - no further interaction is required from the victim, the attack can be performed stealthily without the user noticing or being notified by Uber. The end result is that the attacker can now impersonate the victim on any of the *.uber.com which rely on auth.uber.com for authentication, such as riders.uber.com, partners.uber.com, developer.uber.com, bonjour.uber.com, etc. </p>\n\n<h1 id=\"1-subdomain-takeover\">1. Subdomain Takeover</h1>\n\n<p>The subdomain &quot;saostatic.uber.com&quot; was (and still is) a CNAME pointing to a AWS Cloudfront CDN server (depending on your location, the latter will resolve differently):</p>\n<pre class=\"highlight plaintext\"><code># nslookup saostatic.uber.com 8.8.8.8\nServer:     8.8.8.8\nAddress:    8.8.8.8#53\n\nNon-authoritative answer:\nsaostatic.uber.com  canonical name = d3i4yxtzktqr9n.cloudfront.net.\n</code></pre>\n<p>However, the hostname &quot;saostatic.uber.com&quot; was not claimed anymore on Cloudfront, resulting in a Cloudfront error page when visiting the subdomain before the takeover:</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"1._CloudFront_Error_Page_Indicating_Takeover_Susceptibility.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/173/887/252c1a056dcd6551f8e0807c54394f7f8a2b10db/1._CloudFront_Error_Page_Indicating_Takeover_Susceptibility.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223540Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=4aec1073e64ddc3af965afeb40e4cfd9776f46c9a30faf84b88385f46a89bad4\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/173/887/252c1a056dcd6551f8e0807c54394f7f8a2b10db/1._CloudFront_Error_Page_Indicating_Takeover_Susceptibility.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223540Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=4aec1073e64ddc3af965afeb40e4cfd9776f46c9a30faf84b88385f46a89bad4\" class=\"markdown-inline-image\"></a></p>\n\n<p>Subsequently, a new Amazon Cloudfront CDN endpoint was created and linked to an attacker-controlled origin server. For the new Cloudfront CDN endpoint, &quot;saostatic.uber.com&quot; was designated as hostname successfully:</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"2._AWS_CloudFront_Claiming_of_Subdomain.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/173/885/525ee26f7f8fd8a1078481fdc43538d0712d4e6e/2._AWS_CloudFront_Claiming_of_Subdomain.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223540Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=2631c7b1d9bf4a377ee1b1352c63419940c9984c227b8c2ac93767a9604c4376\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/173/885/525ee26f7f8fd8a1078481fdc43538d0712d4e6e/2._AWS_CloudFront_Claiming_of_Subdomain.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223540Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=2631c7b1d9bf4a377ee1b1352c63419940c9984c227b8c2ac93767a9604c4376\" class=\"markdown-inline-image\"></a></p>\n\n<p>This concluded the subdomain takeover. Visual proof can be found at <a title=\"http://saostatic.uber.com/subdomaintakeoverbyarneswinnen.html\" href=\"/redirect?signature=6dba63dd382d2de45ceeecba8d6b0e61f7246b97&amp;url=http%3A%2F%2Fsaostatic.uber.com%2Fsubdomaintakeoverbyarneswinnen.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://saostatic.uber.com/subdomaintakeoverbyarneswinnen.html</span><i class=\"icon-external-link\"></i></a> (unguessable filename chosen to not negatively affect Uber&#39;s reputation during takeover period) :</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"3._Subdomain_Hijacked.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/173/884/d29f38689bdf5601a60efa4435bb6d9cecb59a66/3._Subdomain_Hijacked.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223540Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=d9c2a1da93080889d2b60e7c465fc9eed35fa29c2e9a736c40792e2d70456d2d\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/173/884/d29f38689bdf5601a60efa4435bb6d9cecb59a66/3._Subdomain_Hijacked.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223540Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=d9c2a1da93080889d2b60e7c465fc9eed35fa29c2e9a736c40792e2d70456d2d\" class=\"markdown-inline-image\"></a></p>\n\n<h1 id=\"2-authentication-bypass\">2. Authentication Bypass</h1>\n\n<p>In Uber&#39;s SSO system, auth.uber.com acts as Identity Provider and issues temporarily shared session cookies for https://*.uber.com to communicate identities to Service Providers (e.g. riders.uber.com, partners.uber.com, etc). Service Providers on their end immediately destroy the incoming temporary shared session cookies in case of erroneous (e.g. issued for other Service Provider) or successful authentication, ensuring the window for theft is small:</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"Uber-SSO.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/202/679/54d216a3805d12fb7e88b7ac962b9f389bf183dc/Uber-SSO.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223540Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=68d09d25873261c7c249486f831360b4a93f2006cb28ac9c81a890925f1b5250\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/202/679/54d216a3805d12fb7e88b7ac962b9f389bf183dc/Uber-SSO.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223540Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=68d09d25873261c7c249486f831360b4a93f2006cb28ac9c81a890925f1b5250\" class=\"markdown-inline-image\"></a></p>\n\n<p>The precious shared session cookie &quot;_csid&quot; can thus only be stolen between step 9 and 10, which is a very short period (automatic browser redirect). Although not impossible to exploit, a more convenient flaw was identified that allows the shared session cookie to remain alive after step 9 in the browser&#39;s cookie store in the diagram above. The issue is that, if the victim is already logged in at <a title=\"https://riders.uber.com\" href=\"/redirect?signature=677fb098d3cc599ef7172115e3dbc093296a4bcc&amp;url=https%3A%2F%2Friders.uber.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://riders.uber.com</span><i class=\"icon-external-link\"></i></a> (situation after last step 12 in diagram) when receiving a request containing a valid newly generated shared session cookie &quot;_csid&quot;, it is simply ignored. Hence it stays alive in the browser until its cookie store is cleared. An attacker simply needs to directly issue another login scenario starting from step 3 in the above diagram, and end with an additional hidden request to <a title=\"https://saostatic.uber.com\" href=\"/redirect?signature=ca17e4108212a1a191f9600ccabcd403fdf0beb4&amp;url=https%3A%2F%2Fsaostatic.uber.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://saostatic.uber.com</span><i class=\"icon-external-link\"></i></a> to steal the precious session cookie:</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"Uber-SSO-Attack-1.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/202/676/ea1fb8dab524c0910b8f3b08707a3ef04b3e99f1/Uber-SSO-Attack-1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223540Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=b27f7ca8bf9ba2c3ac462e8700484814672aa07483f93cbd6afbb020458f146c\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/202/676/ea1fb8dab524c0910b8f3b08707a3ef04b3e99f1/Uber-SSO-Attack-1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223540Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=b27f7ca8bf9ba2c3ac462e8700484814672aa07483f93cbd6afbb020458f146c\" class=\"markdown-inline-image\"></a></p>\n\n<p>So now an attacker has his/her hands on the victim&#39;s &quot;_csid&quot; shared session cookie for <a title=\"https://riders.uber.com\" href=\"/redirect?signature=677fb098d3cc599ef7172115e3dbc093296a4bcc&amp;url=https%3A%2F%2Friders.uber.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://riders.uber.com</span><i class=\"icon-external-link\"></i></a>, he/she can execute the normal login flow in their own browser and replace the issued &quot;_csid&quot; cookie value in step 9 of the first Uber SSO Login diagram to be logged in as the victim, right? Wrong. There&#39;s another countermeasure in place, namely a variant of login cross-site request forgery protection. This is the actual updated Uber SSO Login 2 diagram:</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"Uber-SSO-Login-2-1.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/202/678/210967a92d5cc4aaa15ea5294719cb9ec29755f1/Uber-SSO-Login-2-1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223540Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=b2e2bcfb814e0e06a8e00565d838854c9e6e46402199c76f7f4b4b6b4a70bc5e\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/202/678/210967a92d5cc4aaa15ea5294719cb9ec29755f1/Uber-SSO-Login-2-1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223540Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=b2e2bcfb814e0e06a8e00565d838854c9e6e46402199c76f7f4b4b6b4a70bc5e\" class=\"markdown-inline-image\"></a></p>\n\n<p>The problem here are the GET param state=CSRFTOKEN and locally scoped state cookie that are added in step 3 by the Service Provider riders.uber.com and verified in step 11. Since we can&#39;t steal these values from the victim&#39;s browser, but only the &quot;_csid&quot; shared session cookie, this means game over, right?</p>\n\n<p>No! An attacker can obtain a proper CSRFTOKEN value and accompanying state cookie value from <a title=\"https://riders.uber.com\" href=\"/redirect?signature=677fb098d3cc599ef7172115e3dbc093296a4bcc&amp;url=https%3A%2F%2Friders.uber.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://riders.uber.com</span><i class=\"icon-external-link\"></i></a> by starting a normal login scenario on their end (e.g. in their own browser or via a simple script). He/she can then relay the auth.uber.com URL to the victim&#39;s browser to get the &quot;_csid&quot; shared session cookie for these values, and inject these in his/her own browser login scenario again in step 9. In this manner, the victim effectively generates the &quot;_csid&quot; temporary session token for the attacker&#39;s login scenario in a separate browser, but this works flawlessly. This still allows exploitation and thus victim impersonation in the following manner (we still assume that the victim is already logged in to auth.uber.com and visits a webpage under control by the attacker, so we basically continue the flow from the above third and last diagram): </p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"Uber-SSO-Attack-2.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/202/677/c44875a3e29f210f07cd737b9cbb377a7d94ec44/Uber-SSO-Attack-2.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223540Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=a1155fe556fab970b7c439100dbb90319caf74e9e8da8b5ab60a077986008e33\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/202/677/c44875a3e29f210f07cd737b9cbb377a7d94ec44/Uber-SSO-Attack-2.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223540Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=a1155fe556fab970b7c439100dbb90319caf74e9e8da8b5ab60a077986008e33\" class=\"markdown-inline-image\"></a></p>\n\n<h1 id=\"poc\">PoC</h1>\n\n<p>In the PoC below, the assumption is made that <a title=\"https://saostatic.uber.com\" href=\"/redirect?signature=ca17e4108212a1a191f9600ccabcd403fdf0beb4&amp;url=https%3A%2F%2Fsaostatic.uber.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://saostatic.uber.com</span><i class=\"icon-external-link\"></i></a> is actually serving a valid certificate in the victim&#39;s browser, which currently is not the case (so there is currently no actual exposed risk). I figured you might not appreciate that. </p>\n\n<ol>\n<li>Open the victim&#39;s browser &amp; browse to <a title=\"https://riders.uber.com\" href=\"/redirect?signature=677fb098d3cc599ef7172115e3dbc093296a4bcc&amp;url=https%3A%2F%2Friders.uber.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://riders.uber.com</span><i class=\"icon-external-link\"></i></a> . After being redirected to <a title=\"https://auth.uber.com\" href=\"/redirect?signature=fbee4fc096849b2638e3e2bfd2515c9533a01ddb&amp;url=https%3A%2F%2Fauth.uber.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://auth.uber.com</span><i class=\"icon-external-link\"></i></a> , login with the victim&#39;s credentials so you end up on <a title=\"https://riders.uber.com\" href=\"/redirect?signature=677fb098d3cc599ef7172115e3dbc093296a4bcc&amp;url=https%3A%2F%2Friders.uber.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://riders.uber.com</span><i class=\"icon-external-link\"></i></a> trips dashboard again.</li>\n<li>Open a second browser tab in the victim&#39;s browser and browse to <a title=\"https://saostatic.uber.com/prepareuberattack.php\" href=\"/redirect?signature=7dcfd45b42682124bdfb86aa000d42689a031b26&amp;url=https%3A%2F%2Fsaostatic.uber.com%2Fprepareuberattack.php\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://saostatic.uber.com/prepareuberattack.php</span><i class=\"icon-external-link\"></i></a> . Accept any certificate warnings that you may receive here - again, we&#39;re only simulating that the domain has a valid SSL certificate. Once the page has finished loading you should see a URL, &quot;Cookie: &quot; string and a &quot;Set-Cookie: &quot; strings underneath each other. This is all info gathered under the hood by the attacker&#39;s webserver that is required to login as the victim now.</li>\n<li>Open the separate attacker&#39;s browser and setup an intercepting proxy tool to intercept requests and responses. Browse to the URL displayed on the prepareuberattack.php page output and intercept this request. Now copy the &quot;Cookie: ...&quot; string displayed on prepareuberattack.php and paste it into the request headers. </li>\n<li>The response should be a redirect to <a title=\"https://riders.uber.com/trips\" href=\"/redirect?signature=42247b4002c0278f09eb6ba379f4bd6e3ab3ad5f&amp;url=https%3A%2F%2Friders.uber.com%2Ftrips\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://riders.uber.com/trips</span><i class=\"icon-external-link\"></i></a>, indicating successful authentication bypass. Last but not least, copy all the &quot;Set-Cookie: &quot; lines from the prepareuberattack.php page output and paste them in the response before forwarding it to the browser. This ensures that the stolen cookies are properly injected in the attacker&#39;s browser. </li>\n<li>You are now logged in as the victim in the attacker&#39;s browser </li>\n</ol>\n\n<p>In a real attack scenario, an attacker would stealthily load <a title=\"https://saostatic.uber.com/prepareuberattack.php\" href=\"/redirect?signature=7dcfd45b42682124bdfb86aa000d42689a031b26&amp;url=https%3A%2F%2Fsaostatic.uber.com%2Fprepareuberattack.php\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://saostatic.uber.com/prepareuberattack.php</span><i class=\"icon-external-link\"></i></a> in the victim&#39;s browser, e.g. through an iframe. Likewise, he/she would probably not display the URL and all the cookies on the PHP page, but store this on the server-side, ready to be abused in a stealthy fashion. </p>\n\n<p>You can see all these PoC steps executed in attachment &quot;8. Authentication Bypass PoC video.mp4&quot;, where browser 1 and browser 2 had separate upstream servers and thus even other IP addresses to prove this is a plausible threat. The code of the <a title=\"https://saostatic.uber.com/prepareuberattack.php\" href=\"/redirect?signature=7dcfd45b42682124bdfb86aa000d42689a031b26&amp;url=https%3A%2F%2Fsaostatic.uber.com%2Fprepareuberattack.php\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://saostatic.uber.com/prepareuberattack.php</span><i class=\"icon-external-link\"></i></a> and <a title=\"https://saostatic.uber.com/uberattack.php\" href=\"/redirect?signature=10a9a66535402af911ce78539ebccfd15c04d0f3&amp;url=https%3A%2F%2Fsaostatic.uber.com%2Fuberattack.php\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://saostatic.uber.com/uberattack.php</span><i class=\"icon-external-link\"></i></a> pages is also attached (&quot;9. prepareuberattack.php&quot; and &quot;10. uberattack.php&quot;). This was written quick &amp; dirty for PoC purposes - I know the code is pretty hacky.</p>\n\n<h1 id=\"recommendations\">Recommendations</h1>\n\n<ol>\n<li>The recommendation for the subdomain takeover is straightforward: remove the dangling DNS CNAME pointer to Amazon CloudFront and the issue is resolved.</li>\n<li>The recommendation for the generic Authentication Bypass issue is a bit more problematic. The fact that identities supplied to Service Providers by the Identity Provider are communicated via shared *.uber.com cookies make them susceptible for all vulnerabilities that allows insight in cookies on any *.uber.com subdomain. This includes remote code execution, subdomain takeover,  debug logs, etc and has a very serious impact on Uber&#39;s overall security, even when the subdomain is hosted in a completely isolated environment. \nFor example, all the mentioned out of scope *.uber.com subdomains in the program&#39;s listing (bizblog.uber.com, newsroom.uber.com etc) have the inherent ability to bypass authentication of any Uber user, even though they might be remotely managed by an external party with lower security standards than Uber. Ironically enough, any service that wants to benefit from the current Uber SSO system will have to receive a *.uber.com subdomain, as this is required by design. This in its turn increases the attack surface for abuse of the generic Authentication Bypass. \nOn the short term I would recommend fixing the fact that the &quot;_csid&quot; cookie can remain alive in a browser once a user is already logged in (although <a href=\"/redirect?signature=17f55abd0de7ad4c84276dc4de9496555219cddd&amp;url=https%3A%2F%2Fwhitton.io%2Farticles%2Fuber-turning-self-xss-into-good-xss%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>Jack Whitton already showed that CSP could be abused to prevent a victim to make the request back to the Service Provider and invalidate the token</span><i class=\"icon-external-link\"></i></a>, so I wouldn&#39;t put too much trust in that). On the mid-to-long term I would advise Uber to migrate to a real OAuth SSO system that communicates identity secrets and proofs by other means than shared cookies, e.g. GET parameters (OAuth &quot;code&quot; flow) or window.location.hash values (e.g. OAuth &quot;access tokens&quot; flow). </li>\n</ol>\n\n<p>Let me know if anything is unclear.</p>\n\n<p>Cheers,</p>\n\n<p>Arne Swinnen<br>\n<a title=\"https://www.arneswinnen.net\" href=\"/redirect?signature=b36b3bff6f7228758fa087b6c9a475c8d1dd90a6&amp;url=https%3A%2F%2Fwww.arneswinnen.net\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.arneswinnen.net</span><i class=\"icon-external-link\"></i></a></p>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.uber.com", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "Uber"
+        }, 
+        "handle": "uber", 
+        "url": "https://hackerone.com/uber", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/314/826c90cba1555458df787ae914793cd5070e18df_small.png?1514905146", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/314/0010251d7088db2a1b236eb594b6371af4492609_medium.png?1514905146"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 314, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

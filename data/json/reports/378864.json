@@ -1,0 +1,282 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "duplicate", 
+    "bug_reporter_agreed_on_going_public_at": "2018-09-19T16:20:30.341Z", 
+    "voters": [
+        "bl4de", 
+        "foobar7", 
+        "dawgyg", 
+        "eveeez", 
+        "an0nym0us", 
+        "mygf", 
+        "japz", 
+        "0x08", 
+        "cryptographer", 
+        "sameerphad72", 
+        "and 1 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": 378805, 
+    "id": 378864, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-09-24T23:40:38.607Z", 
+    "vulnerability_information": "## Summary:\n\n> \\#378809 allows navigating to `chrome-extension://`\n> \\#378805 allows displaying alert windows on `chrome-extension://` origin\n\nAs I said in #378809, navigation to `chrome-extension://` allows attacking dependencies/components of extensions.\n\nBrave has only 3 extensions installed by default (w\\o Metamask):\n- Brave Sync - according to my observations, it doesn't have vulnerable components\n- PDF\n- Torrent\n\n### Torrent\n\n#### \"Save Torrent File...\"\n\nWe need alert modal from #378805 to ask a user to click \"Save Torrent File\" button.\n\"Save Torrent File\" initiates navigation using `a [rel=noopener] [download]` to `location.hash.slice(1)`\n\n#### `http://www.google.com` - \"URL spoofing\"\n\nOmnibox in Torrent extension displays only `location.hash.slice(1)`. Hence, `chrome-extension://fmdpfempfmekjkcfdehndghogpnpjeno/webtorrent.html#https://www.google.com` will be shown in the address bar as `https://www.google.com`. \n> In reality, it's hard to leverage this bug, but that looks like bad behavior. \n\n#### `http://www.google.com` - websites downloading\n\nAs I said, \"Save Torrent File\" initiates downloading. CORS page downloads are forbidden.\nHowever, click on \"Save Torrent File\" in `chrome-extension://fmdpfempfmekjkcfdehndghogpnpjeno/webtorrent.html#https://www.google.com` downloads `www.google.com`.\n \n> Because of Torrent extension privileges\n\n#### `file:///etc/passwd` - local files downloading\n\n**URL:** `chrome-extension://fmdpfempfmekjkcfdehndghogpnpjeno/webtorrent.html#file:///etc/passwd`\n\nClick on \"Save Torrent File\" initiates downloading of local files.\nSame \"useless URL spoofing\". (`file://etc/passwd` in omnibox)\n\n#### `ssh://`\n\nTorrent can't trigger ssh sessions without confirmation (like privileged `about:blank`). Not interesting.\n\n#### `javascript:` - CSP-blocked XSS\n\nThe most interesting case. \n**URL:** `chrome-extension://fmdpfempfmekjkcfdehndghogpnpjeno/webtorrent.html#javascript:alert()`\nAs of `a` element initiates navigation, it's possible navigating to `javascript:` URI to initiate code execution.\nUnfortunately, this XSS is blocked by CSP :(\n\n## Products affected: \n\nBrave: 0.23.31 \nV8: 6.7.288.46 \nrev: 3148acef36dba0fce89108638bb27927c4937f90 \nMuon: 7.1.5 \nOS Release: 17.6.0 \nUpdate Channel: Release \nOS Architecture: x64 \nOS Platform: macOS \nNode.js: 7.9.0 \nBrave Sync: v1.4.2 \nlibchromiumcontent: 67.0.3396.103\n\n## Steps To Reproduce:\n\n1. Start ftp server (sample ftp server attached, `npm i ftpd && node ftp-server.js`)\n2. Open ftp://localhost:7002/exploit.html\n\n## Impact\n\nAn attacker could init an alert modal to trick the user into pressing \"Save Torrent file\" button using #378805.\n\nIt's possible to download local files and files from the web (websites too) using \"Save Torrent file\" in Torrent extension (requires user gesture).\n\nIt's also possible to initiate CSP-blocked XSS by clicking on \"Save Torrent File\".", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "User"
+    }, 
+    "title": "Torrent extension: Cross-origin downloading + \"URL spoofing\" + CSP-blocked XSS", 
+    "is_member_of_team?": null, 
+    "vote_count": 11, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "https://github.com/brave/browser-laptop", 
+        "max_severity": "none", 
+        "databaseId": 7933, 
+        "asset_type": "SOURCE_CODE"
+    }, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Duplicate", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "ftp-server.js", 
+            "type": "text/plain", 
+            "id": 316851, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/316/851/1b57af3bce15953c31b9e9c6d89532c6ee5ac2a4/ftp-server.js?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221635Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=c8434e580e5faff34ce9ab1df52ab2830a47dcf0842a5d950ba5f4d0ae82c3fa"
+        }, 
+        {
+            "file_name": "exploit.html", 
+            "type": "text/html", 
+            "id": 316852, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/316/852/75dd6a9b63f7aa0c8c196f6eb09a8620d253c151/exploit.html?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221635Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=ef343c46c92d6890a6af94e2cd6d3f05218e7df50b6e9a1770136a249c93ad41"
+        }
+    ], 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-10T12:24:11.276Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-10T12:24:11.276Z", 
+            "actor": {
+                "username": "tescoramen", 
+                "url": "/tescoramen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/244/189/19b6b820a42369f82074781e6e5077a702b06599_medium.jpg?1520028105"
+                }, 
+                "hackerone_triager": true
+            }, 
+            "team_handle": "brave", 
+            "message": "Hi @metnew,\n\nThanks for your submission. We are currently reviewing your report and will get back to you once we have additional information to share.\n\nKind regards,\n@tescoramen ", 
+            "markdown_message": "<p>Hi <a href=\"/metnew\">@metnew</a>,</p>\n\n<p>Thanks for your submission. We are currently reviewing your report and will get back to you once we have additional information to share.</p>\n\n<p>Kind regards,<br>\n<a href=\"/tescoramen\">@tescoramen</a> </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3024443, 
+            "genius_execution_id": null
+        }, 
+        {
+            "original_report_id": 378805, 
+            "automated_response": false, 
+            "created_at": "2018-07-21T20:12:25.583Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-21T20:12:25.583Z", 
+            "actor": {
+                "username": "thefrog", 
+                "url": "/thefrog", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/246/015/804f36c18801d3924ed6e7f6dc7efb8d966f053e_medium.jpg?1529682394"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "Hi,\n\nWe have decided that the root cause of this behaviour is the same as #378805 so we will be merging these two reports.\n\nBest regards,\n@thefrog\n\nSecurity Analyst\n**HackerOne**", 
+            "markdown_message": "<p>Hi,</p>\n\n<p>We have decided that the root cause of this behaviour is the same as <a href=\"/reports/378805\">#378805</a> so we will be merging these two reports.</p>\n\n<p>Best regards,<br>\n<a href=\"/thefrog\">@thefrog</a></p>\n\n<p>Security Analyst<br>\n<strong>HackerOne</strong></p>\n", 
+            "type": "Activities::BugDuplicate", 
+            "id": 3080225, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-21T23:01:24.409Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-21T23:01:24.409Z", 
+            "actor": {
+                "username": "metnew", 
+                "url": "/metnew", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/038/544/721cb0f5f0cdc0a6ade55b96a998c87d7e8081e9_medium.jpeg?1527536181"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "@thefrog @tescoramen \n1. That's a completely different component (#378805 - brave/muon repo, this report - torrent extension in brave/brave-laptop).\n2. This report only leverages `ftp->chrome-extension` navigation. However, the actual problem lays in torrent extension. Loading a maliciously crafted url(e.g., by copy-pasting to address bar) leads to described above problems.\n\nI think that marking this report as duplicate is incorrect.", 
+            "markdown_message": "<p><a href=\"/thefrog\">@thefrog</a> <a href=\"/tescoramen\">@tescoramen</a> </p>\n\n<ol>\n<li>That&#39;s a completely different component (#378805 - brave/muon repo, this report - torrent extension in brave/brave-laptop).</li>\n<li>This report only leverages <code>ftp-&gt;chrome-extension</code> navigation. However, the actual problem lays in torrent extension. Loading a maliciously crafted url(e.g., by copy-pasting to address bar) leads to described above problems.</li>\n</ol>\n\n<p>I think that marking this report as duplicate is incorrect.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3080470, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-19T16:20:30.385Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-19T16:20:30.385Z", 
+            "actor": {
+                "username": "metnew", 
+                "url": "/metnew", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/038/544/721cb0f5f0cdc0a6ade55b96a998c87d7e8081e9_medium.jpeg?1527536181"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3359074, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-24T23:40:38.645Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-24T23:40:38.645Z", 
+            "actor": {
+                "username": "toml", 
+                "url": "/toml", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/229/717/be770941cc566d15a16bcb643c6f06f01533c40d_medium.jpg?1520979239"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3382947, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-24T23:40:38.769Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-24T23:40:38.769Z", 
+            "actor": {
+                "username": "toml", 
+                "url": "/toml", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/229/717/be770941cc566d15a16bcb643c6f06f01533c40d_medium.jpg?1520979239"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3382948, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "metnew", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/metnew", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/038/544/f88c900052ccbbb26f01a29b9352ec6d6378b0aa_small.jpeg?1527536181"
+        }, 
+        "is_me?": false
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2018-09-24T23:40:38.734Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/378864", 
+    "created_at": "2018-07-07T14:50:05.579Z", 
+    "original_report_url": "https://hackerone.com/reports/378805", 
+    "vulnerability_information_html": "<h2 id=\"summary\">Summary:</h2>\n\n<blockquote>\n<p>#378809 allows navigating to <code>chrome-extension://</code><br>\n#378805 allows displaying alert windows on <code>chrome-extension://</code> origin</p>\n</blockquote>\n\n<p>As I said in <a href=\"/reports/378809\">#378809</a>, navigation to <code>chrome-extension://</code> allows attacking dependencies/components of extensions.</p>\n\n<p>Brave has only 3 extensions installed by default (w\\o Metamask):</p>\n\n<ul>\n<li>Brave Sync - according to my observations, it doesn&#39;t have vulnerable components</li>\n<li>PDF</li>\n<li>Torrent</li>\n</ul>\n\n<h3 id=\"torrent\">Torrent</h3>\n\n<h4 id=\"save-torrent-file\">&quot;Save Torrent File...&quot;</h4>\n\n<p>We need alert modal from <a href=\"/reports/378805\">#378805</a> to ask a user to click &quot;Save Torrent File&quot; button.<br>\n&quot;Save Torrent File&quot; initiates navigation using <code>a [rel=noopener] [download]</code> to <code>location.hash.slice(1)</code></p>\n\n<h4 id=\"http-www-google-com-url-spoofing\">\n<code>http://www.google.com</code> - &quot;URL spoofing&quot;</h4>\n\n<p>Omnibox in Torrent extension displays only <code>location.hash.slice(1)</code>. Hence, <code>chrome-extension://fmdpfempfmekjkcfdehndghogpnpjeno/webtorrent.html#https://www.google.com</code> will be shown in the address bar as <code>https://www.google.com</code>. </p>\n\n<blockquote>\n<p>In reality, it&#39;s hard to leverage this bug, but that looks like bad behavior. </p>\n</blockquote>\n\n<h4 id=\"http-www-google-com-websites-downloading\">\n<code>http://www.google.com</code> - websites downloading</h4>\n\n<p>As I said, &quot;Save Torrent File&quot; initiates downloading. CORS page downloads are forbidden.<br>\nHowever, click on &quot;Save Torrent File&quot; in <code>chrome-extension://fmdpfempfmekjkcfdehndghogpnpjeno/webtorrent.html#https://www.google.com</code> downloads <code>www.google.com</code>.</p>\n\n<blockquote>\n<p>Because of Torrent extension privileges</p>\n</blockquote>\n\n<h4 id=\"file-etc-passwd-local-files-downloading\">\n<code>file:///etc/passwd</code> - local files downloading</h4>\n\n<p><strong>URL:</strong> <code>chrome-extension://fmdpfempfmekjkcfdehndghogpnpjeno/webtorrent.html#file:///etc/passwd</code></p>\n\n<p>Click on &quot;Save Torrent File&quot; initiates downloading of local files.<br>\nSame &quot;useless URL spoofing&quot;. (<code>file://etc/passwd</code> in omnibox)</p>\n\n<h4 id=\"ssh\"><code>ssh://</code></h4>\n\n<p>Torrent can&#39;t trigger ssh sessions without confirmation (like privileged <code>about:blank</code>). Not interesting.</p>\n\n<h4 id=\"javascript-csp-blocked-xss\">\n<code>javascript:</code> - CSP-blocked XSS</h4>\n\n<p>The most interesting case. <br>\n<strong>URL:</strong> <code>chrome-extension://fmdpfempfmekjkcfdehndghogpnpjeno/webtorrent.html#javascript:alert()</code><br>\nAs of <code>a</code> element initiates navigation, it&#39;s possible navigating to <code>javascript:</code> URI to initiate code execution.<br>\nUnfortunately, this XSS is blocked by CSP :(</p>\n\n<h2 id=\"products-affected\">Products affected:</h2>\n\n<p>Brave: 0.23.31 <br>\nV8: 6.7.288.46 <br>\nrev: 3148acef36dba0fce89108638bb27927c4937f90 <br>\nMuon: 7.1.5 <br>\nOS Release: 17.6.0 <br>\nUpdate Channel: Release <br>\nOS Architecture: x64 <br>\nOS Platform: macOS <br>\nNode.js: 7.9.0 <br>\nBrave Sync: v1.4.2 <br>\nlibchromiumcontent: 67.0.3396.103</p>\n\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<ol>\n<li>Start ftp server (sample ftp server attached, <code>npm i ftpd &amp;&amp; node ftp-server.js</code>)</li>\n<li>Open <a title=\"ftp://localhost:7002/exploit.html\" href=\"/redirect?signature=4f45e00b2b4dd803cc615c257a1758219394f710&amp;url=ftp%3A%2F%2Flocalhost%3A7002%2Fexploit.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>ftp://localhost:7002/exploit.html</span><i class=\"icon-external-link\"></i></a>\n</li>\n</ol>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>An attacker could init an alert modal to trick the user into pressing &quot;Save Torrent file&quot; button using <a href=\"/reports/378805\">#378805</a>.</p>\n\n<p>It&#39;s possible to download local files and files from the web (websites too) using &quot;Save Torrent file&quot; in Torrent extension (requires user gesture).</p>\n\n<p>It&#39;s also possible to initiate CSP-blocked XSS by clicking on &quot;Save Torrent File&quot;.</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://brave.com", 
+            "about": "", 
+            "twitter_handle": "brave", 
+            "name": "Brave Software"
+        }, 
+        "handle": "brave", 
+        "url": "https://hackerone.com/brave", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/015/688/10480fd4f209649dd8f2c2dff184cb0811255dd6_small.png?1515887080", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/015/688/15cde82d31ab9da3f98b799d8c18c356706299e7_medium.png?1515887080"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 15688, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

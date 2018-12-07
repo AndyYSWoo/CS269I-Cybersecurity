@@ -1,0 +1,246 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": true, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "irvinlim", 
+        "jobert", 
+        "michiel", 
+        "spam404", 
+        "mik317", 
+        "eveeez", 
+        "an0nym0us", 
+        "ebelties", 
+        "babayaga_", 
+        "mygf", 
+        "and 24 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 392797, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "# Persistent XSS in default Laravel Installation\n\nI have been using the [Laravel](https://laravel.com/) framework for quite a while now and discovered something odd.\n\nWhen following the installation instructions for the latest Laravel version **(5.6.8 at the time of writing)** you will be up and running in a matter of minutes.\n\nEven better: With a single command such as `php artisan make:auth` from the CLI, Laravel will scaffold basic login and registration views and routes.\n\nThis is a very convenient function and saves developers a lot of time. But what if there is some resource included that might be vulnerable? \n\n# POC\n\nVulnerability: Persistent Cross-site Scripting.\n\n## Installation\n\nFollowing the instruction from the [Laravel Docs](https://laravel.com/docs/5.6) we can quickly create a new project with basic authentication.\n\nYou can use the Laravel installer: `laravel new project` (where project is the directory that is going to be used for your new project.)\n\nThis requires you to global require the laravel installer first: `composer global require \"laravel/installer\"`\n\nThe other option is the \"old\" way with Composer: `composer create-project --prefer-dist laravel/laravel project`\n\nAfter running one of the above commands your project will be created and you can start developing a new application. Pretty neat.\n\nI am using the the `Vagrant/Homestead` [box](https://laravel.com/docs/5.6/homestead) for local development.\nIf you haven't tried it and you are developing PHP applications I recommend checking this out!\n\n{F331053}\n\n## User registration and authentication\n\nWe now have a fresh Laravel project. Let's start with building the user registration and authentication functionality: `php artisan make:auth`\n\nThis will create a view, some controllers and database migrations.\n\nWhen this is done all you have to do is `php artisan migrate` and you are ready to go.\n\n{F331052}\n\n## The vulnerability\n\nSo, the setup is ready. Time to show the proof of concept\n\nSince we used the `php artisan make:auth` command we now have a login and registration function.\n\n{F331055}\n\nLet's create a user:\n\n{F331054}\n\nThe vulnerability lies within the username field: using `{{ alert(document.domain) }}`  , Laravel transforms this to `<script>alert(document.domain)</script>` due to Vue.js frontend.\nThis is the default frontend framework that Laravel uses.\n\nAfter checking the `app.js` file in /project/resources/assets/js/ we can see that Laravel indeed uses Vue.js as default frontend framework:\n\n``` javascript\n\n/**\n * First we will load all of this project's JavaScript dependencies which\n * includes Vue and other libraries. It is a great starting point when\n * building robust, powerful web applications using Vue and Laravel.\n */\n\nrequire('./bootstrap');\n\nwindow.Vue = require('vue');\n\n/**\n * Next, we will create a fresh Vue application instance and attach it to\n * the page. Then, you may begin adding components to this application\n * or customize the JavaScript scaffolding to fit your unique needs.\n */\n\nVue.component('example-component', require('./components/ExampleComponent.vue'));\n\nconst app = new Vue({\n    el: '#app'\n});\n\n```\n\nThis is where the vulnerability hides, as Vue sees curly brackets and turns it into `<script>` tags. Also, the `v-pre` tags were not present in the default front end code, combined with the curly brackets this led to the persistent cross-site scripting vulnerability.\n\nAfter authenticating with a registered user that has the payload set as name:\n\n{F331056}\n\nI disclosed this issue to the creator of Laravel through email, later on via Twitter and a blogpost . The issue was fixed with the release of patch **(5.6.9)** within 15 minutes.\n\nThanks for reading, more posts @ https://x1m.nl\n\n[x1m](https://twitter.com/x1m_martijn)", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "low", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "unchanged", 
+            "integrity": "low", 
+            "availability": "high"
+        }, 
+        "rating": "high", 
+        "score": 8.6, 
+        "author_type": "User"
+    }, 
+    "title": "Persistent Cross-Site Scripting in default Laravel installation", 
+    "is_member_of_team?": null, 
+    "vote_count": 34, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "phpartisanmigrate.png", 
+            "type": "image/png", 
+            "id": 331052, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/052/ad9a0c0e8fb5dcdd05fa15898d658275e84f7df1/phpartisanmigrate.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221805Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=fd92be001bb02f484642ecd8b43d3244958d72bef4a8ba3f49ea705518a143f4"
+        }, 
+        {
+            "file_name": "laravelinstall.png", 
+            "type": "image/png", 
+            "id": 331053, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/053/b8863b455cb6f5399a5154b844028fd28da5542b/laravelinstall.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221805Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=c5d3b522e00a33209fbfba5564126f169fe30e6a04def03a4276fe041f772234"
+        }, 
+        {
+            "file_name": "registerpayload.png", 
+            "type": "image/png", 
+            "id": 331054, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/054/1c911c62fa9b0b6e2454c172b28295fcc9c78e33/registerpayload.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221805Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=4e9535a6c525a63969d6de2c1bad2e3e167345b8c859b05f3bceffb2eab5998b"
+        }, 
+        {
+            "file_name": "register.png", 
+            "type": "image/png", 
+            "id": 331055, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/055/f69c502fa531c390a74718075a552be1f43be118/register.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221805Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=2f2e2767efe4b4ea0b162482b9ca99ebb7abbdc03cac697a01771761d3e6cb39"
+        }, 
+        {
+            "file_name": "xsspoc.png", 
+            "type": "image/png", 
+            "id": 331056, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/056/a87e575bccb74cf7394873da8b0cdc9d232ac00a/xsspoc.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221805Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=a2154dda095527af2dcceed4d1cafbae8d799a5e119773cfb1303568503f8417"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "x1m", 
+                "url": "/x1m"
+            }, 
+            "created_at": "2018-03-07T16:40:04.000Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-07T16:40:04.000Z", 
+            "actor": {
+                "username": "x1m", 
+                "url": "/x1m", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/115/723/22688c580bfa0d818b8db41b136dfae233261333_medium.jpg?1506556254"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "laravel", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 3172912, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-10T15:57:55.998Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-10T15:57:55.998Z", 
+            "actor": {
+                "username": "x1m", 
+                "url": "/x1m", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/115/723/22688c580bfa0d818b8db41b136dfae233261333_medium.jpg?1506556254"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "laravel", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3172913, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-10T15:59:11.715Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-10T15:59:11.715Z", 
+            "actor": {
+                "username": "x1m", 
+                "url": "/x1m", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/115/723/22688c580bfa0d818b8db41b136dfae233261333_medium.jpg?1506556254"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "High (8.6)", 
+                "old_severity": null
+            }, 
+            "team_handle": "laravel", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 3172920, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "x1m", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/x1m", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/115/723/0cb6e45fe5aca53b3d7dbc87e1875bd48f859c23_small.jpg?1506556254"
+        }, 
+        "is_me?": false
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2018-08-10T15:57:55.973Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/392797", 
+    "created_at": "2018-03-07T16:40:04.000Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"persistent-xss-in-default-laravel-installation\">Persistent XSS in default Laravel Installation</h1>\n\n<p>I have been using the <a href=\"/redirect?signature=5b43807c54068773d84c7f990266aa3bd0132ad6&amp;url=https%3A%2F%2Flaravel.com%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>Laravel</span><i class=\"icon-external-link\"></i></a> framework for quite a while now and discovered something odd.</p>\n\n<p>When following the installation instructions for the latest Laravel version <strong>(5.6.8 at the time of writing)</strong> you will be up and running in a matter of minutes.</p>\n\n<p>Even better: With a single command such as <code>php artisan make:auth</code> from the CLI, Laravel will scaffold basic login and registration views and routes.</p>\n\n<p>This is a very convenient function and saves developers a lot of time. But what if there is some resource included that might be vulnerable? </p>\n\n<h1 id=\"poc\">POC</h1>\n\n<p>Vulnerability: Persistent Cross-site Scripting.</p>\n\n<h2 id=\"installation\">Installation</h2>\n\n<p>Following the instruction from the <a href=\"/redirect?signature=99739eee5483e996dd434733ab7549f44f366a40&amp;url=https%3A%2F%2Flaravel.com%2Fdocs%2F5.6\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>Laravel Docs</span><i class=\"icon-external-link\"></i></a> we can quickly create a new project with basic authentication.</p>\n\n<p>You can use the Laravel installer: <code>laravel new project</code> (where project is the directory that is going to be used for your new project.)</p>\n\n<p>This requires you to global require the laravel installer first: <code>composer global require &quot;laravel/installer&quot;</code></p>\n\n<p>The other option is the &quot;old&quot; way with Composer: <code>composer create-project --prefer-dist laravel/laravel project</code></p>\n\n<p>After running one of the above commands your project will be created and you can start developing a new application. Pretty neat.</p>\n\n<p>I am using the the <code>Vagrant/Homestead</code> <a href=\"/redirect?signature=5062cbc07cbd476709b5c66b1fd30c0640bbf2f0&amp;url=https%3A%2F%2Flaravel.com%2Fdocs%2F5.6%2Fhomestead\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>box</span><i class=\"icon-external-link\"></i></a> for local development.<br>\nIf you haven&#39;t tried it and you are developing PHP applications I recommend checking this out!</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"laravelinstall.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/053/b8863b455cb6f5399a5154b844028fd28da5542b/laravelinstall.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221805Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=c5d3b522e00a33209fbfba5564126f169fe30e6a04def03a4276fe041f772234\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/053/b8863b455cb6f5399a5154b844028fd28da5542b/laravelinstall.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221805Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=c5d3b522e00a33209fbfba5564126f169fe30e6a04def03a4276fe041f772234\" class=\"markdown-inline-image\"></a></p>\n\n<h2 id=\"user-registration-and-authentication\">User registration and authentication</h2>\n\n<p>We now have a fresh Laravel project. Let&#39;s start with building the user registration and authentication functionality: <code>php artisan make:auth</code></p>\n\n<p>This will create a view, some controllers and database migrations.</p>\n\n<p>When this is done all you have to do is <code>php artisan migrate</code> and you are ready to go.</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"phpartisanmigrate.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/052/ad9a0c0e8fb5dcdd05fa15898d658275e84f7df1/phpartisanmigrate.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221805Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=fd92be001bb02f484642ecd8b43d3244958d72bef4a8ba3f49ea705518a143f4\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/052/ad9a0c0e8fb5dcdd05fa15898d658275e84f7df1/phpartisanmigrate.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221805Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=fd92be001bb02f484642ecd8b43d3244958d72bef4a8ba3f49ea705518a143f4\" class=\"markdown-inline-image\"></a></p>\n\n<h2 id=\"the-vulnerability\">The vulnerability</h2>\n\n<p>So, the setup is ready. Time to show the proof of concept</p>\n\n<p>Since we used the <code>php artisan make:auth</code> command we now have a login and registration function.</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"register.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/055/f69c502fa531c390a74718075a552be1f43be118/register.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221805Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=2f2e2767efe4b4ea0b162482b9ca99ebb7abbdc03cac697a01771761d3e6cb39\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/055/f69c502fa531c390a74718075a552be1f43be118/register.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221805Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=2f2e2767efe4b4ea0b162482b9ca99ebb7abbdc03cac697a01771761d3e6cb39\" class=\"markdown-inline-image\"></a></p>\n\n<p>Let&#39;s create a user:</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"registerpayload.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/054/1c911c62fa9b0b6e2454c172b28295fcc9c78e33/registerpayload.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221805Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=4e9535a6c525a63969d6de2c1bad2e3e167345b8c859b05f3bceffb2eab5998b\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/054/1c911c62fa9b0b6e2454c172b28295fcc9c78e33/registerpayload.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221805Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=4e9535a6c525a63969d6de2c1bad2e3e167345b8c859b05f3bceffb2eab5998b\" class=\"markdown-inline-image\"></a></p>\n\n<p>The vulnerability lies within the username field: using <code>{{ alert(document.domain) }}</code>  , Laravel transforms this to <code>&lt;script&gt;alert(document.domain)&lt;/script&gt;</code> due to Vue.js frontend.<br>\nThis is the default frontend framework that Laravel uses.</p>\n\n<p>After checking the <code>app.js</code> file in /project/resources/assets/js/ we can see that Laravel indeed uses Vue.js as default frontend framework:</p>\n<pre class=\"highlight javascript\"><code>\n<span class=\"cm\">/**\n * First we will load all of this project&#39;s JavaScript dependencies which\n * includes Vue and other libraries. It is a great starting point when\n * building robust, powerful web applications using Vue and Laravel.\n */</span>\n\n<span class=\"nx\">require</span><span class=\"p\">(</span><span class=\"s1\">&#39;./bootstrap&#39;</span><span class=\"p\">);</span>\n\n<span class=\"nb\">window</span><span class=\"p\">.</span><span class=\"nx\">Vue</span> <span class=\"o\">=</span> <span class=\"nx\">require</span><span class=\"p\">(</span><span class=\"s1\">&#39;vue&#39;</span><span class=\"p\">);</span>\n\n<span class=\"cm\">/**\n * Next, we will create a fresh Vue application instance and attach it to\n * the page. Then, you may begin adding components to this application\n * or customize the JavaScript scaffolding to fit your unique needs.\n */</span>\n\n<span class=\"nx\">Vue</span><span class=\"p\">.</span><span class=\"nx\">component</span><span class=\"p\">(</span><span class=\"s1\">&#39;example-component&#39;</span><span class=\"p\">,</span> <span class=\"nx\">require</span><span class=\"p\">(</span><span class=\"s1\">&#39;./components/ExampleComponent.vue&#39;</span><span class=\"p\">));</span>\n\n<span class=\"kr\">const</span> <span class=\"nx\">app</span> <span class=\"o\">=</span> <span class=\"k\">new</span> <span class=\"nx\">Vue</span><span class=\"p\">({</span>\n    <span class=\"na\">el</span><span class=\"p\">:</span> <span class=\"s1\">&#39;#app&#39;</span>\n<span class=\"p\">});</span>\n\n</code></pre>\n<p>This is where the vulnerability hides, as Vue sees curly brackets and turns it into <code>&lt;script&gt;</code> tags. Also, the <code>v-pre</code> tags were not present in the default front end code, combined with the curly brackets this led to the persistent cross-site scripting vulnerability.</p>\n\n<p>After authenticating with a registered user that has the payload set as name:</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"xsspoc.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/056/a87e575bccb74cf7394873da8b0cdc9d232ac00a/xsspoc.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221805Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=a2154dda095527af2dcceed4d1cafbae8d799a5e119773cfb1303568503f8417\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/056/a87e575bccb74cf7394873da8b0cdc9d232ac00a/xsspoc.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221805Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=a2154dda095527af2dcceed4d1cafbae8d799a5e119773cfb1303568503f8417\" class=\"markdown-inline-image\"></a></p>\n\n<p>I disclosed this issue to the creator of Laravel through email, later on via Twitter and a blogpost . The issue was fixed with the release of patch <strong>(5.6.9)</strong> within 15 minutes.</p>\n\n<p>Thanks for reading, more posts @ <a title=\"https://x1m.nl\" href=\"/redirect?signature=5ab9d1184fea2896d4311fd2a44fc2dfd5f4e398&amp;url=https%3A%2F%2Fx1m.nl\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://x1m.nl</span><i class=\"icon-external-link\"></i></a></p>\n\n<p><a href=\"/redirect?signature=f896e925b6a455668b9397e7e508cfa1d26e7054&amp;url=https%3A%2F%2Ftwitter.com%2Fx1m_martijn\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>x1m</span><i class=\"icon-external-link\"></i></a></p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://laravel.com/", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "Laravel"
+        }, 
+        "handle": "laravel", 
+        "url": "https://hackerone.com/laravel", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/031/823/1b7bddeb917bbe95418e6d87ca6c9b6a31373fa9_small.?1533895245", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/031/823/682a35cd82f27fbbba09453df8cc854c305eec96_medium.?1533895245"
+        }, 
+        "id": 31823, 
+        "permissions": []
+    }, 
+    "is_published": true
+}

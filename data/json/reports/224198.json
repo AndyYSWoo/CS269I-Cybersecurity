@@ -1,0 +1,275 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "informative", 
+    "bug_reporter_agreed_on_going_public_at": "2017-06-27T21:27:25.667Z", 
+    "voters": [], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 224198, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-06-28T18:37:33.109Z", 
+    "vulnerability_information": "Test Conditions\n=============\n\nThis issue was tested in GitLab Community Edition using a combination of code review (against git commit 6c65b63ca5, April 20 2017) and testing likely issues against a local deployment of Bitnami GitLab Community Edition 9.0.5-0, running on Ubuntu 14.04.5. These are running different versions of GitLab, as we were constrained by time available for deploying systems to test. This issue has not been tested against gitlab.com or other public installations.\n\nTesting was conducted in research time provided by my employer, Insomnia Security, and was not part of a client engagement.\n\nIssue Description\n==============\n\nThe GitlabShellWorker handler for jobs from the SideKiq job queue allows arbitrary code to be executed from an enqueued job. From the Redis CLI, adding the following queue entry will result in the creation of a file /tmp/rce-demo:\n\n    rpush 'resque:gitlab:queue:gitlab_shell' '{\"class\":\"GitlabShellWorker\",\"args\":[\"instance_eval\",\"`touch /tmp/rce-demo`\"],\"jid\":\"Zaep6UXu\",\"enqueued_at\":1493166403.21}'\n\nThis results in code execution as the GitlabShellWorker allows any public method on the shell object to be executed. All ruby objects have inherited instance methods that result in remote code execution when an attacker controls the method name and at least one parameter.\n\nIt is not necessary that GitLab execute arbitrary code from the job queue. Jobs may be whitelisted and executed only from a fixed list of tasks. Other GitLab service workers follow this more secure paradigm.\n\nImpact\n======\n\nAn attacker with the ability to add entries to any SideKiq queue may use this endpoint to execute code in the context of the GitLab application. This introduces an absolute trust relationship between the application and the queue server, which may be abused by an attacker.\n\nWhile remote code execution is a critical issue, the pre-requisites for this attack imply an extremely high level of access to system internals which are known to be vulnerable to other issues and not generally exposed to external parties. As the *gain* in access is limited, and the conditions unlikely, I have rated this as having a Low net risk.\n\nNote that access to a Redis installation implies the ability to execute code as the Redis user, as Redis itself has a high level of trust in all clients. However, this issue may be used to bypass operating system restrictions on the user role, and execute code as the GitLab application user.\n\nRecommendations\n===============\n\n* Whitelist actions which may be invoked through the job queue.\n* Avoid accepting arbitrary parameters to queued tasks. Where feasible, require that tasks act on pre-established database entities such as projects and repositories, not arbitrary filesystem paths.\n* Limit trust in internal components such as message queues and database. Construct internal boundaries to limit the impact of individual components being breached.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "User"
+    }, 
+    "title": "Missing/Breach of Internal Security Boundary - Access to Job Queue Results in Remote Code Execution", 
+    "is_member_of_team?": null, 
+    "vote_count": 0, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Informative", 
+    "public": true, 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-27T13:34:50.337Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-27T13:34:50.337Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @pruby,\n\nI've opened a confidential issue for discussion and possible remediation. \n\nhttps://gitlab.com/gitlab-org/gitlab-ce/issues/31504\n\nThat issue will be made public when/if a patch is released. I agree that Sidekiq should probably not accept arbitrary commands for execution, however I'm not quite convinced that this results in privilege escalation  or grants a new ability to execute commands as another user as access to Redis effectively already grants admin access to the application. Regardless, we'll investigate and see if it's possible to improve security regarding what jobs Sidekiq will accept and run.\n\nI'll keep you updated here on our progress here. Thanks for the report! ", 
+            "markdown_message": "<p>Hi <a href=\"/pruby\">@pruby</a>,</p>\n\n<p>I&#39;ve opened a confidential issue for discussion and possible remediation. </p>\n\n<p><a title=\"https://gitlab.com/gitlab-org/gitlab-ce/issues/31504\" href=\"/redirect?signature=5e3480945db81ff68fbed0b903307a4e1335e809&amp;url=https%3A%2F%2Fgitlab.com%2Fgitlab-org%2Fgitlab-ce%2Fissues%2F31504\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://gitlab.com/gitlab-org/gitlab-ce/issues/31504</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>That issue will be made public when/if a patch is released. I agree that Sidekiq should probably not accept arbitrary commands for execution, however I&#39;m not quite convinced that this results in privilege escalation  or grants a new ability to execute commands as another user as access to Redis effectively already grants admin access to the application. Regardless, we&#39;ll investigate and see if it&#39;s possible to improve security regarding what jobs Sidekiq will accept and run.</p>\n\n<p>I&#39;ll keep you updated here on our progress here. Thanks for the report! </p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1639921, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-19T16:51:39.910Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-19T16:51:39.910Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @pruby,\n\nWe're still debating the impact of this issue. Hopefully we'll come to an agreement soon as to how or if mitigations will be put in place to prevent Redis from being used to compromise other hosts. I'll keep you updated. Sorry for the delay!", 
+            "markdown_message": "<p>Hi <a href=\"/pruby\">@pruby</a>,</p>\n\n<p>We&#39;re still debating the impact of this issue. Hopefully we&#39;ll come to an agreement soon as to how or if mitigations will be put in place to prevent Redis from being used to compromise other hosts. I&#39;ll keep you updated. Sorry for the delay!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1765721, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-27T15:15:45.489Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-27T15:15:45.489Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @pruby,\n\nAfter some more debate we've decided not to release any patches for this issue at this time. Because it requires Redis access and that access would already allow for immediate compromise of a GitLab instance at the admin level, we've decided the effort required to fix this vulnerability is too high given our resources at this time.\n\nNormally we don't request public disclosure for issues that don't result in a patch, but if you'd like to publicly disclose we won't object. Thanks again for the report! It really is an interesting attack vector.", 
+            "markdown_message": "<p>Hi <a href=\"/pruby\">@pruby</a>,</p>\n\n<p>After some more debate we&#39;ve decided not to release any patches for this issue at this time. Because it requires Redis access and that access would already allow for immediate compromise of a GitLab instance at the admin level, we&#39;ve decided the effort required to fix this vulnerability is too high given our resources at this time.</p>\n\n<p>Normally we don&#39;t request public disclosure for issues that don&#39;t result in a patch, but if you&#39;d like to publicly disclose we won&#39;t object. Thanks again for the report! It really is an interesting attack vector.</p>\n", 
+            "type": "Activities::BugInformative", 
+            "id": 1784625, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-27T21:26:50.808Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-27T21:26:50.808Z", 
+            "actor": {
+                "username": "pruby", 
+                "url": "/pruby", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @briann,\n\nUnderstand the decision there - it's a very niche issue. I will request public disclosure of this one, to make sure there's no doubt what exposing the Redis port entails. While most users are probably aware of this risk, this hopefully makes it a little more concrete.\n\nKind regards,\n\npruby", 
+            "markdown_message": "<p>Hi <a href=\"/briann\">@briann</a>,</p>\n\n<p>Understand the decision there - it&#39;s a very niche issue. I will request public disclosure of this one, to make sure there&#39;s no doubt what exposing the Redis port entails. While most users are probably aware of this risk, this hopefully makes it a little more concrete.</p>\n\n<p>Kind regards,</p>\n\n<p>pruby</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1785987, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-27T21:27:25.684Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-27T21:27:25.684Z", 
+            "actor": {
+                "username": "pruby", 
+                "url": "/pruby", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1785988, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-28T18:37:33.134Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-28T18:37:33.134Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1788038, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-28T18:37:33.176Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-28T18:37:33.176Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1788039, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "pruby", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/pruby", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 57, 
+        "name": "Violation of Secure Design Principles"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2017-06-28T18:37:33.156Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/224198", 
+    "created_at": "2017-04-27T00:53:26.899Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"test-conditions\">Test Conditions</h1>\n\n<p>This issue was tested in GitLab Community Edition using a combination of code review (against git commit 6c65b63ca5, April 20 2017) and testing likely issues against a local deployment of Bitnami GitLab Community Edition 9.0.5-0, running on Ubuntu 14.04.5. These are running different versions of GitLab, as we were constrained by time available for deploying systems to test. This issue has not been tested against gitlab.com or other public installations.</p>\n\n<p>Testing was conducted in research time provided by my employer, Insomnia Security, and was not part of a client engagement.</p>\n\n<h1 id=\"issue-description\">Issue Description</h1>\n\n<p>The GitlabShellWorker handler for jobs from the SideKiq job queue allows arbitrary code to be executed from an enqueued job. From the Redis CLI, adding the following queue entry will result in the creation of a file /tmp/rce-demo:</p>\n<pre class=\"highlight plaintext\"><code>rpush &#39;resque:gitlab:queue:gitlab_shell&#39; &#39;{&quot;class&quot;:&quot;GitlabShellWorker&quot;,&quot;args&quot;:[&quot;instance_eval&quot;,&quot;`touch /tmp/rce-demo`&quot;],&quot;jid&quot;:&quot;Zaep6UXu&quot;,&quot;enqueued_at&quot;:1493166403.21}&#39;\n</code></pre>\n<p>This results in code execution as the GitlabShellWorker allows any public method on the shell object to be executed. All ruby objects have inherited instance methods that result in remote code execution when an attacker controls the method name and at least one parameter.</p>\n\n<p>It is not necessary that GitLab execute arbitrary code from the job queue. Jobs may be whitelisted and executed only from a fixed list of tasks. Other GitLab service workers follow this more secure paradigm.</p>\n\n<h1 id=\"impact\">Impact</h1>\n\n<p>An attacker with the ability to add entries to any SideKiq queue may use this endpoint to execute code in the context of the GitLab application. This introduces an absolute trust relationship between the application and the queue server, which may be abused by an attacker.</p>\n\n<p>While remote code execution is a critical issue, the pre-requisites for this attack imply an extremely high level of access to system internals which are known to be vulnerable to other issues and not generally exposed to external parties. As the <em>gain</em> in access is limited, and the conditions unlikely, I have rated this as having a Low net risk.</p>\n\n<p>Note that access to a Redis installation implies the ability to execute code as the Redis user, as Redis itself has a high level of trust in all clients. However, this issue may be used to bypass operating system restrictions on the user role, and execute code as the GitLab application user.</p>\n\n<h1 id=\"recommendations\">Recommendations</h1>\n\n<ul>\n<li>Whitelist actions which may be invoked through the job queue.</li>\n<li>Avoid accepting arbitrary parameters to queued tasks. Where feasible, require that tasks act on pre-established database entities such as projects and repositories, not arbitrary filesystem paths.</li>\n<li>Limit trust in internal components such as message queues and database. Construct internal boundaries to limit the impact of individual components being breached.</li>\n</ul>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://about.gitlab.com", 
+            "about": "Open source software to collaborate on code", 
+            "twitter_handle": "gitlab", 
+            "name": "GitLab"
+        }, 
+        "handle": "gitlab", 
+        "url": "https://hackerone.com/gitlab", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/264/338ec4b43393873324e3f1911f2f107d025d13f1_small.png?1454722206", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/264/f40e550269de1c8aef9adbdfe728c9aa8163a7e5_medium.png?1454722206"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 264, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

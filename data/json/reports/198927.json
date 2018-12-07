@@ -1,0 +1,454 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "eveeez", 
+        "spetr0x", 
+        "hthomison1078"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 198927, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-09-25T13:57:21.249Z", 
+    "vulnerability_information": "Using the default `json` library packaged with ruby, one can trigger a segmentation fault by submitting a string with a unicode escape sequence in the range between ` \\ud800-\\udbff` (https://en.wikipedia.org/wiki/UTF-16#U.2BD800_to_U.2BDFFF).\n\nThis is can lead to a denial of service attack by segmentation fault and could be a possible point of memory corruption or remote code execution. Any program that calls `JSON.parse` on untrusted input (which is, of course, exceedingly common in web APIs/apps) is affected. I have also reproduced this bug on a private API server I control.\n\nMinimal reproduction:\n```ruby\nrequire 'json'; JSON.parse('\"\\ud800\"')\n```\n\nThe resulting segfault output and crash report are attached.\n\nTested in 2.3.3 and 2.4.0. Does NOT occur in 2.2.5.\n\nIn 2.3.3 and 2.4.0, if `json/pure` is required, an error is raised instead of a segmentation fault.\n\n```ruby\nrequire 'json/pure'; JSON.parse('\"\\ud800\"') # => JSON::ParserError: Caught Encoding::InvalidByteSequenceError at '': incomplete \"\\xD8\\x00\" on UTF-16BE\n```\nAdditionally, if you append 6 valid characters after the escape sequence, the escaped value is replaced with '?' and the following character is destroyed (surprising behavior, but no segfault).\n\n```ruby\nrequire 'json';\nJSON.parse('\"\\ud800123456\"') #  => \"?23456\"\n2.3.3 :006 > JSON.parse('\"\\ud800\\ud800123456\"') # => \"\ud800\udc00123456\"\n2.3.3 :007 > JSON.parse('\"\\ud800\\ud800\\ud800123456\"') # => \"\ud800\udc00?23456\"\n```\n\nIn 2.2.5, bare values are not accepted so testing this requires using a key or string value inside a json object as shown below:\n```ruby\nrequire \"json\"; p JSON.parse(\"{\\\"key\\\":\\\"#{\"\\\\u\" + format(\"%.04x\", 56296)}\\\"}\") # => {\"key\"=>nil}\n```\nIn this case the result is `nil`. Instead, it should likely be an encoding error.\n\nScript I used to iterate over all the codepoints in the range to verify it was not only a handful of specific values:\n```ruby\n# gem 'json', '2.0.1'\n# gem 'json', '2.0.2'\n# gem 'json', '2.0.3'\nrequire 'json'\n\n# or 0...1<<16 to explore the entire range\n(0xd800..0xdbff).each do |i|\n  uni = '\\u' + format(\"%.04x\", i)\n\n  program = \"require 'json'; JSON.parse('\\\\\\\"#{uni}\\\\\\\"')\"\n  system(\"ruby -e \\\"#{program}\\\"\")\n\n  status = $?.to_i\n  if status != 0\n    puts \"#{uni} -> exit status #{status}\"\n  end\nend\n```", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "none", 
+        "author_type": "Team"
+    }, 
+    "title": "Parsing invalid unicode codepoints using json c extension (2.0.1+) triggers a segfault", 
+    "is_member_of_team?": null, 
+    "vote_count": 3, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-10-25T13:57:21.322Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "segfault.txt", 
+            "type": "text/plain", 
+            "id": 152894, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/152/894/8950add2270b5705bff848e67b79fc422bdaeb3b/segfault.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223058Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=4058a52a1780ab5a116a55c96d2875594997831687174f33a84ca2c85020ea62"
+        }, 
+        {
+            "file_name": "ruby_2017-01-16-165949_Daniels-MacBook-Pro.crash", 
+            "type": "text/plain", 
+            "id": 152915, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/152/915/a1ceef83ec5711f87ec8b4b350ab45a979c2c6ee/ruby_2017-01-16-165949_Daniels-MacBook-Pro.crash?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223058Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=868aae29bc4a35336927002261be5aaf0076eb89b70f5fe285489cc206478e62"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-30T23:11:13.984Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-30T23:11:13.984Z", 
+            "actor": {
+                "username": "dgollahon", 
+                "url": "/dgollahon", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Any update on this?", 
+            "markdown_message": "<p>Any update on this?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1452903, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-31T00:18:01.421Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-31T00:18:01.421Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "I escalated this report to JSON upstream author named flori. but we have no response.\n\nNote: upstream is here. https://github.com/flori/json", 
+            "markdown_message": "<p>I escalated this report to JSON upstream author named flori. but we have no response.</p>\n\n<p>Note: upstream is here. <a title=\"https://github.com/flori/json\" href=\"/redirect?signature=9b3c450e02fbe0763678ea7875e905ffcbf7a57a&amp;url=https%3A%2F%2Fgithub.com%2Fflori%2Fjson\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/flori/json</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1453024, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-06T21:42:55.432Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-06T21:42:55.432Z", 
+            "actor": {
+                "username": "dgollahon", 
+                "url": "/dgollahon", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Any word from flori yet?", 
+            "markdown_message": "<p>Any word from flori yet?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1466845, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-07T00:09:05.967Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-07T00:09:05.967Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Nothing. He is not ruby core member.", 
+            "markdown_message": "<p>Nothing. He is not ruby core member.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1467229, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-07T00:40:26.353Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-07T00:40:26.353Z", 
+            "actor": {
+                "username": "dgollahon", 
+                "url": "/dgollahon", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Ah, that's unfortunate. Let me know when you hear back.\n\nI think it's a shame that the default json library can trigger a segfault so easily.", 
+            "markdown_message": "<p>Ah, that&#39;s unfortunate. Let me know when you hear back.</p>\n\n<p>I think it&#39;s a shame that the default json library can trigger a segfault so easily.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1467271, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-02T11:31:50.642Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-02T11:31:50.642Z", 
+            "actor": {
+                "username": "flori", 
+                "url": "/flori", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/146/939/923b3adf76bad867a21f811f2e2accf9b6b9a0e0_medium.png?1490278816"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 1515395, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-07T17:11:22.489Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-07T17:11:22.489Z", 
+            "actor": {
+                "username": "dgollahon", 
+                "url": "/dgollahon", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "@flori, @hsbt: Any progress on this?", 
+            "markdown_message": "<p><a href=\"/flori\">@flori</a>, <a href=\"/hsbt\">@hsbt</a>: Any progress on this?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1589725, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-11T10:46:07.663Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-11T10:46:07.663Z", 
+            "actor": {
+                "username": "flori", 
+                "url": "/flori", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/146/939/923b3adf76bad867a21f811f2e2accf9b6b9a0e0_medium.png?1490278816"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "I have released a fix in version 2.0.4.", 
+            "markdown_message": "<p>I have released a fix in version 2.0.4.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1604434, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-11T18:07:31.394Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-11T18:07:31.394Z", 
+            "actor": {
+                "username": "dgollahon", 
+                "url": "/dgollahon", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Great!", 
+            "markdown_message": "<p>Great!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1605410, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "dgollahon", 
+                "url": "/dgollahon"
+            }, 
+            "created_at": "2017-04-15T23:03:38.053Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-15T23:03:38.053Z", 
+            "actor": {
+                "username": "tenderlove", 
+                "url": "/tenderlove", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/318/4b00c3dfa514b00e4c7c2751c97ca93d0f0d7160_medium.png?1393998446"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "I think we can close this now that it's fixed (though maybe we still need to import the gem to ruby-core).  @dgollahon thank you for reporting this!", 
+            "markdown_message": "<p>I think we can close this now that it&#39;s fixed (though maybe we still need to import the gem to ruby-core).  <a href=\"/dgollahon\">@dgollahon</a> thank you for reporting this!</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1613530, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-25T08:29:21.967Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-25T08:29:21.967Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "None", 
+                "old_severity": "High"
+            }, 
+            "team_handle": "ruby", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2019712, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-25T13:57:13.092Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-25T13:57:13.092Z", 
+            "actor": {
+                "url": "/ruby", 
+                "profile": {
+                    "name": "Ruby"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/724/0c1556227f51c9b2b13ada11ccd2fb02cc9fa257_medium.png?1449271894"
+                }
+            }, 
+            "team_handle": "ruby", 
+            "message": "We decide to not handle this issue for vulnerability. It's a normal bug.", 
+            "markdown_message": "<p>We decide to not handle this issue for vulnerability. It&#39;s a normal bug.</p>\n", 
+            "type": "Activities::NotEligibleForBounty", 
+            "id": 2020665, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-25T13:57:21.282Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-25T13:57:21.282Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2020666, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-25T13:57:33.634Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-25T13:57:33.634Z", 
+            "actor": {
+                "url": "/ruby", 
+                "profile": {
+                    "name": "Ruby"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/724/0c1556227f51c9b2b13ada11ccd2fb02cc9fa257_medium.png?1449271894"
+                }
+            }, 
+            "team_handle": "ruby", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2101797, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "dgollahon", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/dgollahon", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 2, 
+        "name": "Memory Corruption - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -35195617.666978374, 
+    "disclosed_at": "2017-10-25T13:57:33.611Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/198927", 
+    "created_at": "2017-01-17T06:15:41.770Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Using the default <code>json</code> library packaged with ruby, one can trigger a segmentation fault by submitting a string with a unicode escape sequence in the range between <code>\\ud800-\\udbff</code> (<a title=\"https://en.wikipedia.org/wiki/UTF-16#U.2BD800_to_U.2BDFFF\" href=\"/redirect?signature=290c51abd324423e7ab25258ba446b136fd77350&amp;url=https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FUTF-16%23U.2BD800_to_U.2BDFFF\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://en.wikipedia.org/wiki/UTF-16#U.2BD800_to_U.2BDFFF</span><i class=\"icon-external-link\"></i></a>).</p>\n\n<p>This is can lead to a denial of service attack by segmentation fault and could be a possible point of memory corruption or remote code execution. Any program that calls <code>JSON.parse</code> on untrusted input (which is, of course, exceedingly common in web APIs/apps) is affected. I have also reproduced this bug on a private API server I control.</p>\n\n<p>Minimal reproduction:</p>\n<pre class=\"highlight ruby\"><code><span class=\"nb\">require</span> <span class=\"s1\">&#39;json&#39;</span><span class=\"p\">;</span> <span class=\"no\">JSON</span><span class=\"p\">.</span><span class=\"nf\">parse</span><span class=\"p\">(</span><span class=\"s1\">&#39;&quot;\\ud800&quot;&#39;</span><span class=\"p\">)</span>\n</code></pre>\n<p>The resulting segfault output and crash report are attached.</p>\n\n<p>Tested in 2.3.3 and 2.4.0. Does NOT occur in 2.2.5.</p>\n\n<p>In 2.3.3 and 2.4.0, if <code>json/pure</code> is required, an error is raised instead of a segmentation fault.</p>\n<pre class=\"highlight ruby\"><code><span class=\"nb\">require</span> <span class=\"s1\">&#39;json/pure&#39;</span><span class=\"p\">;</span> <span class=\"no\">JSON</span><span class=\"p\">.</span><span class=\"nf\">parse</span><span class=\"p\">(</span><span class=\"s1\">&#39;&quot;\\ud800&quot;&#39;</span><span class=\"p\">)</span> <span class=\"c1\"># =&gt; JSON::ParserError: Caught Encoding::InvalidByteSequenceError at &#39;&#39;: incomplete &quot;\\xD8\\x00&quot; on UTF-16BE</span>\n</code></pre>\n<p>Additionally, if you append 6 valid characters after the escape sequence, the escaped value is replaced with &#39;?&#39; and the following character is destroyed (surprising behavior, but no segfault).</p>\n<pre class=\"highlight ruby\"><code><span class=\"nb\">require</span> <span class=\"s1\">&#39;json&#39;</span><span class=\"p\">;</span>\n<span class=\"no\">JSON</span><span class=\"p\">.</span><span class=\"nf\">parse</span><span class=\"p\">(</span><span class=\"s1\">&#39;&quot;\\ud800123456&quot;&#39;</span><span class=\"p\">)</span> <span class=\"c1\">#  =&gt; &quot;?23456&quot;</span>\n<span class=\"mi\">2</span><span class=\"o\">.</span><span class=\"mi\">3</span><span class=\"o\">.</span><span class=\"mi\">3</span> <span class=\"p\">:</span><span class=\"mo\">006</span> <span class=\"o\">&gt;</span> <span class=\"no\">JSON</span><span class=\"p\">.</span><span class=\"nf\">parse</span><span class=\"p\">(</span><span class=\"s1\">&#39;&quot;\\ud800\\ud800123456&quot;&#39;</span><span class=\"p\">)</span> <span class=\"c1\"># =&gt; &quot;\ud800\udc00123456&quot;</span>\n<span class=\"mi\">2</span><span class=\"o\">.</span><span class=\"mi\">3</span><span class=\"o\">.</span><span class=\"mi\">3</span> <span class=\"p\">:</span><span class=\"mo\">007</span> <span class=\"o\">&gt;</span> <span class=\"no\">JSON</span><span class=\"p\">.</span><span class=\"nf\">parse</span><span class=\"p\">(</span><span class=\"s1\">&#39;&quot;\\ud800\\ud800\\ud800123456&quot;&#39;</span><span class=\"p\">)</span> <span class=\"c1\"># =&gt; &quot;\ud800\udc00?23456&quot;</span>\n</code></pre>\n<p>In 2.2.5, bare values are not accepted so testing this requires using a key or string value inside a json object as shown below:</p>\n<pre class=\"highlight ruby\"><code><span class=\"nb\">require</span> <span class=\"s2\">&quot;json&quot;</span><span class=\"p\">;</span> <span class=\"nb\">p</span> <span class=\"no\">JSON</span><span class=\"p\">.</span><span class=\"nf\">parse</span><span class=\"p\">(</span><span class=\"s2\">&quot;{</span><span class=\"se\">\\&quot;</span><span class=\"s2\">key</span><span class=\"se\">\\&quot;</span><span class=\"s2\">:</span><span class=\"se\">\\&quot;</span><span class=\"si\">#{</span><span class=\"s2\">&quot;</span><span class=\"se\">\\\\</span><span class=\"s2\">u&quot;</span> <span class=\"o\">+</span> <span class=\"nb\">format</span><span class=\"p\">(</span><span class=\"s2\">&quot;%.04x&quot;</span><span class=\"p\">,</span> <span class=\"mi\">56296</span><span class=\"p\">)</span><span class=\"si\">}</span><span class=\"se\">\\&quot;</span><span class=\"s2\">}&quot;</span><span class=\"p\">)</span> <span class=\"c1\"># =&gt; {&quot;key&quot;=&gt;nil}</span>\n</code></pre>\n<p>In this case the result is <code>nil</code>. Instead, it should likely be an encoding error.</p>\n\n<p>Script I used to iterate over all the codepoints in the range to verify it was not only a handful of specific values:</p>\n<pre class=\"highlight ruby\"><code><span class=\"c1\"># gem &#39;json&#39;, &#39;2.0.1&#39;</span>\n<span class=\"c1\"># gem &#39;json&#39;, &#39;2.0.2&#39;</span>\n<span class=\"c1\"># gem &#39;json&#39;, &#39;2.0.3&#39;</span>\n<span class=\"nb\">require</span> <span class=\"s1\">&#39;json&#39;</span>\n\n<span class=\"c1\"># or 0...1&lt;&lt;16 to explore the entire range</span>\n<span class=\"p\">(</span><span class=\"mh\">0xd800</span><span class=\"p\">.</span><span class=\"nf\">.</span><span class=\"mh\">0xdbff</span><span class=\"p\">).</span><span class=\"nf\">each</span> <span class=\"k\">do</span> <span class=\"o\">|</span><span class=\"n\">i</span><span class=\"o\">|</span>\n  <span class=\"n\">uni</span> <span class=\"o\">=</span> <span class=\"s1\">&#39;\\u&#39;</span> <span class=\"o\">+</span> <span class=\"nb\">format</span><span class=\"p\">(</span><span class=\"s2\">&quot;%.04x&quot;</span><span class=\"p\">,</span> <span class=\"n\">i</span><span class=\"p\">)</span>\n\n  <span class=\"n\">program</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;require &#39;json&#39;; JSON.parse(&#39;</span><span class=\"se\">\\\\\\&quot;</span><span class=\"si\">#{</span><span class=\"n\">uni</span><span class=\"si\">}</span><span class=\"se\">\\\\\\&quot;</span><span class=\"s2\">&#39;)&quot;</span>\n  <span class=\"nb\">system</span><span class=\"p\">(</span><span class=\"s2\">&quot;ruby -e </span><span class=\"se\">\\&quot;</span><span class=\"si\">#{</span><span class=\"n\">program</span><span class=\"si\">}</span><span class=\"se\">\\&quot;</span><span class=\"s2\">&quot;</span><span class=\"p\">)</span>\n\n  <span class=\"n\">status</span> <span class=\"o\">=</span> <span class=\"vg\">$?</span><span class=\"p\">.</span><span class=\"nf\">to_i</span>\n  <span class=\"k\">if</span> <span class=\"n\">status</span> <span class=\"o\">!=</span> <span class=\"mi\">0</span>\n    <span class=\"nb\">puts</span> <span class=\"s2\">&quot;</span><span class=\"si\">#{</span><span class=\"n\">uni</span><span class=\"si\">}</span><span class=\"s2\"> -&gt; exit status </span><span class=\"si\">#{</span><span class=\"n\">status</span><span class=\"si\">}</span><span class=\"s2\">&quot;</span>\n  <span class=\"k\">end</span>\n<span class=\"k\">end</span>\n</code></pre>", 
+    "severity_rating": "none", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.ruby-lang.org", 
+            "about": "A Programmer's Best Friend", 
+            "twitter_handle": "", 
+            "name": "Ruby"
+        }, 
+        "handle": "ruby", 
+        "url": "https://hackerone.com/ruby", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/007/724/36e273f967b252ae8b4051d09ffc08f7de16d7d5_small.png?1449271894", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/007/724/0c1556227f51c9b2b13ada11ccd2fb02cc9fa257_medium.png?1449271894"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 7724, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

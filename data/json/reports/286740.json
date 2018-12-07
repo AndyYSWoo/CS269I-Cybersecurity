@@ -1,0 +1,321 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "jokebookservice1", 
+        "irvinlim", 
+        "rlaneth", 
+        "bethomp", 
+        "snellejelle", 
+        "irek", 
+        "rmzsx", 
+        "arneswinnen", 
+        "sp1d3rs", 
+        "cache-money", 
+        "and 163 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "25000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 286740, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-11-03T00:34:22.612Z", 
+    "vulnerability_information": "Full background information is at [krackattacks.com](https://www.krackattacks.com) and all detailed information can be found in our [research paper](https://papers.mathyvanhoef.com/ccs2017.pdf).\n\n# Key Reinstallation Attack: 4-way handshake example\n\nWe use the 4-way handshake to illustrate the idea behind key reinstallation attacks (CVE-2017-13077).\nNote that in practice, all protected Wi-Fi network rely on the 4-way handshake to derive a fresh session key (PTK) from some shared secret.\n\n### Step 1. Channel-based man-in-the-middle and initial handshake messages:\n\n* The adversary clones the access point (AP) on a different channel. Say the real AP is on channel 6, and it will be cloned on channel 1.\n* The adversary uses Channel Switch Announcements to force victims into connecting to the cloned AP on channel 1.\n* The adversary forwards the first three message of the 4-way handshake between the client and AP (i.e. the adversary fowards frames over the different channels).\n* After the client receives message 3 of the handshake, it will install the fresh session key (PTK) for the first time.\n\n### Step 2. Triggering a key reinstallation:\n\n* The attacker does not forward message 4 of the handshake to the AP, effectively blocking it.\n* As a result, the AP will retransmit message 3 to the client.\n* After the client receives message 3, it responds with message 4. In practice all clients encrypt this retransmitted message 4 at the link layer. Note that it's encrypted because message 4 an ordinary data frame, and the victim has already installed the session key to encrypt data frames (recall end of step 1). The victim will **use a nonce value of 1 to encrypt** message 4.\n* After sending message 4, the client will reinstall the session key. This **resets the transmit nonce** to zero.\n\n### Step 3. Abusing nonce reuse:\n\n* When the client now transmit a normal encrypted data frame, it will increment the nonce counter, and then **reuse the nonce value 1 when encrypting the data frame**.\n* We can derive known keystream from the encrypted retransmitted message 4 (recall step 2), and use this to decrypt parts of the just transmitted encrypted data frame.\n* Other predictable packets (ARP, DHCP, HTML, and so on) can be used to obtain additional known plaintext and keystream, which can in turn be used to decrypt more and bigger packets.\n\nThe above example attack against the 4-way handshake is also illustrated in my [CCS'17 presentation](https://papers.mathyvanhoef.com/ccs2017-slides.pdf).\n\n# Other handshakes\n\nOther Wi-Fi handshakes or features that were found to be vulnerable to key reinstallation attacks are:\n- Reinstallation of group keys in the 4-way handshake: CVE-2017-13078 and CVE-2017-13079\n- The group key handshake: CVE-2017-13080 and CVE-2017-13081\n- The Fast BSS Transition (FT) handshake: CVE-2017-13082\n- The PeerKey handshake: CVE-2017-13084\n- The Tunneled Direct-Link Setup (TDLS) handshake: CVE-2017-13086\n- Handling of Wireless Network Management (WNM) Sleep Mode Response frame: CVE-2017-13087 and CVE-2017-13088.\n\n# Countermeasures\n\nImplementations can be updated to prevent key reinstallation attacks in a backwards-compatible manner.\n\nAs an additional mitigation, an access point can also prevent most attacks against vulnerable clients.\nIn particular, attacks against the 4-way handshake can be prevented by not retransmitting message 3.\nSimilarly, attacks against the group key handshake can be prevented by not retransmitting message 1 of the group key handshake. Alternatively, the access point can retransmit these two handshake messages using the previously used EAPOL-Key replay counter.\n\n# Additional Contributions\n\n- We helped with writing several [patches for hostap](https://w1.fi/security/2017-1/), which is used in Linux, Android, and several professional APs.\n- We wrote most parts of the [patch to OpenBSD](https://ftp.openbsd.org/pub/OpenBSD/patches/6.1/common/027_net80211_replay.patch.sig).\n- We created vulnerability test tools to detect if devices are vulnerable. [The Wi-Fi Alliance](https://www.wi-fi.org/news-events/newsroom/wi-fi-alliance-security-update) is using these to [test if new products are affected](https://www.wi-fi.org/security-update-october-2017) or not. These test tools will be released publically once they are stable enough.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "adjacent", 
+            "attack_complexity": "high", 
+            "scope": "unchanged", 
+            "integrity": "high", 
+            "availability": "none"
+        }, 
+        "rating": "medium", 
+        "score": 6.8, 
+        "author_type": "Team"
+    }, 
+    "title": "Key Reinstallation Attacks: Breaking WPA2 by forcing nonce reuse", 
+    "is_member_of_team?": null, 
+    "vote_count": 173, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-12-03T00:34:22.692Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2017-13077", 
+        "CVE-2017-13078", 
+        "CVE-2017-13079", 
+        "CVE-2017-13080", 
+        "CVE-2017-13081", 
+        "CVE-2017-13082", 
+        "CVE-2017-13084", 
+        "CVE-2017-13086", 
+        "CVE-2017-13087", 
+        "CVE-2017-13088"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$25,000", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-03T00:29:50.261Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-03T00:29:50.261Z", 
+            "actor": {
+                "username": "reed", 
+                "url": "/reed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/132/5781ea1c43c5c7680dd145226b86348a8d6ed085_medium.jpg?1394062279"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "internet", 
+            "cve_ids": [
+                "CVE-2017-13077", 
+                "CVE-2017-13078", 
+                "CVE-2017-13079", 
+                "CVE-2017-13080", 
+                "CVE-2017-13081", 
+                "CVE-2017-13082", 
+                "CVE-2017-13084", 
+                "CVE-2017-13086", 
+                "CVE-2017-13087", 
+                "CVE-2017-13088"
+            ], 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::CveIdAdded", 
+            "id": 2130346, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-03T00:31:04.302Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-03T00:31:04.302Z", 
+            "actor": {
+                "username": "reed", 
+                "url": "/reed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/132/5781ea1c43c5c7680dd145226b86348a8d6ed085_medium.jpg?1394062279"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Medium (6.8)", 
+                "old_severity": null
+            }, 
+            "team_handle": "internet", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2130349, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-11-03T00:34:05.564Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-03T00:34:05.564Z", 
+            "actor": {
+                "url": "/internet", 
+                "profile": {
+                    "name": "The Internet"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/38e952fcff2c0aae0d011d5cecd07e5f62ecbd63_medium.png?1383767658"
+                }
+            }, 
+            "team_handle": "internet", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "25000.0", 
+            "collaborator": {
+                "username": "vanhoefm", 
+                "url": "/vanhoefm"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2130350, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "vanhoefm", 
+                "url": "/vanhoefm"
+            }, 
+            "created_at": "2017-11-03T00:34:17.147Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-03T00:34:17.147Z", 
+            "actor": {
+                "username": "reed", 
+                "url": "/reed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/132/5781ea1c43c5c7680dd145226b86348a8d6ed085_medium.jpg?1394062279"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "internet", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2130351, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-03T00:34:22.638Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-03T00:34:22.638Z", 
+            "actor": {
+                "username": "reed", 
+                "url": "/reed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/132/5781ea1c43c5c7680dd145226b86348a8d6ed085_medium.jpg?1394062279"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "internet", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2130352, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-03T00:37:54.913Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-03T00:37:54.913Z", 
+            "actor": {
+                "username": "reed", 
+                "url": "/reed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/132/5781ea1c43c5c7680dd145226b86348a8d6ed085_medium.jpg?1394062279"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "internet", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ManuallyDisclosed", 
+            "id": 2130357, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "vanhoefm", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/vanhoefm", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/213/790/4d44a1466a350eee4430561ce70659bc73a1c1af_small.jpeg?1509741116"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 37, 
+        "name": "Reusing a Nonce, Key Pair in Encryption"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -31874165.149478264, 
+    "disclosed_at": "2017-11-03T00:37:55.335Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/286740", 
+    "created_at": "2017-11-02T22:08:43.565Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Full background information is at <a href=\"/redirect?signature=3aee02492492bc4c4515a2d33df8c30856223668&amp;url=https%3A%2F%2Fwww.krackattacks.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>krackattacks.com</span><i class=\"icon-external-link\"></i></a> and all detailed information can be found in our <a href=\"/redirect?signature=121642cf3ac5c57b402f22a9153b26f5e3fca4ae&amp;url=https%3A%2F%2Fpapers.mathyvanhoef.com%2Fccs2017.pdf\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>research paper</span><i class=\"icon-external-link\"></i></a>.</p>\n\n<h1 id=\"key-reinstallation-attack-4-way-handshake-example\">Key Reinstallation Attack: 4-way handshake example</h1>\n\n<p>We use the 4-way handshake to illustrate the idea behind key reinstallation attacks (CVE-2017-13077).<br>\nNote that in practice, all protected Wi-Fi network rely on the 4-way handshake to derive a fresh session key (PTK) from some shared secret.</p>\n\n<h3 id=\"step-1-channel-based-man-in-the-middle-and-initial-handshake-messages\">Step 1. Channel-based man-in-the-middle and initial handshake messages:</h3>\n\n<ul>\n<li>The adversary clones the access point (AP) on a different channel. Say the real AP is on channel 6, and it will be cloned on channel 1.</li>\n<li>The adversary uses Channel Switch Announcements to force victims into connecting to the cloned AP on channel 1.</li>\n<li>The adversary forwards the first three message of the 4-way handshake between the client and AP (i.e. the adversary fowards frames over the different channels).</li>\n<li>After the client receives message 3 of the handshake, it will install the fresh session key (PTK) for the first time.</li>\n</ul>\n\n<h3 id=\"step-2-triggering-a-key-reinstallation\">Step 2. Triggering a key reinstallation:</h3>\n\n<ul>\n<li>The attacker does not forward message 4 of the handshake to the AP, effectively blocking it.</li>\n<li>As a result, the AP will retransmit message 3 to the client.</li>\n<li>After the client receives message 3, it responds with message 4. In practice all clients encrypt this retransmitted message 4 at the link layer. Note that it&#39;s encrypted because message 4 an ordinary data frame, and the victim has already installed the session key to encrypt data frames (recall end of step 1). The victim will <strong>use a nonce value of 1 to encrypt</strong> message 4.</li>\n<li>After sending message 4, the client will reinstall the session key. This <strong>resets the transmit nonce</strong> to zero.</li>\n</ul>\n\n<h3 id=\"step-3-abusing-nonce-reuse\">Step 3. Abusing nonce reuse:</h3>\n\n<ul>\n<li>When the client now transmit a normal encrypted data frame, it will increment the nonce counter, and then <strong>reuse the nonce value 1 when encrypting the data frame</strong>.</li>\n<li>We can derive known keystream from the encrypted retransmitted message 4 (recall step 2), and use this to decrypt parts of the just transmitted encrypted data frame.</li>\n<li>Other predictable packets (ARP, DHCP, HTML, and so on) can be used to obtain additional known plaintext and keystream, which can in turn be used to decrypt more and bigger packets.</li>\n</ul>\n\n<p>The above example attack against the 4-way handshake is also illustrated in my <a href=\"/redirect?signature=1f850448f886bea1bb2dd3a6ea07b2b6f5f04747&amp;url=https%3A%2F%2Fpapers.mathyvanhoef.com%2Fccs2017-slides.pdf\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>CCS&#39;17 presentation</span><i class=\"icon-external-link\"></i></a>.</p>\n\n<h1 id=\"other-handshakes\">Other handshakes</h1>\n\n<p>Other Wi-Fi handshakes or features that were found to be vulnerable to key reinstallation attacks are:</p>\n\n<ul>\n<li>Reinstallation of group keys in the 4-way handshake: CVE-2017-13078 and CVE-2017-13079</li>\n<li>The group key handshake: CVE-2017-13080 and CVE-2017-13081</li>\n<li>The Fast BSS Transition (FT) handshake: CVE-2017-13082</li>\n<li>The PeerKey handshake: CVE-2017-13084</li>\n<li>The Tunneled Direct-Link Setup (TDLS) handshake: CVE-2017-13086</li>\n<li>Handling of Wireless Network Management (WNM) Sleep Mode Response frame: CVE-2017-13087 and CVE-2017-13088.</li>\n</ul>\n\n<h1 id=\"countermeasures\">Countermeasures</h1>\n\n<p>Implementations can be updated to prevent key reinstallation attacks in a backwards-compatible manner.</p>\n\n<p>As an additional mitigation, an access point can also prevent most attacks against vulnerable clients.<br>\nIn particular, attacks against the 4-way handshake can be prevented by not retransmitting message 3.<br>\nSimilarly, attacks against the group key handshake can be prevented by not retransmitting message 1 of the group key handshake. Alternatively, the access point can retransmit these two handshake messages using the previously used EAPOL-Key replay counter.</p>\n\n<h1 id=\"additional-contributions\">Additional Contributions</h1>\n\n<ul>\n<li>We helped with writing several <a href=\"/redirect?signature=c01e34287109ca1f25808205e249e6ae3c4725ee&amp;url=https%3A%2F%2Fw1.fi%2Fsecurity%2F2017-1%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>patches for hostap</span><i class=\"icon-external-link\"></i></a>, which is used in Linux, Android, and several professional APs.</li>\n<li>We wrote most parts of the <a href=\"/redirect?signature=8a441d96495ea30ac19b2fb527134a44b977919c&amp;url=https%3A%2F%2Fftp.openbsd.org%2Fpub%2FOpenBSD%2Fpatches%2F6.1%2Fcommon%2F027_net80211_replay.patch.sig\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>patch to OpenBSD</span><i class=\"icon-external-link\"></i></a>.</li>\n<li>We created vulnerability test tools to detect if devices are vulnerable. <a href=\"/redirect?signature=845acb1de343718c70466356cb146cd6e344a10c&amp;url=https%3A%2F%2Fwww.wi-fi.org%2Fnews-events%2Fnewsroom%2Fwi-fi-alliance-security-update\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>The Wi-Fi Alliance</span><i class=\"icon-external-link\"></i></a> is using these to <a href=\"/redirect?signature=9017b87f245fe8ab8db1275c8cec75e57aa5ea47&amp;url=https%3A%2F%2Fwww.wi-fi.org%2Fsecurity-update-october-2017\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>test if new products are affected</span><i class=\"icon-external-link\"></i></a> or not. These test tools will be released publically once they are stable enough.</li>\n</ul>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "", 
+            "about": "Hack all the things.", 
+            "twitter_handle": null, 
+            "name": "The Internet"
+        }, 
+        "handle": "internet", 
+        "url": "https://hackerone.com/internet", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/020/b94983d2ec09553c3e08f98cc718cb17e01112e6_small.png?1383767658", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/38e952fcff2c0aae0d011d5cecd07e5f62ecbd63_medium.png?1383767658"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 20, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

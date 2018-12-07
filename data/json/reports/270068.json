@@ -1,0 +1,372 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-02-20T04:53:55.629Z", 
+    "voters": [
+        "jokebookservice1", 
+        "muon4", 
+        "eveeez", 
+        "apapedulimu", 
+        "japz", 
+        "amykruse", 
+        "lowebrew"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 270068, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "# Installer can modify other gems if gem name is specially crafted\n\nThe `install_location` function allows writing to certain files outside the installation directory.\n\nThe `install_location` function in lib/rubygems/package.rb attempts to ensure that files are not installed outside `destination_dir`.  However the test it employs, a string comparison using `start_with?`, fails to prevent the case when `destination_dir` is a prefix of the path being written.\n\nExample that should be prevented but is allowed:\n```\ninstall_location '../install-whatever-foobar/hello.txt', '/tmp/install'\n# outputs '/tmp/install-whatever-foobar/hello.txt'\n```\n\n`gem install` always constructs `destination_dir` as `'#{name}-#{version}'`, so the vulnerability cannot overwrite arbitrary files.  However, a malicious gem with `name='rails'` and an empty version number (`version=''`), for example, could overwrite the files of any other gem whose name begins with `rails-`, like rails-i18n or rails-letsencrypt.\n\n## Proof of concept\n\nThe attached ra.gem demonstrates the vulnerability. It assumes that some other gems have already been installed.\n\n```bash\ngem install --install-dir=/tmp/install rails-i18n rails-letsencrypt rails-html-sanitizer\ngem install --install-dir=/tmp/install ra.gem\n```\n\nThe malicious gem will do three things, each of which could potentially lead to code execution:\n\n- delete an existing rails-letsencrypt-0.5.3 gem\n- overwrite a code file in the rails-i18n-5.0.4 gem\n- symlink rails-html-sanitizer-1.0.3 to a world-writable directory\n\nThe structure of the gem file reveals how the attack works:\n\n```sh\n$ tar -xvf ra.gem\nmetadata.gz\ndata.tar.gz\n$ gzip -dc metadata.gz | head -n 4\n--- !ruby/object:Gem::Specification\nname: rails\nversion: !ruby/object:Gem::Version\n  version: ''\n$ tar -tvf data.tar.gz\n-rw-r--r-- 0/0              12 1969-12-31 16:00 README\ndrwxr-xr-x 0/0               0 1969-12-31 16:00 ../rails-letsencrypt-0.5.3/\n-rw-r--r-- 0/0              12 1969-12-31 16:00 ../rails-i18n-5.0.4/lib/rails_i18n.rb\nlrw-r--r-- 0/0               0 1969-12-31 16:00 ../rails-html-sanitizer-1.0.3 -> /tmp/attacker-controlled\n```\n\n## Remediation\n\nA sufficient fix is to append a directory separator to `destination_dir` before doing the `start_with?` check.\n\n```\ndiff --git a/lib/rubygems/package.rb b/lib/rubygems/package.rb\nindex c36e71d8..f73f9d30 100644\n--- a/lib/rubygems/package.rb\n+++ b/lib/rubygems/package.rb\n@@ -424,7 +424,7 @@ EOM\n     destination = File.expand_path destination\n\n     raise Gem::Package::PathError.new(destination, destination_dir) unless\n-      destination.start_with? destination_dir\n+      destination.start_with? destination_dir + '/'\n\n     destination.untaint\n     destination\n```\n\n## Attached files\n\n- `ra.gem`, an example of a vulnerable gem\n- `make-ra-gem.py`, sample code that generates the proof of concept (to run: `./make-ra-gem.py > ra.gem`)\n- `0001-Add-test_install_location_suffix.patch`, test code that checks for this vulnerability. Run with `ruby -I\"lib:test\" test/rubygems/test_gem_package.rb`.\n", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "none", 
+            "privileges_required": "none", 
+            "user_interaction": "required", 
+            "attack_vector": "local", 
+            "attack_complexity": "high", 
+            "scope": "changed", 
+            "integrity": "high", 
+            "availability": "none"
+        }, 
+        "rating": "medium", 
+        "score": 5.5, 
+        "author_type": "Team"
+    }, 
+    "title": "Installer can modify other gems if gem name is specially crafted", 
+    "is_member_of_team?": null, 
+    "vote_count": 7, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-03-22T04:53:55.684Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "ra.gem", 
+            "type": "application/x-tar", 
+            "id": 222676, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/222/676/02d197ea3b2a89e5b03f26af39d43e984c584b30/ra.gem?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222605Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=15c92b5fa9f0d0fe315293d88faf93cf98f18c7e1bb901503b20cb6b461a4d25"
+        }, 
+        {
+            "file_name": "make-ra-gem.py", 
+            "type": "text/x-python", 
+            "id": 222677, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/222/677/02b8c15db2a4e9b534e85b37a66c808caed25304/make-ra-gem.py?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222605Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=9e0f086e4a4c54c7d5b34cdc011a6c25ea8279e50eb1633b6c1a0688144aca5b"
+        }, 
+        {
+            "file_name": "0001-Add-test_install_location_suffix.patch", 
+            "type": "text/x-diff", 
+            "id": 222679, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/222/679/0c3a9b59226ba0d350654f09f6368f01f730f0c9/0001-Add-test_install_location_suffix.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222605Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=52158430a6b661f806605fc3e8470e49ca2464f3e31dd125652dc8344795d7cd"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": true, 
+            "created_at": "2017-09-21T02:26:57.440Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-21T02:26:57.440Z", 
+            "actor": {
+                "url": "/rubygems", 
+                "profile": {
+                    "name": "RubyGems"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/008/212/fb193d1c05feff770bc8d4a69e09613b5f9f4c3d_medium.png?1469676240"
+                }
+            }, 
+            "team_handle": "rubygems", 
+            "message": "Thanks for submitting this report to RubyGems. Our team will review and investigate the issue. Please note that only issues in the rubygems library are eligible for our bug bounty program.", 
+            "markdown_message": "<p>Thanks for submitting this report to RubyGems. Our team will review and investigate the issue. Please note that only issues in the rubygems library are eligible for our bug bounty program.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2010447, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-01T04:10:34.570Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-01T04:10:34.570Z", 
+            "actor": {
+                "username": "claudijd", 
+                "url": "/claudijd", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/131/80363bc2e114aa297d4a15f2deba7621642c6ec1_medium.jpeg?1491096375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Medium (5.5)", 
+                "old_severity": null
+            }, 
+            "team_handle": "rubygems", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2340955, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-08T23:05:37.841Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-08T23:05:37.841Z", 
+            "actor": {
+                "username": "claudijd", 
+                "url": "/claudijd", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/131/80363bc2e114aa297d4a15f2deba7621642c6ec1_medium.jpeg?1491096375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2364296, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "nmalkin", 
+                "url": "/nmalkin"
+            }, 
+            "created_at": "2018-02-18T04:29:25.087Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-18T04:29:25.087Z", 
+            "actor": {
+                "username": "claudijd", 
+                "url": "/claudijd", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/131/80363bc2e114aa297d4a15f2deba7621642c6ec1_medium.jpeg?1491096375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2395706, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-18T04:37:39.047Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-18T04:37:39.047Z", 
+            "actor": {
+                "url": "/rubygems", 
+                "profile": {
+                    "name": "RubyGems"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/008/212/fb193d1c05feff770bc8d4a69e09613b5f9f4c3d_medium.png?1469676240"
+                }
+            }, 
+            "team_handle": "rubygems", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::NotEligibleForBounty", 
+            "id": 2395713, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-20T04:53:47.468Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-20T04:53:47.468Z", 
+            "actor": {
+                "username": "nmalkin", 
+                "url": "/nmalkin", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "As with Report #270072, I would appreciate if this bug could be jointly attributed to David Fifield and me.", 
+            "markdown_message": "<p>As with Report <a href=\"/reports/270072\">#270072</a>, I would appreciate if this bug could be jointly attributed to David Fifield and me.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2405842, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-20T04:53:55.655Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-20T04:53:55.655Z", 
+            "actor": {
+                "username": "nmalkin", 
+                "url": "/nmalkin", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2405843, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-01T05:49:51.432Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-01T05:49:51.432Z", 
+            "actor": {
+                "username": "claudijd", 
+                "url": "/claudijd", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/131/80363bc2e114aa297d4a15f2deba7621642c6ec1_medium.jpeg?1491096375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "@nmalkin since our blog is open source, I would ask that you file a PR against our blog, much like I did [here](https://github.com/rubygems/rubygems.github.io/pull/31/files) as an example.", 
+            "markdown_message": "<p><a href=\"/nmalkin\">@nmalkin</a> since our blog is open source, I would ask that you file a PR against our blog, much like I did <a href=\"/redirect?signature=66ba3bba072710d08a6e02f797e1d87d85fab5da&amp;url=https%3A%2F%2Fgithub.com%2Frubygems%2Frubygems.github.io%2Fpull%2F31%2Ffiles\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>here</span><i class=\"icon-external-link\"></i></a> as an example.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2445053, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-22T04:54:02.840Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-22T04:54:02.840Z", 
+            "actor": {
+                "url": "/rubygems", 
+                "profile": {
+                    "name": "RubyGems"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/008/212/fb193d1c05feff770bc8d4a69e09613b5f9f4c3d_medium.png?1469676240"
+                }
+            }, 
+            "team_handle": "rubygems", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2516666, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "nmalkin", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/nmalkin", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 19, 
+        "name": "Path Traversal"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -22440729.416609608, 
+    "disclosed_at": "2018-03-22T04:54:02.816Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/270068", 
+    "created_at": "2017-09-21T02:26:57.258Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"installer-can-modify-other-gems-if-gem-name-is-specially-crafted\">Installer can modify other gems if gem name is specially crafted</h1>\n\n<p>The <code>install_location</code> function allows writing to certain files outside the installation directory.</p>\n\n<p>The <code>install_location</code> function in lib/rubygems/package.rb attempts to ensure that files are not installed outside <code>destination_dir</code>.  However the test it employs, a string comparison using <code>start_with?</code>, fails to prevent the case when <code>destination_dir</code> is a prefix of the path being written.</p>\n\n<p>Example that should be prevented but is allowed:</p>\n<pre class=\"highlight plaintext\"><code>install_location &#39;../install-whatever-foobar/hello.txt&#39;, &#39;/tmp/install&#39;\n# outputs &#39;/tmp/install-whatever-foobar/hello.txt&#39;\n</code></pre>\n<p><code>gem install</code> always constructs <code>destination_dir</code> as <code>&#39;#{name}-#{version}&#39;</code>, so the vulnerability cannot overwrite arbitrary files.  However, a malicious gem with <code>name=&#39;rails&#39;</code> and an empty version number (<code>version=&#39;&#39;</code>), for example, could overwrite the files of any other gem whose name begins with <code>rails-</code>, like rails-i18n or rails-letsencrypt.</p>\n\n<h2 id=\"proof-of-concept\">Proof of concept</h2>\n\n<p>The attached ra.gem demonstrates the vulnerability. It assumes that some other gems have already been installed.</p>\n<pre class=\"highlight shell\"><code>gem install --install-dir<span class=\"o\">=</span>/tmp/install rails-i18n rails-letsencrypt rails-html-sanitizer\ngem install --install-dir<span class=\"o\">=</span>/tmp/install ra.gem\n</code></pre>\n<p>The malicious gem will do three things, each of which could potentially lead to code execution:</p>\n\n<ul>\n<li>delete an existing rails-letsencrypt-0.5.3 gem</li>\n<li>overwrite a code file in the rails-i18n-5.0.4 gem</li>\n<li>symlink rails-html-sanitizer-1.0.3 to a world-writable directory</li>\n</ul>\n\n<p>The structure of the gem file reveals how the attack works:</p>\n<pre class=\"highlight shell\"><code><span class=\"gp\">$ </span>tar -xvf ra.gem\nmetadata.gz\ndata.tar.gz\n<span class=\"gp\">$ </span>gzip -dc metadata.gz | head -n 4\n--- !ruby/object:Gem::Specification\nname: rails\nversion: !ruby/object:Gem::Version\n  version: <span class=\"s1\">&#39;&#39;</span>\n<span class=\"gp\">$ </span>tar -tvf data.tar.gz\n-rw-r--r-- 0/0              12 1969-12-31 16:00 README\ndrwxr-xr-x 0/0               0 1969-12-31 16:00 ../rails-letsencrypt-0.5.3/\n-rw-r--r-- 0/0              12 1969-12-31 16:00 ../rails-i18n-5.0.4/lib/rails_i18n.rb\nlrw-r--r-- 0/0               0 1969-12-31 16:00 ../rails-html-sanitizer-1.0.3 -&gt; /tmp/attacker-controlled\n</code></pre>\n<h2 id=\"remediation\">Remediation</h2>\n\n<p>A sufficient fix is to append a directory separator to <code>destination_dir</code> before doing the <code>start_with?</code> check.</p>\n<pre class=\"highlight diff\"><code><span class=\"gh\">diff --git a/lib/rubygems/package.rb b/lib/rubygems/package.rb\nindex c36e71d8..f73f9d30 100644\n</span><span class=\"gd\">--- a/lib/rubygems/package.rb\n</span><span class=\"gi\">+++ b/lib/rubygems/package.rb\n</span><span class=\"gu\">@@ -424,7 +424,7 @@ EOM\n</span>     destination = File.expand_path destination\n\n     raise Gem::Package::PathError.new(destination, destination_dir) unless\n<span class=\"gd\">-      destination.start_with? destination_dir\n</span><span class=\"gi\">+      destination.start_with? destination_dir + &#39;/&#39;\n</span>\n     destination.untaint\n     destination\n</code></pre>\n<h2 id=\"attached-files\">Attached files</h2>\n\n<ul>\n<li>\n<code>ra.gem</code>, an example of a vulnerable gem</li>\n<li>\n<code>make-ra-gem.py</code>, sample code that generates the proof of concept (to run: <code>./make-ra-gem.py &gt; ra.gem</code>)</li>\n<li>\n<code>0001-Add-test_install_location_suffix.patch</code>, test code that checks for this vulnerability. Run with <code>ruby -I&quot;lib:test&quot; test/rubygems/test_gem_package.rb</code>.</li>\n</ul>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://rubygems.org", 
+            "about": "RubyGems.org is the Ruby community\u2019s gem hosting service.", 
+            "twitter_handle": "rubygems_status", 
+            "name": "RubyGems"
+        }, 
+        "handle": "rubygems", 
+        "url": "https://hackerone.com/rubygems", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/008/212/0e820a45b51fb96fad86945c67150263527c69ed_small.png?1469676240", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/008/212/fb193d1c05feff770bc8d4a69e09613b5f9f4c3d_medium.png?1469676240"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 8212, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

@@ -1,0 +1,437 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-06-23T15:30:37.677Z", 
+    "voters": [
+        "eveeez", 
+        "muhammad_uwais", 
+        "axolotl", 
+        "christophetd", 
+        "exadmin", 
+        "b3nac", 
+        "hacklad", 
+        "clarckowen_"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 224096, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-06-23T15:36:23.360Z", 
+    "vulnerability_information": "Dear Shopify bug bounty team,\n\nThe [Python ShopifyAPI](https://github.com/Shopify/shopify_python_api) library is vulnerable to timing attacks, because the `validate_hmac()` falls back to a non-constant time comparison when `hmac.compare_digest()` is not available. I am perfectly aware that this issue is out of scope, but your Shopify Guru (Jack P.) kindly advised me to report this issue here.\n\n# Summary\n---\n\nTiming attacks are a type of side channel attack where one can discover valuable information by recording the time it takes for a cryptographic algorithm to execute.\n\nThe issue lies in `shopify/session.py`'s `validate_hmac()` function:\n\n~~~\n# Try to use compare_digest() to reduce vulnerability to timing attacks.\n# If it's not available, just fall back to regular string comparison.\ntry:\n    return hmac.compare_digest(hmac_calculated, hmac_to_verify)\nexcept AttributeError:\n    return hmac_calculated == hmac_to_verify\n~~~\n\nThe `==` operator does a byte-by-byte comparison of two values and as soon as the two differentiate it terminates. This means the longer it takes until the operation returns, the more correct characters the attacker has guessed. It is important to note that this issue really only affects users using Python versions prior to 2.7.7.\n\nLink to source code: https://github.com/Shopify/shopify_python_api/blob/master/shopify/session.py#L115-L120\n\n# PoC\n---\n\nHere is a quick and messy PoC to demonstrate the issue:\n\n~~~python\nimport time, hmac\n\n\ndef timing(f):\n    def wrap(*args):\n        time1 = time.time()\n        ret = f(*args)\n        time2 = time.time()\n        print '%s took %0.3f ms' % (f.func_name, (time2-time1)*1000.0)\n        return ret\n    return wrap\n\n@timing\ndef timing_attack_diff():\n    s1 = \"100000000000000000000000000000000\"\n    s2 = \"000000000000000000000000000000001\"\n    for i in range(200):\n        if not s1 == s2:\n            print i\n\n@timing\ndef timing_attack_same():\n    s1 = \"100000000000000000000000000000000\"\n    s2 = \"100000000000000000000000000000000\"\n    for i in range(200):\n        if s1 == s2:\n            print i\n\n@timing\ndef constant_time_diff():\n    s1 = b\"100000000000000000000000000000000\"\n    s2 = b\"000000000000000010000000000000000\"\n    for i in range(200):\n        if not hmac.compare_digest(s1, s2):\n            print i\n        \n@timing\ndef constant_time_same():\n    s1 = b\"100000000000000000000000000000000\"\n    s2 = b\"100000000000000000000000000000000\"\n    for i in range(200):\n        if hmac.compare_digest(s1, s2):\n            print i\n\ntiming_attack_diff()\ntiming_attack_same()\nconstant_time_diff()\nconstant_time_same()\n~~~\n\nThe results are quite significant:\n\n| Round   | timing_attack_diff | timing_attack_same | constant_time_diff | constant_time_same |\n|---------|---------------------------|---------------------------|---------------------------|---------------------------|\n| Round 1 | 2463 ms                   | 2365 ms                   | 2310 ms                   | 2329 ms                   |\n| Round 2 | 2219 ms                   | 2175 ms                   | 2156 ms                   | 2188 ms                   |\n\n# How can this be fixed?\n---\n\n~~~python\n# Try to use compare_digest() to reduce vulnerability to timing attacks.\ntry:\n    return hmac.compare_digest(hmac_calculated, hmac_to_verify)\nexcept AttributeError:\n    def fallback_constant_time(hmac_calculated, hmac_to_verify):\n    if len(hmac_calculated) != len(hmac_to_verify):\n        return False\n    \n    result = 0\n    for x, y in zip(hmac_calculated, hmac_to_verify):\n        result |= x ^ y\n    return result == 0\n~~~\n\nThis fallback does not terminate as soon as two bytes are not the same. I am willing to submit a PR to solve this issue, but I need your permission first.\n\n# Just one more little thing\n---\n\nThe \"Verify the request\" section over in the [docs](https://help.shopify.com/api/tutorials/building-public-app) is also vulnerable to timing attacks:\n\n~~~ruby\nif not (hmac == digest)\n    return [403, \"Authentication failed. Digest provided was: #{digest}\"]\nend\n~~~\n\nBest regards,\nEd", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "none", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "high", 
+            "scope": "unchanged", 
+            "integrity": "low", 
+            "availability": "none"
+        }, 
+        "rating": "low", 
+        "score": 3.7, 
+        "author_type": "User"
+    }, 
+    "title": "ShopifyAPI is vulnerable to timing attacks.", 
+    "is_member_of_team?": null, 
+    "vote_count": 8, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "shopify_timing_attack_poc.py", 
+            "type": "text/plain", 
+            "id": 179737, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/179/737/884207803eea164ebea174299ec87252d168f995/shopify_timing_attack_poc.py?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223647Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=631e46ab60ff2bc84f41c3454d02456ac8a2906199557d85ca3e40dabf6726a1"
+        }
+    ], 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": true, 
+            "created_at": "2017-04-26T16:31:49.488Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-26T16:31:49.488Z", 
+            "actor": {
+                "url": "/shopify", 
+                "profile": {
+                    "name": "Shopify"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+                }
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thank you for reporting this bug! This is an automated response to let you know that we've received your issue, and we'll process it as soon as possible.\n\nOur team is busy triaging and fixing HackerOne reports, and it may take us up to 1 week (or more) to triage any given issue. Don't worry, we'll get to yours!\n\nWhile you are waiting, you can read over our list of non applicable issues listed on our program page: https://hackerone.com/shopify. Make sure your issue isn't listed!", 
+            "markdown_message": "<p>Thank you for reporting this bug! This is an automated response to let you know that we&#39;ve received your issue, and we&#39;ll process it as soon as possible.</p>\n\n<p>Our team is busy triaging and fixing HackerOne reports, and it may take us up to 1 week (or more) to triage any given issue. Don&#39;t worry, we&#39;ll get to yours!</p>\n\n<p>While you are waiting, you can read over our list of non applicable issues listed on our program page: <a title=\"https://hackerone.com/shopify\" href=\"https://hackerone.com/shopify\">https://hackerone.com/shopify</a>. Make sure your issue isn&#39;t listed!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1638017, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-27T15:07:02.341Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-27T15:07:02.341Z", 
+            "actor": {
+                "username": "iv-rodriguez", 
+                "url": "/iv-rodriguez", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/122/715/2ee99ad44b735c2eda7ab13ee3bb5d2ef4985302_medium.jpg?1501535971"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thank you for your report.\n\nYou are welcome to open a PR with the fix, we will update our documentation.", 
+            "markdown_message": "<p>Thank you for your report.</p>\n\n<p>You are welcome to open a PR with the fix, we will update our documentation.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1640203, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-27T15:57:07.584Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-27T16:01:00.633Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hi @iv-rodriguez,\n\nThank you for the prompt response and for giving me your permission to patch this issue. The PR can be found here: https://github.com/Shopify/shopify_python_api/pull/194.\n\nBy the way, the same issue is located in the \"Receiving and verifying webhooks\" section in the [docs](https://help.shopify.com/api/tutorials/building-public-app) too:\n\n~~~\ndef verify_webhook(hmac, data)\n  digest = OpenSSL::Digest.new('sha256')\n  calculated_hmac = Base64.encode64(OpenSSL::HMAC.digest(digest, @secret, data)).strip\n\n  hmac == calculated_hmac\nend\n~~~\n\nBest regards,\nEd", 
+            "markdown_message": "<p>Hi <a href=\"/iv-rodriguez\">@iv-rodriguez</a>,</p>\n\n<p>Thank you for the prompt response and for giving me your permission to patch this issue. The PR can be found here: <a title=\"https://github.com/Shopify/shopify_python_api/pull/194\" href=\"/redirect?signature=37bddd15b9c2b64485f382e382aeb4bd0fd2a608&amp;url=https%3A%2F%2Fgithub.com%2FShopify%2Fshopify_python_api%2Fpull%2F194\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/Shopify/shopify_python_api/pull/194</span><i class=\"icon-external-link\"></i></a>.</p>\n\n<p>By the way, the same issue is located in the &quot;Receiving and verifying webhooks&quot; section in the <a href=\"/redirect?signature=9de63bf811b954cee7386b70db1997f1a84889ce&amp;url=https%3A%2F%2Fhelp.shopify.com%2Fapi%2Ftutorials%2Fbuilding-public-app\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>docs</span><i class=\"icon-external-link\"></i></a> too:</p>\n<pre class=\"highlight plaintext\"><code>def verify_webhook(hmac, data)\n  digest = OpenSSL::Digest.new(&#39;sha256&#39;)\n  calculated_hmac = Base64.encode64(OpenSSL::HMAC.digest(digest, [@secret](/secret), data)).strip\n\n  hmac == calculated_hmac\nend\n</code></pre>\n<p>Best regards,<br>\nEd</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1640361, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-23T14:16:02.847Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-23T14:16:02.847Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thanks again for your report. As discussed in https://github.com/Shopify/shopify_python_api/pull/194, the fallback behaviour only affects old Python versions (which are quickly disappearing) and the timing differences are too small to be exploitable in practice. Thus we don't feel a code change is warranted, and we're closing this issue as informative.", 
+            "markdown_message": "<p>Thanks again for your report. As discussed in <a title=\"https://github.com/Shopify/shopify_python_api/pull/194\" href=\"/redirect?signature=37bddd15b9c2b64485f382e382aeb4bd0fd2a608&amp;url=https%3A%2F%2Fgithub.com%2FShopify%2Fshopify_python_api%2Fpull%2F194\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/Shopify/shopify_python_api/pull/194</span><i class=\"icon-external-link\"></i></a>, the fallback behaviour only affects old Python versions (which are quickly disappearing) and the timing differences are too small to be exploitable in practice. Thus we don&#39;t feel a code change is warranted, and we&#39;re closing this issue as informative.</p>\n", 
+            "type": "Activities::BugInformative", 
+            "id": 1776657, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-23T14:23:14.623Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-23T14:23:14.623Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "@clayton The issue concerning the docs has not been addressed.", 
+            "markdown_message": "<p><a href=\"/clayton\">@clayton</a> The issue concerning the docs has not been addressed.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1776678, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-23T14:29:56.989Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-23T14:29:56.989Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "@edio You're correct. I'll re-open this until that's done.", 
+            "markdown_message": "<p><a href=\"/edio\">@edio</a> You&#39;re correct. I&#39;ll re-open this until that&#39;s done.</p>\n", 
+            "type": "Activities::BugReopened", 
+            "id": 1776693, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-23T14:30:04.978Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-23T14:30:04.978Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 1776694, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-23T14:31:23.467Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-23T14:31:23.467Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thank you, @clayton.", 
+            "markdown_message": "<p>Thank you, <a href=\"/clayton\">@clayton</a>.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1776695, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "edoverflow", 
+                "url": "/edoverflow"
+            }, 
+            "created_at": "2017-06-23T15:26:05.105Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-23T15:26:05.105Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "The documentation has now been updated.\n\nThank you for your interest in improving the security of the Shopify platform!", 
+            "markdown_message": "<p>The documentation has now been updated.</p>\n\n<p>Thank you for your interest in improving the security of the Shopify platform!</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1776821, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-23T15:26:10.476Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-23T15:26:10.476Z", 
+            "actor": {
+                "url": "/shopify", 
+                "profile": {
+                    "name": "Shopify"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+                }
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::NotEligibleForBounty", 
+            "id": 1776822, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-23T15:30:37.710Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-23T15:30:37.710Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "first_to_agree": true, 
+            "message": "@clayton I really enjoyed working with you and hopefully I can help out again in the future. I really appreciate your feedback on my PoC and the fact that you went to all the trouble to write your own.", 
+            "markdown_message": "<p><a href=\"/clayton\">@clayton</a> I really enjoyed working with you and hopefully I can help out again in the future. I really appreciate your feedback on my PoC and the fact that you went to all the trouble to write your own.</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1776995, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-23T15:36:23.376Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-23T15:36:23.376Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1777008, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-23T15:36:23.406Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-23T15:36:23.406Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1777009, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "edoverflow", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/edoverflow", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/116/374/2e86e29173a7b27dc4e4c35ecaef804781110b9f_small.png?1527882436"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 32, 
+        "name": "Cryptographic Issues - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2017-06-23T15:36:23.392Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/224096", 
+    "created_at": "2017-04-26T16:31:49.207Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Dear Shopify bug bounty team,</p>\n\n<p>The <a href=\"/redirect?signature=0eb2563fafd17cf729d27435fe8289fba2cc24af&amp;url=https%3A%2F%2Fgithub.com%2FShopify%2Fshopify_python_api\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>Python ShopifyAPI</span><i class=\"icon-external-link\"></i></a> library is vulnerable to timing attacks, because the <code>validate_hmac()</code> falls back to a non-constant time comparison when <code>hmac.compare_digest()</code> is not available. I am perfectly aware that this issue is out of scope, but your Shopify Guru (Jack P.) kindly advised me to report this issue here.</p>\n\n<h1 id=\"summary\">Summary</h1>\n\n<hr>\n\n<p>Timing attacks are a type of side channel attack where one can discover valuable information by recording the time it takes for a cryptographic algorithm to execute.</p>\n\n<p>The issue lies in <code>shopify/session.py</code>&#39;s <code>validate_hmac()</code> function:</p>\n<pre class=\"highlight plaintext\"><code># Try to use compare_digest() to reduce vulnerability to timing attacks.\n# If it&#39;s not available, just fall back to regular string comparison.\ntry:\n    return hmac.compare_digest(hmac_calculated, hmac_to_verify)\nexcept AttributeError:\n    return hmac_calculated == hmac_to_verify\n</code></pre>\n<p>The <code>==</code> operator does a byte-by-byte comparison of two values and as soon as the two differentiate it terminates. This means the longer it takes until the operation returns, the more correct characters the attacker has guessed. It is important to note that this issue really only affects users using Python versions prior to 2.7.7.</p>\n\n<p>Link to source code: <a title=\"https://github.com/Shopify/shopify_python_api/blob/master/shopify/session.py#L115-L120\" href=\"/redirect?signature=360fbaa64c5bd4b42fdeb00f2758631f1e0ca661&amp;url=https%3A%2F%2Fgithub.com%2FShopify%2Fshopify_python_api%2Fblob%2Fmaster%2Fshopify%2Fsession.py%23L115-L120\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/Shopify/shopify_python_api/blob/master/shopify/session.py#L115-L120</span><i class=\"icon-external-link\"></i></a></p>\n\n<h1 id=\"poc\">PoC</h1>\n\n<hr>\n\n<p>Here is a quick and messy PoC to demonstrate the issue:</p>\n<pre class=\"highlight python\"><code><span class=\"kn\">import</span> <span class=\"nn\">time</span><span class=\"p\">,</span> <span class=\"n\">hmac</span>\n\n\n<span class=\"k\">def</span> <span class=\"nf\">timing</span><span class=\"p\">(</span><span class=\"n\">f</span><span class=\"p\">):</span>\n    <span class=\"k\">def</span> <span class=\"nf\">wrap</span><span class=\"p\">(</span><span class=\"o\">*</span><span class=\"n\">args</span><span class=\"p\">):</span>\n        <span class=\"n\">time1</span> <span class=\"o\">=</span> <span class=\"n\">time</span><span class=\"o\">.</span><span class=\"n\">time</span><span class=\"p\">()</span>\n        <span class=\"n\">ret</span> <span class=\"o\">=</span> <span class=\"n\">f</span><span class=\"p\">(</span><span class=\"o\">*</span><span class=\"n\">args</span><span class=\"p\">)</span>\n        <span class=\"n\">time2</span> <span class=\"o\">=</span> <span class=\"n\">time</span><span class=\"o\">.</span><span class=\"n\">time</span><span class=\"p\">()</span>\n        <span class=\"k\">print</span> <span class=\"s\">&#39;</span><span class=\"si\">%</span><span class=\"s\">s took </span><span class=\"si\">%0.3</span><span class=\"s\">f ms&#39;</span> <span class=\"o\">%</span> <span class=\"p\">(</span><span class=\"n\">f</span><span class=\"o\">.</span><span class=\"n\">func_name</span><span class=\"p\">,</span> <span class=\"p\">(</span><span class=\"n\">time2</span><span class=\"o\">-</span><span class=\"n\">time1</span><span class=\"p\">)</span><span class=\"o\">*</span><span class=\"mf\">1000.0</span><span class=\"p\">)</span>\n        <span class=\"k\">return</span> <span class=\"n\">ret</span>\n    <span class=\"k\">return</span> <span class=\"n\">wrap</span>\n\n<span class=\"p\">[</span><span class=\"nd\">@timing</span><span class=\"p\">](</span><span class=\"o\">/</span><span class=\"n\">timing</span><span class=\"p\">)</span>\n<span class=\"k\">def</span> <span class=\"nf\">timing_attack_diff</span><span class=\"p\">():</span>\n    <span class=\"n\">s1</span> <span class=\"o\">=</span> <span class=\"s\">&quot;100000000000000000000000000000000&quot;</span>\n    <span class=\"n\">s2</span> <span class=\"o\">=</span> <span class=\"s\">&quot;000000000000000000000000000000001&quot;</span>\n    <span class=\"k\">for</span> <span class=\"n\">i</span> <span class=\"ow\">in</span> <span class=\"nb\">range</span><span class=\"p\">(</span><span class=\"mi\">200</span><span class=\"p\">):</span>\n        <span class=\"k\">if</span> <span class=\"ow\">not</span> <span class=\"n\">s1</span> <span class=\"o\">==</span> <span class=\"n\">s2</span><span class=\"p\">:</span>\n            <span class=\"k\">print</span> <span class=\"n\">i</span>\n\n<span class=\"p\">[</span><span class=\"nd\">@timing</span><span class=\"p\">](</span><span class=\"o\">/</span><span class=\"n\">timing</span><span class=\"p\">)</span>\n<span class=\"k\">def</span> <span class=\"nf\">timing_attack_same</span><span class=\"p\">():</span>\n    <span class=\"n\">s1</span> <span class=\"o\">=</span> <span class=\"s\">&quot;100000000000000000000000000000000&quot;</span>\n    <span class=\"n\">s2</span> <span class=\"o\">=</span> <span class=\"s\">&quot;100000000000000000000000000000000&quot;</span>\n    <span class=\"k\">for</span> <span class=\"n\">i</span> <span class=\"ow\">in</span> <span class=\"nb\">range</span><span class=\"p\">(</span><span class=\"mi\">200</span><span class=\"p\">):</span>\n        <span class=\"k\">if</span> <span class=\"n\">s1</span> <span class=\"o\">==</span> <span class=\"n\">s2</span><span class=\"p\">:</span>\n            <span class=\"k\">print</span> <span class=\"n\">i</span>\n\n<span class=\"p\">[</span><span class=\"nd\">@timing</span><span class=\"p\">](</span><span class=\"o\">/</span><span class=\"n\">timing</span><span class=\"p\">)</span>\n<span class=\"k\">def</span> <span class=\"nf\">constant_time_diff</span><span class=\"p\">():</span>\n    <span class=\"n\">s1</span> <span class=\"o\">=</span> <span class=\"n\">b</span><span class=\"s\">&quot;100000000000000000000000000000000&quot;</span>\n    <span class=\"n\">s2</span> <span class=\"o\">=</span> <span class=\"n\">b</span><span class=\"s\">&quot;000000000000000010000000000000000&quot;</span>\n    <span class=\"k\">for</span> <span class=\"n\">i</span> <span class=\"ow\">in</span> <span class=\"nb\">range</span><span class=\"p\">(</span><span class=\"mi\">200</span><span class=\"p\">):</span>\n        <span class=\"k\">if</span> <span class=\"ow\">not</span> <span class=\"n\">hmac</span><span class=\"o\">.</span><span class=\"n\">compare_digest</span><span class=\"p\">(</span><span class=\"n\">s1</span><span class=\"p\">,</span> <span class=\"n\">s2</span><span class=\"p\">):</span>\n            <span class=\"k\">print</span> <span class=\"n\">i</span>\n\n<span class=\"p\">[</span><span class=\"nd\">@timing</span><span class=\"p\">](</span><span class=\"o\">/</span><span class=\"n\">timing</span><span class=\"p\">)</span>\n<span class=\"k\">def</span> <span class=\"nf\">constant_time_same</span><span class=\"p\">():</span>\n    <span class=\"n\">s1</span> <span class=\"o\">=</span> <span class=\"n\">b</span><span class=\"s\">&quot;100000000000000000000000000000000&quot;</span>\n    <span class=\"n\">s2</span> <span class=\"o\">=</span> <span class=\"n\">b</span><span class=\"s\">&quot;100000000000000000000000000000000&quot;</span>\n    <span class=\"k\">for</span> <span class=\"n\">i</span> <span class=\"ow\">in</span> <span class=\"nb\">range</span><span class=\"p\">(</span><span class=\"mi\">200</span><span class=\"p\">):</span>\n        <span class=\"k\">if</span> <span class=\"n\">hmac</span><span class=\"o\">.</span><span class=\"n\">compare_digest</span><span class=\"p\">(</span><span class=\"n\">s1</span><span class=\"p\">,</span> <span class=\"n\">s2</span><span class=\"p\">):</span>\n            <span class=\"k\">print</span> <span class=\"n\">i</span>\n\n<span class=\"n\">timing_attack_diff</span><span class=\"p\">()</span>\n<span class=\"n\">timing_attack_same</span><span class=\"p\">()</span>\n<span class=\"n\">constant_time_diff</span><span class=\"p\">()</span>\n<span class=\"n\">constant_time_same</span><span class=\"p\">()</span>\n</code></pre>\n<p>The results are quite significant:</p>\n\n<table>\n<thead>\n<tr>\n<th>Round</th>\n<th>timing_attack_diff</th>\n<th>timing_attack_same</th>\n<th>constant_time_diff</th>\n<th>constant_time_same</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>Round 1</td>\n<td>2463 ms</td>\n<td>2365 ms</td>\n<td>2310 ms</td>\n<td>2329 ms</td>\n</tr>\n<tr>\n<td>Round 2</td>\n<td>2219 ms</td>\n<td>2175 ms</td>\n<td>2156 ms</td>\n<td>2188 ms</td>\n</tr>\n</tbody>\n</table>\n\n<h1 id=\"how-can-this-be-fixed\">How can this be fixed?</h1>\n\n<hr>\n<pre class=\"highlight python\"><code><span class=\"c\"># Try to use compare_digest() to reduce vulnerability to timing attacks.</span>\n<span class=\"k\">try</span><span class=\"p\">:</span>\n    <span class=\"k\">return</span> <span class=\"n\">hmac</span><span class=\"o\">.</span><span class=\"n\">compare_digest</span><span class=\"p\">(</span><span class=\"n\">hmac_calculated</span><span class=\"p\">,</span> <span class=\"n\">hmac_to_verify</span><span class=\"p\">)</span>\n<span class=\"k\">except</span> <span class=\"nb\">AttributeError</span><span class=\"p\">:</span>\n    <span class=\"k\">def</span> <span class=\"nf\">fallback_constant_time</span><span class=\"p\">(</span><span class=\"n\">hmac_calculated</span><span class=\"p\">,</span> <span class=\"n\">hmac_to_verify</span><span class=\"p\">):</span>\n    <span class=\"k\">if</span> <span class=\"nb\">len</span><span class=\"p\">(</span><span class=\"n\">hmac_calculated</span><span class=\"p\">)</span> <span class=\"o\">!=</span> <span class=\"nb\">len</span><span class=\"p\">(</span><span class=\"n\">hmac_to_verify</span><span class=\"p\">):</span>\n        <span class=\"k\">return</span> <span class=\"bp\">False</span>\n\n    <span class=\"n\">result</span> <span class=\"o\">=</span> <span class=\"mi\">0</span>\n    <span class=\"k\">for</span> <span class=\"n\">x</span><span class=\"p\">,</span> <span class=\"n\">y</span> <span class=\"ow\">in</span> <span class=\"nb\">zip</span><span class=\"p\">(</span><span class=\"n\">hmac_calculated</span><span class=\"p\">,</span> <span class=\"n\">hmac_to_verify</span><span class=\"p\">):</span>\n        <span class=\"n\">result</span> <span class=\"o\">|=</span> <span class=\"n\">x</span> <span class=\"o\">^</span> <span class=\"n\">y</span>\n    <span class=\"k\">return</span> <span class=\"n\">result</span> <span class=\"o\">==</span> <span class=\"mi\">0</span>\n</code></pre>\n<p>This fallback does not terminate as soon as two bytes are not the same. I am willing to submit a PR to solve this issue, but I need your permission first.</p>\n\n<h1 id=\"just-one-more-little-thing\">Just one more little thing</h1>\n\n<hr>\n\n<p>The &quot;Verify the request&quot; section over in the <a href=\"/redirect?signature=9de63bf811b954cee7386b70db1997f1a84889ce&amp;url=https%3A%2F%2Fhelp.shopify.com%2Fapi%2Ftutorials%2Fbuilding-public-app\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>docs</span><i class=\"icon-external-link\"></i></a> is also vulnerable to timing attacks:</p>\n<pre class=\"highlight ruby\"><code><span class=\"k\">if</span> <span class=\"n\">not</span> <span class=\"p\">(</span><span class=\"n\">hmac</span> <span class=\"o\">==</span> <span class=\"n\">digest</span><span class=\"p\">)</span>\n    <span class=\"k\">return</span> <span class=\"p\">[</span><span class=\"mi\">403</span><span class=\"p\">,</span> <span class=\"s2\">&quot;Authentication failed. Digest provided was: </span><span class=\"si\">#{</span><span class=\"n\">digest</span><span class=\"si\">}</span><span class=\"s2\">&quot;</span><span class=\"p\">]</span>\n<span class=\"k\">end</span>\n</code></pre>\n<p>Best regards,<br>\nEd</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.shopify.com", 
+            "about": "Shopify is a multi-channel commerce platform that helps people sell online, in-store, and everywhere in between.", 
+            "twitter_handle": "", 
+            "name": "Shopify"
+        }, 
+        "handle": "shopify", 
+        "url": "https://hackerone.com/shopify", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/001/382/1e9872bf9cfe04008c2673e07bfecaa83858cca1_small.jpg?1532728703", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 1382, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

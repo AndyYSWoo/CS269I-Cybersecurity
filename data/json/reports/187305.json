@@ -1,0 +1,416 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-01-12T00:37:21.327Z", 
+    "voters": [
+        "dkasak", 
+        "dgaletic", 
+        "michiel", 
+        "danila_xawdxawdx", 
+        "supernatural", 
+        "eveeez", 
+        "madrobot", 
+        "mpz", 
+        "an0n-j", 
+        "babayaga_", 
+        "and 11 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "10000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 187305, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-01-11T21:54:06.985Z", 
+    "vulnerability_information": "Introduction\n============\n\nCertain invalid Ruby programs (which should normally raise a syntax error) are able to cause an infinite loop in MRuby's parser which makes the mruby-engine sandbox (and consequently the MRI process it is running in) unresponsive to SIGTERM. The process begins looping forever and has to be terminated using SIGABRT or SIGKILL. The bug is caused by an improper handling of heredocs with a zero-length identifier.\n\nProof of concept\n================\n\ninfinite_heredoc.rb:\n--------------------\n\n    <<''.a begin\n\n1. Save the above code as `infinite_heredoc.rb`.\n2. Run either:\n   a) `mruby infinite_heredoc.rb`\n   b) `sandbox infinite_heredoc.rb`\n3. Both cause an infinite loop, but b) also leaves the process unresponsive to SIGTERM.\n\nDiscussion\n==========\n\nEverything below assumes the latest master of the mruby repository as of Dec 01th, which is commit `2cca9d368815e9c83a7489c40d69937d68cb43a2`.\n\nThe `<<''`\u02d9in the above POC code is parsed as a heredoc with an empty identifier. The rest of the POC is needed to bring the parser in a state where it is:\n\n   1. Continually searching for the identifier.\n   2. Erroneously thinking it found it, thereby signalling an end of the heredoc by pushing a `tHEREDOC_END` token.\n   3. This token is then invalid for the current parser state, which makes it push an error token.\n   4. Finally, while processing the error, the parser eventually calls `parse_string` again, which brings the process back to step 1, resulting in an infinite loop.\n\nA variation of the bug, using `do` instead of `begin`:\n\ninfinite_heredoc_variation.rb:\n------------------------------\n\n    <<''.a do\n\nAn excerpt from the parser's debug output, demonstrating the above:\n\n    Reading a token: Next token is token tHEREDOC_END ()\n    Error: discarding token tHEREDOC_END ()\n    Error: popping token error ()\n    Stack now 0 2 81 370 586 257 8 199\n    Shifting token error ()\n    Entering state 271\n    Reading a token: Next token is token tHEREDOC_END ()\n    Error: discarding token tHEREDOC_END ()\n    [...]\n\nIt is interesting to study what output MRI's parser gives for the same input:\n\n    infinite_heredoc.rb:1: can't find string \"\" anywhere before EOF\n    infinite_heredoc.rb:1: syntax error, unexpected end-of-input, expecting tSTRING_CONTENT or tSTRING_DBEG or tSTRING_DVAR or tSTRING_END\n    <<''.a begin\n        ^\n\nFor a heredoc with a non-zero name, both MRuby and MRI produce similar outputs:\n\nheredoc_valid_name.rb\n---------------------\n\n    <<'h'.a begin\n\nMRuby output\n------------\n\n    heredoc_valid_name.rb:3:0: can't find heredoc delimiter \"h\" anywhere before EOF\n    heredoc_valid_name.rb:3:0: syntax error, unexpected $end\n\nMRI output\n----------\n\n    heredoc_valid_name.rb:1: can't find string \"h\" anywhere before EOF\n    heredoc_valid_name.rb:1: syntax error, unexpected end-of-input, expecting tSTRING_CONTENT or tSTRING_DBEG or tSTRING_DVAR or tSTRING_END\n    <<'h'.a begin\n        ^\n\nSolution\n========\n\nThe problematic code is located `parse.y`, function `parse_string`, starting at line 3956:\n\n    if ((len-1 == hinf->term_len) && (strncmp(s, hinf->term, len-1) == 0)) {\n        return tHEREDOC_END;\n    }\n\nThe above code checks whether the current heredoc identifier can be matched and, if so, signals the end of the heredoc by returning a `tHEREDOC_END` token. The code is incorrect in the case when the length parameter is 0 due to the use of `strncmp` since it will return 0 even when the input strings are different (as is the case here, where `s` is `\"\\n\"` and `hinf->term` is `\"\"`). Therefore, the check incorrectly succeeds when it shouldn't.\n\nA possible fix is to check whether `hinf->term_len != 0` in addition to the present checks so zero-length heredoc identifiers are invalidated.\n\nempty_heredoc_identifier.patch\n------------------------------\n\n    diff --git a/mrbgems/mruby-compiler/core/parse.y b/mrbgems/mruby-compiler/core/parse.y\n    index bf893fb..85150fc 100644\n    --- a/mrbgems/mruby-compiler/core/parse.y\n    +++ b/mrbgems/mruby-compiler/core/parse.y\n    @@ -3953,7 +3953,7 @@ parse_string(parser_state *p)\n                --len;\n            }\n            }\n    -        if ((len-1 == hinf->term_len) && (strncmp(s, hinf->term, len-1) == 0)) {\n    +        if ((len-1 == hinf->term_len) && (strncmp(s, hinf->term, len-1) == 0) && (hinf->term_len != 0)) {\n            return tHEREDOC_END;\n            }\n        }\n\nWith the provided patch, MRuby correctly terminates with the POC and issues an error message very similar to the one in MRI:\n\n    infinite_heredoc.rb:3:0: can't find heredoc delimiter \"\" anywhere before EOF\n    infinite_heredoc.rb:3:0: syntax error, unexpected $end\n\nIn addition, all the tests pass.\n\n--\nDenis Kasak\nDamir Jeli\u0107", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "none", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "none", 
+            "availability": "high"
+        }, 
+        "rating": "high", 
+        "score": 8.6, 
+        "author_type": "User"
+    }, 
+    "title": "Invalid handling of zero-length heredoc identifiers leads to infinite loop in the sandbox", 
+    "is_member_of_team?": null, 
+    "vote_count": 21, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-02-10T21:54:07.052Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$10,000", 
+    "attachments": [
+        {
+            "file_name": "infinite_heredoc.rb", 
+            "type": "text/plain", 
+            "id": 139327, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/139/327/929c2620e52f0a589c0ab9e8b49cb3b727590fed/infinite_heredoc.rb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224501Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=cb9551661767d0c76d4a3a8b639db2d0e7a95f2916c8f1b89787dcc76bfa4726"
+        }, 
+        {
+            "file_name": "infinite_heredoc_variation.rb", 
+            "type": "text/plain", 
+            "id": 139328, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/139/328/c85f7e3556cb7cd6c9d1539bc50720435e68db1a/infinite_heredoc_variation.rb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224501Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=6efbd6f26d26bd39867606378cdc6a7cf686c81c69eae9b6a5787de451f33937"
+        }, 
+        {
+            "file_name": "heredoc_valid_name.rb", 
+            "type": "text/plain", 
+            "id": 139329, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/139/329/e0da80004f27e891f5078cbd07daf6d32a3d22fa/heredoc_valid_name.rb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224501Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=5a99d4a8039424722af970754e6ff00860901ef714937ae1e5f488ccf961fef0"
+        }, 
+        {
+            "file_name": "empty_heredoc_identifier.patch", 
+            "type": "text/x-diff", 
+            "id": 139330, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/139/330/04cf921090a34878ddbe93579d50b2edad44cdd8/empty_heredoc_identifier.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224501Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=af3f7e6daae9343ae2915725d9f5c59cafb41a3c4279877f5ffd4336c5d786c4"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-01T15:11:03.078Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-01T15:11:03.078Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for your report. We've reproduced the issue, and our engineering team is investigating.", 
+            "markdown_message": "<p>Thank you for your report. We&#39;ve reproduced the issue, and our engineering team is investigating.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1333943, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "dkasak", 
+                "url": "/dkasak"
+            }, 
+            "created_at": "2016-12-08T21:09:41.022Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-08T21:09:41.022Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thanks again for your report and patch! We deployed a fix to our production environment earlier today. The issue has also been patched upstream: https://github.com/mruby/mruby/commit/43512cc7bdb4949a24e310aa03e67a95c59b5f1b\n\nAs we mentioned in previous reports, we're still working to assess the impact of the issues we've received and calibrate our bounty payouts. We'll get back to you soon. In the meantime, thank you for your patience.", 
+            "markdown_message": "<p>Thanks again for your report and patch! We deployed a fix to our production environment earlier today. The issue has also been patched upstream: <a title=\"https://github.com/mruby/mruby/commit/43512cc7bdb4949a24e310aa03e67a95c59b5f1b\" href=\"/redirect?signature=00f27fd77acaa9cfe8ca02d145f9db685fc4e69a&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fcommit%2F43512cc7bdb4949a24e310aa03e67a95c59b5f1b\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/commit/43512cc7bdb4949a24e310aa03e67a95c59b5f1b</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>As we mentioned in previous reports, we&#39;re still working to assess the impact of the issues we&#39;ve received and calibrate our bounty payouts. We&#39;ll get back to you soon. In the meantime, thank you for your patience.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1351928, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/141/862/507b2794ce6654ab08a37b24701ed29171e81cd3/infinite_heredoc_further_variation.rb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224501Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=a1571f8de74de7bad320e50c7b5cd34823bbfe5981b7c0b5403b5bc24ce86152", 
+                    "type": "text/plain", 
+                    "id": 141862, 
+                    "filename": "infinite_heredoc_further_variation.rb"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2016-12-08T23:43:05.406Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-08T23:43:05.406Z", 
+            "actor": {
+                "username": "dkasak", 
+                "url": "/dkasak", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/122/858/741782c4a124d498cf0070511e4c112f6ef73e5d_medium.png?1481406790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Unfortunately, the patch you linked to doesn't seem to fix this issue at all, as you can see from this very slightly modified POC:\n\ninfinite_heredoc_further_variation.rb\n-----------------------------------------------------\n    <<''.\n\nThere are also many others. We strongly encourage you to push our patch (or equivalent) upstream, if possible.", 
+            "markdown_message": "<p>Unfortunately, the patch you linked to doesn&#39;t seem to fix this issue at all, as you can see from this very slightly modified POC:</p>\n\n<h2 id=\"infinite_heredoc_further_variation-rb\">infinite_heredoc_further_variation.rb</h2>\n<pre class=\"highlight plaintext\"><code>&lt;&lt;&#39;&#39;.\n</code></pre>\n<p>There are also many others. We strongly encourage you to push our patch (or equivalent) upstream, if possible.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1352412, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-09T14:31:21.305Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-09T14:31:21.305Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Indeed, thanks for pointing that out! I'll reopen this while we investigate further.", 
+            "markdown_message": "<p>Indeed, thanks for pointing that out! I&#39;ll reopen this while we investigate further.</p>\n", 
+            "type": "Activities::BugReopened", 
+            "id": 1353850, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "dkasak", 
+                "url": "/dkasak"
+            }, 
+            "created_at": "2017-01-09T17:18:00.380Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-09T17:18:00.380Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thanks again for your report. The issue has now been resolved upstream, and the fixed version is running in our production environment.\n\nThe relevant upstream commits are:\nhttps://github.com/mruby/mruby/commit/7b968ca893b5c24e07ba67e4e5100d93a4024418\nhttps://github.com/mruby/mruby/commit/b0886d5692dd58bed608fe8fb2be0c017c729060\n\nOur next round of bounty payouts will take place within two weeks, so we will be in touch with you again soon.", 
+            "markdown_message": "<p>Thanks again for your report. The issue has now been resolved upstream, and the fixed version is running in our production environment.</p>\n\n<p>The relevant upstream commits are:<br>\n<a title=\"https://github.com/mruby/mruby/commit/7b968ca893b5c24e07ba67e4e5100d93a4024418\" href=\"/redirect?signature=bbe91b5c453cf669aa8751ea62bb1d45522319cc&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fcommit%2F7b968ca893b5c24e07ba67e4e5100d93a4024418\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/commit/7b968ca893b5c24e07ba67e4e5100d93a4024418</span><i class=\"icon-external-link\"></i></a><br>\n<a title=\"https://github.com/mruby/mruby/commit/b0886d5692dd58bed608fe8fb2be0c017c729060\" href=\"/redirect?signature=1fef934b1b36c32e25fb97b3e4b67091aba4c815&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fcommit%2Fb0886d5692dd58bed608fe8fb2be0c017c729060\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/commit/b0886d5692dd58bed608fe8fb2be0c017c729060</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>Our next round of bounty payouts will take place within two weeks, so we will be in touch with you again soon.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1408975, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-01-11T21:54:00.227Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-11T21:54:00.227Z", 
+            "actor": {
+                "url": "/shopify-scripts", 
+                "profile": {
+                    "name": "shopify-scripts"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+                }
+            }, 
+            "team_handle": "shopify-scripts", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "10000.0", 
+            "collaborator": {
+                "username": "dkasak", 
+                "url": "/dkasak"
+            }, 
+            "message": "Thanks for helping improve the security of Shopify Scripts and the mruby project!", 
+            "markdown_message": "<p>Thanks for helping improve the security of Shopify Scripts and the mruby project!</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1414733, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-11T21:54:07.023Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-11T21:54:07.023Z", 
+            "actor": {
+                "username": "andrewdunbar", 
+                "url": "/andrewdunbar", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/164/cd46f5270ea41c5f0da3bea93e2eca7a95858caf_medium.jpg?1427927985"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1414734, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-12T00:36:02.416Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-12T00:36:35.115Z", 
+            "actor": {
+                "username": "dkasak", 
+                "url": "/dkasak", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/122/858/741782c4a124d498cf0070511e4c112f6ef73e5d_medium.png?1481406790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for the bounty. As before, it was a pleasure of working on this with you, Shopify.", 
+            "markdown_message": "<p>Thank you for the bounty. As before, it was a pleasure of working on this with you, Shopify.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1415093, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-12T00:37:21.347Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-12T00:37:21.347Z", 
+            "actor": {
+                "username": "dkasak", 
+                "url": "/dkasak", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/122/858/741782c4a124d498cf0070511e4c112f6ef73e5d_medium.png?1481406790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1415098, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-12T00:37:21.382Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-12T00:37:21.382Z", 
+            "actor": {
+                "username": "dkasak", 
+                "url": "/dkasak", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/122/858/741782c4a124d498cf0070511e4c112f6ef73e5d_medium.png?1481406790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1415099, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "dkasak", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/dkasak", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/122/858/9cb96e9ee0a0a51253abc1d38190bed32bcb7087_small.png?1481406790"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 48, 
+        "name": "Denial of Service"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -57372654.176970534, 
+    "disclosed_at": "2017-01-12T00:37:21.368Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/187305", 
+    "created_at": "2016-12-01T11:47:43.778Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"introduction\">Introduction</h1>\n\n<p>Certain invalid Ruby programs (which should normally raise a syntax error) are able to cause an infinite loop in MRuby&#39;s parser which makes the mruby-engine sandbox (and consequently the MRI process it is running in) unresponsive to SIGTERM. The process begins looping forever and has to be terminated using SIGABRT or SIGKILL. The bug is caused by an improper handling of heredocs with a zero-length identifier.</p>\n\n<h1 id=\"proof-of-concept\">Proof of concept</h1>\n\n<h2 id=\"infinite_heredoc-rb\">infinite_heredoc.rb:</h2>\n<pre class=\"highlight plaintext\"><code>&lt;&lt;&#39;&#39;.a begin\n</code></pre>\n<ol>\n<li>Save the above code as <code>infinite_heredoc.rb</code>.</li>\n<li>Run either:\na) <code>mruby infinite_heredoc.rb</code>\nb) <code>sandbox infinite_heredoc.rb</code>\n</li>\n<li>Both cause an infinite loop, but b) also leaves the process unresponsive to SIGTERM.</li>\n</ol>\n\n<h1 id=\"discussion\">Discussion</h1>\n\n<p>Everything below assumes the latest master of the mruby repository as of Dec 01th, which is commit <code>2cca9d368815e9c83a7489c40d69937d68cb43a2</code>.</p>\n\n<p>The <code>&lt;&lt;&#39;&#39;</code>\u02d9in the above POC code is parsed as a heredoc with an empty identifier. The rest of the POC is needed to bring the parser in a state where it is:</p>\n\n<ol>\n<li>Continually searching for the identifier.</li>\n<li>Erroneously thinking it found it, thereby signalling an end of the heredoc by pushing a <code>tHEREDOC_END</code> token.</li>\n<li>This token is then invalid for the current parser state, which makes it push an error token.</li>\n<li>Finally, while processing the error, the parser eventually calls <code>parse_string</code> again, which brings the process back to step 1, resulting in an infinite loop.</li>\n</ol>\n\n<p>A variation of the bug, using <code>do</code> instead of <code>begin</code>:</p>\n\n<h2 id=\"infinite_heredoc_variation-rb\">infinite_heredoc_variation.rb:</h2>\n<pre class=\"highlight plaintext\"><code>&lt;&lt;&#39;&#39;.a do\n</code></pre>\n<p>An excerpt from the parser&#39;s debug output, demonstrating the above:</p>\n<pre class=\"highlight plaintext\"><code>Reading a token: Next token is token tHEREDOC_END ()\nError: discarding token tHEREDOC_END ()\nError: popping token error ()\nStack now 0 2 81 370 586 257 8 199\nShifting token error ()\nEntering state 271\nReading a token: Next token is token tHEREDOC_END ()\nError: discarding token tHEREDOC_END ()\n[...]\n</code></pre>\n<p>It is interesting to study what output MRI&#39;s parser gives for the same input:</p>\n<pre class=\"highlight plaintext\"><code>infinite_heredoc.rb:1: can&#39;t find string &quot;&quot; anywhere before EOF\ninfinite_heredoc.rb:1: syntax error, unexpected end-of-input, expecting tSTRING_CONTENT or tSTRING_DBEG or tSTRING_DVAR or tSTRING_END\n&lt;&lt;&#39;&#39;.a begin\n    ^\n</code></pre>\n<p>For a heredoc with a non-zero name, both MRuby and MRI produce similar outputs:</p>\n\n<h2 id=\"heredoc_valid_name-rb\">heredoc_valid_name.rb</h2>\n<pre class=\"highlight plaintext\"><code>&lt;&lt;&#39;h&#39;.a begin\n</code></pre>\n<h2 id=\"mruby-output\">MRuby output</h2>\n<pre class=\"highlight plaintext\"><code>heredoc_valid_name.rb:3:0: can&#39;t find heredoc delimiter &quot;h&quot; anywhere before EOF\nheredoc_valid_name.rb:3:0: syntax error, unexpected $end\n</code></pre>\n<h2 id=\"mri-output\">MRI output</h2>\n<pre class=\"highlight plaintext\"><code>heredoc_valid_name.rb:1: can&#39;t find string &quot;h&quot; anywhere before EOF\nheredoc_valid_name.rb:1: syntax error, unexpected end-of-input, expecting tSTRING_CONTENT or tSTRING_DBEG or tSTRING_DVAR or tSTRING_END\n&lt;&lt;&#39;h&#39;.a begin\n    ^\n</code></pre>\n<h1 id=\"solution\">Solution</h1>\n\n<p>The problematic code is located <code>parse.y</code>, function <code>parse_string</code>, starting at line 3956:</p>\n<pre class=\"highlight plaintext\"><code>if ((len-1 == hinf-&gt;term_len) &amp;&amp; (strncmp(s, hinf-&gt;term, len-1) == 0)) {\n    return tHEREDOC_END;\n}\n</code></pre>\n<p>The above code checks whether the current heredoc identifier can be matched and, if so, signals the end of the heredoc by returning a <code>tHEREDOC_END</code> token. The code is incorrect in the case when the length parameter is 0 due to the use of <code>strncmp</code> since it will return 0 even when the input strings are different (as is the case here, where <code>s</code> is <code>&quot;\\n&quot;</code> and <code>hinf-&gt;term</code> is <code>&quot;&quot;</code>). Therefore, the check incorrectly succeeds when it shouldn&#39;t.</p>\n\n<p>A possible fix is to check whether <code>hinf-&gt;term_len != 0</code> in addition to the present checks so zero-length heredoc identifiers are invalidated.</p>\n\n<h2 id=\"empty_heredoc_identifier-patch\">empty_heredoc_identifier.patch</h2>\n<pre class=\"highlight diff\"><code><span class=\"gh\">diff --git a/mrbgems/mruby-compiler/core/parse.y b/mrbgems/mruby-compiler/core/parse.y\nindex bf893fb..85150fc 100644\n</span><span class=\"gd\">--- a/mrbgems/mruby-compiler/core/parse.y\n</span><span class=\"gi\">+++ b/mrbgems/mruby-compiler/core/parse.y\n</span><span class=\"gu\">@@ -3953,7 +3953,7 @@ parse_string(parser_state *p)\n</span>            --len;\n        }\n        }\n<span class=\"gd\">-        if ((len-1 == hinf-&gt;term_len) &amp;&amp; (strncmp(s, hinf-&gt;term, len-1) == 0)) {\n</span><span class=\"gi\">+        if ((len-1 == hinf-&gt;term_len) &amp;&amp; (strncmp(s, hinf-&gt;term, len-1) == 0) &amp;&amp; (hinf-&gt;term_len != 0)) {\n</span>        return tHEREDOC_END;\n        }\n    }\n</code></pre>\n<p>With the provided patch, MRuby correctly terminates with the POC and issues an error message very similar to the one in MRI:</p>\n<pre class=\"highlight plaintext\"><code>infinite_heredoc.rb:3:0: can&#39;t find heredoc delimiter &quot;&quot; anywhere before EOF\ninfinite_heredoc.rb:3:0: syntax error, unexpected $end\n</code></pre>\n<p>In addition, all the tests pass.</p>\n\n<p>--<br>\nDenis Kasak<br>\nDamir Jeli\u0107</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.mruby.science", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "shopify-scripts"
+        }, 
+        "handle": "shopify-scripts", 
+        "url": "https://hackerone.com/shopify-scripts", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/015/668/9f47d94cbd9e4311b57f1ab05f67fb5c26fd2e78_small.jpg?1475592254", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 15668, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

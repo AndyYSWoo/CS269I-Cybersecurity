@@ -1,0 +1,326 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-02-28T13:30:14.146Z", 
+    "voters": [
+        "eveeez", 
+        "spetr0x"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "100.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 200387, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-02-27T23:30:32.152Z", 
+    "vulnerability_information": "The following code causes mruby to use up all available memory:\n\n`class A redo\nrescue c\nend`\n\nFollowing the execution, we see the code in codegen.c jumping between\nCASE(OP_ONERR) and CASE(OP_JMP). CASE(OP_ONERR) uses realloc to double\nthe size of mrb->c->rescue, and since it is stuck in an infinite loop\nbetween the two instructions, it runs out of memory.\n\nThe problematic jump is visible in the bytcode (emphasis added).\n\n00001 NODE_SCOPE:\n00001   NODE_BEGIN:\n00001     NODE_CLASS:\n00003       :A\n00003       body:\n00001         NODE_RESCUE:\n00003           body:\n00001             NODE_BEGIN:\n00001               NODE_REDO\n00003           rescue:\n00003             handle classes:\n00002               NODE_FCALL:\n00002                 NODE_SELF\n00002                 method='c' (670)\n00003             rescue body:\n00003               NODE_BEGIN:\n\nirep 0x715200 nregs=3 nlocals=1 pools=0 syms=1 reps=1\n    1 000 OP_LOADNIL    R1\n    1 001 OP_LOADNIL    R2\n    1 002 OP_CLASS      R1      :A\n    1 003 OP_EXEC       R1      I(+1)\n    1 004 OP_STOP\n\nirep 0x71b400 nregs=4 nlocals=1 pools=0 syms=2 reps=0\n    **1 000 OP_ONERR      003**   <------- Infinite loop\n    **1 001 OP_JMP        000**   <------- created here.\n    1 002 OP_JMP        013\n    1 003 OP_RESCUE     R1\n    2 004 OP_LOADSELF   R2\n    2 005 OP_SEND       R2      :c      0\n    2 006 OP_MOVE       R3      R1\n    2 007 OP_SEND       R2      :===    1\n    2 008 OP_JMPIF      R2      010\n    2 009 OP_JMP        012\n    3 010 OP_LOADNIL    R1\n    3 011 OP_JMP        014\n    3 012 OP_RAISE      R1\n    3 013 OP_POPERR     1\n    3 014 OP_RETURN     R1      return\n\nTesting the same code with MRI Ruby shows that MRI Ruby rejects it as a syntax\nerror. It would seem MRI Ruby forbids the use of `redo` in the context of\n`rescue` so the patch below disallows the related LOOP_* types. The test suite\nruns successfully with the patch. The bug is mitigated inside the mruby-engine\nsandbox because it triggers the instruction quota.\n\n```\n--- a/mrbgems/mruby-compiler/core/codegen.c\n+++ b/mrbgems/mruby-compiler/core/codegen.c\n@@ -2031,7 +2031,7 @@ codegen(codegen_scope *s, node *tree, int val)\n     break;\n \n   case NODE_REDO:\n-    if (!s->loop) {\n+    if (!s->loop || s->loop->type == LOOP_BEGIN || s->loop->type == LOOP_RESCUE) {\n       raise_error(s, \"unexpected redo\");\n     }\n     else {\n```\n", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "User"
+    }, 
+    "title": "Incorrect code generation with redo inside NODE_RESCUE.", 
+    "is_member_of_team?": null, 
+    "vote_count": 2, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-03-29T23:30:32.185Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$100", 
+    "attachments": [
+        {
+            "file_name": "0001-Fix-incorrect-code-generation-with-redo-inside-NODE_.patch", 
+            "type": "text/x-diff", 
+            "id": 154258, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/154/258/ce6d3f538a4a9f1ce241c078b3eed528a411f0ee/0001-Fix-incorrect-code-generation-with-redo-inside-NODE_.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224253Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=bfed5552a84c799780cbe83e4eb46746958a9e5856f94c4c171e5b8ae4a92c36"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": true, 
+            "created_at": "2017-01-22T18:09:42.582Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-22T18:09:42.582Z", 
+            "actor": {
+                "url": "/shopify-scripts", 
+                "profile": {
+                    "name": "shopify-scripts"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+                }
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for reporting this bug! This is an automated response to let you know that we've received your issue, and we'll process it as soon as possible.\n\nDue to the large volume of reports we have received, it may take us up to three weeks to respond. Thank you for your patience!", 
+            "markdown_message": "<p>Thank you for reporting this bug! This is an automated response to let you know that we&#39;ve received your issue, and we&#39;ll process it as soon as possible.</p>\n\n<p>Due to the large volume of reports we have received, it may take us up to three weeks to respond. Thank you for your patience!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1437143, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-01T17:10:24.348Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-01T17:10:24.348Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for the detailed report. We've opened the issue upstream: https://github.com/mruby/mruby/issues/3422", 
+            "markdown_message": "<p>Thank you for the detailed report. We&#39;ve opened the issue upstream: <a title=\"https://github.com/mruby/mruby/issues/3422\" href=\"/redirect?signature=b166ad202be892258dfb1bf27d85c06ea3de2dcd&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fissues%2F3422\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/issues/3422</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1456595, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-03T21:20:54.711Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-03T21:23:50.811Z", 
+            "actor": {
+                "username": "dgaletic", 
+                "url": "/dgaletic", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Edit: Ignore this; accidentally posted here, and I don't see a \"delete comment\" option.", 
+            "markdown_message": "<p>Edit: Ignore this; accidentally posted here, and I don&#39;t see a &quot;delete comment&quot; option.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1461741, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "dgaletic", 
+                "url": "/dgaletic"
+            }, 
+            "created_at": "2017-02-22T15:57:16.273Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-22T15:57:16.273Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thanks again for your report. This was resolved upstream in https://github.com/mruby/mruby/commit/ecb6ac8b4aca56582ebed3e955178a0ad6c77d5d\n\nOur next round of bounty decisions will take place within two weeks, so we'll be in touch with you again soon.", 
+            "markdown_message": "<p>Thanks again for your report. This was resolved upstream in <a title=\"https://github.com/mruby/mruby/commit/ecb6ac8b4aca56582ebed3e955178a0ad6c77d5d\" href=\"/redirect?signature=2025ba65eb598427c66626095fc83281922858c7&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fcommit%2Fecb6ac8b4aca56582ebed3e955178a0ad6c77d5d\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/commit/ecb6ac8b4aca56582ebed3e955178a0ad6c77d5d</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>Our next round of bounty decisions will take place within two weeks, so we&#39;ll be in touch with you again soon.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1499526, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-02-27T23:30:25.962Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-27T23:30:25.962Z", 
+            "actor": {
+                "url": "/shopify-scripts", 
+                "profile": {
+                    "name": "shopify-scripts"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+                }
+            }, 
+            "team_handle": "shopify-scripts", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "100.0", 
+            "collaborator": {
+                "username": "dgaletic", 
+                "url": "/dgaletic"
+            }, 
+            "message": "Thanks for helping improve the security of the MRuby project!", 
+            "markdown_message": "<p>Thanks for helping improve the security of the MRuby project!</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1509645, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-27T23:30:32.168Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-27T23:30:32.168Z", 
+            "actor": {
+                "username": "andrewdunbar", 
+                "url": "/andrewdunbar", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/164/cd46f5270ea41c5f0da3bea93e2eca7a95858caf_medium.jpg?1427927985"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1509646, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-28T13:30:14.172Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-28T13:30:14.172Z", 
+            "actor": {
+                "username": "dgaletic", 
+                "url": "/dgaletic", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1510924, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-28T13:30:14.203Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-28T13:30:14.203Z", 
+            "actor": {
+                "username": "dgaletic", 
+                "url": "/dgaletic", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1510925, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "dgaletic", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/dgaletic", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 48, 
+        "name": "Denial of Service"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -53305941.04568641, 
+    "disclosed_at": "2017-02-28T13:30:14.189Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/200387", 
+    "created_at": "2017-01-22T18:09:42.398Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>The following code causes mruby to use up all available memory:</p>\n\n<p><code>class A redo<br>\nrescue c<br>\nend</code></p>\n\n<p>Following the execution, we see the code in codegen.c jumping between<br>\nCASE(OP_ONERR) and CASE(OP_JMP). CASE(OP_ONERR) uses realloc to double<br>\nthe size of mrb-&gt;c-&gt;rescue, and since it is stuck in an infinite loop<br>\nbetween the two instructions, it runs out of memory.</p>\n\n<p>The problematic jump is visible in the bytcode (emphasis added).</p>\n\n<p>00001 NODE_SCOPE:<br>\n00001   NODE_BEGIN:<br>\n00001     NODE_CLASS:<br>\n00003       :A<br>\n00003       body:<br>\n00001         NODE_RESCUE:<br>\n00003           body:<br>\n00001             NODE_BEGIN:<br>\n00001               NODE_REDO<br>\n00003           rescue:<br>\n00003             handle classes:<br>\n00002               NODE_FCALL:<br>\n00002                 NODE_SELF<br>\n00002                 method=&#39;c&#39; (670)<br>\n00003             rescue body:<br>\n00003               NODE_BEGIN:</p>\n\n<p>irep 0x715200 nregs=3 nlocals=1 pools=0 syms=1 reps=1<br>\n    1 000 OP_LOADNIL    R1<br>\n    1 001 OP_LOADNIL    R2<br>\n    1 002 OP_CLASS      R1      :A<br>\n    1 003 OP_EXEC       R1      I(+1)<br>\n    1 004 OP_STOP</p>\n\n<p>irep 0x71b400 nregs=4 nlocals=1 pools=0 syms=2 reps=0<br>\n    <strong>1 000 OP_ONERR      003</strong>   &lt;------- Infinite loop<br>\n    <strong>1 001 OP_JMP        000</strong>   &lt;------- created here.<br>\n    1 002 OP_JMP        013<br>\n    1 003 OP_RESCUE     R1<br>\n    2 004 OP_LOADSELF   R2<br>\n    2 005 OP_SEND       R2      :c      0<br>\n    2 006 OP_MOVE       R3      R1<br>\n    2 007 OP_SEND       R2      :===    1<br>\n    2 008 OP_JMPIF      R2      010<br>\n    2 009 OP_JMP        012<br>\n    3 010 OP_LOADNIL    R1<br>\n    3 011 OP_JMP        014<br>\n    3 012 OP_RAISE      R1<br>\n    3 013 OP_POPERR     1<br>\n    3 014 OP_RETURN     R1      return</p>\n\n<p>Testing the same code with MRI Ruby shows that MRI Ruby rejects it as a syntax<br>\nerror. It would seem MRI Ruby forbids the use of <code>redo</code> in the context of<br>\n<code>rescue</code> so the patch below disallows the related LOOP_* types. The test suite<br>\nruns successfully with the patch. The bug is mitigated inside the mruby-engine<br>\nsandbox because it triggers the instruction quota.</p>\n<pre class=\"highlight diff\"><code><span class=\"gd\">--- a/mrbgems/mruby-compiler/core/codegen.c\n</span><span class=\"gi\">+++ b/mrbgems/mruby-compiler/core/codegen.c\n</span><span class=\"gu\">@@ -2031,7 +2031,7 @@ codegen(codegen_scope *s, node *tree, int val)\n</span>     break;\n\n   case NODE_REDO:\n<span class=\"gd\">-    if (!s-&gt;loop) {\n</span><span class=\"gi\">+    if (!s-&gt;loop || s-&gt;loop-&gt;type == LOOP_BEGIN || s-&gt;loop-&gt;type == LOOP_RESCUE) {\n</span>       raise_error(s, &quot;unexpected redo&quot;);\n     }\n     else {\n</code></pre>", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.mruby.science", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "shopify-scripts"
+        }, 
+        "handle": "shopify-scripts", 
+        "url": "https://hackerone.com/shopify-scripts", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/015/668/9f47d94cbd9e4311b57f1ab05f67fb5c26fd2e78_small.jpg?1475592254", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 15668, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

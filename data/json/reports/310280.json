@@ -1,0 +1,269 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-05-18T08:27:10.170Z", 
+    "voters": [
+        "damian89", 
+        "eveeez", 
+        "an0nym0us", 
+        "apapedulimu", 
+        "japz", 
+        "cryptographer", 
+        "katarina", 
+        "baloo", 
+        "kass198", 
+        "sahilharchandani22", 
+        "and 4 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "10.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 310280, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "At first, I thought, that my finding is a valid sql injection but I was wrong because of WordPress currently adding magic slashes to COOKIE/POST/GET - this is a very special behaviour which may be remove in the future. There are tons of requests to remove this \"old\" technique.\n\nNevertheless I decided to report the issue, because similar code within the audited plugin is escaped - so this is more informational.\n\nLine 49-50:\n```\n$multi_layer_map_list = isset($_POST['multi_layer_map_list']) ? ($_POST['multi_layer_map_list']) : (isset($_GET['multi_layer_map_list']) ? ($_GET['multi_layer_map_list']) : '');\n$multi_layer_map_list_exploded = explode(',', $multi_layer_map_list);\n```\n\nAs you can see $_GET['multi_layer_map_list']/$_POST['multi_layer_map_list'] are not escaped and exploded by \",\" in line 50. \n\nThis may result in a succesful sql injection on line 145 - depending on the use case of the shortcode:\n```\n$mlm_query = \"SELECT \". $distance_query .\" l.id as lid,l.name as lname,... FROM `\" . $table_name_layers . \"` as l INNER JOIN `\" . $table_name_markers . \"` AS m ON m.layer LIKE concat('%\\\"',l.id,'\\\"%') \". $search_query .\" WHERE l.id='\" . $multi_layer_map_list . \"'  ORDER BY ...\";\n```\nFix: esc_sql()\n\nA very similar behaviour can be found in line 149 and following:\n\n```\n$first_mlm_id = $multi_layer_map_list_exploded[0];\n$other_mlm_ids = array_slice($multi_layer_map_list_exploded,1);\n$mlm_query = \"(SELECT ... WHERE l.id='\" . $first_mlm_id . \"'  )\";\nforeach ($other_mlm_ids as $row) {\n    $mlm_query .= \" UNION (SELECT ... FROM `\" . $table_name_layers . \"` ... WHERE l.id='\" . $row . \"' )\";\n}\n```\n\nHere $row and $first_mlm_id are controlled by a guestuser and are not escaped or validated.\n\nFix: intval()\n\nThe only reason the application is not vulnerable is because of wp-settings.php:\n\n```\n// Add magic quotes and set up $_REQUEST ( $_GET + $_POST )\nwp_magic_quotes();\n```\n\nBut the problem is: a lot of themes and/or plugins (which are loaded sometimes before your plugin is loaded) reset this setting like described hiere:\n\nhttps://stackoverflow.com/questions/8949768/with-magic-quotes-disabled-why-does-php-wordpress-continue-to-auto-escape-my\n\nI believe it may be a better solution to escaped mentioned parts, just to be sure!\n\nOfftopic: the plugin has also a lot of interesting backend functions and calls - are vulnerabilities which can be triggered by admin/mod/author relevent? I'm not talking about xss, more execs and sqlinjections.\n\n## Impact\n\nUnder certain circumstances a SQL Injection is possible.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "User"
+    }, 
+    "title": "[Informational] Possible SQL Injection in inc/ajax-actions-frontend.php", 
+    "is_member_of_team?": null, 
+    "vote_count": 14, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "Maps Marker Pro WordPress plugin", 
+        "max_severity": "critical", 
+        "databaseId": 356, 
+        "asset_type": "OTHER"
+    }, 
+    "allow_singular_disclosure_at": "2018-06-17T08:27:10.273Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$10", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "damian89", 
+                "url": "/damian89"
+            }, 
+            "created_at": "2018-01-29T19:12:31.616Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-29T19:12:31.616Z", 
+            "actor": {
+                "username": "mapsmarker", 
+                "url": "/mapsmarker", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/129/564/42df51d4814ff42582c430ceb70d2f1de75f0bdb_medium.png?1515010869"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "mapsmarker_com_e_u", 
+            "message": "Thanks for your report, seems like we missed adding esc_sql() and intval() on the lines you pointed out. Anyway we are in the middle of a major rewrite project and that code will not be available in v4.0 anymore, so I am closing this ticket and marking it as resolved as a consequence.\nVulnerabilities which can be triggered by admins are not relevant - please see the program description for details.\nAnyway we decided to close submission of hackerone submissions until v4.0 is available - we would be happy if you take another look at our plugin once the next release is available (which is as said before a complete rewrite).", 
+            "markdown_message": "<p>Thanks for your report, seems like we missed adding esc_sql() and intval() on the lines you pointed out. Anyway we are in the middle of a major rewrite project and that code will not be available in v4.0 anymore, so I am closing this ticket and marking it as resolved as a consequence.<br>\nVulnerabilities which can be triggered by admins are not relevant - please see the program description for details.<br>\nAnyway we decided to close submission of hackerone submissions until v4.0 is available - we would be happy if you take another look at our plugin once the next release is available (which is as said before a complete rewrite).</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2328412, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-01-29T19:14:45.496Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-29T19:14:45.496Z", 
+            "actor": {
+                "url": "/mapsmarker_com_e_u", 
+                "profile": {
+                    "name": "MapsMarker.com e.U."
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/780/5e59848c5e731087984c47079280d3bb8c7e63e6_medium.png?1515010937"
+                }
+            }, 
+            "team_handle": "mapsmarker_com_e_u", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "10.0", 
+            "collaborator": {
+                "username": "damian89", 
+                "url": "/damian89"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2328418, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-29T19:18:04.857Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-29T19:18:04.857Z", 
+            "actor": {
+                "username": "damian89", 
+                "url": "/damian89", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/074/229/c76e1811980faf6608e82f9ebf44c89bca325526_medium.jpg?1520668670"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "mapsmarker_com_e_u", 
+            "message": "Thanks, will do so!", 
+            "markdown_message": "<p>Thanks, will do so!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2328431, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-18T08:27:10.213Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-18T08:27:10.213Z", 
+            "actor": {
+                "username": "damian89", 
+                "url": "/damian89", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/074/229/c76e1811980faf6608e82f9ebf44c89bca325526_medium.jpg?1520668670"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "mapsmarker_com_e_u", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2760524, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-17T08:27:19.473Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-17T08:27:19.473Z", 
+            "actor": {
+                "url": "/mapsmarker_com_e_u", 
+                "profile": {
+                    "name": "MapsMarker.com e.U."
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/780/5e59848c5e731087984c47079280d3bb8c7e63e6_medium.png?1515010937"
+                }
+            }, 
+            "team_handle": "mapsmarker_com_e_u", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2895318, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "damian89", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/damian89", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/074/229/823855e968f6e97375ee5ee6e7effc3d70b9d646_small.jpg?1520668670"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 67, 
+        "name": "SQL Injection"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -14910755.626718137, 
+    "disclosed_at": "2018-06-17T08:27:19.442Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/310280", 
+    "created_at": "2018-01-29T18:39:41.247Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>At first, I thought, that my finding is a valid sql injection but I was wrong because of WordPress currently adding magic slashes to COOKIE/POST/GET - this is a very special behaviour which may be remove in the future. There are tons of requests to remove this &quot;old&quot; technique.</p>\n\n<p>Nevertheless I decided to report the issue, because similar code within the audited plugin is escaped - so this is more informational.</p>\n\n<p>Line 49-50:</p>\n<pre class=\"highlight plaintext\"><code>$multi_layer_map_list = isset($_POST[&#39;multi_layer_map_list&#39;]) ? ($_POST[&#39;multi_layer_map_list&#39;]) : (isset($_GET[&#39;multi_layer_map_list&#39;]) ? ($_GET[&#39;multi_layer_map_list&#39;]) : &#39;&#39;);\n$multi_layer_map_list_exploded = explode(&#39;,&#39;, $multi_layer_map_list);\n</code></pre>\n<p>As you can see $_GET[&#39;multi_layer_map_list&#39;]/$_POST[&#39;multi_layer_map_list&#39;] are not escaped and exploded by &quot;,&quot; in line 50. </p>\n\n<p>This may result in a succesful sql injection on line 145 - depending on the use case of the shortcode:</p>\n<pre class=\"highlight plaintext\"><code>$mlm_query = &quot;SELECT &quot;. $distance_query .&quot; l.id as lid,l.name as lname,... FROM `&quot; . $table_name_layers . &quot;` as l INNER JOIN `&quot; . $table_name_markers . &quot;` AS m ON m.layer LIKE concat(&#39;%\\&quot;&#39;,l.id,&#39;\\&quot;%&#39;) &quot;. $search_query .&quot; WHERE l.id=&#39;&quot; . $multi_layer_map_list . &quot;&#39;  ORDER BY ...&quot;;\n</code></pre>\n<p>Fix: esc_sql()</p>\n\n<p>A very similar behaviour can be found in line 149 and following:</p>\n<pre class=\"highlight plaintext\"><code>$first_mlm_id = $multi_layer_map_list_exploded[0];\n$other_mlm_ids = array_slice($multi_layer_map_list_exploded,1);\n$mlm_query = &quot;(SELECT ... WHERE l.id=&#39;&quot; . $first_mlm_id . &quot;&#39;  )&quot;;\nforeach ($other_mlm_ids as $row) {\n    $mlm_query .= &quot; UNION (SELECT ... FROM `&quot; . $table_name_layers . &quot;` ... WHERE l.id=&#39;&quot; . $row . &quot;&#39; )&quot;;\n}\n</code></pre>\n<p>Here $row and $first_mlm_id are controlled by a guestuser and are not escaped or validated.</p>\n\n<p>Fix: intval()</p>\n\n<p>The only reason the application is not vulnerable is because of wp-settings.php:</p>\n<pre class=\"highlight plaintext\"><code>// Add magic quotes and set up $_REQUEST ( $_GET + $_POST )\nwp_magic_quotes();\n</code></pre>\n<p>But the problem is: a lot of themes and/or plugins (which are loaded sometimes before your plugin is loaded) reset this setting like described hiere:</p>\n\n<p><a title=\"https://stackoverflow.com/questions/8949768/with-magic-quotes-disabled-why-does-php-wordpress-continue-to-auto-escape-my\" href=\"/redirect?signature=47620aa3e8f9b7a4eb4acba0e9dc0afde33dd211&amp;url=https%3A%2F%2Fstackoverflow.com%2Fquestions%2F8949768%2Fwith-magic-quotes-disabled-why-does-php-wordpress-continue-to-auto-escape-my\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://stackoverflow.com/questions/8949768/with-magic-quotes-disabled-why-does-php-wordpress-continue-to-auto-escape-my</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>I believe it may be a better solution to escaped mentioned parts, just to be sure!</p>\n\n<p>Offtopic: the plugin has also a lot of interesting backend functions and calls - are vulnerabilities which can be triggered by admin/mod/author relevent? I&#39;m not talking about xss, more execs and sqlinjections.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Under certain circumstances a SQL Injection is possible.</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.mapsmarker.com", 
+            "about": "  The most comprehensive & user-friendly mapping solution for WordPress ", 
+            "twitter_handle": "mapsmarker", 
+            "name": "MapsMarker.com e.U."
+        }, 
+        "handle": "mapsmarker_com_e_u", 
+        "url": "https://hackerone.com/mapsmarker_com_e_u", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/016/780/05d87d77e1bb29d474e5dc3e5ac38b86a2f99815_small.png?1515010937", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/016/780/5e59848c5e731087984c47079280d3bb8c7e63e6_medium.png?1515010937"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 16780, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

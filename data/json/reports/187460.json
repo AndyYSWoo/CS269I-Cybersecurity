@@ -1,0 +1,307 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2016-12-02T16:49:02.963Z", 
+    "voters": [
+        "pekafat", 
+        "eveeez", 
+        "mpz", 
+        "japz", 
+        "demo--hacker", 
+        "spetr0x", 
+        "amjamjamj", 
+        "bala_bala"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 187460, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "The new WebDAV endpoint implementation in 11 is leaking too many informations if one executes a `MKCOL` or a `PUT` against an existing item. With Files Drop one should only be able to upload files but not leak any existence of items.\n\n## Leaking existence using PUT\n\nWhen doing a PUT the expectation is to return a 201. This is normally also the case: \n\n```\nPUT /stable9/public.php/webdav/existingfile.txt HTTP/1.1\nHost: 10.211.55.7\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.12; rv:50.0) Gecko/20100101 Firefox/50.0\nAccept: */*\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate\nContent-Type: text/plain\nX-OC-Mtime: 1876101427\nAuthorization: Basic WURxM1ZDT2V3cXZzT3VPOg==\nContent-Disposition: attachment; filename=\"32c3_to_watch.txt\"\nrequesttoken: +m5YTG99huBeunBefEwSzeAMAgmtAafV023vevyQLQg=:nj1uDSxJtbMJ60c6DBVjgNFUemXZLv+FkSOhNs7gZUE=\nOCS-APIREQUEST: true\nX-Requested-With: XMLHttpRequest\nContent-Length: 4\nCookie: nc_sameSiteCookielax=true; nc_sameSiteCookiestrict=true\nConnection: close\n\nTest\n```\n\n```\nHTTP/1.1 201 Created\nDate: Thu, 01 Dec 2016 20:00:12 GMT\nServer: Apache/2.4.18 (Ubuntu)\nSet-Cookie: ocatqgmmmlsf=uiepm96me8tp8uoji2trrqf071; path=/stable9; HttpOnly\nExpires: Thu, 19 Nov 1981 08:52:00 GMT\nCache-Control: no-store, no-cache, must-revalidate\nPragma: no-cache\nSet-Cookie: oc_sessionPassphrase=cGoWWmqv3D27XMXKcbPHLVLXr8uBr%2BCzT2sxXfIpp3PH1L4L3VkMbyqYN58EEZDCylevi1n7I2DI7JNYKMmI0FQK3nVJq5Nqk4JhYzGQ2rIaN%2Fj0iZtVYD3%2F2FJSAcfy; path=/stable9; HttpOnly\nContent-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' 'nonce-V3g0WGZ6VHJHOUlVZTFNWFg2SE8wcWxaZUYvcTNPbXdZcHVXQ0VHQ250TT06TUVoVkZFZkVUTEVtQ3daYUd1djhsSmtQUGhpenY3R0dEK1A1U25EYjBMWT0='; style-src 'self' 'unsafe-inline'; frame-src *; img-src * data: blob:; font-src 'self' data:; media-src *; connect-src *\nX-XSS-Protection: 1; mode=block\nX-Content-Type-Options: nosniff\nX-Frame-Options: Sameorigin\nX-Robots-Tag: none\nX-Download-Options: noopen\nX-Permitted-Cross-Domain-Policies: none\nX-OC-MTime: accepted\nOC-FileId: 00000050ocatqgmmmlsf\nContent-Length: 0\nETag: \"ea84893c98a856fe2b23bba48237183a\"\nOC-ETag: \"ea84893c98a856fe2b23bba48237183a\"\nConnection: close\nContent-Type: text/html; charset=UTF-8\n```\n\nHowever, when one does a put to a subresource of an existing file a 409 is returned:\n\n```\nPUT /stable9/public.php/webdav/existingfile.txt/foo HTTP/1.1\nHost: 10.211.55.7\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.12; rv:50.0) Gecko/20100101 Firefox/50.0\nAccept: */*\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate\nContent-Type: text/plain\nX-OC-Mtime: 1876101427\nAuthorization: Basic WURxM1ZDT2V3cXZzT3VPOg==\nContent-Disposition: attachment; filename=\"32c3_to_watch.txt\"\nrequesttoken: +m5YTG99huBeunBefEwSzeAMAgmtAafV023vevyQLQg=:nj1uDSxJtbMJ60c6DBVjgNFUemXZLv+FkSOhNs7gZUE=\nOCS-APIREQUEST: true\nX-Requested-With: XMLHttpRequest\nContent-Length: 4\nCookie: nc_sameSiteCookielax=true; nc_sameSiteCookiestrict=true\nConnection: close\n\nTest\n```\n\n```\nHTTP/1.1 409 Conflict\nDate: Thu, 01 Dec 2016 20:01:05 GMT\nServer: Apache/2.4.18 (Ubuntu)\nSet-Cookie: ocatqgmmmlsf=33b0iagf03ne5l2otuabccflg5; path=/stable9; HttpOnly\nExpires: Thu, 19 Nov 1981 08:52:00 GMT\nCache-Control: no-store, no-cache, must-revalidate\nPragma: no-cache\nSet-Cookie: oc_sessionPassphrase=heTSMUQ762x78XC0vj9MIwZIkfx5aYIAJBZM7Q48EO3mK%2FJDcWYsAA3yMfgkqhQSFfKYnJe5O9HQ%2FPcvkMwrTuCMre%2FxadgsfSZEob2Re60MFkgZNW3PjjU3nEcyi8ip; path=/stable9; HttpOnly\nContent-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' 'nonce-YmI0OXBEZDdJR1hHbys3NjRXYXJBQUs1eHZ0cDFpSjF1KzI1QjdxamtPcz06T3NSRjdBRVNTbEdsNUszT2toS2RiV2FQaWJrS3RFa1Q5N3YyWGZYcndiND0='; style-src 'self' 'unsafe-inline'; frame-src *; img-src * data: blob:; font-src 'self' data:; media-src *; connect-src *\nX-XSS-Protection: 1; mode=block\nX-Content-Type-Options: nosniff\nX-Frame-Options: Sameorigin\nX-Robots-Tag: none\nX-Download-Options: noopen\nX-Permitted-Cross-Domain-Policies: none\nContent-Length: 244\nConnection: close\nContent-Type: application/xml; charset=utf-8\n\n<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<d:error xmlns:d=\"DAV:\" xmlns:s=\"http://sabredav.org/ns\">\n  <s:exception>Sabre\\DAV\\Exception\\Conflict</s:exception>\n  <s:message>Files can only be created as children of collections</s:message>\n</d:error>\n```\n\n## Leaking existence using MKCOL\n\nIf one tries to create a new resource that already exists using MKCOL an error is returned to the user:\n```\nMKCOL /stable9/public.php/webdav/test.php HTTP/1.1\nHost: 10.211.55.7\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.12; rv:50.0) Gecko/20100101 Firefox/50.0\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate\nX-Requested-With: XMLHttpRequest\nrequesttoken: +m5YTG99huBeunBefEwSzeAMAgmtAafV023vevyQLQg=:nj1uDSxJtbMJ60c6DBVjgNFUemXZLv+FkSOhNs7gZUE=\nAuthorization: Basic WURxM1ZDT2V3cXZzT3VPOm51bGw=\nCookie: ocs8jj1jf8wp=bbg1t3u974t40t57qqqvmhjm37; oc_sessionPassphrase=H5YF8jijSzbyPHOLr0x98NVURt%2FAJWPOyGLJcFme430Dc19sE0iqjeDORZE8oL99yU457kokq%2FIsTV6cjmS3dF%2FiBAip1z8wCezDQyI0aCgBP1sa9FamXktDGZgAqbuC; ocezyib30iyq=tkk8687bg7ruq55m2trgh9bnn2; ocmt94z1vi7i=pcjpapbhvs92ctc7o2hu9up564; ocjxssn8xoit=69vrq761pp9lk2hctr4vf1oq74; octp32e9roze=j371cd6vq9k2mjibteuen098k1; ocatqgmmmlsf=o0v5a00o67bl0kfmu3v19ta5n3; nc_sameSiteCookielax=true; nc_sameSiteCookiestrict=true\nConnection: close\n```\n\n```\nHTTP/1.1 405 Method Not Allowed\nDate: Thu, 01 Dec 2016 20:01:41 GMT\nServer: Apache/2.4.18 (Ubuntu)\nExpires: Thu, 19 Nov 1981 08:52:00 GMT\nCache-Control: no-store, no-cache, must-revalidate\nPragma: no-cache\nContent-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' 'nonce-bFZWNFFwSXl3a0pLSXVnUUNtZlpoTEJ5ei9xWkJnL2VIZGpEY2lmUDZHQT06OFFaT0E5RUc4UkVkYzk5MGVqNm95WUVxdDVidEtWZU9YNWFOUGhXL29Daz0='; style-src 'self' 'unsafe-inline'; frame-src *; img-src * data: blob:; font-src 'self' data:; media-src *; connect-src *\nX-XSS-Protection: 1; mode=block\nX-Content-Type-Options: nosniff\nX-Frame-Options: Sameorigin\nX-Robots-Tag: none\nX-Download-Options: noopen\nX-Permitted-Cross-Domain-Policies: none\nAllow: OPTIONS, GET, HEAD, DELETE, PROPFIND, PUT, PROPPATCH, COPY, MOVE, REPORT\nContent-Length: 247\nConnection: close\nContent-Type: application/xml; charset=utf-8\n\n<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<d:error xmlns:d=\"DAV:\" xmlns:s=\"http://sabredav.org/ns\">\n  <s:exception>Sabre\\DAV\\Exception\\MethodNotAllowed</s:exception>\n  <s:message>The resource you tried to create already exists</s:message>\n</d:error>\n```\n", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "low", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "high", 
+            "scope": "unchanged", 
+            "integrity": "none", 
+            "availability": "none"
+        }, 
+        "rating": "low", 
+        "score": 3.7, 
+        "author_type": "User"
+    }, 
+    "title": "Files Drop: WebDAV endpoint is leaking existence of resources", 
+    "is_member_of_team?": null, 
+    "vote_count": 8, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-01-01T16:49:03.038Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": true, 
+            "created_at": "2016-12-01T20:02:56.802Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-01T20:02:56.802Z", 
+            "actor": {
+                "url": "/nextcloud", 
+                "profile": {
+                    "name": "Nextcloud"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/291/1d2ac8991616fcd3e3cdd567d02b7e70e20a3883_medium.png?1491410731"
+                }
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "Thanks a lot for reporting this potential issue back to us!\n\nOur security team will take a look at this issue as soon as possible. We will reply to your report within 72 hours, usually much faster. For obvious reasons we'd like to ask you to not disclose this issue to any other party.", 
+            "markdown_message": "<p>Thanks a lot for reporting this potential issue back to us!</p>\n\n<p>Our security team will take a look at this issue as soon as possible. We will reply to your report within 72 hours, usually much faster. For obvious reasons we&#39;d like to ask you to not disclose this issue to any other party.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1334724, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-01T20:04:29.497Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-01T20:04:29.497Z", 
+            "actor": {
+                "username": "lukasreschke", 
+                "url": "/lukasreschke", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/891/0ddfc05411893988a0d2794cd70d5dc221729713_medium.png?1438782834"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "@rullzer Can you take a look? THX a lot!\n\nMy recommendation here would be to forbid MKCOL and for the filename always take the actual filename passed and ignore any folder.", 
+            "markdown_message": "<p><a href=\"/rullzer\">@rullzer</a> Can you take a look? THX a lot!</p>\n\n<p>My recommendation here would be to forbid MKCOL and for the filename always take the actual filename passed and ignore any folder.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1334730, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-02T12:56:05.170Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-02T12:56:05.170Z", 
+            "actor": {
+                "username": "rullzer", 
+                "url": "/rullzer", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/086/005/44bf74265ad96d694d6f9b5de005fe36aab9e540_medium.jpg?1472456647"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "See https://github.com/nextcloud/server/pull/2471", 
+            "markdown_message": "<p>See <a title=\"https://github.com/nextcloud/server/pull/2471\" href=\"/redirect?signature=27406075f96c9da1638ad26e33ef44c8868a0f47&amp;url=https%3A%2F%2Fgithub.com%2Fnextcloud%2Fserver%2Fpull%2F2471\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/nextcloud/server/pull/2471</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1336292, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "lukasreschke", 
+                "url": "/lukasreschke"
+            }, 
+            "created_at": "2016-12-02T16:48:36.793Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-02T16:48:36.793Z", 
+            "actor": {
+                "username": "lukasreschke", 
+                "url": "/lukasreschke", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/891/0ddfc05411893988a0d2794cd70d5dc221729713_medium.png?1438782834"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "That fixes it! \u2013 Thanks, @rullzer.", 
+            "markdown_message": "<p>That fixes it! \u2013 Thanks, <a href=\"/rullzer\">@rullzer</a>.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1336853, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-02T16:48:54.600Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-02T16:48:54.600Z", 
+            "actor": {
+                "url": "/nextcloud", 
+                "profile": {
+                    "name": "Nextcloud"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/291/1d2ac8991616fcd3e3cdd567d02b7e70e20a3883_medium.png?1491410731"
+                }
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::NotEligibleForBounty", 
+            "id": 1336856, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-02T16:49:02.995Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-02T16:49:02.995Z", 
+            "actor": {
+                "username": "lukasreschke", 
+                "url": "/lukasreschke", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/891/0ddfc05411893988a0d2794cd70d5dc221729713_medium.png?1438782834"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1336857, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-01T16:49:04.132Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-01T16:49:04.132Z", 
+            "actor": {
+                "url": "/nextcloud", 
+                "profile": {
+                    "name": "Nextcloud"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/291/1d2ac8991616fcd3e3cdd567d02b7e70e20a3883_medium.png?1491410731"
+                }
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1393652, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "lukasreschke", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/lukasreschke", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/037/891/8666abeffab5fc62fe0b8cad0965e5727894b1b2_small.png?1438782834"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 18, 
+        "name": "Information Disclosure"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -60846976.085826375, 
+    "disclosed_at": "2017-01-01T16:49:04.107Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/187460", 
+    "created_at": "2016-12-01T20:02:56.667Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>The new WebDAV endpoint implementation in 11 is leaking too many informations if one executes a <code>MKCOL</code> or a <code>PUT</code> against an existing item. With Files Drop one should only be able to upload files but not leak any existence of items.</p>\n\n<h2 id=\"leaking-existence-using-put\">Leaking existence using PUT</h2>\n\n<p>When doing a PUT the expectation is to return a 201. This is normally also the case: </p>\n<pre class=\"highlight plaintext\"><code>PUT /stable9/public.php/webdav/existingfile.txt HTTP/1.1\nHost: 10.211.55.7\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.12; rv:50.0) Gecko/20100101 Firefox/50.0\nAccept: */*\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate\nContent-Type: text/plain\nX-OC-Mtime: 1876101427\nAuthorization: Basic WURxM1ZDT2V3cXZzT3VPOg==\nContent-Disposition: attachment; filename=&quot;32c3_to_watch.txt&quot;\nrequesttoken: +m5YTG99huBeunBefEwSzeAMAgmtAafV023vevyQLQg=:nj1uDSxJtbMJ60c6DBVjgNFUemXZLv+FkSOhNs7gZUE=\nOCS-APIREQUEST: true\nX-Requested-With: XMLHttpRequest\nContent-Length: 4\nCookie: nc_sameSiteCookielax=true; nc_sameSiteCookiestrict=true\nConnection: close\n\nTest\n</code></pre><pre class=\"highlight plaintext\"><code>HTTP/1.1 201 Created\nDate: Thu, 01 Dec 2016 20:00:12 GMT\nServer: Apache/2.4.18 (Ubuntu)\nSet-Cookie: ocatqgmmmlsf=uiepm96me8tp8uoji2trrqf071; path=/stable9; HttpOnly\nExpires: Thu, 19 Nov 1981 08:52:00 GMT\nCache-Control: no-store, no-cache, must-revalidate\nPragma: no-cache\nSet-Cookie: oc_sessionPassphrase=cGoWWmqv3D27XMXKcbPHLVLXr8uBr%2BCzT2sxXfIpp3PH1L4L3VkMbyqYN58EEZDCylevi1n7I2DI7JNYKMmI0FQK3nVJq5Nqk4JhYzGQ2rIaN%2Fj0iZtVYD3%2F2FJSAcfy; path=/stable9; HttpOnly\nContent-Security-Policy: default-src &#39;self&#39;; script-src &#39;self&#39; &#39;unsafe-eval&#39; &#39;nonce-V3g0WGZ6VHJHOUlVZTFNWFg2SE8wcWxaZUYvcTNPbXdZcHVXQ0VHQ250TT06TUVoVkZFZkVUTEVtQ3daYUd1djhsSmtQUGhpenY3R0dEK1A1U25EYjBMWT0=&#39;; style-src &#39;self&#39; &#39;unsafe-inline&#39;; frame-src *; img-src * data: blob:; font-src &#39;self&#39; data:; media-src *; connect-src *\nX-XSS-Protection: 1; mode=block\nX-Content-Type-Options: nosniff\nX-Frame-Options: Sameorigin\nX-Robots-Tag: none\nX-Download-Options: noopen\nX-Permitted-Cross-Domain-Policies: none\nX-OC-MTime: accepted\nOC-FileId: 00000050ocatqgmmmlsf\nContent-Length: 0\nETag: &quot;ea84893c98a856fe2b23bba48237183a&quot;\nOC-ETag: &quot;ea84893c98a856fe2b23bba48237183a&quot;\nConnection: close\nContent-Type: text/html; charset=UTF-8\n</code></pre>\n<p>However, when one does a put to a subresource of an existing file a 409 is returned:</p>\n<pre class=\"highlight plaintext\"><code>PUT /stable9/public.php/webdav/existingfile.txt/foo HTTP/1.1\nHost: 10.211.55.7\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.12; rv:50.0) Gecko/20100101 Firefox/50.0\nAccept: */*\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate\nContent-Type: text/plain\nX-OC-Mtime: 1876101427\nAuthorization: Basic WURxM1ZDT2V3cXZzT3VPOg==\nContent-Disposition: attachment; filename=&quot;32c3_to_watch.txt&quot;\nrequesttoken: +m5YTG99huBeunBefEwSzeAMAgmtAafV023vevyQLQg=:nj1uDSxJtbMJ60c6DBVjgNFUemXZLv+FkSOhNs7gZUE=\nOCS-APIREQUEST: true\nX-Requested-With: XMLHttpRequest\nContent-Length: 4\nCookie: nc_sameSiteCookielax=true; nc_sameSiteCookiestrict=true\nConnection: close\n\nTest\n</code></pre><pre class=\"highlight plaintext\"><code>HTTP/1.1 409 Conflict\nDate: Thu, 01 Dec 2016 20:01:05 GMT\nServer: Apache/2.4.18 (Ubuntu)\nSet-Cookie: ocatqgmmmlsf=33b0iagf03ne5l2otuabccflg5; path=/stable9; HttpOnly\nExpires: Thu, 19 Nov 1981 08:52:00 GMT\nCache-Control: no-store, no-cache, must-revalidate\nPragma: no-cache\nSet-Cookie: oc_sessionPassphrase=heTSMUQ762x78XC0vj9MIwZIkfx5aYIAJBZM7Q48EO3mK%2FJDcWYsAA3yMfgkqhQSFfKYnJe5O9HQ%2FPcvkMwrTuCMre%2FxadgsfSZEob2Re60MFkgZNW3PjjU3nEcyi8ip; path=/stable9; HttpOnly\nContent-Security-Policy: default-src &#39;self&#39;; script-src &#39;self&#39; &#39;unsafe-eval&#39; &#39;nonce-YmI0OXBEZDdJR1hHbys3NjRXYXJBQUs1eHZ0cDFpSjF1KzI1QjdxamtPcz06T3NSRjdBRVNTbEdsNUszT2toS2RiV2FQaWJrS3RFa1Q5N3YyWGZYcndiND0=&#39;; style-src &#39;self&#39; &#39;unsafe-inline&#39;; frame-src *; img-src * data: blob:; font-src &#39;self&#39; data:; media-src *; connect-src *\nX-XSS-Protection: 1; mode=block\nX-Content-Type-Options: nosniff\nX-Frame-Options: Sameorigin\nX-Robots-Tag: none\nX-Download-Options: noopen\nX-Permitted-Cross-Domain-Policies: none\nContent-Length: 244\nConnection: close\nContent-Type: application/xml; charset=utf-8\n\n&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;\n&lt;d:error xmlns:d=&quot;DAV:&quot; xmlns:s=&quot;http://sabredav.org/ns&quot;&gt;\n  &lt;s:exception&gt;Sabre\\DAV\\Exception\\Conflict&lt;/s:exception&gt;\n  &lt;s:message&gt;Files can only be created as children of collections&lt;/s:message&gt;\n&lt;/d:error&gt;\n</code></pre>\n<h2 id=\"leaking-existence-using-mkcol\">Leaking existence using MKCOL</h2>\n\n<p>If one tries to create a new resource that already exists using MKCOL an error is returned to the user:</p>\n<pre class=\"highlight plaintext\"><code>MKCOL /stable9/public.php/webdav/test.php HTTP/1.1\nHost: 10.211.55.7\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.12; rv:50.0) Gecko/20100101 Firefox/50.0\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate\nX-Requested-With: XMLHttpRequest\nrequesttoken: +m5YTG99huBeunBefEwSzeAMAgmtAafV023vevyQLQg=:nj1uDSxJtbMJ60c6DBVjgNFUemXZLv+FkSOhNs7gZUE=\nAuthorization: Basic WURxM1ZDT2V3cXZzT3VPOm51bGw=\nCookie: ocs8jj1jf8wp=bbg1t3u974t40t57qqqvmhjm37; oc_sessionPassphrase=H5YF8jijSzbyPHOLr0x98NVURt%2FAJWPOyGLJcFme430Dc19sE0iqjeDORZE8oL99yU457kokq%2FIsTV6cjmS3dF%2FiBAip1z8wCezDQyI0aCgBP1sa9FamXktDGZgAqbuC; ocezyib30iyq=tkk8687bg7ruq55m2trgh9bnn2; ocmt94z1vi7i=pcjpapbhvs92ctc7o2hu9up564; ocjxssn8xoit=69vrq761pp9lk2hctr4vf1oq74; octp32e9roze=j371cd6vq9k2mjibteuen098k1; ocatqgmmmlsf=o0v5a00o67bl0kfmu3v19ta5n3; nc_sameSiteCookielax=true; nc_sameSiteCookiestrict=true\nConnection: close\n</code></pre><pre class=\"highlight plaintext\"><code>HTTP/1.1 405 Method Not Allowed\nDate: Thu, 01 Dec 2016 20:01:41 GMT\nServer: Apache/2.4.18 (Ubuntu)\nExpires: Thu, 19 Nov 1981 08:52:00 GMT\nCache-Control: no-store, no-cache, must-revalidate\nPragma: no-cache\nContent-Security-Policy: default-src &#39;self&#39;; script-src &#39;self&#39; &#39;unsafe-eval&#39; &#39;nonce-bFZWNFFwSXl3a0pLSXVnUUNtZlpoTEJ5ei9xWkJnL2VIZGpEY2lmUDZHQT06OFFaT0E5RUc4UkVkYzk5MGVqNm95WUVxdDVidEtWZU9YNWFOUGhXL29Daz0=&#39;; style-src &#39;self&#39; &#39;unsafe-inline&#39;; frame-src *; img-src * data: blob:; font-src &#39;self&#39; data:; media-src *; connect-src *\nX-XSS-Protection: 1; mode=block\nX-Content-Type-Options: nosniff\nX-Frame-Options: Sameorigin\nX-Robots-Tag: none\nX-Download-Options: noopen\nX-Permitted-Cross-Domain-Policies: none\nAllow: OPTIONS, GET, HEAD, DELETE, PROPFIND, PUT, PROPPATCH, COPY, MOVE, REPORT\nContent-Length: 247\nConnection: close\nContent-Type: application/xml; charset=utf-8\n\n&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;\n&lt;d:error xmlns:d=&quot;DAV:&quot; xmlns:s=&quot;http://sabredav.org/ns&quot;&gt;\n  &lt;s:exception&gt;Sabre\\DAV\\Exception\\MethodNotAllowed&lt;/s:exception&gt;\n  &lt;s:message&gt;The resource you tried to create already exists&lt;/s:message&gt;\n&lt;/d:error&gt;\n</code></pre>", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://nextcloud.com", 
+            "about": "Access, share and protect your files, calendars, contacts, communication & more at home and in your enterprise.", 
+            "twitter_handle": "nextclouders", 
+            "name": "Nextcloud"
+        }, 
+        "handle": "nextcloud", 
+        "url": "https://hackerone.com/nextcloud", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/013/291/5d33b6e08fad356e1743fd899fe7d6dda9971209_small.png?1491410731", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/013/291/1d2ac8991616fcd3e3cdd567d02b7e70e20a3883_medium.png?1491410731"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 13291, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

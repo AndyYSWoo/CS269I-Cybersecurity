@@ -1,0 +1,320 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-05-06T08:21:38.003Z", 
+    "voters": [
+        "eveeez", 
+        "mga_bobo", 
+        "spetr0x"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "1000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 174069, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-05-30T15:13:49.241Z", 
+    "vulnerability_information": "Since the original report is still marked as private in the PHP bug tracker please find the copy & pasted bug report below (edited for readability and to include correct bug tracker id). See the references section for a link to the issue in the PHP bug tracker!\n\nThe maintainer already fixed the issue in the public git repo using the proposed patch included in the original report. Fixed versions 3.1.0RC1 and 2.6.0RC1 of the pecl-http extension have been released as well.\n\nMitre assigned **CVE-2016-7961** for this issue.\n\n# Description\n\nThe parsing functions of the PECL HTTP extension allow overflowing a buffer with data originating from an arbitrary HTTP request. Affected are the `parse_hostinfo()`, `parse_userinfo()` and `parse_scheme()` functions in `php_http_url.c` that may get called when instantiating/initializing an HTTP message object. The problem occurs because in the main processing loop `char *ptr` may get incremented past the corresponding end pointer `char *end` used as the end marker. Thus the parser loop may continue to execute and buffer `state->buffer` may overflow.  \n\nRelevant code snippet from `php_http_url.c:1096`:\n\n```c\nstatic ZEND_RESULT_CODE parse_hostinfo(struct parse_state *state, const char *ptr)\n{\n[...]\n    if (ptr != end) do {\n        switch (*ptr) {\n            [...]\n            case '0': case '1': case '2': case '3': case '4': case '5': case '6':\n            case '7': case '8': case '9':\n                /* allowed */\n                if (port) {\n                    state->url.port *= 10;\n                    state->url.port += *ptr - '0';\n                } else {\n                    label = ptr;\n                    state->buffer[state->offset++] = *ptr;\n                }\n                break;\n            [...]\n            default:\n            [...]\n                } else if (!(mb = parse_mb(state, PARSE_HOSTINFO, ptr, end, tmp, state->flags & PHP_HTTP_URL_SILENT_ERRORS))) {\n                    if (!(state->flags & PHP_HTTP_URL_IGNORE_ERRORS)) {\n                        return FAILURE;\n                    }\n                    break;\n                }\n                label = ptr;\n                ptr += mb - 1;  // ptr increased here as in various other locations\n        }\n    } while (++ptr != end);     // ptr pre-incremented -> check condition may be missed!\n[...]\n```\n\n# Security impact and PoC\n\nSince this bug allows to overwrite quite large parts of memory arbitrary code execution seems very likely. In [1] you'll find a malformed HTTP request that demonstrates the issue:\n\n```php\n$ cat http_message_parse.php\n/*\n        http_message_parse.php\n        bug73185.bin\n        http://hlt99.blinkenshell.org/php/bug73185.bin\n*/\n<?php\n    $http_msg = new http\\Message(file_get_contents(\"bug73185.bin\"), false);\n?>\n```\n\n```\n$ ./configure --enable-raphf --enable-propro --with-http && make\n$ gdb ./sapi/cli/php\ngdb> r http_message_parse.php\n[...]\nFatal error: Uncaught http\\Exception\\BadMessageException: http\\Message::__construct(): Could not parse HTTP protocol version 'HTTP/1.rdrd-vvv5:##HT\n[...] // garbled output\n85:#~t? HTT in http_message_parse.php on line 7\n\nProgram received signal SIGSEGV, Segmentation fault.\n0x00000000006d6ef3 in _php_stream_free (stream=<optimized out>, close_options=11)\n    at /home/rc0r/tmp/php-src/main/streams/streams.c:467\n467\t\t\tret = stream->ops->close(stream, preserve_handle ? 0 : 1);\ngdb> i r\nrax            0x4142434445464748\t4702394921427289928\nrbx            0xb\t11\nrcx            0x1\t1\nrdx            0x0\t0\nrsi            0x1\t1\nrdi            0x7ffff42ad300\t140737289835264\nrbp            0x7ffff42ad300\t0x7ffff42ad300\nrsp            0x7fffffffb150\t0x7fffffffb150\nr8             0x0\t0\nr9             0x1\t1\nr10            0x3d3\t979\nr11            0x7ffff58ad760\t140737312905056\nr12            0x0\t0\nr13            0x1\t1\nr14            0x0\t0\nr15            0x0\t0\nrip            0x6d6ef3\t0x6d6ef3 <_php_stream_free+307>\neflags         0x10202\t[ IF RF ]\ncs             0x33\t51\nss             0x2b\t43\nds             0x0\t0\nes             0x0\t0\nfs             0x0\t0\ngs             0x0\t0\ngdb> x/i $rip\n=> 0x6d6ef3 <_php_stream_free+307>:\tcallq  *0x10(%rax)\n```\n\nThe attempt to parse the supplied HTTP request fails at some point and used resources are freed by the extension. It was possible to overwrite a `php_stream` structure including its pointer to a `php_stream_ops` structure containing function pointers that are about to be called from within `_php_stream_free()` as shown above. Register `rax` contains data from the malformed HTTP request starting at offset 0x2139. \n\n[1] http://hlt99.blinkenshell.org/php/005-bug73185.bin\n\n# Patch\n\nAfter careful review by the project maintainers the following patch may be used to fix the reported issue.  \n\n```c\nFrom ec2d2e1648127b2a0bb15f10144daca59bc6f03c Mon Sep 17 00:00:00 2001\nFrom: rc0r <hlt99@blinkenshell.org>\nDate: Mon, 26 Sep 2016 21:34:29 +0200\nSubject: [PATCH] Buffer overflow in parse_hostinfo() fixed\n\n---\n src/php_http_url.c | 4 ++--\n 1 file changed, 2 insertions(+), 2 deletions(-)\n\ndiff --git a/src/php_http_url.c b/src/php_http_url.c\nindex 2332fb5..70e4c2c 100644\n--- a/src/php_http_url.c\n+++ b/src/php_http_url.c\n@@ -1107,7 +1107,7 @@ static ZEND_RESULT_CODE parse_hostinfo(struct parse_state *state, const char *pt\n    }\n #endif\n \n-\tif (ptr != end) do {\n+\tif (ptr < end) do {\n        switch (*ptr) {\n        case ':':\n            if (port) {\n@@ -1235,7 +1235,7 @@ static ZEND_RESULT_CODE parse_hostinfo(struct parse_state *state, const char *pt\n            label = ptr;\n            ptr += mb - 1;\n        }\n-\t} while (++ptr != end);\n+\t} while (++ptr < end);\n \n    if (!state->url.host) {\n        len = state->offset - len;\n-- \n2.10.0\n```\n\n# Versions known to be affected\n\npecl-http extension versions up to and including:\n\n* 3.1.0beta2 (PHP 7)\n* 2.6.0beta2 (PHP 5)\n\n# Timeline\n\n2016-09-27  Initial report to PHP bug tracker (#73185)\n2016-10-04  Issue fixed in git repository, CVE requested\n2016-10-04  Maintainer released fixed pecl-http extensions 3.1.0RC1 and 2.6.0RC1\n2016-10-05  Mitre assigned CVE-2016-7961\n\n# References\n\nhttps://bugs.php.net/bug.php?id=73185\nhttps://github.com/m6w6/ext-http/commit/e096f45ff30a46d6a8e96da7bc6334d2ac5ab7c2\n\nhttps://pecl.php.net/package/pecl_http/3.1.0RC1\nhttps://pecl.php.net/package/pecl_http/2.6.0RC1\n\nhttp://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-7961", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "Team"
+    }, 
+    "title": "Buffer overflow in HTTP parse_hostinfo(), parse_userinfo() and parse_scheme()", 
+    "is_member_of_team?": null, 
+    "vote_count": 3, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-06-05T08:21:38.049Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$1,000", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-03T20:54:08.805Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T20:55:46.387Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-php", 
+            "message": "Thanks @rc0r! Sorry for the delay, and thanks for the patience. The IBB typically doesn't cover non-bundled extensions but this pecl_http likely warrants an exception. Is there a reason why the original bug report is still private? Has this been cleared for public release?", 
+            "markdown_message": "<p>Thanks <a href=\"/rc0r\">@rc0r</a>! Sorry for the delay, and thanks for the patience. The IBB typically doesn&#39;t cover non-bundled extensions but this pecl_http likely warrants an exception. Is there a reason why the original bug report is still private? Has this been cleared for public release?</p>\n", 
+            "type": "Activities::BugNeedsMoreInfo", 
+            "id": 1339066, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-03T21:57:13.763Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T21:57:13.763Z", 
+            "actor": {
+                "username": "rc0r", 
+                "url": "/rc0r", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/153/fba7b238959b21ab47c816b08fcd463ce880a11f_medium.png?1457542865"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-php", 
+            "message": "Michael Wallner (mike@php.net) already fixed this issue and released a fixed version of the pecl_http extension version 3.1.0RC1 / 2.6.0RC1 respective. However neither him nor I do have the proper permissions on the PHP bug tracker to mark the report public. He already tried to degrade it to non-security (which is not the right thing) but this didn't make the bug public. I sent an email regarding this issue to johannes@php.net but never received an answer. I could try to mail another core dev of the PHP project to resolve this issue. Please let me know, if you want me to try to resolve the bug tracker issue by contacting another core dev!\n\nFrom my POV this issue can be publicly disclosed since it has been fixed and follow-up releases of the extensions have been released.", 
+            "markdown_message": "<p>Michael Wallner (<a title=\"mike@php.net\" href=\"mailto:mike@php.net\" rel=\"nofollow noopener noreferrer\">mike@php.net</a>) already fixed this issue and released a fixed version of the pecl_http extension version 3.1.0RC1 / 2.6.0RC1 respective. However neither him nor I do have the proper permissions on the PHP bug tracker to mark the report public. He already tried to degrade it to non-security (which is not the right thing) but this didn&#39;t make the bug public. I sent an email regarding this issue to <a title=\"johannes@php.net\" href=\"mailto:johannes@php.net\" rel=\"nofollow noopener noreferrer\">johannes@php.net</a> but never received an answer. I could try to mail another core dev of the PHP project to resolve this issue. Please let me know, if you want me to try to resolve the bug tracker issue by contacting another core dev!</p>\n\n<p>From my POV this issue can be publicly disclosed since it has been fixed and follow-up releases of the extensions have been released.</p>\n", 
+            "type": "Activities::BugNew", 
+            "id": 1339190, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-03T22:16:14.035Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T22:16:14.035Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Medium", 
+                "old_severity": null
+            }, 
+            "team_handle": "ibb-php", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1339223, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "rc0r", 
+                "url": "/rc0r"
+            }, 
+            "created_at": "2016-12-03T22:16:41.953Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T22:16:41.953Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-php", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 1339224, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2016-12-03T22:16:51.277Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T22:16:51.277Z", 
+            "actor": {
+                "url": "/ibb-php", 
+                "profile": {
+                    "name": "PHP (IBB)"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/029/991fb39ba898696eb6ae62521c49b292b2a9cf95_medium.png?1385119730"
+                }
+            }, 
+            "team_handle": "ibb-php", 
+            "bounty_amount": "1000.0", 
+            "collaborator": {
+                "username": "rc0r", 
+                "url": "/rc0r"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1339225, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-06T08:21:38.024Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-06T08:21:38.024Z", 
+            "actor": {
+                "username": "rc0r", 
+                "url": "/rc0r", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/153/fba7b238959b21ab47c816b08fcd463ce880a11f_medium.png?1457542865"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-php", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1657980, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-30T15:13:49.264Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-30T15:13:49.264Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-php", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1709814, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-30T15:13:49.323Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-30T15:13:49.323Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-php", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1709815, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "rc0r", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/rc0r", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/017/153/eb232471153ab2f2efb7a0df7cc970b1e9627d1a_small.png?1457542865"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 2, 
+        "name": "Memory Corruption - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -47484986.81328297, 
+    "disclosed_at": "2017-05-30T15:13:49.305Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/174069", 
+    "created_at": "2016-10-05T12:08:41.367Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Since the original report is still marked as private in the PHP bug tracker please find the copy &amp; pasted bug report below (edited for readability and to include correct bug tracker id). See the references section for a link to the issue in the PHP bug tracker!</p>\n\n<p>The maintainer already fixed the issue in the public git repo using the proposed patch included in the original report. Fixed versions 3.1.0RC1 and 2.6.0RC1 of the pecl-http extension have been released as well.</p>\n\n<p>Mitre assigned <strong>CVE-2016-7961</strong> for this issue.</p>\n\n<h1 id=\"description\">Description</h1>\n\n<p>The parsing functions of the PECL HTTP extension allow overflowing a buffer with data originating from an arbitrary HTTP request. Affected are the <code>parse_hostinfo()</code>, <code>parse_userinfo()</code> and <code>parse_scheme()</code> functions in <code>php_http_url.c</code> that may get called when instantiating/initializing an HTTP message object. The problem occurs because in the main processing loop <code>char *ptr</code> may get incremented past the corresponding end pointer <code>char *end</code> used as the end marker. Thus the parser loop may continue to execute and buffer <code>state-&gt;buffer</code> may overflow.  </p>\n\n<p>Relevant code snippet from <code>php_http_url.c:1096</code>:</p>\n<pre class=\"highlight c\"><code><span class=\"k\">static</span> <span class=\"n\">ZEND_RESULT_CODE</span> <span class=\"nf\">parse_hostinfo</span><span class=\"p\">(</span><span class=\"k\">struct</span> <span class=\"n\">parse_state</span> <span class=\"o\">*</span><span class=\"n\">state</span><span class=\"p\">,</span> <span class=\"k\">const</span> <span class=\"kt\">char</span> <span class=\"o\">*</span><span class=\"n\">ptr</span><span class=\"p\">)</span>\n<span class=\"p\">{</span>\n<span class=\"p\">[...]</span>\n    <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"n\">ptr</span> <span class=\"o\">!=</span> <span class=\"n\">end</span><span class=\"p\">)</span> <span class=\"k\">do</span> <span class=\"p\">{</span>\n        <span class=\"k\">switch</span> <span class=\"p\">(</span><span class=\"o\">*</span><span class=\"n\">ptr</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n            <span class=\"p\">[...]</span>\n            <span class=\"k\">case</span> <span class=\"sc\">&#39;0&#39;</span><span class=\"p\">:</span> <span class=\"k\">case</span> <span class=\"sc\">&#39;1&#39;</span><span class=\"p\">:</span> <span class=\"k\">case</span> <span class=\"sc\">&#39;2&#39;</span><span class=\"p\">:</span> <span class=\"k\">case</span> <span class=\"sc\">&#39;3&#39;</span><span class=\"p\">:</span> <span class=\"k\">case</span> <span class=\"sc\">&#39;4&#39;</span><span class=\"p\">:</span> <span class=\"k\">case</span> <span class=\"sc\">&#39;5&#39;</span><span class=\"p\">:</span> <span class=\"k\">case</span> <span class=\"sc\">&#39;6&#39;</span><span class=\"p\">:</span>\n            <span class=\"k\">case</span> <span class=\"sc\">&#39;7&#39;</span><span class=\"p\">:</span> <span class=\"k\">case</span> <span class=\"sc\">&#39;8&#39;</span><span class=\"p\">:</span> <span class=\"k\">case</span> <span class=\"sc\">&#39;9&#39;</span><span class=\"p\">:</span>\n                <span class=\"cm\">/* allowed */</span>\n                <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"n\">port</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n                    <span class=\"n\">state</span><span class=\"o\">-&gt;</span><span class=\"n\">url</span><span class=\"p\">.</span><span class=\"n\">port</span> <span class=\"o\">*=</span> <span class=\"mi\">10</span><span class=\"p\">;</span>\n                    <span class=\"n\">state</span><span class=\"o\">-&gt;</span><span class=\"n\">url</span><span class=\"p\">.</span><span class=\"n\">port</span> <span class=\"o\">+=</span> <span class=\"o\">*</span><span class=\"n\">ptr</span> <span class=\"o\">-</span> <span class=\"sc\">&#39;0&#39;</span><span class=\"p\">;</span>\n                <span class=\"p\">}</span> <span class=\"k\">else</span> <span class=\"p\">{</span>\n                    <span class=\"n\">label</span> <span class=\"o\">=</span> <span class=\"n\">ptr</span><span class=\"p\">;</span>\n                    <span class=\"n\">state</span><span class=\"o\">-&gt;</span><span class=\"n\">buffer</span><span class=\"p\">[</span><span class=\"n\">state</span><span class=\"o\">-&gt;</span><span class=\"n\">offset</span><span class=\"o\">++</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"o\">*</span><span class=\"n\">ptr</span><span class=\"p\">;</span>\n                <span class=\"p\">}</span>\n                <span class=\"k\">break</span><span class=\"p\">;</span>\n            <span class=\"p\">[...]</span>\n            <span class=\"nl\">default:</span>\n            <span class=\"p\">[...]</span>\n                <span class=\"p\">}</span> <span class=\"k\">else</span> <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"o\">!</span><span class=\"p\">(</span><span class=\"n\">mb</span> <span class=\"o\">=</span> <span class=\"n\">parse_mb</span><span class=\"p\">(</span><span class=\"n\">state</span><span class=\"p\">,</span> <span class=\"n\">PARSE_HOSTINFO</span><span class=\"p\">,</span> <span class=\"n\">ptr</span><span class=\"p\">,</span> <span class=\"n\">end</span><span class=\"p\">,</span> <span class=\"n\">tmp</span><span class=\"p\">,</span> <span class=\"n\">state</span><span class=\"o\">-&gt;</span><span class=\"n\">flags</span> <span class=\"o\">&amp;</span> <span class=\"n\">PHP_HTTP_URL_SILENT_ERRORS</span><span class=\"p\">)))</span> <span class=\"p\">{</span>\n                    <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"o\">!</span><span class=\"p\">(</span><span class=\"n\">state</span><span class=\"o\">-&gt;</span><span class=\"n\">flags</span> <span class=\"o\">&amp;</span> <span class=\"n\">PHP_HTTP_URL_IGNORE_ERRORS</span><span class=\"p\">))</span> <span class=\"p\">{</span>\n                        <span class=\"k\">return</span> <span class=\"n\">FAILURE</span><span class=\"p\">;</span>\n                    <span class=\"p\">}</span>\n                    <span class=\"k\">break</span><span class=\"p\">;</span>\n                <span class=\"p\">}</span>\n                <span class=\"n\">label</span> <span class=\"o\">=</span> <span class=\"n\">ptr</span><span class=\"p\">;</span>\n                <span class=\"n\">ptr</span> <span class=\"o\">+=</span> <span class=\"n\">mb</span> <span class=\"o\">-</span> <span class=\"mi\">1</span><span class=\"p\">;</span>  <span class=\"c1\">// ptr increased here as in various other locations\n</span>        <span class=\"p\">}</span>\n    <span class=\"p\">}</span> <span class=\"k\">while</span> <span class=\"p\">(</span><span class=\"o\">++</span><span class=\"n\">ptr</span> <span class=\"o\">!=</span> <span class=\"n\">end</span><span class=\"p\">);</span>     <span class=\"c1\">// ptr pre-incremented -&gt; check condition may be missed!\n</span><span class=\"p\">[...]</span>\n</code></pre>\n<h1 id=\"security-impact-and-poc\">Security impact and PoC</h1>\n\n<p>Since this bug allows to overwrite quite large parts of memory arbitrary code execution seems very likely. In [1] you&#39;ll find a malformed HTTP request that demonstrates the issue:</p>\n<pre class=\"highlight php\"><code>$ cat http_message_parse.php\n/*\n        http_message_parse.php\n        bug73185.bin\n        http://hlt99.blinkenshell.org/php/bug73185.bin\n*/\n<span class=\"cp\">&lt;?php</span>\n    <span class=\"nv\">$http_msg</span> <span class=\"o\">=</span> <span class=\"k\">new</span> <span class=\"nx\">http\\Message</span><span class=\"p\">(</span><span class=\"nb\">file_get_contents</span><span class=\"p\">(</span><span class=\"s2\">&quot;bug73185.bin&quot;</span><span class=\"p\">),</span> <span class=\"kc\">false</span><span class=\"p\">);</span>\n<span class=\"cp\">?&gt;</span>\n</code></pre><pre class=\"highlight plaintext\"><code>$ ./configure --enable-raphf --enable-propro --with-http &amp;&amp; make\n$ gdb ./sapi/cli/php\ngdb&gt; r http_message_parse.php\n[...]\nFatal error: Uncaught http\\Exception\\BadMessageException: http\\Message::__construct(): Could not parse HTTP protocol version &#39;HTTP/1.rdrd-vvv5:##HT\n[...] // garbled output\n85:#~t? HTT in http_message_parse.php on line 7\n\nProgram received signal SIGSEGV, Segmentation fault.\n0x00000000006d6ef3 in _php_stream_free (stream=&lt;optimized out&gt;, close_options=11)\n    at /home/rc0r/tmp/php-src/main/streams/streams.c:467\n467         ret = stream-&gt;ops-&gt;close(stream, preserve_handle ? 0 : 1);\ngdb&gt; i r\nrax            0x4142434445464748   4702394921427289928\nrbx            0xb  11\nrcx            0x1  1\nrdx            0x0  0\nrsi            0x1  1\nrdi            0x7ffff42ad300   140737289835264\nrbp            0x7ffff42ad300   0x7ffff42ad300\nrsp            0x7fffffffb150   0x7fffffffb150\nr8             0x0  0\nr9             0x1  1\nr10            0x3d3    979\nr11            0x7ffff58ad760   140737312905056\nr12            0x0  0\nr13            0x1  1\nr14            0x0  0\nr15            0x0  0\nrip            0x6d6ef3 0x6d6ef3 &lt;_php_stream_free+307&gt;\neflags         0x10202  [ IF RF ]\ncs             0x33 51\nss             0x2b 43\nds             0x0  0\nes             0x0  0\nfs             0x0  0\ngs             0x0  0\ngdb&gt; x/i $rip\n=&gt; 0x6d6ef3 &lt;_php_stream_free+307&gt;: callq  *0x10(%rax)\n</code></pre>\n<p>The attempt to parse the supplied HTTP request fails at some point and used resources are freed by the extension. It was possible to overwrite a <code>php_stream</code> structure including its pointer to a <code>php_stream_ops</code> structure containing function pointers that are about to be called from within <code>_php_stream_free()</code> as shown above. Register <code>rax</code> contains data from the malformed HTTP request starting at offset 0x2139. </p>\n\n<p>[1] <a title=\"http://hlt99.blinkenshell.org/php/005-bug73185.bin\" href=\"/redirect?signature=e25185253077682c30099c7614e2bb3e218e12bb&amp;url=http%3A%2F%2Fhlt99.blinkenshell.org%2Fphp%2F005-bug73185.bin\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://hlt99.blinkenshell.org/php/005-bug73185.bin</span><i class=\"icon-external-link\"></i></a></p>\n\n<h1 id=\"patch\">Patch</h1>\n\n<p>After careful review by the project maintainers the following patch may be used to fix the reported issue.  </p>\n<pre class=\"highlight c\"><code><span class=\"n\">From</span> <span class=\"n\">ec2d2e1648127b2a0bb15f10144daca59bc6f03c</span> <span class=\"n\">Mon</span> <span class=\"n\">Sep</span> <span class=\"mi\">17</span> <span class=\"mo\">00</span><span class=\"o\">:</span><span class=\"mo\">00</span><span class=\"o\">:</span><span class=\"mo\">00</span> <span class=\"mi\">2001</span>\n<span class=\"n\">From</span><span class=\"o\">:</span> <span class=\"n\">rc0r</span> <span class=\"o\">&lt;</span><span class=\"n\">hlt99</span><span class=\"err\">@</span><span class=\"n\">blinkenshell</span><span class=\"p\">.</span><span class=\"n\">org</span><span class=\"o\">&gt;</span>\n<span class=\"n\">Date</span><span class=\"o\">:</span> <span class=\"n\">Mon</span><span class=\"p\">,</span> <span class=\"mi\">26</span> <span class=\"n\">Sep</span> <span class=\"mi\">2016</span> <span class=\"mi\">21</span><span class=\"o\">:</span><span class=\"mi\">34</span><span class=\"o\">:</span><span class=\"mi\">29</span> <span class=\"o\">+</span><span class=\"mo\">0200</span>\n<span class=\"n\">Subject</span><span class=\"o\">:</span> <span class=\"p\">[</span><span class=\"n\">PATCH</span><span class=\"p\">]</span> <span class=\"n\">Buffer</span> <span class=\"n\">overflow</span> <span class=\"n\">in</span> <span class=\"n\">parse_hostinfo</span><span class=\"p\">()</span> <span class=\"n\">fixed</span>\n\n<span class=\"o\">---</span>\n <span class=\"n\">src</span><span class=\"o\">/</span><span class=\"n\">php_http_url</span><span class=\"p\">.</span><span class=\"n\">c</span> <span class=\"o\">|</span> <span class=\"mi\">4</span> <span class=\"o\">++--</span>\n <span class=\"mi\">1</span> <span class=\"n\">file</span> <span class=\"n\">changed</span><span class=\"p\">,</span> <span class=\"mi\">2</span> <span class=\"n\">insertions</span><span class=\"p\">(</span><span class=\"o\">+</span><span class=\"p\">),</span> <span class=\"mi\">2</span> <span class=\"n\">deletions</span><span class=\"p\">(</span><span class=\"o\">-</span><span class=\"p\">)</span>\n\n<span class=\"n\">diff</span> <span class=\"o\">--</span><span class=\"n\">git</span> <span class=\"n\">a</span><span class=\"o\">/</span><span class=\"n\">src</span><span class=\"o\">/</span><span class=\"n\">php_http_url</span><span class=\"p\">.</span><span class=\"n\">c</span> <span class=\"n\">b</span><span class=\"o\">/</span><span class=\"n\">src</span><span class=\"o\">/</span><span class=\"n\">php_http_url</span><span class=\"p\">.</span><span class=\"n\">c</span>\n<span class=\"n\">index</span> <span class=\"mi\">2332</span><span class=\"n\">fb5</span><span class=\"p\">.</span><span class=\"mf\">.70e4</span><span class=\"n\">c2c</span> <span class=\"mi\">100644</span>\n<span class=\"o\">---</span> <span class=\"n\">a</span><span class=\"o\">/</span><span class=\"n\">src</span><span class=\"o\">/</span><span class=\"n\">php_http_url</span><span class=\"p\">.</span><span class=\"n\">c</span>\n<span class=\"o\">+++</span> <span class=\"n\">b</span><span class=\"o\">/</span><span class=\"n\">src</span><span class=\"o\">/</span><span class=\"n\">php_http_url</span><span class=\"p\">.</span><span class=\"n\">c</span>\n<span class=\"err\">@@</span> <span class=\"o\">-</span><span class=\"mi\">1107</span><span class=\"p\">,</span><span class=\"mi\">7</span> <span class=\"o\">+</span><span class=\"mi\">1107</span><span class=\"p\">,</span><span class=\"mi\">7</span> <span class=\"err\">@@</span> <span class=\"k\">static</span> <span class=\"n\">ZEND_RESULT_CODE</span> <span class=\"n\">parse_hostinfo</span><span class=\"p\">(</span><span class=\"k\">struct</span> <span class=\"n\">parse_state</span> <span class=\"o\">*</span><span class=\"n\">state</span><span class=\"p\">,</span> <span class=\"k\">const</span> <span class=\"kt\">char</span> <span class=\"o\">*</span><span class=\"n\">pt</span>\n    <span class=\"p\">}</span>\n <span class=\"cp\">#endif\n</span>\n<span class=\"o\">-</span>   <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"n\">ptr</span> <span class=\"o\">!=</span> <span class=\"n\">end</span><span class=\"p\">)</span> <span class=\"k\">do</span> <span class=\"p\">{</span>\n<span class=\"o\">+</span>   <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"n\">ptr</span> <span class=\"o\">&lt;</span> <span class=\"n\">end</span><span class=\"p\">)</span> <span class=\"k\">do</span> <span class=\"p\">{</span>\n        <span class=\"k\">switch</span> <span class=\"p\">(</span><span class=\"o\">*</span><span class=\"n\">ptr</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n        <span class=\"k\">case</span> <span class=\"sc\">&#39;:&#39;</span><span class=\"p\">:</span>\n            <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"n\">port</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n<span class=\"err\">@@</span> <span class=\"o\">-</span><span class=\"mi\">1235</span><span class=\"p\">,</span><span class=\"mi\">7</span> <span class=\"o\">+</span><span class=\"mi\">1235</span><span class=\"p\">,</span><span class=\"mi\">7</span> <span class=\"err\">@@</span> <span class=\"k\">static</span> <span class=\"n\">ZEND_RESULT_CODE</span> <span class=\"n\">parse_hostinfo</span><span class=\"p\">(</span><span class=\"k\">struct</span> <span class=\"n\">parse_state</span> <span class=\"o\">*</span><span class=\"n\">state</span><span class=\"p\">,</span> <span class=\"k\">const</span> <span class=\"kt\">char</span> <span class=\"o\">*</span><span class=\"n\">pt</span>\n            <span class=\"n\">label</span> <span class=\"o\">=</span> <span class=\"n\">ptr</span><span class=\"p\">;</span>\n            <span class=\"n\">ptr</span> <span class=\"o\">+=</span> <span class=\"n\">mb</span> <span class=\"o\">-</span> <span class=\"mi\">1</span><span class=\"p\">;</span>\n        <span class=\"p\">}</span>\n<span class=\"o\">-</span>   <span class=\"p\">}</span> <span class=\"k\">while</span> <span class=\"p\">(</span><span class=\"o\">++</span><span class=\"n\">ptr</span> <span class=\"o\">!=</span> <span class=\"n\">end</span><span class=\"p\">);</span>\n<span class=\"o\">+</span>   <span class=\"p\">}</span> <span class=\"k\">while</span> <span class=\"p\">(</span><span class=\"o\">++</span><span class=\"n\">ptr</span> <span class=\"o\">&lt;</span> <span class=\"n\">end</span><span class=\"p\">);</span>\n\n    <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"o\">!</span><span class=\"n\">state</span><span class=\"o\">-&gt;</span><span class=\"n\">url</span><span class=\"p\">.</span><span class=\"n\">host</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n        <span class=\"n\">len</span> <span class=\"o\">=</span> <span class=\"n\">state</span><span class=\"o\">-&gt;</span><span class=\"n\">offset</span> <span class=\"o\">-</span> <span class=\"n\">len</span><span class=\"p\">;</span>\n<span class=\"o\">--</span> \n<span class=\"mi\">2</span><span class=\"p\">.</span><span class=\"mi\">10</span><span class=\"p\">.</span><span class=\"mi\">0</span>\n</code></pre>\n<h1 id=\"versions-known-to-be-affected\">Versions known to be affected</h1>\n\n<p>pecl-http extension versions up to and including:</p>\n\n<ul>\n<li>3.1.0beta2 (PHP 7)</li>\n<li>2.6.0beta2 (PHP 5)</li>\n</ul>\n\n<h1 id=\"timeline\">Timeline</h1>\n\n<p>2016-09-27  Initial report to PHP bug tracker (#73185)<br>\n2016-10-04  Issue fixed in git repository, CVE requested<br>\n2016-10-04  Maintainer released fixed pecl-http extensions 3.1.0RC1 and 2.6.0RC1<br>\n2016-10-05  Mitre assigned CVE-2016-7961</p>\n\n<h1 id=\"references\">References</h1>\n\n<p><a title=\"https://bugs.php.net/bug.php?id=73185\" href=\"/redirect?signature=8f787edbdf2127dc36ab75830266108b29c45970&amp;url=https%3A%2F%2Fbugs.php.net%2Fbug.php%3Fid%3D73185\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://bugs.php.net/bug.php?id=73185</span><i class=\"icon-external-link\"></i></a><br>\n<a title=\"https://github.com/m6w6/ext-http/commit/e096f45ff30a46d6a8e96da7bc6334d2ac5ab7c2\" href=\"/redirect?signature=3f8106012883fdadf1ba06fbb2b636b22a64ce25&amp;url=https%3A%2F%2Fgithub.com%2Fm6w6%2Fext-http%2Fcommit%2Fe096f45ff30a46d6a8e96da7bc6334d2ac5ab7c2\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/m6w6/ext-http/commit/e096f45ff30a46d6a8e96da7bc6334d2ac5ab7c2</span><i class=\"icon-external-link\"></i></a></p>\n\n<p><a title=\"https://pecl.php.net/package/pecl_http/3.1.0RC1\" href=\"/redirect?signature=831cd09017b1e7aa959cae048865bd2e792cd705&amp;url=https%3A%2F%2Fpecl.php.net%2Fpackage%2Fpecl_http%2F3.1.0RC1\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://pecl.php.net/package/pecl_http/3.1.0RC1</span><i class=\"icon-external-link\"></i></a><br>\n<a title=\"https://pecl.php.net/package/pecl_http/2.6.0RC1\" href=\"/redirect?signature=9974cfc995eb2ece9f88a5d37aed3a1c91166290&amp;url=https%3A%2F%2Fpecl.php.net%2Fpackage%2Fpecl_http%2F2.6.0RC1\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://pecl.php.net/package/pecl_http/2.6.0RC1</span><i class=\"icon-external-link\"></i></a></p>\n\n<p><a title=\"http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-7961\" href=\"/redirect?signature=0d975341b71b787c054778005958374a3664251f&amp;url=http%3A%2F%2Fcve.mitre.org%2Fcgi-bin%2Fcvename.cgi%3Fname%3DCVE-2016-7961\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-7961</span><i class=\"icon-external-link\"></i></a></p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://www.php.net", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "PHP (IBB)"
+        }, 
+        "handle": "ibb-php", 
+        "url": "https://hackerone.com/ibb-php", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/029/0a20311cece1ff1938eac3f9b09a6af056bc9e90_small.png?1385119730", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/029/991fb39ba898696eb6ae62521c49b292b2a9cf95_medium.png?1385119730"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 29, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

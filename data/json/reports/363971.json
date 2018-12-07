@@ -1,0 +1,343 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-08-28T19:06:35.453Z", 
+    "voters": [
+        "flamezzz", 
+        "fransrosen", 
+        "cache-money", 
+        "miguel_santareno", 
+        "hogarth45", 
+        "michiel", 
+        "bl4de", 
+        "foobar7", 
+        "spam404", 
+        "hunter", 
+        "and 48 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "2500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 363971, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-08-29T20:11:55.108Z", 
+    "vulnerability_information": "After installing the Windows Infrastructure client (as discussed in https://docs.newrelic.com/docs/infrastructure/new-relic-infrastructure/installation/install-infrastructure-windows-server) I noticed that integration yml config files are not only loaded from the folder within Program Files, but also from the non-existing unix specific /etc/ folder.\n{F307393}\n\nThe interesting thing here is, that on Windows (verified for 7, Server 2008 R2 and Server 2012) every authenticated user is allowed to add new folders on the C: drive. This in turn allows an attacker to create the /etc/... folder structure that we discovered earlier.\n{F307394}\n\nHence, any local user is able to create new integration yml config files that are loaded by the newrelic-infra.exe binary on startup. The interesting thing is, that this application is launched as SYSTEM because of its service configuration.\n \nAfter a little trail and error I discovered that this issue can be abused to poison the environment variables of the standard com.newrelic.winpkg integration job by reusing its name:\n{F307395}\n\nAt first I thought about simply changing the %PATH%, but it looks like this is filtered. After a quick google search I came up with another interesting, likely exploitable environment variable: PathExt (http://environmentvariables.org/PathExt). The idea behind this variable is, that additional default file extensions can be added (in addition to thing like .exe and .bat)\n\nAs shown in the following screenshot I create a new configuration file: C:\\etc\\newrelic-infra\\integrations.d\\newrelic-test-config.yml. This partially overwrites the configuration of the default com.newrelic.winpkg integration, which enables us to poison its environment with the attacker controlled %PATHEX environment variable. Thereby, whenever the nr-winpkg.exe spawns any external app (which it does), our exploit.exe application is launched instead:\n{F307396}\n\nThe exploit.exe simply adds a new user as soon as it is launched. The highlighted command ensures that the %PATHEX variable is cleared so that we don't exploit ourselves, which would lead to an endless loop: \n{F307397}\n\nOn the next reboot - or as soon as the New Relic Infrastructure Agent is restarted - our malicious .yml integration file is loaded, which in turn poisons the environment for the default nr-winpkg.exe process. This finally, leads to the execution of our exploit.exe binary with SYSTEM permissions. Hence, any local user is able to add a new administrative user (attacker), thereby gaining full control over the affected endpoint:\n{F307398}\n\nPoC:\n=====================\n1.) Download the attached exploit-poc.zip as a non-administrative user\n2.) Extract its content to C:\\\n3.) Reboot the system\n4.) A new administrative user attacker with the passwords Batman42 is added to the system\n5.) A local non-admin user gained full control over the affected endpoint.\n\n## Impact\n\nThis issues allows any local user (using either console or RDP access) to escalate his privileges to LOCAL SYSTEM. Thereby full control over the affected endpoint is gained, which can then be abused to run tools like Mimikatz. This may lead to a Windows Active Directory domain wide compromise.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "low", 
+            "user_interaction": "none", 
+            "attack_vector": "local", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "high", 
+            "availability": "high"
+        }, 
+        "rating": "high", 
+        "score": 8.8, 
+        "author_type": "User"
+    }, 
+    "title": "Insecure Infrastructure Integrations YML Loading leads to Windows Privilege Escalation", 
+    "is_member_of_team?": null, 
+    "vote_count": 58, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "Infrastructure agents", 
+        "max_severity": "critical", 
+        "databaseId": 4409, 
+        "asset_type": "DOWNLOADABLE_EXECUTABLES"
+    }, 
+    "allow_singular_disclosure_at": "2018-09-27T19:06:35.544Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$2,500", 
+    "attachments": [
+        {
+            "file_name": "Screen_Shot_2018-06-10_at_20.15.12.png", 
+            "type": "image/png", 
+            "id": 307393, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/307/393/7c2b8752c8e851dfe07f9d8ac100adeef92b027e/Screen_Shot_2018-06-10_at_20.15.12.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221726Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=acba335af0a2b99896f6b8d7b93165ea510b6e54f03383db47a7035a45fc0c67"
+        }, 
+        {
+            "file_name": "Screen_Shot_2018-06-10_at_20.21.44.png", 
+            "type": "image/png", 
+            "id": 307394, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/307/394/58be4eba2e475bbcd6a167102e0feee27f0a241a/Screen_Shot_2018-06-10_at_20.21.44.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221726Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=07c9dae599fd8fd3607a756de13b7e14f2d18f35e6be68cedceac0c1b4b49cfb"
+        }, 
+        {
+            "file_name": "Screen_Shot_2018-06-10_at_20.17.57.png", 
+            "type": "image/png", 
+            "id": 307395, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/307/395/b38b4a44a7e9443a9ec1ced958c17e422996e9e5/Screen_Shot_2018-06-10_at_20.17.57.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221726Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=2421f8e6e5c8dfe449028df529d35f2361b9351de00e5838b900d3d6450d80bd"
+        }, 
+        {
+            "file_name": "Screen_Shot_2018-06-10_at_20.32.57.png", 
+            "type": "image/png", 
+            "id": 307396, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/307/396/2c75997d6aee506c5b7b5db97ab13da7c27bace6/Screen_Shot_2018-06-10_at_20.32.57.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221726Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=d16c99d2f416894339bd925702350c500aa9924ffeb2dd4ce497ead4018dc9da"
+        }, 
+        {
+            "file_name": "Screen_Shot_2018-06-10_at_20.33.13.png", 
+            "type": "image/png", 
+            "id": 307397, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/307/397/6b3a64f6fef8ab557acb6f08db2ff0c5df8fc4e6/Screen_Shot_2018-06-10_at_20.33.13.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221726Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=faef255c305198ff92a217fc134910986874abeed20960a62309cd0bba7df49e"
+        }, 
+        {
+            "file_name": "Screen_Shot_2018-06-10_at_20.42.24.png", 
+            "type": "image/png", 
+            "id": 307398, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/307/398/ce664b0493b3e40bce31fa50eddb70b8df755085/Screen_Shot_2018-06-10_at_20.42.24.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221726Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=2194435a94b5fba7ff0bdbff1599f80f010514680da6bc1a39d513e59bc98761"
+        }, 
+        {
+            "file_name": "exploit-poc.zip", 
+            "type": "application/zip", 
+            "id": 307399, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/307/399/89c34a1d5ea9b68f84a130843caf18a819200d38/exploit-poc.zip?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221726Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=a980986be2aac3e7f26ad77964fa2ad5081e0e189f148e80db91b382b7c6c29d"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-11T22:17:22.981Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-11T22:17:22.981Z", 
+            "actor": {
+                "username": "dmcmahon", 
+                "url": "/dmcmahon", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "newrelic", 
+            "message": "Hi @fbogner,\n\nThanks for submitting this report. We greatly appreciate your thorough write-up and PoC.\n\nWe've forwarded this to the appropriate engineering team and will let you know when we have an update.", 
+            "markdown_message": "<p>Hi <a href=\"/fbogner\">@fbogner</a>,</p>\n\n<p>Thanks for submitting this report. We greatly appreciate your thorough write-up and PoC.</p>\n\n<p>We&#39;ve forwarded this to the appropriate engineering team and will let you know when we have an update.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2871567, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-06-11T22:17:44.239Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-11T22:17:44.239Z", 
+            "actor": {
+                "url": "/newrelic", 
+                "profile": {
+                    "name": "New Relic"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/011/94822999c270d791d185b40e07d36cc864e96faa_medium.?1482361910"
+                }
+            }, 
+            "team_handle": "newrelic", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "2500.0", 
+            "collaborator": {
+                "username": "fbogner", 
+                "url": "/fbogner"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2871568, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "fbogner", 
+                "url": "/fbogner"
+            }, 
+            "created_at": "2018-08-28T17:18:45.534Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-28T17:18:45.534Z", 
+            "actor": {
+                "username": "ahamlin", 
+                "url": "/ahamlin", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/071/f64610f48ed92d78a126cc855754c0aaef4beaee_medium.jpg?1507763206"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "newrelic", 
+            "message": "We believe this issue to be resolved. Please let us know if you find this to still be reproducible, and thank you for your help in keeping New Relic secure!", 
+            "markdown_message": "<p>We believe this issue to be resolved. Please let us know if you find this to still be reproducible, and thank you for your help in keeping New Relic secure!</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3259293, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-28T19:06:35.488Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-28T19:06:35.488Z", 
+            "actor": {
+                "username": "fbogner", 
+                "url": "/fbogner", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/097/209/8aae91dddd6124055ee2811669d107626e16d77b_medium.png?1512033847"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "newrelic", 
+            "first_to_agree": true, 
+            "message": "As I think this was a very interesting vulnerability I would like to fully disclose it. What do you say?", 
+            "markdown_message": "<p>As I think this was a very interesting vulnerability I would like to fully disclose it. What do you say?</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3259688, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-29T20:11:55.158Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-29T20:11:55.158Z", 
+            "actor": {
+                "username": "ahamlin", 
+                "url": "/ahamlin", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/071/f64610f48ed92d78a126cc855754c0aaef4beaee_medium.jpg?1507763206"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "newrelic", 
+            "message": "Definitely! We've also published a security bulletin for this issue here: https://docs.newrelic.com/docs/using-new-relic/new-relic-security/security-bulletins/security-bulletin-nr18-10", 
+            "markdown_message": "<p>Definitely! We&#39;ve also published a security bulletin for this issue here: <a title=\"https://docs.newrelic.com/docs/using-new-relic/new-relic-security/security-bulletins/security-bulletin-nr18-10\" href=\"/redirect?signature=ec46ab637dfd7c6276c8d18b7e3e4d53356aa4d9&amp;url=https%3A%2F%2Fdocs.newrelic.com%2Fdocs%2Fusing-new-relic%2Fnew-relic-security%2Fsecurity-bulletins%2Fsecurity-bulletin-nr18-10\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://docs.newrelic.com/docs/using-new-relic/new-relic-security/security-bulletins/security-bulletin-nr18-10</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3265555, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-29T20:11:55.265Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-29T20:11:55.265Z", 
+            "actor": {
+                "username": "ahamlin", 
+                "url": "/ahamlin", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/037/071/f64610f48ed92d78a126cc855754c0aaef4beaee_medium.jpg?1507763206"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "newrelic", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3265556, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "fbogner", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/fbogner", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/097/209/9d96ecabcd4ee274212e24288ba58577436935cc_small.png?1512033847"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 75, 
+        "name": "Privilege Escalation"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -6059451.227938395, 
+    "disclosed_at": "2018-08-29T20:11:55.227Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/363971", 
+    "created_at": "2018-06-10T18:48:53.086Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>After installing the Windows Infrastructure client (as discussed in <a title=\"https://docs.newrelic.com/docs/infrastructure/new-relic-infrastructure/installation/install-infrastructure-windows-server\" href=\"/redirect?signature=58fe70f1ca975a5193e5e6bc9d33d7ad58f0b941&amp;url=https%3A%2F%2Fdocs.newrelic.com%2Fdocs%2Finfrastructure%2Fnew-relic-infrastructure%2Finstallation%2Finstall-infrastructure-windows-server\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://docs.newrelic.com/docs/infrastructure/new-relic-infrastructure/installation/install-infrastructure-windows-server</span><i class=\"icon-external-link\"></i></a>) I noticed that integration yml config files are not only loaded from the folder within Program Files, but also from the non-existing unix specific /etc/ folder.<br>\n<a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"Screen_Shot_2018-06-10_at_20.15.12.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/307/393/7c2b8752c8e851dfe07f9d8ac100adeef92b027e/Screen_Shot_2018-06-10_at_20.15.12.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221726Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=acba335af0a2b99896f6b8d7b93165ea510b6e54f03383db47a7035a45fc0c67\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/307/393/7c2b8752c8e851dfe07f9d8ac100adeef92b027e/Screen_Shot_2018-06-10_at_20.15.12.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221726Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=acba335af0a2b99896f6b8d7b93165ea510b6e54f03383db47a7035a45fc0c67\" class=\"markdown-inline-image\"></a></p>\n\n<p>The interesting thing here is, that on Windows (verified for 7, Server 2008 R2 and Server 2012) every authenticated user is allowed to add new folders on the C: drive. This in turn allows an attacker to create the /etc/... folder structure that we discovered earlier.<br>\n<a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"Screen_Shot_2018-06-10_at_20.21.44.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/307/394/58be4eba2e475bbcd6a167102e0feee27f0a241a/Screen_Shot_2018-06-10_at_20.21.44.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221726Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=07c9dae599fd8fd3607a756de13b7e14f2d18f35e6be68cedceac0c1b4b49cfb\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/307/394/58be4eba2e475bbcd6a167102e0feee27f0a241a/Screen_Shot_2018-06-10_at_20.21.44.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221726Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=07c9dae599fd8fd3607a756de13b7e14f2d18f35e6be68cedceac0c1b4b49cfb\" class=\"markdown-inline-image\"></a></p>\n\n<p>Hence, any local user is able to create new integration yml config files that are loaded by the newrelic-infra.exe binary on startup. The interesting thing is, that this application is launched as SYSTEM because of its service configuration.</p>\n\n<p>After a little trail and error I discovered that this issue can be abused to poison the environment variables of the standard com.newrelic.winpkg integration job by reusing its name:<br>\n<a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"Screen_Shot_2018-06-10_at_20.17.57.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/307/395/b38b4a44a7e9443a9ec1ced958c17e422996e9e5/Screen_Shot_2018-06-10_at_20.17.57.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221726Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=2421f8e6e5c8dfe449028df529d35f2361b9351de00e5838b900d3d6450d80bd\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/307/395/b38b4a44a7e9443a9ec1ced958c17e422996e9e5/Screen_Shot_2018-06-10_at_20.17.57.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221726Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=2421f8e6e5c8dfe449028df529d35f2361b9351de00e5838b900d3d6450d80bd\" class=\"markdown-inline-image\"></a></p>\n\n<p>At first I thought about simply changing the %PATH%, but it looks like this is filtered. After a quick google search I came up with another interesting, likely exploitable environment variable: PathExt (<a title=\"http://environmentvariables.org/PathExt\" href=\"/redirect?signature=9042aed334dbdb80519168fc615b1006207b6b08&amp;url=http%3A%2F%2Fenvironmentvariables.org%2FPathExt\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://environmentvariables.org/PathExt</span><i class=\"icon-external-link\"></i></a>). The idea behind this variable is, that additional default file extensions can be added (in addition to thing like .exe and .bat)</p>\n\n<p>As shown in the following screenshot I create a new configuration file: C:\\etc\\newrelic-infra\\integrations.d\\newrelic-test-config.yml. This partially overwrites the configuration of the default com.newrelic.winpkg integration, which enables us to poison its environment with the attacker controlled %PATHEX environment variable. Thereby, whenever the nr-winpkg.exe spawns any external app (which it does), our exploit.exe application is launched instead:<br>\n<a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"Screen_Shot_2018-06-10_at_20.32.57.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/307/396/2c75997d6aee506c5b7b5db97ab13da7c27bace6/Screen_Shot_2018-06-10_at_20.32.57.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221726Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=d16c99d2f416894339bd925702350c500aa9924ffeb2dd4ce497ead4018dc9da\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/307/396/2c75997d6aee506c5b7b5db97ab13da7c27bace6/Screen_Shot_2018-06-10_at_20.32.57.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221726Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=d16c99d2f416894339bd925702350c500aa9924ffeb2dd4ce497ead4018dc9da\" class=\"markdown-inline-image\"></a></p>\n\n<p>The exploit.exe simply adds a new user as soon as it is launched. The highlighted command ensures that the %PATHEX variable is cleared so that we don&#39;t exploit ourselves, which would lead to an endless loop: <br>\n<a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"Screen_Shot_2018-06-10_at_20.33.13.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/307/397/6b3a64f6fef8ab557acb6f08db2ff0c5df8fc4e6/Screen_Shot_2018-06-10_at_20.33.13.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221726Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=faef255c305198ff92a217fc134910986874abeed20960a62309cd0bba7df49e\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/307/397/6b3a64f6fef8ab557acb6f08db2ff0c5df8fc4e6/Screen_Shot_2018-06-10_at_20.33.13.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221726Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=faef255c305198ff92a217fc134910986874abeed20960a62309cd0bba7df49e\" class=\"markdown-inline-image\"></a></p>\n\n<p>On the next reboot - or as soon as the New Relic Infrastructure Agent is restarted - our malicious .yml integration file is loaded, which in turn poisons the environment for the default nr-winpkg.exe process. This finally, leads to the execution of our exploit.exe binary with SYSTEM permissions. Hence, any local user is able to add a new administrative user (attacker), thereby gaining full control over the affected endpoint:<br>\n<a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"Screen_Shot_2018-06-10_at_20.42.24.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/307/398/ce664b0493b3e40bce31fa50eddb70b8df755085/Screen_Shot_2018-06-10_at_20.42.24.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221726Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=2194435a94b5fba7ff0bdbff1599f80f010514680da6bc1a39d513e59bc98761\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/307/398/ce664b0493b3e40bce31fa50eddb70b8df755085/Screen_Shot_2018-06-10_at_20.42.24.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221726Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=2194435a94b5fba7ff0bdbff1599f80f010514680da6bc1a39d513e59bc98761\" class=\"markdown-inline-image\"></a></p>\n\n<h1 id=\"poc\">PoC:</h1>\n\n<p>1.) Download the attached exploit-poc.zip as a non-administrative user<br>\n2.) Extract its content to C:\\<br>\n3.) Reboot the system<br>\n4.) A new administrative user attacker with the passwords Batman42 is added to the system<br>\n5.) A local non-admin user gained full control over the affected endpoint.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>This issues allows any local user (using either console or RDP access) to escalate his privileges to LOCAL SYSTEM. Thereby full control over the affected endpoint is gained, which can then be abused to run tools like Mimikatz. This may lead to a Windows Active Directory domain wide compromise.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://newrelic.com", 
+            "about": "New Relic's Coordinated Disclosure Program", 
+            "twitter_handle": "newrelic", 
+            "name": "New Relic"
+        }, 
+        "handle": "newrelic", 
+        "url": "https://hackerone.com/newrelic", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/017/011/4a259e2f731f105c784b1279db99215cefb8abbd_small.?1482361910", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/017/011/94822999c270d791d185b40e07d36cc864e96faa_medium.?1482361910"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 17011, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

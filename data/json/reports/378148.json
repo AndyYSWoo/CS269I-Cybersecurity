@@ -1,0 +1,475 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-08-19T15:29:36.471Z", 
+    "voters": [
+        "irvinlim", 
+        "jobert", 
+        "bl4de", 
+        "secator", 
+        "spam404", 
+        "orange", 
+        "ramsexy", 
+        "cdl", 
+        "mishre", 
+        "an0nym0us", 
+        "and 11 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 378148, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-08-22T09:56:02.034Z", 
+    "vulnerability_information": "**Summary:** \nA filename regular expression could be bypassed and enable the attacker to create a symbolic link in Gitlab upload directory by importing a specially crafted Gitlab export. Further more, Gitlab is designed to not delete project upload directory currently. So, the attacker could delete the imported project and then upload another specially crafted Gitlab export to a project with the same name, which leads to path traversal/arbitrary file upload and finally enables the attacker to be able to get a shell with the permission of the system gitlab user.\n\n**Description:**\n1. how to create a symbolic link in the upload directory\ncode in `file_importer.rb` uses `%r{.*/\\.{1,2}$}` to except `.` and `..` in the extracted project import directory tree, and check everything else that does not match this regex and delete all symlinks. However, we can easily construct a symlink with the name `.\\nevil` in the tarball that matches this regex perfectly. Therefore, it will not be removed by function `remove_symlinks!` in the same file, and finally uploaded to `/var/opt/gitlab/gitlab-rails/uploads/nyangawa/myrepo/.\\nevil -> /var/opt/gitlab` (assume we import the project to `nyangawa/myrepo` and the symlink points to `/var/opt/gitlab`)\n\n2. how to use the uploaded symbolic link to get shell access\nFirst delete the `nyangawa/myrepo` project we just created. For some reasons the upload directory of this project does not get purged. Then we import another tarball which has, for example, `uploads/.\\neviil/.ssh/authorized_keys` in it. And the content of this file is my ssh public key. Then import this tarball to create project `nyangawa/myrepo` again.\n\n3. after all\nthe uploaded `authorized_keys` is copied to `/var/opt/gitlab/gitlab-rails/uploads/nyangawa/myrepo/.\\nevil/.ssh/authorized_keys` of the victim's filesystem but unfortunately, this path redirects to `/var/opt/gitlab/.ssh/authorized_keys`. Then I can login to the victim server by ssh with Gitlab's system username.\n\n\nFor step 2 and 3, there're some other approaches to get command executed since we can already upload any file to the victim's file system controlled by Gitlab.\n\n\n## Steps To Reproduce:\n\nAs I stated in description. I can upload the 2 PoC tarballs if you ask.\n\n## Impact\n\n1. An attacker can upload arbitrary file to the victim's file system\n1. Data of other users could be override\n1. An attacker can get a system shell by overwrite specific files.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "critical", 
+        "author_type": "User"
+    }, 
+    "title": "Vulnerability in project import leads to arbitrary command execution", 
+    "is_member_of_team?": null, 
+    "vote_count": 21, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-09-18T15:29:36.596Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-09T17:20:21.853Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-09T17:20:21.853Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @nyangawa  ,\n\nThank you for submitting this report. We are currently investigating the issue. Due to our current workload, we will get back with you within the next week with an update.\n\nRegards,\nJames", 
+            "markdown_message": "<p>Hi <a href=\"/nyangawa\">@nyangawa</a>  ,</p>\n\n<p>Thank you for submitting this report. We are currently investigating the issue. Due to our current workload, we will get back with you within the next week with an update.</p>\n\n<p>Regards,<br>\nJames</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3019139, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-10T23:22:28.307Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-10T23:22:28.307Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "@nyangawa ,\n\nCan you upload the 2 example PoC tarballs?\n\nBest regards,\nJames", 
+            "markdown_message": "<p><a href=\"/nyangawa\">@nyangawa</a> ,</p>\n\n<p>Can you upload the 2 example PoC tarballs?</p>\n\n<p>Best regards,<br>\nJames</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3027153, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-11T00:20:16.049Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-11T00:20:16.049Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugNeedsMoreInfo", 
+            "id": 3027317, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/319/181/589ae612fc1bd809f3d2e4458480094b876e1965/tarball2.tar.gz?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQUGLJGSWG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221738Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDKM0VlUhdMTH8KoEtCK3A8OYEaI0bxYq7BUbrfF29DSbKtUs5TMCeB5FlkwERpxSU49o20mRIVl2fBvvv1hdFcsCDANAMGWvX%2Faf68iJ3aFPBQySWphheO3DX%2BSZQciRkV0sOPeKeZSt2y6M11j88wuo3HYsP7bIFtt2%2BUaL%2FIqfE8KHYavOS6uyUN0H%2BUfHDrW%2FgMpQ8XXLkiFuG8%2BV2DdqfYc9V22I7shRDODxACEfjFPInrTKfLh74T1aVBNswXALPhKClZRFi6kUPozhrj8qXpOmsge18GAMHYHGjpEpasUVrJ2earHh6ttt3se0%2B%2BTASgDPlAxRdaKGq%2FWME7DbyKdQ2N4%2Bn0WCbl%2B0ZnuTw2IbHnGas%2FTiYT%2BWSTw07tDag6vX9fCs8FhCTE2lNNu59CQkorthuaPzTq9TQBE%2BefkD4NqWd8XIe70sIzW5Gov9hArx5yoFxMyl981yHwhHBoDQTx%2BBp4Y%2BoteeWjmi0xzjtDZHW88%2FeYX17nsF3vaqAoUkelgW7kpUm8mv2yKfyt2PFpmsLyuEHv%2BEhiSjd75eU3JKoY5TjaeO1Z0pj3qT9jWAnTt%2B4p6EhH6lW6wtMSnxwfoogZym4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=20eaa8bf0426dc36e524231861e8c33258bacb675e3fadf774cd8dd67ee38b89", 
+                    "type": "application/gzip", 
+                    "id": 319181, 
+                    "filename": "tarball2.tar.gz"
+                }, 
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/319/180/c0db75293c966d321b7d39f1963593dab4965945/tarball1.tar.gz?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQUGLJGSWG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221738Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDKM0VlUhdMTH8KoEtCK3A8OYEaI0bxYq7BUbrfF29DSbKtUs5TMCeB5FlkwERpxSU49o20mRIVl2fBvvv1hdFcsCDANAMGWvX%2Faf68iJ3aFPBQySWphheO3DX%2BSZQciRkV0sOPeKeZSt2y6M11j88wuo3HYsP7bIFtt2%2BUaL%2FIqfE8KHYavOS6uyUN0H%2BUfHDrW%2FgMpQ8XXLkiFuG8%2BV2DdqfYc9V22I7shRDODxACEfjFPInrTKfLh74T1aVBNswXALPhKClZRFi6kUPozhrj8qXpOmsge18GAMHYHGjpEpasUVrJ2earHh6ttt3se0%2B%2BTASgDPlAxRdaKGq%2FWME7DbyKdQ2N4%2Bn0WCbl%2B0ZnuTw2IbHnGas%2FTiYT%2BWSTw07tDag6vX9fCs8FhCTE2lNNu59CQkorthuaPzTq9TQBE%2BefkD4NqWd8XIe70sIzW5Gov9hArx5yoFxMyl981yHwhHBoDQTx%2BBp4Y%2BoteeWjmi0xzjtDZHW88%2FeYX17nsF3vaqAoUkelgW7kpUm8mv2yKfyt2PFpmsLyuEHv%2BEhiSjd75eU3JKoY5TjaeO1Z0pj3qT9jWAnTt%2B4p6EhH6lW6wtMSnxwfoogZym4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=2ccecacf03b291229b8663edca0e0b0bbfd6dab50bcb0f0ffd3d7cf752ebfab7", 
+                    "type": "application/gzip", 
+                    "id": 319180, 
+                    "filename": "tarball1.tar.gz"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2018-07-11T00:40:41.885Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-11T00:40:41.885Z", 
+            "actor": {
+                "username": "nyangawa", 
+                "url": "/nyangawa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/252/596/496d78c65c167f6f609f83d18165533e37bc9772_medium.png?1534917078"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "@jritchey \n\nSure", 
+            "markdown_message": "<p><a href=\"/jritchey\">@jritchey</a> </p>\n\n<p>Sure</p>\n", 
+            "type": "Activities::BugNew", 
+            "id": 3027344, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-11T00:48:43.194Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-11T00:48:43.194Z", 
+            "actor": {
+                "username": "nyangawa", 
+                "url": "/nyangawa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/252/596/496d78c65c167f6f609f83d18165533e37bc9772_medium.png?1534917078"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "To reproduce the issue with these tarballs.\n\n1. create project `evil_project` by importing `tarball1.tar.gz`\n```\nroot@10:/var/opt/gitlab/gitlab-rails/uploads/root# ls -alh evil_project/\ntotal 8.0K\ndrwx------  2 git git 4.0K Jul 11 00:34 .\nlrwxrwxrwx  1 git git   15 Jul 11 00:34 .?evil -> /var/opt/gitlab\ndrwxr-xr-x 10 git git 4.0K Jul 11 00:34 ..\n```\nhere you can see a symbolic link is created.\n\n2. remove the project `evil_project`, while the upload directory of this project remains unpurged.\n```\nroot@10:/var/opt/gitlab/gitlab-rails/uploads/root# ls -alh evil_project/\ntotal 8.0K\ndrwx------  2 git git 4.0K Jul 11 00:34 .\nlrwxrwxrwx  1 git git   15 Jul 11 00:34 .?evil -> /var/opt/gitlab\ndrwxr-xr-x 10 git git 4.0K Jul 11 00:34 ..\n```\n\n3. importing `tarball2.tar.gz` to the same project `evil_project`, it's ok since the project was deleted in step 2\n\nCheck the `authorized_keys` of Gitlab\n```\nroot@10:/var/opt/gitlab/.ssh# cat authorized_keys\n# pwned by nyangawa\nssh-rsa a_key_of_mine nyangawa\n```\n\n\nFor the content of these tarballs\ntarball1.tar.gz\n```\n$ tar tvf tarball1.tar.gz \n-rw-r--r-- asakawa/asakawa   5 2018-07-11 08:30 VERSION\n-rw-r--r-- asakawa/asakawa 1754 2018-07-11 08:30 project.json\ndrwxr-xr-x asakawa/asakawa    0 2018-07-11 08:32 uploads/\nlrwxrwxrwx asakawa/asakawa    0 2018-07-11 08:32 uploads/.\\nevil -> /var/opt/gitlab\n```\n\ntarball2.tar.gz\n```\n$ tar tvf tarball2.tar.gz \n-rw-r--r-- asakawa/asakawa   5 2018-07-11 08:30 VERSION\n-rw-r--r-- asakawa/asakawa 1754 2018-07-11 08:30 project.json\ndrwxr-xr-x asakawa/asakawa    0 2018-07-11 08:36 uploads/\ndrwxr-xr-x asakawa/asakawa    0 2018-07-11 08:36 uploads/.\\nevil/\ndrwxr-xr-x asakawa/asakawa    0 2018-07-11 08:37 uploads/.\\nevil/.ssh/\n-rw-r--r-- asakawa/asakawa   51 2018-07-11 08:38 uploads/.\\nevil/.ssh/authorized_keys\n```\n\nBest regards", 
+            "markdown_message": "<p>To reproduce the issue with these tarballs.</p>\n\n<ol>\n<li>\n<p>create project <code>evil_project</code> by importing <code>tarball1.tar.gz</code></p>\n<pre class=\"highlight plaintext\"><code>root@10:/var/opt/gitlab/gitlab-rails/uploads/root# ls -alh evil_project/\ntotal 8.0K\ndrwx------  2 git git 4.0K Jul 11 00:34 .\nlrwxrwxrwx  1 git git   15 Jul 11 00:34 .?evil -&gt; /var/opt/gitlab\ndrwxr-xr-x 10 git git 4.0K Jul 11 00:34 ..\n</code></pre>\n<p>here you can see a symbolic link is created.</p>\n</li>\n<li>\n<p>remove the project <code>evil_project</code>, while the upload directory of this project remains unpurged.</p>\n<pre class=\"highlight plaintext\"><code>root@10:/var/opt/gitlab/gitlab-rails/uploads/root# ls -alh evil_project/\ntotal 8.0K\ndrwx------  2 git git 4.0K Jul 11 00:34 .\nlrwxrwxrwx  1 git git   15 Jul 11 00:34 .?evil -&gt; /var/opt/gitlab\ndrwxr-xr-x 10 git git 4.0K Jul 11 00:34 ..\n</code></pre>\n</li>\n<li><p>importing <code>tarball2.tar.gz</code> to the same project <code>evil_project</code>, it&#39;s ok since the project was deleted in step 2</p></li>\n</ol>\n\n<p>Check the <code>authorized_keys</code> of Gitlab</p>\n<pre class=\"highlight plaintext\"><code>root@10:/var/opt/gitlab/.ssh# cat authorized_keys\n# pwned by nyangawa\nssh-rsa a_key_of_mine nyangawa\n</code></pre>\n<p>For the content of these tarballs<br>\ntarball1.tar.gz</p>\n<pre class=\"highlight plaintext\"><code>$ tar tvf tarball1.tar.gz \n-rw-r--r-- asakawa/asakawa   5 2018-07-11 08:30 VERSION\n-rw-r--r-- asakawa/asakawa 1754 2018-07-11 08:30 project.json\ndrwxr-xr-x asakawa/asakawa    0 2018-07-11 08:32 uploads/\nlrwxrwxrwx asakawa/asakawa    0 2018-07-11 08:32 uploads/.\\nevil -&gt; /var/opt/gitlab\n</code></pre>\n<p>tarball2.tar.gz</p>\n<pre class=\"highlight plaintext\"><code>$ tar tvf tarball2.tar.gz \n-rw-r--r-- asakawa/asakawa   5 2018-07-11 08:30 VERSION\n-rw-r--r-- asakawa/asakawa 1754 2018-07-11 08:30 project.json\ndrwxr-xr-x asakawa/asakawa    0 2018-07-11 08:36 uploads/\ndrwxr-xr-x asakawa/asakawa    0 2018-07-11 08:36 uploads/.\\nevil/\ndrwxr-xr-x asakawa/asakawa    0 2018-07-11 08:37 uploads/.\\nevil/.ssh/\n-rw-r--r-- asakawa/asakawa   51 2018-07-11 08:38 uploads/.\\nevil/.ssh/authorized_keys\n</code></pre>\n<p>Best regards</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3027357, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-11T16:35:03.791Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-11T16:35:03.791Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @nyangawa ,\n\nThank you for submitting this report. I've validated that this is a RCE issue. We are working internally on resolving the issue at https://gitlab.com/gitlab-org/gitlab-ce/issues/49133 and to get it patched as soon as possible. \n\nThe issue will be made public 30 days after a patch has been released. We will keep you updated on our progress via HackerOne.\n\nBest regards,\nJames", 
+            "markdown_message": "<p>Hi <a href=\"/nyangawa\">@nyangawa</a> ,</p>\n\n<p>Thank you for submitting this report. I&#39;ve validated that this is a RCE issue. We are working internally on resolving the issue at <a title=\"https://gitlab.com/gitlab-org/gitlab-ce/issues/49133\" href=\"/redirect?signature=cfc2b472165d0424e02e2047149fc2d245d01379&amp;url=https%3A%2F%2Fgitlab.com%2Fgitlab-org%2Fgitlab-ce%2Fissues%2F49133\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://gitlab.com/gitlab-org/gitlab-ce/issues/49133</span><i class=\"icon-external-link\"></i></a> and to get it patched as soon as possible. </p>\n\n<p>The issue will be made public 30 days after a patch has been released. We will keep you updated on our progress via HackerOne.</p>\n\n<p>Best regards,<br>\nJames</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3031498, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-11T16:35:20.890Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-11T16:35:20.890Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 3031502, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-18T10:57:20.252Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-18T10:57:20.252Z", 
+            "actor": {
+                "username": "nyangawa", 
+                "url": "/nyangawa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/252/596/496d78c65c167f6f609f83d18165533e37bc9772_medium.png?1534917078"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @jritchey,\nI noticed that Gitlab has released a new version to fix this issue. It's great to see your rapid reactions. While I also read your [blog post](https://about.gitlab.com/2018/07/17/critical-security-release-gitlab-11-dot-0-dot-4-released/), I'd like to add my organization in it. Thus, `@nyangawa` -> `@nyangawa of Chaitin Tech`. Is that ok? I can submit a merge request to the [repository](https://gitlab.com/gitlab-com/www-gitlab-com) if you agree with this. And same change to the CVE related to this report if there's a place for that.\n\nBest regards", 
+            "markdown_message": "<p>Hi <a href=\"/jritchey\">@jritchey</a>,<br>\nI noticed that Gitlab has released a new version to fix this issue. It&#39;s great to see your rapid reactions. While I also read your <a href=\"/redirect?signature=8e116809445fa1c482048c503fe5090d513a1e4a&amp;url=https%3A%2F%2Fabout.gitlab.com%2F2018%2F07%2F17%2Fcritical-security-release-gitlab-11-dot-0-dot-4-released%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>blog post</span><i class=\"icon-external-link\"></i></a>, I&#39;d like to add my organization in it. Thus, <code>@nyangawa</code> -&gt; <code>@nyangawa of Chaitin Tech</code>. Is that ok? I can submit a merge request to the <a href=\"/redirect?signature=e97901c8dd34c5ba6d3f1db393e4595d11e1bc56&amp;url=https%3A%2F%2Fgitlab.com%2Fgitlab-com%2Fwww-gitlab-com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>repository</span><i class=\"icon-external-link\"></i></a> if you agree with this. And same change to the CVE related to this report if there&#39;s a place for that.</p>\n\n<p>Best regards</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3061127, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-18T18:23:43.568Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-18T18:23:43.568Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "@nyangawa,\n\nAbsolutely, I've put in MR https://gitlab.com/gitlab-com/www-gitlab-com/merge_requests/13095, and I've also sent in a request to update the CVE to include `@nyangawa of Chaitin Tech`. Thanks again for reporting this issue! Feel free to request public disclosure ~30 days from now and we'll be happy to make it public.\n\nBest regards,\nJames", 
+            "markdown_message": "<p><a href=\"/nyangawa\">@nyangawa</a>,</p>\n\n<p>Absolutely, I&#39;ve put in MR <a title=\"https://gitlab.com/gitlab-com/www-gitlab-com/merge_requests/13095\" href=\"/redirect?signature=bde252e686e84bceac78728e46fbe140d759f3c9&amp;url=https%3A%2F%2Fgitlab.com%2Fgitlab-com%2Fwww-gitlab-com%2Fmerge_requests%2F13095\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://gitlab.com/gitlab-com/www-gitlab-com/merge_requests/13095</span><i class=\"icon-external-link\"></i></a>, and I&#39;ve also sent in a request to update the CVE to include <code>@nyangawa of Chaitin Tech</code>. Thanks again for reporting this issue! Feel free to request public disclosure ~30 days from now and we&#39;ll be happy to make it public.</p>\n\n<p>Best regards,<br>\nJames</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3063253, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "nyangawa", 
+                "url": "/nyangawa"
+            }, 
+            "created_at": "2018-07-18T18:24:08.554Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-18T18:24:08.554Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Closing as resolved", 
+            "markdown_message": "<p>Closing as resolved</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3063256, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-19T00:42:45.206Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-19T00:42:45.206Z", 
+            "actor": {
+                "username": "nyangawa", 
+                "url": "/nyangawa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/252/596/496d78c65c167f6f609f83d18165533e37bc9772_medium.png?1534917078"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Looks great. Thank you.", 
+            "markdown_message": "<p>Looks great. Thank you.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3064235, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-19T15:29:36.533Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-19T15:29:36.533Z", 
+            "actor": {
+                "username": "nyangawa", 
+                "url": "/nyangawa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/252/596/496d78c65c167f6f609f83d18165533e37bc9772_medium.png?1534917078"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "first_to_agree": true, 
+            "message": "Hi @jritchey \n\nSince It has been 1 month since you released a fix for it. Let's disclose this report. :)", 
+            "markdown_message": "<p>Hi <a href=\"/jritchey\">@jritchey</a> </p>\n\n<p>Since It has been 1 month since you released a fix for it. Let&#39;s disclose this report. :)</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3217511, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-22T09:55:13.269Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-22T09:55:13.269Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "@nyangawa ,\n\nAbsolutely, I've set https://gitlab.com/gitlab-org/gitlab-ce/issues/49133 to public. Let's set the H1 report to public as well.\n\nBest regards,\nJames", 
+            "markdown_message": "<p><a href=\"/nyangawa\">@nyangawa</a> ,</p>\n\n<p>Absolutely, I&#39;ve set <a title=\"https://gitlab.com/gitlab-org/gitlab-ce/issues/49133\" href=\"/redirect?signature=cfc2b472165d0424e02e2047149fc2d245d01379&amp;url=https%3A%2F%2Fgitlab.com%2Fgitlab-org%2Fgitlab-ce%2Fissues%2F49133\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://gitlab.com/gitlab-org/gitlab-ce/issues/49133</span><i class=\"icon-external-link\"></i></a> to public. Let&#39;s set the H1 report to public as well.</p>\n\n<p>Best regards,<br>\nJames</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3230308, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-22T09:56:02.225Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-22T09:56:02.225Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Setting to public.", 
+            "markdown_message": "<p>Setting to public.</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3230311, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-22T09:56:02.449Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-22T09:56:02.449Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3230312, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "nyangawa", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/nyangawa", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/252/596/d8b362df56223de48fb4a81c6c612186cea0a8ea_small.png?1534917078"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 58, 
+        "name": "Command Injection - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -6850082.082310168, 
+    "disclosed_at": "2018-08-22T09:56:02.386Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/378148", 
+    "created_at": "2018-07-06T12:23:45.888Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p><strong>Summary:</strong> <br>\nA filename regular expression could be bypassed and enable the attacker to create a symbolic link in Gitlab upload directory by importing a specially crafted Gitlab export. Further more, Gitlab is designed to not delete project upload directory currently. So, the attacker could delete the imported project and then upload another specially crafted Gitlab export to a project with the same name, which leads to path traversal/arbitrary file upload and finally enables the attacker to be able to get a shell with the permission of the system gitlab user.</p>\n\n<p><strong>Description:</strong></p>\n\n<ol>\n<li><p>how to create a symbolic link in the upload directory<br>\ncode in <code>file_importer.rb</code> uses <code>%r{.*/\\.{1,2}$}</code> to except <code>.</code> and <code>..</code> in the extracted project import directory tree, and check everything else that does not match this regex and delete all symlinks. However, we can easily construct a symlink with the name <code>.\\nevil</code> in the tarball that matches this regex perfectly. Therefore, it will not be removed by function <code>remove_symlinks!</code> in the same file, and finally uploaded to <code>/var/opt/gitlab/gitlab-rails/uploads/nyangawa/myrepo/.\\nevil -&gt; /var/opt/gitlab</code> (assume we import the project to <code>nyangawa/myrepo</code> and the symlink points to <code>/var/opt/gitlab</code>)</p></li>\n<li><p>how to use the uploaded symbolic link to get shell access<br>\nFirst delete the <code>nyangawa/myrepo</code> project we just created. For some reasons the upload directory of this project does not get purged. Then we import another tarball which has, for example, <code>uploads/.\\neviil/.ssh/authorized_keys</code> in it. And the content of this file is my ssh public key. Then import this tarball to create project <code>nyangawa/myrepo</code> again.</p></li>\n<li><p>after all<br>\nthe uploaded <code>authorized_keys</code> is copied to <code>/var/opt/gitlab/gitlab-rails/uploads/nyangawa/myrepo/.\\nevil/.ssh/authorized_keys</code> of the victim&#39;s filesystem but unfortunately, this path redirects to <code>/var/opt/gitlab/.ssh/authorized_keys</code>. Then I can login to the victim server by ssh with Gitlab&#39;s system username.</p></li>\n</ol>\n\n<p>For step 2 and 3, there&#39;re some other approaches to get command executed since we can already upload any file to the victim&#39;s file system controlled by Gitlab.</p>\n\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<p>As I stated in description. I can upload the 2 PoC tarballs if you ask.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<ol>\n<li>An attacker can upload arbitrary file to the victim&#39;s file system</li>\n<li>Data of other users could be override</li>\n<li>An attacker can get a system shell by overwrite specific files.</li>\n</ol>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://about.gitlab.com", 
+            "about": "Open source software to collaborate on code", 
+            "twitter_handle": "gitlab", 
+            "name": "GitLab"
+        }, 
+        "handle": "gitlab", 
+        "url": "https://hackerone.com/gitlab", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/264/338ec4b43393873324e3f1911f2f107d025d13f1_small.png?1454722206", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/264/f40e550269de1c8aef9adbdfe728c9aa8163a7e5_medium.png?1454722206"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 264, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

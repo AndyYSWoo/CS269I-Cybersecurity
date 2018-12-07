@@ -1,0 +1,354 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2016-02-12T23:10:52.621Z", 
+    "voters": [
+        "jensec", 
+        "eveeez", 
+        "axolotl", 
+        "babayaga_", 
+        "craxerbikash", 
+        "betterknowme", 
+        "cryptographer", 
+        "hacker7176"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 90457, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2016-02-12T18:22:14.024Z", 
+    "vulnerability_information": "", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "low", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "low", 
+            "availability": "none"
+        }, 
+        "rating": "high", 
+        "score": 7.2, 
+        "author_type": "Team"
+    }, 
+    "title": "Nested attributes reject_if proc can be circumvented by providing \"_destroy\" parameter", 
+    "is_member_of_team?": null, 
+    "vote_count": 8, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 1249, 
+            "content": "Nested attributes rejection proc bypass in Active Record.\n\nThere is a vulnerability in how the nested attributes feature in Active Record\nhandles updates in combination with destroy flags when destroying records is\ndisabled. This vulnerability has been assigned the CVE identifier CVE-2015-7577.\n\nVersions Affected:  3.1.0 and newer\nNot affected:       3.0.x and older\nFixed Versions:     5.0.0.beta1.1, 4.2.5.1, 4.1.14.1, 3.2.22.1\n\nImpact\n------\nWhen using the nested attributes feature in Active Record you can prevent the\ndestruction of associated records by passing the `allow_destroy: false` option\nto the `accepts_nested_attributes_for` method. However due to a change in the\ncommit [a9b4b5d][1] the `_destroy` flag prevents the `:reject_if` proc from\nbeing called because it assumes that the record will be destroyed anyway.\n\nHowever this isn't true if `:allow_destroy` is false so this leads to changes\nthat would have been rejected being applied to the record. Attackers could use\nthis do things like set attributes to invalid values and to clear all of the\nattributes amongst other things. The severity will be dependent on how the\napplication has used this feature.\n\nAll users running an affected release should either upgrade or use one of\nthe workarounds immediately.\n\nReleases\n--------\nThe FIXED releases are available at the normal locations.\n\nWorkarounds\n-----------\nIf you can't upgrade, please use the following monkey patch in an initializer\nthat is loaded before your application:\n\n```\n$ cat config/initializers/nested_attributes_bypass_fix.rb\nmodule ActiveRecord\n  module NestedAttributes\n    private\n\n    def reject_new_record?(association_name, attributes)\n      will_be_destroyed?(association_name, attributes) || call_reject_if(association_name, attributes)\n    end\n\n    def call_reject_if(association_name, attributes)\n      return false if will_be_destroyed?(association_name, attributes)\n\n      case callback = self.nested_attributes_options[association_name][:reject_if]\n      when Symbol\n        method(callback).arity == 0 ? send(callback) : send(callback, attributes)\n      when Proc\n        callback.call(attributes)\n      end\n    end\n\n    def will_be_destroyed?(association_name, attributes)\n      allow_destroy?(association_name) && has_destroy_flag?(attributes)\n    end\n\n    def allow_destroy?(association_name)\n      self.nested_attributes_options[association_name][:allow_destroy]\n    end\n  end\nend\n```\n\nPatches\n-------\nTo aid users who aren't able to upgrade immediately we have provided patches for\nthe two supported release series. They are in git-am format and consist of a\nsingle changeset.\n\n* 3-2-nested-attributes-reject-if-bypass.patch - Patch for 3.2 series\n* 4-1-nested-attributes-reject-if-bypass.patch - Patch for 4.1 series\n* 4-2-nested-attributes-reject-if-bypass.patch - Patch for 4.2 series\n* 5-0-nested-attributes-reject-if-bypass.patch - Patch for 5.0 series\n\nPlease note that only the 4.1.x and 4.2.x series are supported at present. Users\nof earlier unsupported releases are advised to upgrade as soon as possible as we\ncannot guarantee the continued availability of security fixes for unsupported\nreleases.\n\nCredits\n-------\nThank you to Justin Coyne for reporting the problem and working with us to fix it.\n\n[1]: https://github.com/rails/rails/commit/a9b4b5da7c216e4464eeb9dbd0a39ea258d64325", 
+            "content_html": "<p>Nested attributes rejection proc bypass in Active Record.</p>\n\n<p>There is a vulnerability in how the nested attributes feature in Active Record<br>\nhandles updates in combination with destroy flags when destroying records is<br>\ndisabled. This vulnerability has been assigned the CVE identifier CVE-2015-7577.</p>\n\n<p>Versions Affected:  3.1.0 and newer<br>\nNot affected:       3.0.x and older<br>\nFixed Versions:     5.0.0.beta1.1, 4.2.5.1, 4.1.14.1, 3.2.22.1</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>When using the nested attributes feature in Active Record you can prevent the<br>\ndestruction of associated records by passing the <code>allow_destroy: false</code> option<br>\nto the <code>accepts_nested_attributes_for</code> method. However due to a change in the<br>\ncommit <a href=\"/redirect?signature=d32e34fd98d18b88956c2c09b671b37802a737ef&amp;url=https%3A%2F%2Fgithub.com%2Frails%2Frails%2Fcommit%2Fa9b4b5da7c216e4464eeb9dbd0a39ea258d64325\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>a9b4b5d</span><i class=\"icon-external-link\"></i></a> the <code>_destroy</code> flag prevents the <code>:reject_if</code> proc from<br>\nbeing called because it assumes that the record will be destroyed anyway.</p>\n\n<p>However this isn&#39;t true if <code>:allow_destroy</code> is false so this leads to changes<br>\nthat would have been rejected being applied to the record. Attackers could use<br>\nthis do things like set attributes to invalid values and to clear all of the<br>\nattributes amongst other things. The severity will be dependent on how the<br>\napplication has used this feature.</p>\n\n<p>All users running an affected release should either upgrade or use one of<br>\nthe workarounds immediately.</p>\n\n<h2 id=\"releases\">Releases</h2>\n\n<p>The FIXED releases are available at the normal locations.</p>\n\n<h2 id=\"workarounds\">Workarounds</h2>\n\n<p>If you can&#39;t upgrade, please use the following monkey patch in an initializer<br>\nthat is loaded before your application:</p>\n<pre class=\"highlight plaintext\"><code>$ cat config/initializers/nested_attributes_bypass_fix.rb\nmodule ActiveRecord\n  module NestedAttributes\n    private\n\n    def reject_new_record?(association_name, attributes)\n      will_be_destroyed?(association_name, attributes) || call_reject_if(association_name, attributes)\n    end\n\n    def call_reject_if(association_name, attributes)\n      return false if will_be_destroyed?(association_name, attributes)\n\n      case callback = self.nested_attributes_options[association_name][:reject_if]\n      when Symbol\n        method(callback).arity == 0 ? send(callback) : send(callback, attributes)\n      when Proc\n        callback.call(attributes)\n      end\n    end\n\n    def will_be_destroyed?(association_name, attributes)\n      allow_destroy?(association_name) &amp;&amp; has_destroy_flag?(attributes)\n    end\n\n    def allow_destroy?(association_name)\n      self.nested_attributes_options[association_name][:allow_destroy]\n    end\n  end\nend\n</code></pre>\n<h2 id=\"patches\">Patches</h2>\n\n<p>To aid users who aren&#39;t able to upgrade immediately we have provided patches for<br>\nthe two supported release series. They are in git-am format and consist of a<br>\nsingle changeset.</p>\n\n<ul>\n<li>3-2-nested-attributes-reject-if-bypass.patch - Patch for 3.2 series</li>\n<li>4-1-nested-attributes-reject-if-bypass.patch - Patch for 4.1 series</li>\n<li>4-2-nested-attributes-reject-if-bypass.patch - Patch for 4.2 series</li>\n<li>5-0-nested-attributes-reject-if-bypass.patch - Patch for 5.0 series</li>\n</ul>\n\n<p>Please note that only the 4.1.x and 4.2.x series are supported at present. Users<br>\nof earlier unsupported releases are advised to upgrade as soon as possible as we<br>\ncannot guarantee the continued availability of security fixes for unsupported<br>\nreleases.</p>\n\n<h2 id=\"credits\">Credits</h2>\n\n<p>Thank you to Justin Coyne for reporting the problem and working with us to fix it.</p>\n"
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2016-03-13T18:22:14.186Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$500", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2015-11-27T13:24:20.822Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-11-27T13:24:20.822Z", 
+            "actor": {
+                "username": "pixeltrix", 
+                "url": "/pixeltrix", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/039/102/03d5b2ad27e85cc71bae20e599b26e187ad9bb12_medium.jpg?1474007019"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 700778, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-01-25T18:15:30.885Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-01-25T18:15:30.885Z", 
+            "actor": {
+                "username": "rafaelfranca", 
+                "url": "/rafaelfranca", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/981/281bfa78e7ec84f83ee4efe2cf53f744cf07b8c0_medium.jpg?1397516124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 771199, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-01-25T18:23:03.893Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-01-25T18:23:03.893Z", 
+            "actor": {
+                "username": "jcoyne", 
+                "url": "/jcoyne", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 771226, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "jcoyne", 
+                "url": "/jcoyne"
+            }, 
+            "created_at": "2016-01-26T01:51:33.516Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-01-26T01:51:33.516Z", 
+            "actor": {
+                "username": "rafaelfranca", 
+                "url": "/rafaelfranca", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/981/281bfa78e7ec84f83ee4efe2cf53f744cf07b8c0_medium.jpg?1397516124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 771815, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-02-12T18:22:14.051Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-02-12T18:22:14.051Z", 
+            "actor": {
+                "username": "rafaelfranca", 
+                "url": "/rafaelfranca", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/981/281bfa78e7ec84f83ee4efe2cf53f744cf07b8c0_medium.jpg?1397516124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 796076, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-02-12T23:10:52.662Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-02-12T23:10:52.662Z", 
+            "actor": {
+                "username": "jcoyne", 
+                "url": "/jcoyne", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 796412, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-02-12T23:10:52.855Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-02-12T23:10:52.855Z", 
+            "actor": {
+                "username": "jcoyne", 
+                "url": "/jcoyne", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 796413, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-05T18:46:18.101Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-05T18:46:18.101Z", 
+            "actor": {
+                "username": "rafaelfranca", 
+                "url": "/rafaelfranca", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/981/281bfa78e7ec84f83ee4efe2cf53f744cf07b8c0_medium.jpg?1397516124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {}, 
+            "team_handle": "rails", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2202464, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-12-05T18:46:33.874Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-05T18:46:33.874Z", 
+            "actor": {
+                "url": "/rails", 
+                "profile": {
+                    "name": "Ruby on Rails"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/022/1b2dab688cae8b769493f39137f09274a6b5f156_medium.png?1383736680"
+                }
+            }, 
+            "team_handle": "rails", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "500.0", 
+            "collaborator": {
+                "username": "jcoyne", 
+                "url": "/jcoyne"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2202467, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "jcoyne", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/jcoyne", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "is_external_bug": false, 
+    "visibility": "no-content", 
+    "allow_singular_disclosure_after": -86242002.06178734, 
+    "disclosed_at": "2016-02-12T23:10:52.833Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/90457", 
+    "created_at": "2015-09-25T15:35:39.770Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://rubyonrails.org/security", 
+            "about": "Web development that doesn't hurt.", 
+            "twitter_handle": null, 
+            "name": "Ruby on Rails"
+        }, 
+        "handle": "rails", 
+        "url": "https://hackerone.com/rails", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/022/2883e997d5f9ddf2f1c31365d74abe52fc54c9c9_small.png?1383736680", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/022/1b2dab688cae8b769493f39137f09274a6b5f156_medium.png?1383736680"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 22, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

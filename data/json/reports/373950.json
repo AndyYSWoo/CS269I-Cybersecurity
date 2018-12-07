@@ -1,0 +1,319 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-11-09T14:44:42.968Z", 
+    "voters": [
+        "eveeez", 
+        "geeknik", 
+        "billal5625"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 373950, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-11-09T14:36:35.628Z", 
+    "vulnerability_information": "##\u00a0Summary\n\nThe *Smarty* template responsible of creating *JavaScript* snippets assigning cookies to users is during sorting of entries in the administration interface is affected by a reflected cross-site scripting.\n\n## Description\n\nIn `templates/2k11/admin/entries.inc.tpl`, the following code is dynamically creating a *JavaScript* snippet consisting of calls to `serendipity.SetCookie()`:\n\n```html\n    <script>\n        $(document).ready(function() {\n    {foreach $filter_import AS $f_import}\n        serendipity.SetCookie(\"entrylist_filter_{$f_import}\", \"{$get_filter_{$f_import}}\" )\n    {/foreach}\n    {foreach $sort_import AS $s_import}\n        serendipity.SetCookie(\"entrylist_sort_{$s_import}\", \"{$get_sort_{$s_import}}\" )\n    {/foreach}\n        });\n    </script>\n```\n\nHowever, *Smarty* is not aware of the context is is not told to escape it as `javascript` (https://www.smarty.net/docsv2/en/language.modifier.escape) and no prior encoding is performed on data injected in the template (see `include/admin/entries.inc.php:216`):\n\n```php\n<?php\n// [...]\ncase 'editSelect':\n        $data['switched_output'] = false;\n        $filter_import = array('author', 'category', 'isdraft');\n        $sort_import   = array('perPage', 'ordermode', 'order');\n\n        foreach($filter_import AS $f_import) {\n            serendipity_restoreVar($serendipity['COOKIE']['entrylist_filter_' . $f_import], $serendipity['GET']['filter'][$f_import]);\n            $data[\"get_filter_$f_import\"] = $serendipity['GET']['filter'][$f_import];\n        }\n\n        foreach($sort_import AS $s_import) {\n            serendipity_restoreVar($serendipity['COOKIE']['entrylist_sort_' . $s_import], $serendipity['GET']['sort'][$s_import]);\n            $data[\"get_sort_$s_import\"] = $serendipity['GET']['sort'][$s_import];\n        }\n```\n\nFor the record, the function `serendipity_JSsetCookie` is also vulnerable, but it's not in use in this version:\n```php\n<?php\n// [...]\nfunction serendipity_JSsetCookie($name, $value) {\n    $name  = serendipity_entities($name);\n    $value = urlencode($value);\n\n    echo '<script type=\"text/javascript\">serendipity.SetCookie(\"' . $name . '\", unescape(\"' . $value . '\"))</script>' . \"\\n\";\n}\n```\n\n## Steps To Reproduce\n\n  1. Access https://blog.fuzzing-project.org/serendipity_admin.php?serendipity[action]=admin&serendipity[adminModule]=entries&serendipity[adminAction]=editSelect&serendipity[filter][author]=1xx\");alert(document.domain);// while being authenticated;\n  1. Notice the execution of `alert(document.domain)` within the context of \u00a0`blog.fuzzing-project.org`.\n\n## Impact\n\nBy accessing a link specially crafted by an attacker and exploiting this vulnerability, an authenticated victim could be forced to perform actions on its behalf on the domain blog.fuzzing-project.org. If the victim is authenticated as administrator, it could be used to compromise the website or the underlying server (through the installation of `serendipity_plugin_externalphp`).", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "User"
+    }, 
+    "title": "Reflected Cross-Site Scripting in Serendipity (serendipity.SetCookie)", 
+    "is_member_of_team?": null, 
+    "vote_count": 3, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "*.fuzzing-project.org", 
+        "max_severity": "critical", 
+        "databaseId": 11140, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": "2018-12-09T14:36:35.696Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-01T10:02:32.338Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-01T10:02:32.338Z", 
+            "actor": {
+                "username": "hanno", 
+                "url": "/hanno", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/918/0cbb82765672dbb4db446f4f2bda31226dbc2076_medium.jpg?1535099750"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "I can confirm this, I'm forwarding this to the serendipity developers.\n\nI'm unsure about serendipity_JSsetCookie, from what I can see this is problematic if the first parameter is unescaped. I found a use of that function in the staticpage plugin, but the first param is a fixed string, so it looks harmless.", 
+            "markdown_message": "<p>I can confirm this, I&#39;m forwarding this to the serendipity developers.</p>\n\n<p>I&#39;m unsure about serendipity_JSsetCookie, from what I can see this is problematic if the first parameter is unescaped. I found a use of that function in the staticpage plugin, but the first param is a fixed string, so it looks harmless.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2968279, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/314/223/a7b95cbfe9cb3c041d967b082aa40ac39d5d5387/H1S9Y-XSS-1.diff?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221439Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=7dd8cf423f8ba94885364e30d6de782bee7a6dc6cb63666b8214f7b6ac79b25a", 
+                    "type": "text/x-diff", 
+                    "id": 314223, 
+                    "filename": "H1S9Y-XSS-1.diff"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2018-07-01T10:35:30.387Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-01T10:35:30.387Z", 
+            "actor": {
+                "username": "hanno", 
+                "url": "/hanno", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/918/0cbb82765672dbb4db446f4f2bda31226dbc2076_medium.jpg?1535099750"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "Preliminary patch, also sent to s9y devs. I believe it's likely that similar issues exist, but a review of the templates would be a lot of work.", 
+            "markdown_message": "<p>Preliminary patch, also sent to s9y devs. I believe it&#39;s likely that similar issues exist, but a review of the templates would be a lot of work.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2968321, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-18T17:37:14.559Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-18T17:37:14.559Z", 
+            "actor": {
+                "username": "hanno", 
+                "url": "/hanno", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/918/0cbb82765672dbb4db446f4f2bda31226dbc2076_medium.jpg?1535099750"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "This is now fixed with a patch I got from s9y's dev (as should be all other open issues).\nI'd appreciate if you could check that and also look for further issues, s9y will soon release a security update.", 
+            "markdown_message": "<p>This is now fixed with a patch I got from s9y&#39;s dev (as should be all other open issues).<br>\nI&#39;d appreciate if you could check that and also look for further issues, s9y will soon release a security update.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3063065, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-18T17:59:36.619Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-18T17:59:36.619Z", 
+            "actor": {
+                "username": "oreamnos", 
+                "url": "/oreamnos", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/178/427/b2c3354151638b34c8ae3a64ae38fb0065e84a27_medium.png?1528961006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "The fix (https://github.com/s9y/Serendipity/commit/19513cdf143ef5659f8afbfb3b16df921060d550#diff-dc826483a3a52ca69c83cec2fb97ce8e) looks good to me.", 
+            "markdown_message": "<p>The fix (<a title=\"https://github.com/s9y/Serendipity/commit/19513cdf143ef5659f8afbfb3b16df921060d550#diff-dc826483a3a52ca69c83cec2fb97ce8e\" href=\"/redirect?signature=486fc14332fcc43718970162142a041ce517b36c&amp;url=https%3A%2F%2Fgithub.com%2Fs9y%2FSerendipity%2Fcommit%2F19513cdf143ef5659f8afbfb3b16df921060d550%23diff-dc826483a3a52ca69c83cec2fb97ce8e\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/s9y/Serendipity/commit/19513cdf143ef5659f8afbfb3b16df921060d550#diff-dc826483a3a52ca69c83cec2fb97ce8e</span><i class=\"icon-external-link\"></i></a>) looks good to me.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3063179, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "oreamnos", 
+                "url": "/oreamnos"
+            }, 
+            "created_at": "2018-08-16T13:33:49.622Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-16T13:33:49.622Z", 
+            "actor": {
+                "username": "hanno", 
+                "url": "/hanno", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/918/0cbb82765672dbb4db446f4f2bda31226dbc2076_medium.jpg?1535099750"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "Fix released:\nhttp://blog.s9y.org/archives/278-Serendipity-2.1.3-released.html\n\nFix is not mentioned in release notes, but it got committed.", 
+            "markdown_message": "<p>Fix released:<br>\n<a title=\"http://blog.s9y.org/archives/278-Serendipity-2.1.3-released.html\" href=\"/redirect?signature=b89a0b78b798fac31071bd00d582db4e9391cefe&amp;url=http%3A%2F%2Fblog.s9y.org%2Farchives%2F278-Serendipity-2.1.3-released.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://blog.s9y.org/archives/278-Serendipity-2.1.3-released.html</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>Fix is not mentioned in release notes, but it got committed.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3203958, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-09T14:36:35.663Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-09T14:36:35.663Z", 
+            "actor": {
+                "username": "hanno", 
+                "url": "/hanno", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/918/0cbb82765672dbb4db446f4f2bda31226dbc2076_medium.jpg?1535099750"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3617244, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-09T14:44:42.995Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-09T14:44:42.995Z", 
+            "actor": {
+                "username": "oreamnos", 
+                "url": "/oreamnos", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/178/427/b2c3354151638b34c8ae3a64ae38fb0065e84a27_medium.png?1528961006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3617262, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-09T14:44:43.050Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-09T14:44:43.050Z", 
+            "actor": {
+                "username": "oreamnos", 
+                "url": "/oreamnos", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/178/427/b2c3354151638b34c8ae3a64ae38fb0065e84a27_medium.png?1528961006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3617263, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": false, 
+    "reporter": {
+        "username": "oreamnos", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/oreamnos", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/178/427/7be89c2e8725dd5becde6454a2ebeb7db9a94224_small.png?1528961006"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 61, 
+        "name": "Cross-site Scripting (XSS) - Reflected"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": 231716.135532303, 
+    "disclosed_at": "2018-11-09T14:44:43.029Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/373950", 
+    "created_at": "2018-06-29T16:09:17.875Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"summary\">\u00a0Summary</h2>\n\n<p>The <em>Smarty</em> template responsible of creating <em>JavaScript</em> snippets assigning cookies to users is during sorting of entries in the administration interface is affected by a reflected cross-site scripting.</p>\n\n<h2 id=\"description\">Description</h2>\n\n<p>In <code>templates/2k11/admin/entries.inc.tpl</code>, the following code is dynamically creating a <em>JavaScript</em> snippet consisting of calls to <code>serendipity.SetCookie()</code>:</p>\n<pre class=\"highlight html\"><code>    <span class=\"nt\">&lt;script&gt;</span>\n        <span class=\"nx\">$</span><span class=\"p\">(</span><span class=\"nb\">document</span><span class=\"p\">).</span><span class=\"nx\">ready</span><span class=\"p\">(</span><span class=\"kd\">function</span><span class=\"p\">()</span> <span class=\"p\">{</span>\n    <span class=\"p\">{</span><span class=\"nx\">foreach</span> <span class=\"nx\">$filter_import</span> <span class=\"nx\">AS</span> <span class=\"nx\">$f_import</span><span class=\"p\">}</span>\n        <span class=\"nx\">serendipity</span><span class=\"p\">.</span><span class=\"nx\">SetCookie</span><span class=\"p\">(</span><span class=\"s2\">&quot;entrylist_filter_{$f_import}&quot;</span><span class=\"p\">,</span> <span class=\"s2\">&quot;{$get_filter_{$f_import}}&quot;</span> <span class=\"p\">)</span>\n    <span class=\"p\">{</span><span class=\"sr\">/foreach</span><span class=\"err\">}\n</span>    <span class=\"p\">{</span><span class=\"nx\">foreach</span> <span class=\"nx\">$sort_import</span> <span class=\"nx\">AS</span> <span class=\"nx\">$s_import</span><span class=\"p\">}</span>\n        <span class=\"nx\">serendipity</span><span class=\"p\">.</span><span class=\"nx\">SetCookie</span><span class=\"p\">(</span><span class=\"s2\">&quot;entrylist_sort_{$s_import}&quot;</span><span class=\"p\">,</span> <span class=\"s2\">&quot;{$get_sort_{$s_import}}&quot;</span> <span class=\"p\">)</span>\n    <span class=\"p\">{</span><span class=\"sr\">/foreach</span><span class=\"err\">}\n</span>        <span class=\"p\">});</span>\n    <span class=\"nt\">&lt;/script&gt;</span>\n</code></pre>\n<p>However, <em>Smarty</em> is not aware of the context is is not told to escape it as <code>javascript</code> (<a title=\"https://www.smarty.net/docsv2/en/language.modifier.escape\" href=\"/redirect?signature=d9fcfcc559fee2f15944d13d62cd57d111c820c0&amp;url=https%3A%2F%2Fwww.smarty.net%2Fdocsv2%2Fen%2Flanguage.modifier.escape\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.smarty.net/docsv2/en/language.modifier.escape</span><i class=\"icon-external-link\"></i></a>) and no prior encoding is performed on data injected in the template (see <code>include/admin/entries.inc.php:216</code>):</p>\n<pre class=\"highlight php\"><code><span class=\"cp\">&lt;?php</span>\n<span class=\"c1\">// [...]\n</span><span class=\"k\">case</span> <span class=\"s1\">&#39;editSelect&#39;</span><span class=\"o\">:</span>\n        <span class=\"nv\">$data</span><span class=\"p\">[</span><span class=\"s1\">&#39;switched_output&#39;</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"kc\">false</span><span class=\"p\">;</span>\n        <span class=\"nv\">$filter_import</span> <span class=\"o\">=</span> <span class=\"k\">array</span><span class=\"p\">(</span><span class=\"s1\">&#39;author&#39;</span><span class=\"p\">,</span> <span class=\"s1\">&#39;category&#39;</span><span class=\"p\">,</span> <span class=\"s1\">&#39;isdraft&#39;</span><span class=\"p\">);</span>\n        <span class=\"nv\">$sort_import</span>   <span class=\"o\">=</span> <span class=\"k\">array</span><span class=\"p\">(</span><span class=\"s1\">&#39;perPage&#39;</span><span class=\"p\">,</span> <span class=\"s1\">&#39;ordermode&#39;</span><span class=\"p\">,</span> <span class=\"s1\">&#39;order&#39;</span><span class=\"p\">);</span>\n\n        <span class=\"k\">foreach</span><span class=\"p\">(</span><span class=\"nv\">$filter_import</span> <span class=\"nx\">AS</span> <span class=\"nv\">$f_import</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n            <span class=\"nx\">serendipity_restoreVar</span><span class=\"p\">(</span><span class=\"nv\">$serendipity</span><span class=\"p\">[</span><span class=\"s1\">&#39;COOKIE&#39;</span><span class=\"p\">][</span><span class=\"s1\">&#39;entrylist_filter_&#39;</span> <span class=\"o\">.</span> <span class=\"nv\">$f_import</span><span class=\"p\">],</span> <span class=\"nv\">$serendipity</span><span class=\"p\">[</span><span class=\"s1\">&#39;GET&#39;</span><span class=\"p\">][</span><span class=\"s1\">&#39;filter&#39;</span><span class=\"p\">][</span><span class=\"nv\">$f_import</span><span class=\"p\">]);</span>\n            <span class=\"nv\">$data</span><span class=\"p\">[</span><span class=\"s2\">&quot;get_filter_</span><span class=\"nv\">$f_import</span><span class=\"s2\">&quot;</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"nv\">$serendipity</span><span class=\"p\">[</span><span class=\"s1\">&#39;GET&#39;</span><span class=\"p\">][</span><span class=\"s1\">&#39;filter&#39;</span><span class=\"p\">][</span><span class=\"nv\">$f_import</span><span class=\"p\">];</span>\n        <span class=\"p\">}</span>\n\n        <span class=\"k\">foreach</span><span class=\"p\">(</span><span class=\"nv\">$sort_import</span> <span class=\"nx\">AS</span> <span class=\"nv\">$s_import</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n            <span class=\"nx\">serendipity_restoreVar</span><span class=\"p\">(</span><span class=\"nv\">$serendipity</span><span class=\"p\">[</span><span class=\"s1\">&#39;COOKIE&#39;</span><span class=\"p\">][</span><span class=\"s1\">&#39;entrylist_sort_&#39;</span> <span class=\"o\">.</span> <span class=\"nv\">$s_import</span><span class=\"p\">],</span> <span class=\"nv\">$serendipity</span><span class=\"p\">[</span><span class=\"s1\">&#39;GET&#39;</span><span class=\"p\">][</span><span class=\"s1\">&#39;sort&#39;</span><span class=\"p\">][</span><span class=\"nv\">$s_import</span><span class=\"p\">]);</span>\n            <span class=\"nv\">$data</span><span class=\"p\">[</span><span class=\"s2\">&quot;get_sort_</span><span class=\"nv\">$s_import</span><span class=\"s2\">&quot;</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"nv\">$serendipity</span><span class=\"p\">[</span><span class=\"s1\">&#39;GET&#39;</span><span class=\"p\">][</span><span class=\"s1\">&#39;sort&#39;</span><span class=\"p\">][</span><span class=\"nv\">$s_import</span><span class=\"p\">];</span>\n        <span class=\"p\">}</span>\n</code></pre>\n<p>For the record, the function <code>serendipity_JSsetCookie</code> is also vulnerable, but it&#39;s not in use in this version:</p>\n<pre class=\"highlight php\"><code><span class=\"cp\">&lt;?php</span>\n<span class=\"c1\">// [...]\n</span><span class=\"k\">function</span> <span class=\"nf\">serendipity_JSsetCookie</span><span class=\"p\">(</span><span class=\"nv\">$name</span><span class=\"p\">,</span> <span class=\"nv\">$value</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n    <span class=\"nv\">$name</span>  <span class=\"o\">=</span> <span class=\"nx\">serendipity_entities</span><span class=\"p\">(</span><span class=\"nv\">$name</span><span class=\"p\">);</span>\n    <span class=\"nv\">$value</span> <span class=\"o\">=</span> <span class=\"nb\">urlencode</span><span class=\"p\">(</span><span class=\"nv\">$value</span><span class=\"p\">);</span>\n\n    <span class=\"k\">echo</span> <span class=\"s1\">&#39;&lt;script type=&quot;text/javascript&quot;&gt;serendipity.SetCookie(&quot;&#39;</span> <span class=\"o\">.</span> <span class=\"nv\">$name</span> <span class=\"o\">.</span> <span class=\"s1\">&#39;&quot;, unescape(&quot;&#39;</span> <span class=\"o\">.</span> <span class=\"nv\">$value</span> <span class=\"o\">.</span> <span class=\"s1\">&#39;&quot;))&lt;/script&gt;&#39;</span> <span class=\"o\">.</span> <span class=\"s2\">&quot;</span><span class=\"se\">\\n</span><span class=\"s2\">&quot;</span><span class=\"p\">;</span>\n<span class=\"p\">}</span>\n</code></pre>\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce</h2>\n\n<ol>\n<li>Access <a title=\"https://blog.fuzzing-project.org/serendipity_admin.php?serendipity%5Baction%5D=admin&amp;serendipity%5BadminModule%5D=entries&amp;serendipity%5BadminAction%5D=editSelect&amp;serendipity%5Bfilter%5D%5Bauthor%5D=1xx%22)%3Balert(document.domain)%3B//\" href=\"/redirect?signature=fd45def88910e2db4dc77f87f750d6dfd2127af5&amp;url=https%3A%2F%2Fblog.fuzzing-project.org%2Fserendipity_admin.php%3Fserendipity%255Baction%255D%3Dadmin%26serendipity%255BadminModule%255D%3Dentries%26serendipity%255BadminAction%255D%3DeditSelect%26serendipity%255Bfilter%255D%255Bauthor%255D%3D1xx%2522%29%253Balert%28document.domain%29%253B%2F%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://blog.fuzzing-project.org/serendipity_admin.php?serendipity%5Baction%5D=admin&amp;serendipity%5BadminModule%5D=entries&amp;serendipity%5BadminAction%5D=editSelect&amp;serendipity%5Bfilter%5D%5Bauthor%5D=1xx%22)%3Balert(document.domain)%3B//</span><i class=\"icon-external-link\"></i></a> while being authenticated;</li>\n<li>Notice the execution of <code>alert(document.domain)</code> within the context of \u00a0<code>blog.fuzzing-project.org</code>.</li>\n</ol>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>By accessing a link specially crafted by an attacker and exploiting this vulnerability, an authenticated victim could be forced to perform actions on its behalf on the domain blog.fuzzing-project.org. If the victim is authenticated as administrator, it could be used to compromise the website or the underlying server (through the installation of <code>serendipity_plugin_externalphp</code>).</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://hboeck.de/", 
+            "about": "Personal web projects from Hanno B\u00f6ck.", 
+            "twitter_handle": "hanno", 
+            "name": "Hanno's projects"
+        }, 
+        "handle": "hannob", 
+        "url": "https://hackerone.com/hannob", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/030/278/253800fbe8bfabdc72f03b7f0f1ddb38adb47f82_small.?1529948333", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/030/278/dfe1a45d96316ca04d5f928eaff3e62f576945a8_medium.?1529948333"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 30278, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

@@ -1,0 +1,487 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-07-26T17:44:50.330Z", 
+    "voters": [
+        "shazad_sadiq", 
+        "bl4de", 
+        "spam404", 
+        "s_p_q_r", 
+        "inhibitor181", 
+        "muon4", 
+        "eveeez", 
+        "geeknik", 
+        "ahiezer", 
+        "mygf", 
+        "and 11 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "1000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 381192, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-07-26T15:21:10.358Z", 
+    "vulnerability_information": "The JavaScript code at https://cdn.shopify.com/s/assets/storefront/bars/preview_bar_injector-73a4756a265c637c998799750759ae548e7f68b136e8e93e83132904afc3d30d.js (loaded by the shop front when a theme is previewed) installs a `message` event listener. The following check is used to reject invalid event origins:\n\n    this.iframeSrc.indexOf(event.origin) < 0\n\nWith `this.iframeSrc` being something like `https://foo.myshopify.com/preview_bar`, this *mostly* does the job correctly. However, `event.origin` doesn't end with a slash, meaning that for example `https://foo.my` is a possible origin and would be accepted here. Sending an `exit_preview` message allows the attacker to specify a URL to redirect to, supplying a `javascript:` URLs here will result in script injection.\n\n*Recommendation*: Changing the check into `this.iframeSrc.indexOf(event.origin + \"/\") != 0` should reliably reject all invalid origins.\n\nI demonstrate this attack against a random shop that is *not* under my control (roolee.com) to prove that no special knowledge is required. Steps to reproduce are:\n\n1. Download the attached `ssl_server.py` script and `exploit_preview.html` page to the same directory on your computer.\n2. Edit `/etc/hosts` file (that's `%Windir%\\Sysnative\\drivers\\etc\\hosts` on Windows) and add the following entry: `127.0.0.1 roolee.co` (note that this is `.co` and not `.com`). The real attackers would register `roolee.co` domain instead, it is for sale.\n3. Start `ssl_server.py` script (requires Python 3) to run a local SSL-protected web server. On Linux and macOS this script needs to be run with administrator privileges.\n4. Open `https://roolee.co/exploit_preview.html` in your browser and accept the invalid certificate (real attacker would actually own roolee.co, so they would be able to get a valid certificate for it).\n\nA message saying \"Hi, script running on roolee.com here!\" shows up - that's JavaScript code successfully injected into the context of the roolee.com shop. Note that in order to trigger theme preview the URL https://roolee.com/?preview_theme_id=31994708068 is being loaded in the frame - the theme ID 31994708068 is the theme currently used by roolee.com and can be seen in the shop's HTML source code (\"View Source\" on the shop's homepage and search for `\"themeId\":`).\n\n## Impact\n\nInjecting JavaScript into the shop front can be used to attack both customers and admins. With the customers, one possible attack scenario would be a malicious website claiming huge discounts on TV sets in the foo.myshopify.com shop. If the person is interested, this website opens foo.myshopify.com in a new tab and injects JavaScript code that will redact the prices to make it look like there is a discount as well as replace the shipping address. If the customer isn't careful and doesn't check the confirmation mail, they will have bought the TV set for the full price with shipping to the attackers. This allows attackers to turn the TV set into money, and the shop owner gets the blame.\n\nAttacking shop admins requires luring them to a malicious website, e.g. by reporting a supposed issue via support channels. Once a shop admin opens that website, it loads foo.myshopify.com in a hidden frame and injects JavaScript code into it. This JavaScript code can then open https://foo.myshopify.com/admin/ in a small pop-up window and abuse the active admin session to extract data from it (CSRF tokens, shop configuration) or maybe even change admin password to take over the account.\n\n*Recommendation*: The second attack scenario is avoidable, XSS issues in the store front shouldn't compromise the admin interface. The admin interface should be located under a different subdomain, e.g. `admin.foo.myshopify.com`. This will make sure that code running in the shop front is forbidden from accessing it by the same-origin policy.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "low", 
+            "privileges_required": "none", 
+            "user_interaction": "required", 
+            "attack_vector": "network", 
+            "attack_complexity": "high", 
+            "scope": "unchanged", 
+            "integrity": "low", 
+            "availability": "none"
+        }, 
+        "rating": "medium", 
+        "score": 5.2, 
+        "author_type": "Team"
+    }, 
+    "title": "Preview bar: Incomplete message origin validation results in XSS", 
+    "is_member_of_team?": null, 
+    "vote_count": 21, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "your-store.myshopify.com", 
+        "max_severity": "critical", 
+        "databaseId": 413, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$1,000", 
+    "attachments": [
+        {
+            "file_name": "ssl_server.py", 
+            "type": "text/x-python", 
+            "id": 320118, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/320/118/88b52e32a83f10ca415df2b37ea5aff040dfec48/ssl_server.py?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2SVVFJ4K%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221845Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDHbUi43kCnkCH8ghLCK3A1d0D7VWgJRDZWkdXXQGdmf7n%2FMcJt3uTEwb6Hdinq%2BFBbOAPOTsDxxrJ44I1M0GsX5wZenJPL8PevI%2FkbL9IqT6R%2BJKEKlPqPM6LpUT14hZkERpNFrQjbQc8QQ%2BGLJrYv6NGh3Ip0gK9gXfS%2BBt4RVWsZtku7hv1GxjVLrVN4tDuBx9kVUepW9naK5%2F0oXZzGIIp6Gjh%2FIKSsk58VEBKjC8XaVYCB%2BOEny5LgjoqjGxQtdacfYhOkVvkddEIug%2BxqJX03QrdlzYBPmNTl%2FPYt%2B7Ia6XenfHJpLptcsNwDKANRyeTTV%2FG3g%2BOCXLUeY4exATzHTwdvoYqOvrt5wMz9qaQRoRKK%2BUjVv5ctpYJvTH%2FMcrqKT%2Bat0Vu5%2B29B4mQPTT0FWbwQNEZv9s2WUcZfFK4nwDe%2FbWVaTYUyESNo3P9MBzjTGlE3RUSHfTIaws9cxbq%2B26X0Us8FyKWbfQU0Wz7XFi79Hu7vzT0q43xcUGempz37db7hbAD8s5J3Yuqly6EYzpKQo3hgzH0paY8Y8q0cEeQcN483KhHSXRw2GkwLMg8vEagxezp9Qvun6sYzBWVKsCvy4ohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=21f00a22e15604df972f7e72e77a441ab4b3e81c5c5d09bb506c4bfa94f4c475"
+        }, 
+        {
+            "file_name": "exploit_preview.html", 
+            "type": "text/html", 
+            "id": 320123, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/320/123/4f6cabfdabe37559bebac6f3fc6e31c4870faee5/exploit_preview.html?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2SVVFJ4K%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221845Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDHbUi43kCnkCH8ghLCK3A1d0D7VWgJRDZWkdXXQGdmf7n%2FMcJt3uTEwb6Hdinq%2BFBbOAPOTsDxxrJ44I1M0GsX5wZenJPL8PevI%2FkbL9IqT6R%2BJKEKlPqPM6LpUT14hZkERpNFrQjbQc8QQ%2BGLJrYv6NGh3Ip0gK9gXfS%2BBt4RVWsZtku7hv1GxjVLrVN4tDuBx9kVUepW9naK5%2F0oXZzGIIp6Gjh%2FIKSsk58VEBKjC8XaVYCB%2BOEny5LgjoqjGxQtdacfYhOkVvkddEIug%2BxqJX03QrdlzYBPmNTl%2FPYt%2B7Ia6XenfHJpLptcsNwDKANRyeTTV%2FG3g%2BOCXLUeY4exATzHTwdvoYqOvrt5wMz9qaQRoRKK%2BUjVv5ctpYJvTH%2FMcrqKT%2Bat0Vu5%2B29B4mQPTT0FWbwQNEZv9s2WUcZfFK4nwDe%2FbWVaTYUyESNo3P9MBzjTGlE3RUSHfTIaws9cxbq%2B26X0Us8FyKWbfQU0Wz7XFi79Hu7vzT0q43xcUGempz37db7hbAD8s5J3Yuqly6EYzpKQo3hgzH0paY8Y8q0cEeQcN483KhHSXRw2GkwLMg8vEagxezp9Qvun6sYzBWVKsCvy4ohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=3581b3d5697173c002915673b953ca44d5898798d8063ee0e259fa708b7a7a5b"
+        }
+    ], 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-13T15:57:30.535Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-13T15:57:30.535Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hi @palant\nthanks for your report! I looked into this and believe it is working properly. There are actually two checks in that line but you're only flagging the one:\n\n```\n!t || s.returnObjectValues(this.POST_MESSAGE_EVENTS).indexOf(t) < 0 || t === this.POST_MESSAGE_EVENTS.TEMPLATE_EDITOR_REFRESH_PAGE && n.indexOf(this.permanentDomain) < 0 || t !== this.POST_MESSAGE_EVENTS.TEMPLATE_EDITOR_REFRESH_PAGE && this.iframeSrc.indexOf(n) < 0 || (t !== this.POST_MESSAGE_EVENTS.TEMPLATE_EDITOR_REFRESH_PAGE && this.postTrekkieData(t),\n```\n\nIn both cases, `n` value is the origin of the sender, `https://roole.co` in your example. In the first check, `this.permanentDomain` is roole.com so this will return -1 since `roole.com` won't be found in `roole.co`. However, you're right in that the second check will succeed since `this.iframeSrc` is `https://roole.com/preview_bar` and `roole.co` will be found within that string.\n\nIf you can demonstrate the behaviour with a video, I'll happily take a second look but unfortunately this appears to be a false positive and will be closed as N/A.", 
+            "markdown_message": "<p>Hi <a href=\"/palant\">@palant</a><br>\nthanks for your report! I looked into this and believe it is working properly. There are actually two checks in that line but you&#39;re only flagging the one:</p>\n<pre class=\"highlight plaintext\"><code>!t || s.returnObjectValues(this.POST_MESSAGE_EVENTS).indexOf(t) &lt; 0 || t === this.POST_MESSAGE_EVENTS.TEMPLATE_EDITOR_REFRESH_PAGE &amp;&amp; n.indexOf(this.permanentDomain) &lt; 0 || t !== this.POST_MESSAGE_EVENTS.TEMPLATE_EDITOR_REFRESH_PAGE &amp;&amp; this.iframeSrc.indexOf(n) &lt; 0 || (t !== this.POST_MESSAGE_EVENTS.TEMPLATE_EDITOR_REFRESH_PAGE &amp;&amp; this.postTrekkieData(t),\n</code></pre>\n<p>In both cases, <code>n</code> value is the origin of the sender, <code>https://roole.co</code> in your example. In the first check, <code>this.permanentDomain</code> is roole.com so this will return -1 since <code>roole.com</code> won&#39;t be found in <code>roole.co</code>. However, you&#39;re right in that the second check will succeed since <code>this.iframeSrc</code> is <code>https://roole.com/preview_bar</code> and <code>roole.co</code> will be found within that string.</p>\n\n<p>If you can demonstrate the behaviour with a video, I&#39;ll happily take a second look but unfortunately this appears to be a false positive and will be closed as N/A.</p>\n", 
+            "type": "Activities::BugNotApplicable", 
+            "id": 3041373, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-13T16:04:52.627Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-13T16:04:52.627Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "None", 
+                "old_severity": "Critical (10.0)"
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 3041394, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-13T18:29:53.024Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-13T18:29:53.024Z", 
+            "actor": {
+                "username": "palant", 
+                "url": "/palant", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/125/397/02585fe9678f25a489bb666ab6c0bec132e506a6_medium.png?1532688660"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "> There are actually two checks in that line but you're only flagging the one:\n\nYes, there are two checks here. One is performed when the message is `this.POST_MESSAGE_EVENTS.TEMPLATE_EDITOR_REFRESH_PAGE`, the other when it isn't `this.POST_MESSAGE_EVENTS.TEMPLATE_EDITOR_REFRESH_PAGE`. You can check operator precedence but I can also add parentheses to make this easier for you to understand:\n\n    !t ||\n    s.returnObjectValues(this.POST_MESSAGE_EVENTS).indexOf(t) < 0 ||\n    (t === this.POST_MESSAGE_EVENTS.TEMPLATE_EDITOR_REFRESH_PAGE && n.indexOf(this.permanentDomain) < 0) ||\n    (t !== this.POST_MESSAGE_EVENTS.TEMPLATE_EDITOR_REFRESH_PAGE && this.iframeSrc.indexOf(n) < 0) ||\n    ((t !== this.POST_MESSAGE_EVENTS.TEMPLATE_EDITOR_REFRESH_PAGE && this.postTrekkieData(t)),this.postMessageHandler(t,i,r,n))\n\n> If you can demonstrate the behaviour with a video, I'll happily take a second look but unfortunately this appears to be a false positive and will be closed as N/A.\n\nWow, that's new for me. I've supplied a detailed proof of concept and I told you what the result is. And now you want a video showing that alert box as proof that I'm not lying? There is nothing else to show on the video - you start the test server, open the PoC page and there is a JavaScript message coming from the shop...\n\nI guess I'll install some screen recording software eventually but you should really reconsider that kind of attitude. When confronted with security issues, denial isn't a good response. Is it because my HackerOne reputation is low? I currently have 54 submissions on BugCrowd, and only 6 without reward - these six are all \"we don't care\" but never \"not a bug.\"", 
+            "markdown_message": "<blockquote>\n<p>There are actually two checks in that line but you&#39;re only flagging the one:</p>\n</blockquote>\n\n<p>Yes, there are two checks here. One is performed when the message is <code>this.POST_MESSAGE_EVENTS.TEMPLATE_EDITOR_REFRESH_PAGE</code>, the other when it isn&#39;t <code>this.POST_MESSAGE_EVENTS.TEMPLATE_EDITOR_REFRESH_PAGE</code>. You can check operator precedence but I can also add parentheses to make this easier for you to understand:</p>\n<pre class=\"highlight plaintext\"><code>!t ||\ns.returnObjectValues(this.POST_MESSAGE_EVENTS).indexOf(t) &lt; 0 ||\n(t === this.POST_MESSAGE_EVENTS.TEMPLATE_EDITOR_REFRESH_PAGE &amp;&amp; n.indexOf(this.permanentDomain) &lt; 0) ||\n(t !== this.POST_MESSAGE_EVENTS.TEMPLATE_EDITOR_REFRESH_PAGE &amp;&amp; this.iframeSrc.indexOf(n) &lt; 0) ||\n((t !== this.POST_MESSAGE_EVENTS.TEMPLATE_EDITOR_REFRESH_PAGE &amp;&amp; this.postTrekkieData(t)),this.postMessageHandler(t,i,r,n))\n</code></pre>\n<blockquote>\n<p>If you can demonstrate the behaviour with a video, I&#39;ll happily take a second look but unfortunately this appears to be a false positive and will be closed as N/A.</p>\n</blockquote>\n\n<p>Wow, that&#39;s new for me. I&#39;ve supplied a detailed proof of concept and I told you what the result is. And now you want a video showing that alert box as proof that I&#39;m not lying? There is nothing else to show on the video - you start the test server, open the PoC page and there is a JavaScript message coming from the shop...</p>\n\n<p>I guess I&#39;ll install some screen recording software eventually but you should really reconsider that kind of attitude. When confronted with security issues, denial isn&#39;t a good response. Is it because my HackerOne reputation is low? I currently have 54 submissions on BugCrowd, and only 6 without reward - these six are all &quot;we don&#39;t care&quot; but never &quot;not a bug.&quot;</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3041834, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-13T18:56:54.520Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-13T18:56:54.520Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hi @palant - \nit's not uncommon to be asked for a proof of concept. We get a lot of reports as a high paying public programs. As mentioned, I'm happy to take a second look. In terms of whether it was because of your HackerOne reputation, no, but flagging a post message XSS which requires user interaction as a 10.0 critical is a red flag to any triager and undermines credibility. Especially when we publicly disclose our reports and you can read our highest and second highest paying bugs (https://hackerone.com/reports/341876).", 
+            "markdown_message": "<p>Hi <a href=\"/palant\">@palant</a> - <br>\nit&#39;s not uncommon to be asked for a proof of concept. We get a lot of reports as a high paying public programs. As mentioned, I&#39;m happy to take a second look. In terms of whether it was because of your HackerOne reputation, no, but flagging a post message XSS which requires user interaction as a 10.0 critical is a red flag to any triager and undermines credibility. Especially when we publicly disclose our reports and you can read our highest and second highest paying bugs (<a title=\"https://hackerone.com/reports/341876\" href=\"https://hackerone.com/reports/341876\">https://hackerone.com/reports/341876</a>).</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3041907, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-13T19:08:21.429Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-13T19:08:21.429Z", 
+            "actor": {
+                "username": "palant", 
+                "url": "/palant", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/125/397/02585fe9678f25a489bb666ab6c0bec132e506a6_medium.png?1532688660"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "> it's not uncommon to be asked for a proof of concept.\n\nThat's why I gave you one.\n\n> flagging a post message XSS which requires user interaction as a 10.0 critical is a red flag to any triager and undermines credibility.\n\nI haven't used HackerOne a lot but that's what the selector gave me - particularly given that no user interaction is required (visiting a website doesn't count) and the vulnerability escalates to the admin area.\n\nWhatever, I'll make sure to create that video for you...", 
+            "markdown_message": "<blockquote>\n<p>it&#39;s not uncommon to be asked for a proof of concept.</p>\n</blockquote>\n\n<p>That&#39;s why I gave you one.</p>\n\n<blockquote>\n<p>flagging a post message XSS which requires user interaction as a 10.0 critical is a red flag to any triager and undermines credibility.</p>\n</blockquote>\n\n<p>I haven&#39;t used HackerOne a lot but that&#39;s what the selector gave me - particularly given that no user interaction is required (visiting a website doesn&#39;t count) and the vulnerability escalates to the admin area.</p>\n\n<p>Whatever, I&#39;ll make sure to create that video for you...</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3041945, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-13T19:23:20.933Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-13T19:23:20.933Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugReopened", 
+            "id": 3041958, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-13T19:25:02.610Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-13T19:25:02.610Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hi @palant,\nI took a second look at the report and validated it. I'm triaging this now while the engineering team works on it. ", 
+            "markdown_message": "<p>Hi <a href=\"/palant\">@palant</a>,<br>\nI took a second look at the report and validated it. I&#39;m triaging this now while the engineering team works on it. </p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 3041963, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-13T19:26:40.851Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-13T19:26:40.851Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Medium (5.2)", 
+                "old_severity": "None"
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 3041972, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-16T20:53:32.880Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-16T20:53:32.880Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hi @palant,\njust a heads up, our bounty decisions will be delayed this week so you should hear back from us next week.", 
+            "markdown_message": "<p>Hi <a href=\"/palant\">@palant</a>,<br>\njust a heads up, our bounty decisions will be delayed this week so you should hear back from us next week.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3053457, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "palant", 
+                "url": "/palant"
+            }, 
+            "created_at": "2018-07-19T15:34:22.339Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-19T15:34:22.339Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hi @palant,\nwe shipped a fix for this and it now uses a strict check for the origin. If you're able to bypass it, let us know. Our next round of bounty decisions will take place next week so you can expect to hear from us then - sorry we missed the $500 payment on triage.", 
+            "markdown_message": "<p>Hi <a href=\"/palant\">@palant</a>,<br>\nwe shipped a fix for this and it now uses a strict check for the origin. If you&#39;re able to bypass it, let us know. Our next round of bounty decisions will take place next week so you can expect to hear from us then - sorry we missed the $500 payment on triage.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3069217, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-07-26T15:20:02.356Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-26T15:20:02.356Z", 
+            "actor": {
+                "url": "/shopify", 
+                "profile": {
+                    "name": "Shopify"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+                }
+            }, 
+            "team_handle": "shopify", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "1000.0", 
+            "collaborator": {
+                "username": "palant", 
+                "url": "/palant"
+            }, 
+            "message": "Thank you again for the report @palant.", 
+            "markdown_message": "<p>Thank you again for the report <a href=\"/palant\">@palant</a>.</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 3101271, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-26T15:21:10.500Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-26T15:21:10.500Z", 
+            "actor": {
+                "username": "shopify-peteryaworski", 
+                "url": "/shopify-peteryaworski", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/175/526/540ca6d631d17896334275083b38566a86be2b2b_medium.jpg?1497551006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3101276, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-26T17:44:50.427Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-26T17:44:50.427Z", 
+            "actor": {
+                "username": "palant", 
+                "url": "/palant", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/125/397/02585fe9678f25a489bb666ab6c0bec132e506a6_medium.png?1532688660"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3101810, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-26T17:44:51.339Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-26T17:44:51.339Z", 
+            "actor": {
+                "username": "palant", 
+                "url": "/palant", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/125/397/02585fe9678f25a489bb666ab6c0bec132e506a6_medium.png?1532688660"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3101811, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "palant", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/palant", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/125/397/6b541ab596e94d28e960ded6e573b0f033e614c1_small.png?1532688660"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 63, 
+        "name": "Cross-site Scripting (XSS) - DOM"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2018-07-26T17:44:51.265Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/381192", 
+    "created_at": "2018-07-13T10:22:00.991Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>The JavaScript code at <a title=\"https://cdn.shopify.com/s/assets/storefront/bars/preview_bar_injector-73a4756a265c637c998799750759ae548e7f68b136e8e93e83132904afc3d30d.js\" href=\"/redirect?signature=43d716fed93abd03fdfec03557c30aab4f151bb8&amp;url=https%3A%2F%2Fcdn.shopify.com%2Fs%2Fassets%2Fstorefront%2Fbars%2Fpreview_bar_injector-73a4756a265c637c998799750759ae548e7f68b136e8e93e83132904afc3d30d.js\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://cdn.shopify.com/s/assets/storefront/bars/preview_bar_injector-73a4756a265c637c998799750759ae548e7f68b136e8e93e83132904afc3d30d.js</span><i class=\"icon-external-link\"></i></a> (loaded by the shop front when a theme is previewed) installs a <code>message</code> event listener. The following check is used to reject invalid event origins:</p>\n<pre class=\"highlight plaintext\"><code>this.iframeSrc.indexOf(event.origin) &lt; 0\n</code></pre>\n<p>With <code>this.iframeSrc</code> being something like <code>https://foo.myshopify.com/preview_bar</code>, this <em>mostly</em> does the job correctly. However, <code>event.origin</code> doesn&#39;t end with a slash, meaning that for example <code>https://foo.my</code> is a possible origin and would be accepted here. Sending an <code>exit_preview</code> message allows the attacker to specify a URL to redirect to, supplying a <code>javascript:</code> URLs here will result in script injection.</p>\n\n<p><em>Recommendation</em>: Changing the check into <code>this.iframeSrc.indexOf(event.origin + &quot;/&quot;) != 0</code> should reliably reject all invalid origins.</p>\n\n<p>I demonstrate this attack against a random shop that is <em>not</em> under my control (roolee.com) to prove that no special knowledge is required. Steps to reproduce are:</p>\n\n<ol>\n<li>Download the attached <code>ssl_server.py</code> script and <code>exploit_preview.html</code> page to the same directory on your computer.</li>\n<li>Edit <code>/etc/hosts</code> file (that&#39;s <code>%Windir%\\Sysnative\\drivers\\etc\\hosts</code> on Windows) and add the following entry: <code>127.0.0.1 roolee.co</code> (note that this is <code>.co</code> and not <code>.com</code>). The real attackers would register <code>roolee.co</code> domain instead, it is for sale.</li>\n<li>Start <code>ssl_server.py</code> script (requires Python 3) to run a local SSL-protected web server. On Linux and macOS this script needs to be run with administrator privileges.</li>\n<li>Open <code>https://roolee.co/exploit_preview.html</code> in your browser and accept the invalid certificate (real attacker would actually own roolee.co, so they would be able to get a valid certificate for it).</li>\n</ol>\n\n<p>A message saying &quot;Hi, script running on roolee.com here!&quot; shows up - that&#39;s JavaScript code successfully injected into the context of the roolee.com shop. Note that in order to trigger theme preview the URL <a title=\"https://roolee.com/?preview_theme_id=31994708068\" href=\"/redirect?signature=1ed62ecdf7942f7eec27b9eab564f5855dc7f3aa&amp;url=https%3A%2F%2Froolee.com%2F%3Fpreview_theme_id%3D31994708068\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://roolee.com/?preview_theme_id=31994708068</span><i class=\"icon-external-link\"></i></a> is being loaded in the frame - the theme ID 31994708068 is the theme currently used by roolee.com and can be seen in the shop&#39;s HTML source code (&quot;View Source&quot; on the shop&#39;s homepage and search for <code>&quot;themeId&quot;:</code>).</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Injecting JavaScript into the shop front can be used to attack both customers and admins. With the customers, one possible attack scenario would be a malicious website claiming huge discounts on TV sets in the foo.myshopify.com shop. If the person is interested, this website opens foo.myshopify.com in a new tab and injects JavaScript code that will redact the prices to make it look like there is a discount as well as replace the shipping address. If the customer isn&#39;t careful and doesn&#39;t check the confirmation mail, they will have bought the TV set for the full price with shipping to the attackers. This allows attackers to turn the TV set into money, and the shop owner gets the blame.</p>\n\n<p>Attacking shop admins requires luring them to a malicious website, e.g. by reporting a supposed issue via support channels. Once a shop admin opens that website, it loads foo.myshopify.com in a hidden frame and injects JavaScript code into it. This JavaScript code can then open <a title=\"https://foo.myshopify.com/admin/\" href=\"/redirect?signature=23f3eefae1582044cebec3d6ae71a5120df30158&amp;url=https%3A%2F%2Ffoo.myshopify.com%2Fadmin%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://foo.myshopify.com/admin/</span><i class=\"icon-external-link\"></i></a> in a small pop-up window and abuse the active admin session to extract data from it (CSRF tokens, shop configuration) or maybe even change admin password to take over the account.</p>\n\n<p><em>Recommendation</em>: The second attack scenario is avoidable, XSS issues in the store front shouldn&#39;t compromise the admin interface. The admin interface should be located under a different subdomain, e.g. <code>admin.foo.myshopify.com</code>. This will make sure that code running in the shop front is forbidden from accessing it by the same-origin policy.</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.shopify.com", 
+            "about": "Shopify is a multi-channel commerce platform that helps people sell online, in-store, and everywhere in between.", 
+            "twitter_handle": "", 
+            "name": "Shopify"
+        }, 
+        "handle": "shopify", 
+        "url": "https://hackerone.com/shopify", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/001/382/1e9872bf9cfe04008c2673e07bfecaa83858cca1_small.jpg?1532728703", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 1382, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

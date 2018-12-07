@@ -1,0 +1,533 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "not-applicable", 
+    "bug_reporter_agreed_on_going_public_at": "2018-09-03T12:27:11.614Z", 
+    "voters": [
+        "mr_r3boot", 
+        "hkr0x01", 
+        "cryptographer", 
+        "azazmir", 
+        "yrap"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 388254, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-08-17T15:04:04.298Z", 
+    "vulnerability_information": "####Vulnerability -\nEditor role privileged users are able to hack into other's account by exploiting clickjacking vulnerability.\n\n####Version-\n4.9.7\n\n####Issue-\nhttps://make.wordpress.org/core/handbook/testing/reporting-security-vulnerabilities/#why-are-some-users-allowed-to-post-unfiltered-html\nAs mentioned per the above link, the editor and admin roles are given permissions to inject arbitary javascript in the posts. Though its a severe vulnerability we can't report about injecting javascript to steal cookies.\n**But only the admin roles/users have the permissions to change the details of other users. Due to this vulnerability editor privileged users are even able to do account takeover of other users account.**\nAllowing the editor role privileged users to use unfiltered HTML (https://en.support.wordpress.com/code/) exposed a new vulnerability via clickjacking. Impact has been explained clearly in the below section. This attack expects the wordpress user to be logged in before he opens the malicious post link sent by the editor privileged user.\n\n####Reproduction steps-\n1. Create two user accounts, one with author/subscriber privileges and other with editor privileges.\n2. Get logged in using the editor privileged account and create a new post with the following code.\nReplace `159.65.157.23:9080` with your IP address.\n\n```\n<iframe src=\"http://159.65.157.23:9080/wp-admin/profile.php\" id=\"frame\" onload=\"loaded()\" style=\"visibility:hidden\"></iframe>\n\n<script>\nvar MyIFrame = document.getElementById(\"frame\");\nvar MyIFrameDoc = (MyIFrame.contentWindow || MyIFrame.contentDocument || MyIFrame.document);\nfunction loaded(){\nMyIFrameDoc.document.getElementById(\"your-profile\").first_name.value=\"hacked by rewanthcool\"\nMyIFrameDoc.document.getElementById(\"your-profile\").submit.click();\nalert(\"Your first name has been changed to \" + MyIFrameDoc.document.getElementById(\"your-profile\").first_name.value + \". Visit http://159.65.157.23:9080/wp-admin/profile.php for confirmation\");\n}\n</script>\n```\n\n3. Now click on `publish` button to publish the URL. Copy the URL to the malicious post.\n4. Now get logged in as another user with author/subscriber privileged roles in another browser/incognito tab.\n5. Now paste the malicious URL (copied in step 3) in this browser and press enter.\n6. Boom !! Now the open the profile page of the author/subscriber privileged user `http://159.65.157.23:9080/wp-admin/profile.php` and you can see his firstname got changed to rewanthcool.\n\n**Similarly you can change the email of the user** by changing `first_name` parameter in above payload to `email`. So, now your payload becomes, `MyIFrameDoc.document.getElementById(\"your-profile\").email.value=\"attacker_rewanthcool@gmail.com\"`. By submitting this payload, you will get a confirmation email link to your profile and you can takeover the victim's account.\n\n###NOTE-\nCSRF protection adds `_wpnonce` to prevent these kind of CSRF attacks but since we are handling everything in an iframe bypasses this CSRF protection as it generates a new valid `_wpnonce` while it gets loaded in the iframe.\n\nIn the above payload, the attacker was able to change the firstname of the victim. That's just a sample. In worst cases, there are two main fields in the same page. They are\n1. Email-id\n2. New Password which generates new password by click on a button.\n3. Sessions: Logout everywhere else.\n\nBy using the combination of hidden iframe and javascript, the attacker can craft a similar payload and takeover a wordpress users account.\n\n####Mitigation-\nDisallow editor privileged users from injecting iframes into the pages/posts by changing the `X-Frame-Options` header to `DENY`.\n\n## Impact\n\nEditor role users can access other users account and change his personal information, change this settings, etc just by making the user to visit a nicely crafted page post.\n\n###Worst-case attack scenario\nMost dangerous impact can be **account takeover** by changing the email-id and password of the victim by injecting an iframe.\n\n###Detailed explanation of vulnerability-\nCSRF on edit-profile has been smartly handled by wordpress developers by adding `_wpnonce` to it. But allowing the editor privileged users to inject iframes into the posts bypasses this CSRF protection.\n\nA hidden iframe can be put in a post and its URL can be sent to the victim(lower privileged user like author, subscriber, etc). Once the victim clicks on the URL sent by the attacker, the hidden iframe will be submitting a javascript request to change the victim's firstname and lastname. In worst cases, the attacker can submit two requests via iframe using javascript to make account takeover.\n1. First request, to generate new password via hidden iframe.. This disabled the victim from using old password.\n2. Second request, to change the victim's email id to attacker's email id via hidden iframe. This completely disables to user to use the `forgot-password` option as the email id has been changed.\n3. Attacker now clicks on `forgot-password` and a reset email will be sent to the attackers email id.\n4. Account takeover completed and editor privileged user hacked the other wordpress users with other privileges.\n\n###Bonus feature/exploit to lock the victim-\nThere's an option to logout from everywhere in the edit-profile page, by clicking on that the attacker can make sure that the victim is not logged into any other accounts after he changed the password.\n\nOnly admin privileged users should be having the abilities to change the personal information like usernames, email-id, etc of other accounts but due to this vulnerability the editor privileged user is also getting the same amount of privileges as admin privileged user which definitely is a bad practice.\n\nConsidering the high severity of the issue, I'm sure this will be considered as an exceptional report with immediate fix.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "User"
+    }, 
+    "title": "Account takeover vulnerability by editor role privileged users/attackers via clickjacking", 
+    "is_member_of_team?": null, 
+    "vote_count": 5, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "WordPress Core", 
+        "max_severity": "critical", 
+        "databaseId": 2750, 
+        "asset_type": "SOURCE_CODE"
+    }, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "N/A", 
+    "public": true, 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/325/820/bba2d7cec9c4faf4542fd119a52cc3da0c61b5e6/Wordpress_Account_Takeover_POC.webm?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221718Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=61e224e8f89ab8240d8ef5d7caf9819c2fe4b152736a9d0966225cb0864130e5", 
+                    "type": "video/webm", 
+                    "id": 325820, 
+                    "filename": "Wordpress_Account_Takeover_POC.webm"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2018-07-29T13:11:51.595Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-29T13:11:51.595Z", 
+            "actor": {
+                "username": "rewanth_cool", 
+                "url": "/rewanth_cool", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Here is the video POC exploiting the above mentioned vulnerability. I request you to go through the report/POC and contact me further if you have any queries. We will be happy to help you.\n", 
+            "markdown_message": "<p>Here is the video POC exploiting the above mentioned vulnerability. I request you to go through the report/POC and contact me further if you have any queries. We will be happy to help you.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3113215, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/325/826/4bcb1186f731e56c5fbe0ed416d44c156b7339cf/Another_POC.webm?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221718Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=00495f4f0f3f4fd4f660e13c8a6971426292fd9a342b65531e1347b202efbc96", 
+                    "type": "video/webm", 
+                    "id": 325826, 
+                    "filename": "Another_POC.webm"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2018-07-29T13:34:14.489Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-29T13:34:14.489Z", 
+            "actor": {
+                "username": "rewanth_cool", 
+                "url": "/rewanth_cool", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Just by changing one line in the above payload, its possible to change the email address of the victim. Here is the another video POC supporting the above statement. Contact me further if you have any queries. We will be happy to help you.\n\nRegards,\nRewanth.", 
+            "markdown_message": "<p>Just by changing one line in the above payload, its possible to change the email address of the victim. Here is the another video POC supporting the above statement. Contact me further if you have any queries. We will be happy to help you.</p>\n\n<p>Regards,<br>\nRewanth.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3113240, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-03T19:15:51.182Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-03T19:15:51.182Z", 
+            "actor": {
+                "username": "rewanth_cool", 
+                "url": "/rewanth_cool", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Any update?", 
+            "markdown_message": "<p>Any update?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3138475, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-03T21:50:01.545Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-03T21:50:01.545Z", 
+            "actor": {
+                "username": "rawrly", 
+                "url": "/rawrly", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Thank you for the detailed report @rewanth_cool. Let me know if I am right on what you're getting at in your report. When a user is allowed to post unfiltered HTML in a web application, they can embed any HTML on the page (including iframes and execute javascript on the browser to make web requests as a privileged user or collect data from the browser) and use the malicious HTML to target other users. You gave some example HTML which will perform of a chain of requests that would allow a WordPress user with Editor and Administrator access to target other users of the same installation to take over the other user's account.\n\nPlease let me know if the above sounds right based on the report you have made, or if I am missing an angle of attack here (especially if I am correct on the assumption that for this to work a user with Editor or Administrator access is required for this attack to work) and it will help me get this triaged appropriately.", 
+            "markdown_message": "<p>Thank you for the detailed report <a href=\"/rewanth_cool\">@rewanth_cool</a>. Let me know if I am right on what you&#39;re getting at in your report. When a user is allowed to post unfiltered HTML in a web application, they can embed any HTML on the page (including iframes and execute javascript on the browser to make web requests as a privileged user or collect data from the browser) and use the malicious HTML to target other users. You gave some example HTML which will perform of a chain of requests that would allow a WordPress user with Editor and Administrator access to target other users of the same installation to take over the other user&#39;s account.</p>\n\n<p>Please let me know if the above sounds right based on the report you have made, or if I am missing an angle of attack here (especially if I am correct on the assumption that for this to work a user with Editor or Administrator access is required for this attack to work) and it will help me get this triaged appropriately.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3139013, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-04T04:42:33.484Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-04T04:42:33.484Z", 
+            "actor": {
+                "username": "rewanth_cool", 
+                "url": "/rewanth_cool", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "I'm sorry @rawrly , you haven't interpreted it right.\n\n**The primary issue I'm trying to make is editor privileged users are able to get the privileges of administrator which could eventually lead to RCE or complete takeover of wordpress website. The editor privileged user can add a vulnerable plugin to wordpress(after he gains the user account) which could eventually give him a root shell.**\n\nIn fact the editor role user can takeover the administrator role user's account by exploiting this vulnerability which is definitely an unintended way of implementation.\n\nThe editor and administrator privileged users are intentionally given the permissions to embed unfiltered HTML. I'm trying to make a point that editor role user's are getting all the permissions of the administrator role user's using the above reported vulnerability.\n\nI hope this answers your query. Contact us further if you have any queries. We will be happy to help you.\n\nRegards,\nRewanth.", 
+            "markdown_message": "<p>I&#39;m sorry <a href=\"/rawrly\">@rawrly</a> , you haven&#39;t interpreted it right.</p>\n\n<p><strong>The primary issue I&#39;m trying to make is editor privileged users are able to get the privileges of administrator which could eventually lead to RCE or complete takeover of wordpress website. The editor privileged user can add a vulnerable plugin to wordpress(after he gains the user account) which could eventually give him a root shell.</strong></p>\n\n<p>In fact the editor role user can takeover the administrator role user&#39;s account by exploiting this vulnerability which is definitely an unintended way of implementation.</p>\n\n<p>The editor and administrator privileged users are intentionally given the permissions to embed unfiltered HTML. I&#39;m trying to make a point that editor role user&#39;s are getting all the permissions of the administrator role user&#39;s using the above reported vulnerability.</p>\n\n<p>I hope this answers your query. Contact us further if you have any queries. We will be happy to help you.</p>\n\n<p>Regards,<br>\nRewanth.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3139601, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-04T14:05:01.842Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-04T14:05:01.842Z", 
+            "actor": {
+                "username": "rawrly", 
+                "url": "/rawrly", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Thank you for the clarification. I apologize if I didn't emphasize that your report is that users with Editor role access can effectively become or take over administrator user accounts. As I understand your report, it require an editor to post unfiltered HTML, then have a logged in administrator view that HTML, correct? ", 
+            "markdown_message": "<p>Thank you for the clarification. I apologize if I didn&#39;t emphasize that your report is that users with Editor role access can effectively become or take over administrator user accounts. As I understand your report, it require an editor to post unfiltered HTML, then have a logged in administrator view that HTML, correct? </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3140956, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-04T14:05:51.703Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-04T14:05:51.703Z", 
+            "actor": {
+                "username": "rawrly", 
+                "url": "/rawrly", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugNeedsMoreInfo", 
+            "id": 3140959, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-04T14:28:36.083Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-04T14:28:36.083Z", 
+            "actor": {
+                "username": "rewanth_cool", 
+                "url": "/rewanth_cool", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Yes, not only administrators, the editor can similarly takeover the accounts of other individual users(low privileged) as well. Thus, editor got extra privileges which shouldn't be the case.", 
+            "markdown_message": "<p>Yes, not only administrators, the editor can similarly takeover the accounts of other individual users(low privileged) as well. Thus, editor got extra privileges which shouldn&#39;t be the case.</p>\n", 
+            "type": "Activities::BugNew", 
+            "id": 3141018, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-06T14:56:33.371Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-06T14:56:33.371Z", 
+            "actor": {
+                "username": "rawrly", 
+                "url": "/rawrly", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Thank you for working with me to confirm I understand your report accurately.  The key vector of this attack as I understand it is that users with roles that allow them to post unfiltered HTML (Editor and Administrators) can abuse this ability to perform attacks on other users of the site.\n\nYou have done a great job showing how this can be abused, but what you have described is something the team is aware of (Editor and Administrator accounts should be only given to those you have the highest trust in) and it is explicitly stated that concerns about \"Users with administrator or editor privileges can post arbitrary JavaScript\" on https://hackerone.com/wordpress are not covered by the HackerOne bounty program. \n\nIf there is any further information you can provide on the vulnerability, maybe a different angle or concern, I will be glad to hear it out before closing out the ticket.", 
+            "markdown_message": "<p>Thank you for working with me to confirm I understand your report accurately.  The key vector of this attack as I understand it is that users with roles that allow them to post unfiltered HTML (Editor and Administrators) can abuse this ability to perform attacks on other users of the site.</p>\n\n<p>You have done a great job showing how this can be abused, but what you have described is something the team is aware of (Editor and Administrator accounts should be only given to those you have the highest trust in) and it is explicitly stated that concerns about &quot;Users with administrator or editor privileges can post arbitrary JavaScript&quot; on <a title=\"https://hackerone.com/wordpress\" href=\"https://hackerone.com/wordpress\">https://hackerone.com/wordpress</a> are not covered by the HackerOne bounty program. </p>\n\n<p>If there is any further information you can provide on the vulnerability, maybe a different angle or concern, I will be glad to hear it out before closing out the ticket.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3151342, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-06T18:36:36.885Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-06T18:36:36.885Z", 
+            "actor": {
+                "username": "rewanth_cool", 
+                "url": "/rewanth_cool", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "You got it right. But editor does not have privileges of adding plugins. By using the above exploit, editor can gain privileges of administrator and add any vulnerable plugin to get RCE and get complete control of WordPress. Editor can also lock out the administrator, or any other users by using above exploit or abuse their personal information.\n\nWe understand that admin and editors are allowed to post javascript. But users(other than administrator) shouldn't be given the slightest chance to compromise other users/administrator under any circumstances. We are trying to imply that even though administrator/editor are allowed to inject javascript, this attack wouldn't have been successfully exploited without iframes.\n\n**We want to emphasize that editor's privilege gets elevated by above exploit (privilege escalation). By using the above exploit, editor can get administrator privileges or access in an unintended way which leads to remote code execution and compromise of several wordpress accounts.**\n\nWe strongly believe that this isn't an intended way of exploit, we found. We kindly request you to discuss with wordpress development team regarding the unintended way of privilege escalation as explained in the above report. We hope that the above explanation gives a greater insight on the vulnerability, its scope and severity.\nPreventing editor privileged users from injecting iframes into their posts will fix this issue.", 
+            "markdown_message": "<p>You got it right. But editor does not have privileges of adding plugins. By using the above exploit, editor can gain privileges of administrator and add any vulnerable plugin to get RCE and get complete control of WordPress. Editor can also lock out the administrator, or any other users by using above exploit or abuse their personal information.</p>\n\n<p>We understand that admin and editors are allowed to post javascript. But users(other than administrator) shouldn&#39;t be given the slightest chance to compromise other users/administrator under any circumstances. We are trying to imply that even though administrator/editor are allowed to inject javascript, this attack wouldn&#39;t have been successfully exploited without iframes.</p>\n\n<p><strong>We want to emphasize that editor&#39;s privilege gets elevated by above exploit (privilege escalation). By using the above exploit, editor can get administrator privileges or access in an unintended way which leads to remote code execution and compromise of several wordpress accounts.</strong></p>\n\n<p>We strongly believe that this isn&#39;t an intended way of exploit, we found. We kindly request you to discuss with wordpress development team regarding the unintended way of privilege escalation as explained in the above report. We hope that the above explanation gives a greater insight on the vulnerability, its scope and severity.<br>\nPreventing editor privileged users from injecting iframes into their posts will fix this issue.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3152186, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-12T14:39:14.093Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-12T14:39:14.093Z", 
+            "actor": {
+                "username": "rewanth_cool", 
+                "url": "/rewanth_cool", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Any update?", 
+            "markdown_message": "<p>Any update?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3182810, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-16T10:12:18.978Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-16T10:12:18.978Z", 
+            "actor": {
+                "username": "rewanth_cool", 
+                "url": "/rewanth_cool", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Any update @rawrly ?", 
+            "markdown_message": "<p>Any update <a href=\"/rawrly\">@rawrly</a> ?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3202830, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-16T15:13:03.895Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-16T15:13:03.895Z", 
+            "actor": {
+                "username": "rawrly", 
+                "url": "/rawrly", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hello,\n\nUnfortunately the update would be that this report is going to be closed as Not Applicable. As I understand your report, you have notified us about something we have clarified as not of interest for reports to the hackerone program ( https://hackerone.com/wordpress \"Users with administrator or editor privileges can post arbitrary JavaScript\" ) \n\nYou have done a great job explaining that an Editor could use this access to target other accounts and change their privilege, but at the end of the day site owners would/should not be giving Editor access to people they don't trust. If the site's administrator had to give Editor/Administrator accounts to people who they don't fully trust, then they could define DISALLOW_UNFILTERED_HTML in the site's wp-config and that would prevent anyone from posting unfiltered HTML (including preventing Administrator accounts from targeting other Administrator accounts) and prevent users from attacking each other with unfiltered HTML (this just is not the best default option for the WP userbase.)", 
+            "markdown_message": "<p>Hello,</p>\n\n<p>Unfortunately the update would be that this report is going to be closed as Not Applicable. As I understand your report, you have notified us about something we have clarified as not of interest for reports to the hackerone program ( <a title=\"https://hackerone.com/wordpress\" href=\"https://hackerone.com/wordpress\">https://hackerone.com/wordpress</a> &quot;Users with administrator or editor privileges can post arbitrary JavaScript&quot; ) </p>\n\n<p>You have done a great job explaining that an Editor could use this access to target other accounts and change their privilege, but at the end of the day site owners would/should not be giving Editor access to people they don&#39;t trust. If the site&#39;s administrator had to give Editor/Administrator accounts to people who they don&#39;t fully trust, then they could define DISALLOW_UNFILTERED_HTML in the site&#39;s wp-config and that would prevent anyone from posting unfiltered HTML (including preventing Administrator accounts from targeting other Administrator accounts) and prevent users from attacking each other with unfiltered HTML (this just is not the best default option for the WP userbase.)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3204643, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-16T15:14:53.672Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-16T15:14:53.672Z", 
+            "actor": {
+                "username": "rawrly", 
+                "url": "/rawrly", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Marking as N/A due to it the report only being related to ability of Editor/Administrator roles to post Unfiltered HTML, which is not covered by the HackerOne program and stated so on https://hackerone.com/wordpress", 
+            "markdown_message": "<p>Marking as N/A due to it the report only being related to ability of Editor/Administrator roles to post Unfiltered HTML, which is not covered by the HackerOne program and stated so on <a title=\"https://hackerone.com/wordpress\" href=\"https://hackerone.com/wordpress\">https://hackerone.com/wordpress</a></p>\n", 
+            "type": "Activities::BugNotApplicable", 
+            "id": 3204655, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-17T09:56:40.639Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-17T09:56:40.639Z", 
+            "actor": {
+                "username": "rewanth_cool", 
+                "url": "/rewanth_cool", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Public disclosure of full report?", 
+            "markdown_message": "<p>Public disclosure of full report?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3209955, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-17T15:04:04.333Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-17T15:04:04.333Z", 
+            "actor": {
+                "username": "aaroncampbell", 
+                "url": "/aaroncampbell", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/821/6f1bfb789e2f97a2c2ca81a5e6ab6f7b3581ad4a_medium.jpg?1515860728"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "first_to_agree": true, 
+            "message": "Hey @rewanth_cool,\n\nSure. I have requested full public disclosure on this one for you.\n\nThanks,\nAaron", 
+            "markdown_message": "<p>Hey <a href=\"/rewanth_cool\">@rewanth_cool</a>,</p>\n\n<p>Sure. I have requested full public disclosure on this one for you.</p>\n\n<p>Thanks,<br>\nAaron</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3210808, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-03T12:27:11.670Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-03T12:27:11.670Z", 
+            "actor": {
+                "username": "rewanth_cool", 
+                "url": "/rewanth_cool", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3284636, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-03T12:27:11.764Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-03T12:27:11.764Z", 
+            "actor": {
+                "username": "rewanth_cool", 
+                "url": "/rewanth_cool", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3284637, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "rewanth_cool", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/rewanth_cool", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 74, 
+        "name": "UI Redressing (Clickjacking)"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2018-09-03T12:27:11.728Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/388254", 
+    "created_at": "2018-07-29T13:01:58.516Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h4 id=\"vulnerability\">Vulnerability -</h4>\n\n<p>Editor role privileged users are able to hack into other&#39;s account by exploiting clickjacking vulnerability.</p>\n\n<h4 id=\"version\">Version-</h4>\n\n<p>4.9.7</p>\n\n<h4 id=\"issue\">Issue-</h4>\n\n<p><a title=\"https://make.wordpress.org/core/handbook/testing/reporting-security-vulnerabilities/#why-are-some-users-allowed-to-post-unfiltered-html\" href=\"/redirect?signature=050339bc34b50bf05731956395d49957eedba1ab&amp;url=https%3A%2F%2Fmake.wordpress.org%2Fcore%2Fhandbook%2Ftesting%2Freporting-security-vulnerabilities%2F%23why-are-some-users-allowed-to-post-unfiltered-html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://make.wordpress.org/core/handbook/testing/reporting-security-vulnerabilities/#why-are-some-users-allowed-to-post-unfiltered-html</span><i class=\"icon-external-link\"></i></a><br>\nAs mentioned per the above link, the editor and admin roles are given permissions to inject arbitary javascript in the posts. Though its a severe vulnerability we can&#39;t report about injecting javascript to steal cookies.<br>\n<strong>But only the admin roles/users have the permissions to change the details of other users. Due to this vulnerability editor privileged users are even able to do account takeover of other users account.</strong><br>\nAllowing the editor role privileged users to use unfiltered HTML (<a title=\"https://en.support.wordpress.com/code/\" href=\"/redirect?signature=03f16e7c562f489d5c81e14c92f71dfc537b180a&amp;url=https%3A%2F%2Fen.support.wordpress.com%2Fcode%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://en.support.wordpress.com/code/</span><i class=\"icon-external-link\"></i></a>) exposed a new vulnerability via clickjacking. Impact has been explained clearly in the below section. This attack expects the wordpress user to be logged in before he opens the malicious post link sent by the editor privileged user.</p>\n\n<h4 id=\"reproduction-steps\">Reproduction steps-</h4>\n\n<ol>\n<li>Create two user accounts, one with author/subscriber privileges and other with editor privileges.</li>\n<li>Get logged in using the editor privileged account and create a new post with the following code.\nReplace <code>159.65.157.23:9080</code> with your IP address.</li>\n</ol>\n<pre class=\"highlight plaintext\"><code>&lt;iframe src=&quot;http://159.65.157.23:9080/wp-admin/profile.php&quot; id=&quot;frame&quot; onload=&quot;loaded()&quot; style=&quot;visibility:hidden&quot;&gt;&lt;/iframe&gt;\n\n&lt;script&gt;\nvar MyIFrame = document.getElementById(&quot;frame&quot;);\nvar MyIFrameDoc = (MyIFrame.contentWindow || MyIFrame.contentDocument || MyIFrame.document);\nfunction loaded(){\nMyIFrameDoc.document.getElementById(&quot;your-profile&quot;).first_name.value=&quot;hacked by rewanthcool&quot;\nMyIFrameDoc.document.getElementById(&quot;your-profile&quot;).submit.click();\nalert(&quot;Your first name has been changed to &quot; + MyIFrameDoc.document.getElementById(&quot;your-profile&quot;).first_name.value + &quot;. Visit http://159.65.157.23:9080/wp-admin/profile.php for confirmation&quot;);\n}\n&lt;/script&gt;\n</code></pre>\n<ol>\n<li>Now click on <code>publish</code> button to publish the URL. Copy the URL to the malicious post.</li>\n<li>Now get logged in as another user with author/subscriber privileged roles in another browser/incognito tab.</li>\n<li>Now paste the malicious URL (copied in step 3) in this browser and press enter.</li>\n<li>Boom !! Now the open the profile page of the author/subscriber privileged user <code>http://159.65.157.23:9080/wp-admin/profile.php</code> and you can see his firstname got changed to rewanthcool.</li>\n</ol>\n\n<p><strong>Similarly you can change the email of the user</strong> by changing <code>first_name</code> parameter in above payload to <code>email</code>. So, now your payload becomes, <code>MyIFrameDoc.document.getElementById(&quot;your-profile&quot;).email.value=&quot;attacker_rewanthcool@gmail.com&quot;</code>. By submitting this payload, you will get a confirmation email link to your profile and you can takeover the victim&#39;s account.</p>\n\n<h3 id=\"note\">NOTE-</h3>\n\n<p>CSRF protection adds <code>_wpnonce</code> to prevent these kind of CSRF attacks but since we are handling everything in an iframe bypasses this CSRF protection as it generates a new valid <code>_wpnonce</code> while it gets loaded in the iframe.</p>\n\n<p>In the above payload, the attacker was able to change the firstname of the victim. That&#39;s just a sample. In worst cases, there are two main fields in the same page. They are</p>\n\n<ol>\n<li>Email-id</li>\n<li>New Password which generates new password by click on a button.</li>\n<li>Sessions: Logout everywhere else.</li>\n</ol>\n\n<p>By using the combination of hidden iframe and javascript, the attacker can craft a similar payload and takeover a wordpress users account.</p>\n\n<h4 id=\"mitigation\">Mitigation-</h4>\n\n<p>Disallow editor privileged users from injecting iframes into the pages/posts by changing the <code>X-Frame-Options</code> header to <code>DENY</code>.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Editor role users can access other users account and change his personal information, change this settings, etc just by making the user to visit a nicely crafted page post.</p>\n\n<h3 id=\"worst-case-attack-scenario\">Worst-case attack scenario</h3>\n\n<p>Most dangerous impact can be <strong>account takeover</strong> by changing the email-id and password of the victim by injecting an iframe.</p>\n\n<h3 id=\"detailed-explanation-of-vulnerability\">Detailed explanation of vulnerability-</h3>\n\n<p>CSRF on edit-profile has been smartly handled by wordpress developers by adding <code>_wpnonce</code> to it. But allowing the editor privileged users to inject iframes into the posts bypasses this CSRF protection.</p>\n\n<p>A hidden iframe can be put in a post and its URL can be sent to the victim(lower privileged user like author, subscriber, etc). Once the victim clicks on the URL sent by the attacker, the hidden iframe will be submitting a javascript request to change the victim&#39;s firstname and lastname. In worst cases, the attacker can submit two requests via iframe using javascript to make account takeover.</p>\n\n<ol>\n<li>First request, to generate new password via hidden iframe.. This disabled the victim from using old password.</li>\n<li>Second request, to change the victim&#39;s email id to attacker&#39;s email id via hidden iframe. This completely disables to user to use the <code>forgot-password</code> option as the email id has been changed.</li>\n<li>Attacker now clicks on <code>forgot-password</code> and a reset email will be sent to the attackers email id.</li>\n<li>Account takeover completed and editor privileged user hacked the other wordpress users with other privileges.</li>\n</ol>\n\n<h3 id=\"bonus-feature-exploit-to-lock-the-victim\">Bonus feature/exploit to lock the victim-</h3>\n\n<p>There&#39;s an option to logout from everywhere in the edit-profile page, by clicking on that the attacker can make sure that the victim is not logged into any other accounts after he changed the password.</p>\n\n<p>Only admin privileged users should be having the abilities to change the personal information like usernames, email-id, etc of other accounts but due to this vulnerability the editor privileged user is also getting the same amount of privileges as admin privileged user which definitely is a bad practice.</p>\n\n<p>Considering the high severity of the issue, I&#39;m sure this will be considered as an exceptional report with immediate fix.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://wordpress.org/", 
+            "about": "Beautiful sites of any kind.", 
+            "twitter_handle": "wordpress", 
+            "name": "WordPress"
+        }, 
+        "handle": "wordpress", 
+        "url": "https://hackerone.com/wordpress", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/055/2ded484d947025dc191342c9ccdcf00effc53ff6_small.jpg?1392934661", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/055/a7e722c23dedc020ade3b6e7f1a96baa455f86d8_medium.jpg?1392934661"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 55, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

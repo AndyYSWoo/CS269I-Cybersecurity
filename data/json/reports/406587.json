@@ -1,0 +1,419 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-11-08T10:46:50.641Z", 
+    "voters": [
+        "eveeez", 
+        "an0nym0us", 
+        "babayaga_", 
+        "romesful", 
+        "mygf", 
+        "null-byte", 
+        "japz", 
+        "cryptographer", 
+        "sameerphad72", 
+        "amjamjamj", 
+        "and 7 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 406587, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-11-07T18:51:29.870Z", 
+    "vulnerability_information": "**Summary:**\nThere is a 'self' DOM-based cross-site scripting vulnerability in the contact form available on the www.hackerone.com website. This could allow an attacker to perform cross-site scripting, or other client-side attacks, against users of the application. However, the risk presented by this issue is significantly reduced because exploitation would require an element of social engineering to succeed, and the website's Content Security Policy (CSP) blocked the execution of inline scripts.\n\n**Description:**\nThe HackerOne contact form is automatically displayed when the string  'contact/' is detected in the URI fragment on any page under the www.hackerone.com domain (for example, https://www.hackerone.com/#contact/). When the 'submit' button is clicked, the following JavaScript functions are executed:\n\n```javascript\n//Marketo Form Code\nfunction strip(html) {\n    var tmp = document.createElement(\"DIV\");\n    tmp.innerHTML = html;\n    return tmp.textContent || tmp.innerText || \"\";\n}\n\n$('form').submit(function() {\n    $('textarea').val(function() {\n        return strip($(this).val());\n    });\n});\n```\nThe 'submit' event handler passes the current value of any 'textarea' elements to the 'strip' function. This function creates a new 'div' element, sets the 'innerHTML'  property to the provided value, and then returns the 'textContent' property of the resulting div. This type of code is typically used to remove HTML tags from a string, as the textContent property contains the String which was rendered by the browser when the HTML was parsed. (A reference to this exact function was also found on Stack Overflow: https://stackoverflow.com/questions/12941663/removing-html-tags-from-a-string-and-keeping-colon) \n\nHowever , this particular method is inherently insecure because it uses 'innerHTML'. When user input is provided to the 'innerHTML' property, it is parsed by the web browser and can therefore lead to the execution of malicious JavaScript. A screenshot has been attached to this report showing the result in the web browser when the following payload was typed into the 'Message' textarea of the HackerOne contact form, and the 'send message' button was clicked:\n\n```html\n<img src=x onerror=alert(1) />\n```\nThe developer console (in Google Chrome) displayed two errors - one which stated that https://www.hackerone.com/x was requested and returned a 404 (due to the src attribute of the img tag), and another which reported a violation of the website's CSP. This second error occurred because the browser attempted to execute the JavaScript code in the 'onerror' attribute, but the website's CSP did not allow it. Performing the same actions in a browser with CSP disabled allowed the JavaScript in the 'onerror' attribute to execute.\n\nAn attacker could exploit this vulnerability by convincing a user (ideally with a browser which does not support CSP) to paste a malicious payload into the 'message' field of the contact form and then click the 'send message' button.\n\nIt should also be noted that, if the 'strip' function was implemented to prevent an attacker from sending malicious HTML to Marketo or the server, it can be trivially bypassed using an intercepting proxy tool such as Burp Suite. By intercepting the HTTP request sent once the form submission is complete, any HTML 'stripped' by the JavaScript can simply be replaced. In light of this, developers should consider whether the 'strip' function is required - any validation or sanitization should  be performed by the server, where it cannot be influenced by an attacker.\n\nIf the 'strip' function is required, it is recommended that it is replaced with a solution which does not require the use of 'innerHTML'. A suitable alternative may be the use of a regex to remove common HTML characters.\n\n### Steps To Reproduce\n\n1. Open the https://www.hackerone.com/#contact/ page and open the browser's developer tools\n2.  Type \"<img src=x onerror=alert(1) />\" into the 'message' textarea\n3.  Click the 'send message' button\n4. Check the developer console to view the two errors\n\n(alternatively, disable CSP in your web browser and repeat the steps above. The JavaScript code 'alert(1)' should execute)\n\n## Impact\n\nThe attacker could achieve XSS in the www.hackerone.com website.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "User"
+    }, 
+    "title": "Self DOM-Based XSS in www.hackerone.com", 
+    "is_member_of_team?": null, 
+    "vote_count": 17, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "https://www.hackerone.com", 
+        "max_severity": "high", 
+        "databaseId": 6, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": "2018-12-07T18:51:30.010Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "self-XSS.PNG", 
+            "type": "image/png", 
+            "id": 343117, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/343/117/4a6c2b7af987bf851a33e53be22dda1e7565ce5a/self-XSS.PNG?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQWS2CSUE3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221442Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDNFtI3gdfN0FFddCnSK3A%2FNn8rGoRLECenibnPQxlYfOkhD533uSo6Jsi4CGisj6U81IFoE7NBEuPv%2BUT2dP%2BOOfq6zDsTXqsfa%2B9BuuRNIyl27dmo7gw2zBlEjVTSMZKI8B0zj4q4GeD0gX7YDUvrqCnrwfrQpq6BHV5kFcBvzP%2FNnVou4jydvq2EcrKGQeGmq4afFHwdD5CN5DoFnFHkXlCLPVWCK%2FpO5NMVMdWRvVyk90BTGTkyTY5IWuz0%2B08qqd5UcN1WLfvK4E3S6jTn5eK%2FSX5o5meFKi0SmtPddLVR5u8xNOgccHPaVXRO5KIBBCZ5yilpXGFhVd%2FmfBeI1lJ6Zc7kOal7ihq3TcrVPP%2FopjPjQdAVdt9an7SXkRFGjCeWjyWfPwghBaIoGvWhM9OHPkS94WN%2FukqeEoK1pVo2cJuAYnallyv%2Fvqjndvr%2BodZqbfFrY5T9ebirMMIoriCBo2Xkpz9lw7EjTK4aWQBSBYrDh4Xl4%2FXmR8N0VkEu6LxpbUd0lfl%2Fjh1nqnK2KhGRbixj81Rq6v9WRwhjH%2FADPcK25w6aq3rFp1RLV%2B6mj273p2%2FLR6yf68LZuCXsY5sDs2Xf0oo46m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=ead6146c0df31f31d45b6f405a9c6b917444f34e5f95f6e53a8b0840386e5c04"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-06T20:32:30.475Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-06T20:32:30.475Z", 
+            "actor": {
+                "username": "bencode", 
+                "url": "/bencode", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/117/d813c9668b163216f808ea44fe97d138069498fb_medium.jpg?1536189740"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "This fix originated from #220009. Given the CSP is in place and this is a self XSS I'm leaning towards us accepting this risk. It seems like there should be an easy fix to this though. Do you have an idea on a more accepted html striping approach that works in these cases?", 
+            "markdown_message": "<p>This fix originated from <a href=\"/reports/220009\">#220009</a>. Given the CSP is in place and this is a self XSS I&#39;m leaning towards us accepting this risk. It seems like there should be an easy fix to this though. Do you have an idea on a more accepted html striping approach that works in these cases?</p>\n", 
+            "type": "Activities::BugNeedsMoreInfo", 
+            "id": 3303152, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-06T20:53:10.296Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-06T20:53:10.296Z", 
+            "actor": {
+                "username": "adac95", 
+                "url": "/adac95", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "That's interesting, I hadn't seen this report before.\n\nIs this the only change Marketo made to address this bug? Or were there changes made to the backend? I would assume that, if no other changes were made, an attacker could still exploit the SSRF (or HTML injection) on the backend by adding the HTML back in to their request, or by overriding the strip function in their browser to do nothing. The strip function is a client-side control after all, and an attacker can therefore still modify the request after the strip function has made its changes.\n\nThe only way to prevent the HTML injection described in 220009 would be to check the message contents on the server-side and encode the HTML there, before using it anywhere else. I've just used Burp to add an img tag to a message sent in the contact form and I am monitoring for requests to see if the HTML injection is still exploitable. I'll let you know if I get anything back.\n\nMy suggestion would be to remove the strip function entirely (eliminating the self XSS) and clarify whether Marketo added a protection for the previous vulnerability on the server-side.", 
+            "markdown_message": "<p>That&#39;s interesting, I hadn&#39;t seen this report before.</p>\n\n<p>Is this the only change Marketo made to address this bug? Or were there changes made to the backend? I would assume that, if no other changes were made, an attacker could still exploit the SSRF (or HTML injection) on the backend by adding the HTML back in to their request, or by overriding the strip function in their browser to do nothing. The strip function is a client-side control after all, and an attacker can therefore still modify the request after the strip function has made its changes.</p>\n\n<p>The only way to prevent the HTML injection described in 220009 would be to check the message contents on the server-side and encode the HTML there, before using it anywhere else. I&#39;ve just used Burp to add an img tag to a message sent in the contact form and I am monitoring for requests to see if the HTML injection is still exploitable. I&#39;ll let you know if I get anything back.</p>\n\n<p>My suggestion would be to remove the strip function entirely (eliminating the self XSS) and clarify whether Marketo added a protection for the previous vulnerability on the server-side.</p>\n", 
+            "type": "Activities::BugNew", 
+            "id": 3303218, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-07T17:49:52.196Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-07T17:53:59.748Z", 
+            "actor": {
+                "username": "pei", 
+                "url": "/pei", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/939/a55a962aa01949228bacd2fbcd6d889aded8b4fa_medium.png?1422923318"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Hi @adac95 - \n\nWe have confirmed with Marketo that the original SSRF vulnerability was mitigated by enabling HTML encode token in the settings. \n\nThis is their response:\n> Marketo has a setting to HTML encode tokens used in Marketo emails. Customers can control this setting themselves in Admin > Field Management > Field Actions > HTML Encode Settings. We also have a feature slated for Q4 to make the default of this option ON for all customers (still with ability to override at the field level for customers who want to use HTML in a token).\n> \n> If token contents within emails are set to be HTML-encoded, there\u2019s not much more we can do other than \u201cclean\u201d content when it comes into Marketo. That\u2019s a long-term goal but I wouldn\u2019t say it is in any way critical. Using the features described above, should resolve these concerns.\n\nGiven this, we think it makes sense to remove our home-brewed `strip()` function. Do you see any problem with the removal? \n", 
+            "markdown_message": "<p>Hi <a href=\"/adac95\">@adac95</a> - </p>\n\n<p>We have confirmed with Marketo that the original SSRF vulnerability was mitigated by enabling HTML encode token in the settings. </p>\n\n<p>This is their response:</p>\n\n<blockquote>\n<p>Marketo has a setting to HTML encode tokens used in Marketo emails. Customers can control this setting themselves in Admin &gt; Field Management &gt; Field Actions &gt; HTML Encode Settings. We also have a feature slated for Q4 to make the default of this option ON for all customers (still with ability to override at the field level for customers who want to use HTML in a token).</p>\n\n<p>If token contents within emails are set to be HTML-encoded, there\u2019s not much more we can do other than \u201cclean\u201d content when it comes into Marketo. That\u2019s a long-term goal but I wouldn\u2019t say it is in any way critical. Using the features described above, should resolve these concerns.</p>\n</blockquote>\n\n<p>Given this, we think it makes sense to remove our home-brewed <code>strip()</code> function. Do you see any problem with the removal? </p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 3308354, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-07T20:47:02.877Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-07T20:47:02.877Z", 
+            "actor": {
+                "username": "adac95", 
+                "url": "/adac95", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Hi @pei,\n\nThanks for clarifying. Given it is trivial to bypass the strip function, and any HTML tags sent in the contact form by an attacker will be encoded by the Marketo server, I am confident that it can be safely removed.\n\nIf it helps, I retested the original SSRF vulnerability by bypassing the strip function and did not receive any requests to my server. This suggests to me that the HTML encoding performed by Marketo is working as intended.", 
+            "markdown_message": "<p>Hi <a href=\"/pei\">@pei</a>,</p>\n\n<p>Thanks for clarifying. Given it is trivial to bypass the strip function, and any HTML tags sent in the contact form by an attacker will be encoded by the Marketo server, I am confident that it can be safely removed.</p>\n\n<p>If it helps, I retested the original SSRF vulnerability by bypassing the strip function and did not receive any requests to my server. This suggests to me that the HTML encoding performed by Marketo is working as intended.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3309015, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "adac95", 
+                "url": "/adac95"
+            }, 
+            "created_at": "2018-09-14T16:47:40.743Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-14T16:47:40.743Z", 
+            "actor": {
+                "url": "/security", 
+                "profile": {
+                    "name": "HackerOne"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/013/28af2ada2cc00aa9427504fc5a14f587362df84b_medium.png?1445331713"
+                }
+            }, 
+            "team_handle": "security", 
+            "message": "Hi @adac95 -\n\nThanks for verifying! There isn't a real attack scenario here, though we really appreciate your creative finding and have decided to award you swag. \n\nHappy Friday!\n-Pei", 
+            "markdown_message": "<p>Hi <a href=\"/adac95\">@adac95</a> -</p>\n\n<p>Thanks for verifying! There isn&#39;t a real attack scenario here, though we really appreciate your creative finding and have decided to award you swag. </p>\n\n<p>Happy Friday!<br>\n-Pei</p>\n", 
+            "type": "Activities::SwagAwarded", 
+            "id": 3338739, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-14T16:47:53.661Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-14T16:47:53.661Z", 
+            "actor": {
+                "url": "/security", 
+                "profile": {
+                    "name": "HackerOne"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/013/28af2ada2cc00aa9427504fc5a14f587362df84b_medium.png?1445331713"
+                }
+            }, 
+            "team_handle": "security", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::NotEligibleForBounty", 
+            "id": 3338741, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-17T09:35:18.927Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-17T09:35:18.927Z", 
+            "actor": {
+                "username": "adac95", 
+                "url": "/adac95", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Thank you @pei! ", 
+            "markdown_message": "<p>Thank you <a href=\"/pei\">@pei</a>! </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3347288, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "adac95", 
+                "url": "/adac95"
+            }, 
+            "created_at": "2018-10-29T23:37:14.119Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-29T23:37:14.119Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Hi @adac95 - thanks again for bringing this to our attention! This should be resolved by now. Can you confirm this? Thanks!", 
+            "markdown_message": "<p>Hi <a href=\"/adac95\">@adac95</a> - thanks again for bringing this to our attention! This should be resolved by now. Can you confirm this? Thanks!</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3552878, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-05T09:18:13.684Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-05T09:18:13.684Z", 
+            "actor": {
+                "username": "adac95", 
+                "url": "/adac95", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "Hi @jobert, sorry for the delay! I have just taken another look at the main contact form and it seems that this is fixed. The old strip() function has been removed and I can no longer cause HTML to be injected into the page.\n\nIt looks like there are still some client-side sanitisation functions though. For example, this function is used on the HackerOne Go contact form (https://www.hackerone.com/hackerone-go):\n\n```javascript\nMktoForms2.loadForm(\"//app-sj17.marketo.com\", \"168-NAU-732\", 1079);         \nMktoForms2.whenReady(function (form){\n  vals = form.vals();\n  $('#preview-modal').click(function() {        \n    $('strong.company').each(function () {\n      $(this).text($('input#Company').val()?$('input#Company').val():\"Your Company\"); \n    })\n    var tmpDiv = jQuery(document.createElement('div'));\n    var sanitizedDomains = [];\n\n    var unsanitizedDomains = $('textarea#Customer_Defined_Scope__c').val().split('\\n');\n    for (var i = 0 ; i < unsanitizedDomains.length ; i++) {\n      sanitizedDomains.push(tmpDiv.text(unsanitizedDomains[i]).html());\n    }\n    $('ul.scope li').remove();\n    $.each(sanitizedDomains, function(){\n      $('ul.scope').append('<li>'+this+'</li>');\n    });\n    $('#preview').dialog({\n      title: \"Preview\",\n        buttons: {\n            Ok: function () {\n                $(this).dialog('close');\n            }\n        },\n        modal: true,\n        width: \"80%\"\n    });\n    return false; \n  })\n```\nHowever, the use of JQuery's text() on the user's input means that this can't be used to inject HTML into the page.  I don't see the value in encoding a user's input before a request but this appears to be a safe way to do it.", 
+            "markdown_message": "<p>Hi <a href=\"/jobert\">@jobert</a>, sorry for the delay! I have just taken another look at the main contact form and it seems that this is fixed. The old strip() function has been removed and I can no longer cause HTML to be injected into the page.</p>\n\n<p>It looks like there are still some client-side sanitisation functions though. For example, this function is used on the HackerOne Go contact form (<a title=\"https://www.hackerone.com/hackerone-go):\" href=\"/redirect?signature=5727c169ffe9efa4fb245d7d4f6f093d5fea336b&amp;url=https%3A%2F%2Fwww.hackerone.com%2Fhackerone-go%29%3A\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.hackerone.com/hackerone-go):</span><i class=\"icon-external-link\"></i></a></p>\n<pre class=\"highlight javascript\"><code><span class=\"nx\">MktoForms2</span><span class=\"p\">.</span><span class=\"nx\">loadForm</span><span class=\"p\">(</span><span class=\"s2\">&quot;//app-sj17.marketo.com&quot;</span><span class=\"p\">,</span> <span class=\"s2\">&quot;168-NAU-732&quot;</span><span class=\"p\">,</span> <span class=\"mi\">1079</span><span class=\"p\">);</span>         \n<span class=\"nx\">MktoForms2</span><span class=\"p\">.</span><span class=\"nx\">whenReady</span><span class=\"p\">(</span><span class=\"kd\">function</span> <span class=\"p\">(</span><span class=\"nx\">form</span><span class=\"p\">){</span>\n  <span class=\"nx\">vals</span> <span class=\"o\">=</span> <span class=\"nx\">form</span><span class=\"p\">.</span><span class=\"nx\">vals</span><span class=\"p\">();</span>\n  <span class=\"nx\">$</span><span class=\"p\">(</span><span class=\"s1\">&#39;#preview-modal&#39;</span><span class=\"p\">).</span><span class=\"nx\">click</span><span class=\"p\">(</span><span class=\"kd\">function</span><span class=\"p\">()</span> <span class=\"p\">{</span>        \n    <span class=\"nx\">$</span><span class=\"p\">(</span><span class=\"s1\">&#39;strong.company&#39;</span><span class=\"p\">).</span><span class=\"nx\">each</span><span class=\"p\">(</span><span class=\"kd\">function</span> <span class=\"p\">()</span> <span class=\"p\">{</span>\n      <span class=\"nx\">$</span><span class=\"p\">(</span><span class=\"k\">this</span><span class=\"p\">).</span><span class=\"nx\">text</span><span class=\"p\">(</span><span class=\"nx\">$</span><span class=\"p\">(</span><span class=\"s1\">&#39;input#Company&#39;</span><span class=\"p\">).</span><span class=\"nx\">val</span><span class=\"p\">()?</span><span class=\"nx\">$</span><span class=\"p\">(</span><span class=\"s1\">&#39;input#Company&#39;</span><span class=\"p\">).</span><span class=\"nx\">val</span><span class=\"p\">():</span><span class=\"s2\">&quot;Your Company&quot;</span><span class=\"p\">);</span> \n    <span class=\"p\">})</span>\n    <span class=\"kd\">var</span> <span class=\"nx\">tmpDiv</span> <span class=\"o\">=</span> <span class=\"nx\">jQuery</span><span class=\"p\">(</span><span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">createElement</span><span class=\"p\">(</span><span class=\"s1\">&#39;div&#39;</span><span class=\"p\">));</span>\n    <span class=\"kd\">var</span> <span class=\"nx\">sanitizedDomains</span> <span class=\"o\">=</span> <span class=\"p\">[];</span>\n\n    <span class=\"kd\">var</span> <span class=\"nx\">unsanitizedDomains</span> <span class=\"o\">=</span> <span class=\"nx\">$</span><span class=\"p\">(</span><span class=\"s1\">&#39;textarea#Customer_Defined_Scope__c&#39;</span><span class=\"p\">).</span><span class=\"nx\">val</span><span class=\"p\">().</span><span class=\"nx\">split</span><span class=\"p\">(</span><span class=\"s1\">&#39;\\n&#39;</span><span class=\"p\">);</span>\n    <span class=\"k\">for</span> <span class=\"p\">(</span><span class=\"kd\">var</span> <span class=\"nx\">i</span> <span class=\"o\">=</span> <span class=\"mi\">0</span> <span class=\"p\">;</span> <span class=\"nx\">i</span> <span class=\"o\">&lt;</span> <span class=\"nx\">unsanitizedDomains</span><span class=\"p\">.</span><span class=\"nx\">length</span> <span class=\"p\">;</span> <span class=\"nx\">i</span><span class=\"o\">++</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n      <span class=\"nx\">sanitizedDomains</span><span class=\"p\">.</span><span class=\"nx\">push</span><span class=\"p\">(</span><span class=\"nx\">tmpDiv</span><span class=\"p\">.</span><span class=\"nx\">text</span><span class=\"p\">(</span><span class=\"nx\">unsanitizedDomains</span><span class=\"p\">[</span><span class=\"nx\">i</span><span class=\"p\">]).</span><span class=\"nx\">html</span><span class=\"p\">());</span>\n    <span class=\"p\">}</span>\n    <span class=\"nx\">$</span><span class=\"p\">(</span><span class=\"s1\">&#39;ul.scope li&#39;</span><span class=\"p\">).</span><span class=\"nx\">remove</span><span class=\"p\">();</span>\n    <span class=\"nx\">$</span><span class=\"p\">.</span><span class=\"nx\">each</span><span class=\"p\">(</span><span class=\"nx\">sanitizedDomains</span><span class=\"p\">,</span> <span class=\"kd\">function</span><span class=\"p\">(){</span>\n      <span class=\"nx\">$</span><span class=\"p\">(</span><span class=\"s1\">&#39;ul.scope&#39;</span><span class=\"p\">).</span><span class=\"nx\">append</span><span class=\"p\">(</span><span class=\"s1\">&#39;&lt;li&gt;&#39;</span><span class=\"o\">+</span><span class=\"k\">this</span><span class=\"o\">+</span><span class=\"s1\">&#39;&lt;/li&gt;&#39;</span><span class=\"p\">);</span>\n    <span class=\"p\">});</span>\n    <span class=\"nx\">$</span><span class=\"p\">(</span><span class=\"s1\">&#39;#preview&#39;</span><span class=\"p\">).</span><span class=\"nx\">dialog</span><span class=\"p\">({</span>\n      <span class=\"na\">title</span><span class=\"p\">:</span> <span class=\"s2\">&quot;Preview&quot;</span><span class=\"p\">,</span>\n        <span class=\"na\">buttons</span><span class=\"p\">:</span> <span class=\"p\">{</span>\n            <span class=\"na\">Ok</span><span class=\"p\">:</span> <span class=\"kd\">function</span> <span class=\"p\">()</span> <span class=\"p\">{</span>\n                <span class=\"nx\">$</span><span class=\"p\">(</span><span class=\"k\">this</span><span class=\"p\">).</span><span class=\"nx\">dialog</span><span class=\"p\">(</span><span class=\"s1\">&#39;close&#39;</span><span class=\"p\">);</span>\n            <span class=\"p\">}</span>\n        <span class=\"p\">},</span>\n        <span class=\"na\">modal</span><span class=\"p\">:</span> <span class=\"kc\">true</span><span class=\"p\">,</span>\n        <span class=\"na\">width</span><span class=\"p\">:</span> <span class=\"s2\">&quot;80%&quot;</span>\n    <span class=\"p\">});</span>\n    <span class=\"k\">return</span> <span class=\"kc\">false</span><span class=\"p\">;</span> \n  <span class=\"p\">})</span>\n</code></pre>\n<p>However, the use of JQuery&#39;s text() on the user&#39;s input means that this can&#39;t be used to inject HTML into the page.  I don&#39;t see the value in encoding a user&#39;s input before a request but this appears to be a safe way to do it.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3586147, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-07T18:51:29.918Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-07T18:52:34.920Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "first_to_agree": true, 
+            "message": "Hi @adac95 - thanks for confirming the fix. We believe that this is ready to be disclosed!", 
+            "markdown_message": "<p>Hi <a href=\"/adac95\">@adac95</a> - thanks for confirming the fix. We believe that this is ready to be disclosed!</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3602503, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-08T10:46:50.680Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-08T10:46:50.680Z", 
+            "actor": {
+                "username": "adac95", 
+                "url": "/adac95", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3608491, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-08T10:46:50.760Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-08T10:46:50.760Z", 
+            "actor": {
+                "username": "adac95", 
+                "url": "/adac95", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "security", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3608492, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": false, 
+    "reporter": {
+        "username": "adac95", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/adac95", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 63, 
+        "name": "Cross-site Scripting (XSS) - DOM"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": 74207.457549894, 
+    "disclosed_at": "2018-11-08T10:46:50.735Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/406587", 
+    "created_at": "2018-09-06T19:11:11.340Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p><strong>Summary:</strong><br>\nThere is a &#39;self&#39; DOM-based cross-site scripting vulnerability in the contact form available on the <a href=\"/redirect?signature=5d6566533d7b4f3feaea01437f23f8e72a3f4836&amp;url=http%3A%2F%2Fwww.hackerone.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>www.hackerone.com</span><i class=\"icon-external-link\"></i></a> website. This could allow an attacker to perform cross-site scripting, or other client-side attacks, against users of the application. However, the risk presented by this issue is significantly reduced because exploitation would require an element of social engineering to succeed, and the website&#39;s Content Security Policy (CSP) blocked the execution of inline scripts.</p>\n\n<p><strong>Description:</strong><br>\nThe HackerOne contact form is automatically displayed when the string  &#39;contact/&#39; is detected in the URI fragment on any page under the <a href=\"/redirect?signature=5d6566533d7b4f3feaea01437f23f8e72a3f4836&amp;url=http%3A%2F%2Fwww.hackerone.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>www.hackerone.com</span><i class=\"icon-external-link\"></i></a> domain (for example, <a title=\"https://www.hackerone.com/#contact/\" href=\"/redirect?signature=6836a944f08a5d6c2c3bbc74d19a439e8d121c39&amp;url=https%3A%2F%2Fwww.hackerone.com%2F%23contact%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.hackerone.com/#contact/</span><i class=\"icon-external-link\"></i></a>). When the &#39;submit&#39; button is clicked, the following JavaScript functions are executed:</p>\n<pre class=\"highlight javascript\"><code><span class=\"c1\">//Marketo Form Code</span>\n<span class=\"kd\">function</span> <span class=\"nx\">strip</span><span class=\"p\">(</span><span class=\"nx\">html</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n    <span class=\"kd\">var</span> <span class=\"nx\">tmp</span> <span class=\"o\">=</span> <span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">createElement</span><span class=\"p\">(</span><span class=\"s2\">&quot;DIV&quot;</span><span class=\"p\">);</span>\n    <span class=\"nx\">tmp</span><span class=\"p\">.</span><span class=\"nx\">innerHTML</span> <span class=\"o\">=</span> <span class=\"nx\">html</span><span class=\"p\">;</span>\n    <span class=\"k\">return</span> <span class=\"nx\">tmp</span><span class=\"p\">.</span><span class=\"nx\">textContent</span> <span class=\"o\">||</span> <span class=\"nx\">tmp</span><span class=\"p\">.</span><span class=\"nx\">innerText</span> <span class=\"o\">||</span> <span class=\"s2\">&quot;&quot;</span><span class=\"p\">;</span>\n<span class=\"p\">}</span>\n\n<span class=\"nx\">$</span><span class=\"p\">(</span><span class=\"s1\">&#39;form&#39;</span><span class=\"p\">).</span><span class=\"nx\">submit</span><span class=\"p\">(</span><span class=\"kd\">function</span><span class=\"p\">()</span> <span class=\"p\">{</span>\n    <span class=\"nx\">$</span><span class=\"p\">(</span><span class=\"s1\">&#39;textarea&#39;</span><span class=\"p\">).</span><span class=\"nx\">val</span><span class=\"p\">(</span><span class=\"kd\">function</span><span class=\"p\">()</span> <span class=\"p\">{</span>\n        <span class=\"k\">return</span> <span class=\"nx\">strip</span><span class=\"p\">(</span><span class=\"nx\">$</span><span class=\"p\">(</span><span class=\"k\">this</span><span class=\"p\">).</span><span class=\"nx\">val</span><span class=\"p\">());</span>\n    <span class=\"p\">});</span>\n<span class=\"p\">});</span>\n</code></pre>\n<p>The &#39;submit&#39; event handler passes the current value of any &#39;textarea&#39; elements to the &#39;strip&#39; function. This function creates a new &#39;div&#39; element, sets the &#39;innerHTML&#39;  property to the provided value, and then returns the &#39;textContent&#39; property of the resulting div. This type of code is typically used to remove HTML tags from a string, as the textContent property contains the String which was rendered by the browser when the HTML was parsed. (A reference to this exact function was also found on Stack Overflow: <a title=\"https://stackoverflow.com/questions/12941663/removing-html-tags-from-a-string-and-keeping-colon\" href=\"/redirect?signature=3d1578b9cd65186caeef0725bb1ac6cf189b7b8e&amp;url=https%3A%2F%2Fstackoverflow.com%2Fquestions%2F12941663%2Fremoving-html-tags-from-a-string-and-keeping-colon\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://stackoverflow.com/questions/12941663/removing-html-tags-from-a-string-and-keeping-colon</span><i class=\"icon-external-link\"></i></a>) </p>\n\n<p>However , this particular method is inherently insecure because it uses &#39;innerHTML&#39;. When user input is provided to the &#39;innerHTML&#39; property, it is parsed by the web browser and can therefore lead to the execution of malicious JavaScript. A screenshot has been attached to this report showing the result in the web browser when the following payload was typed into the &#39;Message&#39; textarea of the HackerOne contact form, and the &#39;send message&#39; button was clicked:</p>\n<pre class=\"highlight html\"><code><span class=\"nt\">&lt;img</span> <span class=\"na\">src=</span><span class=\"s\">x</span> <span class=\"na\">onerror=</span><span class=\"s\">alert(1)</span> <span class=\"nt\">/&gt;</span>\n</code></pre>\n<p>The developer console (in Google Chrome) displayed two errors - one which stated that <a title=\"https://www.hackerone.com/x\" href=\"/redirect?signature=e6bf7f7f7f2e69c62167e61ee466ce9aedb133bf&amp;url=https%3A%2F%2Fwww.hackerone.com%2Fx\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.hackerone.com/x</span><i class=\"icon-external-link\"></i></a> was requested and returned a 404 (due to the src attribute of the img tag), and another which reported a violation of the website&#39;s CSP. This second error occurred because the browser attempted to execute the JavaScript code in the &#39;onerror&#39; attribute, but the website&#39;s CSP did not allow it. Performing the same actions in a browser with CSP disabled allowed the JavaScript in the &#39;onerror&#39; attribute to execute.</p>\n\n<p>An attacker could exploit this vulnerability by convincing a user (ideally with a browser which does not support CSP) to paste a malicious payload into the &#39;message&#39; field of the contact form and then click the &#39;send message&#39; button.</p>\n\n<p>It should also be noted that, if the &#39;strip&#39; function was implemented to prevent an attacker from sending malicious HTML to Marketo or the server, it can be trivially bypassed using an intercepting proxy tool such as Burp Suite. By intercepting the HTTP request sent once the form submission is complete, any HTML &#39;stripped&#39; by the JavaScript can simply be replaced. In light of this, developers should consider whether the &#39;strip&#39; function is required - any validation or sanitization should  be performed by the server, where it cannot be influenced by an attacker.</p>\n\n<p>If the &#39;strip&#39; function is required, it is recommended that it is replaced with a solution which does not require the use of &#39;innerHTML&#39;. A suitable alternative may be the use of a regex to remove common HTML characters.</p>\n\n<h3 id=\"steps-to-reproduce\">Steps To Reproduce</h3>\n\n<ol>\n<li>Open the <a title=\"https://www.hackerone.com/#contact/\" href=\"/redirect?signature=6836a944f08a5d6c2c3bbc74d19a439e8d121c39&amp;url=https%3A%2F%2Fwww.hackerone.com%2F%23contact%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.hackerone.com/#contact/</span><i class=\"icon-external-link\"></i></a> page and open the browser&#39;s developer tools</li>\n<li> Type &quot;&lt;img src=x onerror=alert(1) /&gt;&quot; into the &#39;message&#39; textarea</li>\n<li> Click the &#39;send message&#39; button</li>\n<li>Check the developer console to view the two errors</li>\n</ol>\n\n<p>(alternatively, disable CSP in your web browser and repeat the steps above. The JavaScript code &#39;alert(1)&#39; should execute)</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>The attacker could achieve XSS in the <a href=\"/redirect?signature=5d6566533d7b4f3feaea01437f23f8e72a3f4836&amp;url=http%3A%2F%2Fwww.hackerone.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>www.hackerone.com</span><i class=\"icon-external-link\"></i></a> website.</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://hackerone.com", 
+            "about": "Vulnerability disclosure should be safe, transparent, and rewarding.", 
+            "twitter_handle": "Hacker0x01", 
+            "name": "HackerOne"
+        }, 
+        "handle": "security", 
+        "url": "https://hackerone.com/security", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/013/68fea1fe00dc833f4109e015738af4b374727e56_small.png?1445331713", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/013/28af2ada2cc00aa9427504fc5a14f587362df84b_medium.png?1445331713"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 13, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

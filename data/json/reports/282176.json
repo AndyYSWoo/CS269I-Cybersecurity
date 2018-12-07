@@ -1,0 +1,433 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-11-02T18:20:32.850Z", 
+    "voters": [
+        "bl4de", 
+        "skansing", 
+        "eveeez", 
+        "japz", 
+        "hthomison1078"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "275.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 282176, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-11-02T19:05:57.107Z", 
+    "vulnerability_information": "*Note: this issue was previously submitted to `security@wordpress.org`, because I did not have the rep to submit it here. That was cleared up with HackerOne, so I am now submitting the issue here, at @aaroncampbell's direction.*\n\n## Summary\n\nIt is possible for an unauthenticated user to view the title, description, avatar, time of last activity, and membership count of hidden groups. This is possible via the Ajax groups search feature, due to a failure to properly encode user-supplied values when incorporating them into the query string within the Ajax handler. This allows the user to pass args to the groups query that they aren't intended to be able to use. Specifically, the `show_hidden` query arg may be used to show hidden groups.\n\n## Technical details\n\nGroups in BuddyPress can have one of three different statuses: `public`, `private`, or `hidden`. Public and private groups are publicly queryable, by default, although private groups cannot be joined without an invitation. Hidden groups are not only restricted like private groups, but are also hidden in queries, unless a user has moderator capabilities.\n\nThe `BP_Groups_Group::get()` method is used to query for groups. Of particular interest are the `status` and `show_hidden` query args:\n\n```php\n<?php\n     if ( ! empty( $r['status'] ) ) {\n        if ( ! is_array( $r['status'] ) ) {\n           $r['status'] = preg_split( '/[\\s,]+/', $r['status'] );\n        }\n        $r['status'] = array_map( 'sanitize_title', $r['status'] );\n        $status_in = \"'\" . implode( \"','\", $r['status'] ) . \"'\";\n        $where_conditions['status'] = \"g.status IN ({$status_in})\";\n     } elseif ( empty( $r['show_hidden'] ) ) {\n        $where_conditions['hidden'] = \"g.status != 'hidden'\";\n     }\n```\n\nAs you can see, there are no restrictions applied as to who can use these args within the method itself. So any code which allows arbitrary query args to be passed to that method by users without proper permissions is vulnerable to hidden groups disclosure.\n\nThe only place where the method is called in that manner is in its wrapper function, `groups_get_groups()`, which in turn is used by `BP_Groups_Template` to get the groups to display in a groups template. It does not accept the `status` query arg, but does allow `show_hidden`.\n\n`BP_Groups_Template::__construct()` does contain this code:\n\n```php\n<?php\n     if ( bp_current_user_can( 'bp_moderate' ) || ( is_user_logged_in() && $user_id == bp_loggedin_user_id() ) ) {\n        $show_hidden = true;\n     }\n```\n\nHowever, note that this doesn't prevent `$show_hidden` from being passed in as `true` even if the condition isn't met. Thus, the class is still vulnerable if we can find a way to pass the `show_hidden` arg into it.\n\nThe groups template class is utilized only by `bp_has_groups()`, which is used in the groups template files to set up a groups query. The `bp_has_groups()` function accepts an array of query args to be passed to it, although usually that feature either isn't used or it isn't possible to pass arbitrary args in.\n\nHowever, there are two places of particular interest. The first is in `buddypress/bp-templates/bp-legacy/buddypress/groups/groups-loop.php` on line 26:\n\n```php\n<?php if ( bp_has_groups( bp_ajax_querystring( 'groups' ) ) ) : ?>\n```\n\nThe value returned by the `bp_ajax_querystring()` function is determined via the `'bp_ajax_querystring'` filter. For the Legacy template pack, the `bp_legacy_theme_ajax_querystring()` function is hooked to that filter to supply the value.\n\n`bp_legacy_theme_ajax_querystring()` is located in `buddypress/bp-templates/bp-legacy/buddypress-functions.php`, and most of it is pretty well hardened against this kind of issue, properly sanitizing the user-supplied values. However, on line 692, it does this:\n\n```php\n<?php\n  // Activity stream filtering on action.\n  if ( ! empty( $_BP_COOKIE['bp-' . $object . '-filter'] ) && '-1' != $_BP_COOKIE['bp-' . $object . '-filter'] ) {\n     $qs[] = 'type=' . $_BP_COOKIE['bp-' . $object . '-filter'];\n\n     // ...\n  }\n```\n\nThe value of `$_BP_COOKIE` can be set via `$_POST['cookie']` (line 675):\n\n```php\n<?php\n  // Set up the cookies passed on this AJAX request. Store a local var to avoid conflicts.\n  if ( ! empty( $_POST['cookie'] ) ) {\n     $_BP_COOKIE = wp_parse_args( str_replace( '; ', '&', urldecode( $_POST['cookie'] ) ) );\n  } else {\n     $_BP_COOKIE = &$_COOKIE;\n  }\n```\n\nThe `bp-$object-scope` is also vulnerable on line 714:\n\n```php\n<?php\n  if ( ! empty( $_BP_COOKIE['bp-' . $object . '-scope'] ) ) {\n\n     //...\n\n     // Activity stream scope only on activity directory.\n     if ( 'all' != $_BP_COOKIE['bp-' . $object . '-scope'] && ! bp_displayed_user_id() && ! bp_is_single_item() )\n        $qs[] = 'scope=' . $_BP_COOKIE['bp-' . $object . '-scope'];\n  }\n```\n\nThe solution is to wrap the values in `urlencode()`, as is done with `$_POST['search_terms']` on line 734.\n\n```php\n<?php\n\n     $qs[] = 'type=' . urlencode( $_BP_COOKIE['bp-' . $object . '-filter'] );\n\n     $qs[] = 'scope=' . urlencode( $_BP_COOKIE['bp-' . $object . '-scope'] );\n```\n\nThe BuddyPress Default theme also suffers from the same problems, in `bp_dtheme_ajax_querystring()` (`buddypress/bp-themes/bp-default/groups/groups-loop.php` uses `bp_has_groups( bp_ajax_querystring( 'groups' ) )` as the Legacy template pack does). In that function, however, `$_POST['search_terms']` is also a vector, since it isn't passed through `urlencode()` (`buddypress/bp-themes/bp-default/_inc/ajax.php` line 137):\n\n```php\n<?php\n  $object_search_text = bp_get_search_default_text( $object );\n  if ( ! empty( $_POST['search_terms'] ) && $object_search_text != $_POST['search_terms'] && 'false' != $_POST['search_terms'] && 'undefined' != $_POST['search_terms'] )\n     $qs[] = 'search_terms=' . $_POST['search_terms'];\n```\n\n## POC\n\nSend a `POST` request to `/wp-admin/admin-ajax.php` with the following body:\n\n```\naction=groups_filter&cookie=bp-groups-filter%253D%252526show_hidden%3D1&object=groups\n```\n\n`bp-groups-filter` can be replaced with `bp-groups-scope` to the same effect:\n\n```\naction=groups_filter&cookie=bp-groups-scope%253D%252526show_hidden%3D1&object=groups\n```", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "low", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "unchanged", 
+            "integrity": "none", 
+            "availability": "none"
+        }, 
+        "rating": "medium", 
+        "score": 6.1, 
+        "author_type": "User"
+    }, 
+    "title": "Unauthenticated hidden groups disclosure via Ajax groups search", 
+    "is_member_of_team?": null, 
+    "vote_count": 5, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "BuddyPress Core", 
+        "max_severity": "critical", 
+        "databaseId": 2751, 
+        "asset_type": "SOURCE_CODE"
+    }, 
+    "allow_singular_disclosure_at": "2017-12-02T18:20:32.928Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$275", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-24T11:47:43.237Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-24T11:47:43.237Z", 
+            "actor": {
+                "username": "johnbillion", 
+                "url": "/johnbillion", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/014/083/d2aa5d94732da736a08f022dba3f393e01312ee6_medium.jpg?1484683288"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2098608, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-24T11:49:46.852Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-24T11:49:46.852Z", 
+            "actor": {
+                "username": "johnbillion", 
+                "url": "/johnbillion", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/014/083/d2aa5d94732da736a08f022dba3f393e01312ee6_medium.jpg?1484683288"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "@jdgrimes A question for you from @boonebgorges in the aforementioned email thread:\n\nI've reviewed and confirmed your report about hidden group disclosure. One question. You say that the bp-default theme has an additional exploit vector at the 'search_terms' parameter, because it's not urlencoded() before being sent to the template functions (bp_has_groups(), etc). I can't reproduce this. bp_dtheme_ajax_querystring() pulls 'search_terms' directly from $_POST, not the urldecoded $BP_COOKIE, and so its values continue to be URL encoded when the querystring is reassembled. See https://github.com/buddypress/BP-Default/blob/28530c63212c81458bbb0c3e4f10333943810fd7/_inc/ajax.php#L136. Could you please confirm, or let me know if I'm missing something?", 
+            "markdown_message": "<p><a href=\"/jdgrimes\">@jdgrimes</a> A question for you from <a href=\"/boonebgorges\">@boonebgorges</a> in the aforementioned email thread:</p>\n\n<p>I&#39;ve reviewed and confirmed your report about hidden group disclosure. One question. You say that the bp-default theme has an additional exploit vector at the &#39;search_terms&#39; parameter, because it&#39;s not urlencoded() before being sent to the template functions (bp_has_groups(), etc). I can&#39;t reproduce this. bp_dtheme_ajax_querystring() pulls &#39;search_terms&#39; directly from $_POST, not the urldecoded $BP_COOKIE, and so its values continue to be URL encoded when the querystring is reassembled. See <a title=\"https://github.com/buddypress/BP-Default/blob/28530c63212c81458bbb0c3e4f10333943810fd7/_inc/ajax.php#L136\" href=\"/redirect?signature=da6d21a063c80aa094130da3a95786b2bcc9dd15&amp;url=https%3A%2F%2Fgithub.com%2Fbuddypress%2FBP-Default%2Fblob%2F28530c63212c81458bbb0c3e4f10333943810fd7%2F_inc%2Fajax.php%23L136\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/buddypress/BP-Default/blob/28530c63212c81458bbb0c3e4f10333943810fd7/_inc/ajax.php#L136</span><i class=\"icon-external-link\"></i></a>. Could you please confirm, or let me know if I&#39;m missing something?</p>\n", 
+            "type": "Activities::BugNeedsMoreInfo", 
+            "id": 2098634, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-24T11:57:51.046Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-24T11:57:51.046Z", 
+            "actor": {
+                "username": "boonebgorges", 
+                "url": "/boonebgorges", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "@jdgrimes followed up privately about that last question.\n\nI'll have an update soon about patches and plans.", 
+            "markdown_message": "<p><a href=\"/jdgrimes\">@jdgrimes</a> followed up privately about that last question.</p>\n\n<p>I&#39;ll have an update soon about patches and plans.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2098647, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-24T12:28:48.509Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-24T12:28:48.509Z", 
+            "actor": {
+                "username": "jdgrimes", 
+                "url": "/jdgrimes", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/009/109/7fcc1ee5806583ae395ef3fcc27009ec4b5708db_medium.jpeg?1408366943"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "@johnbillion I forgot to reply to all when responding to that question from @boonebgorges via email. For posterity, here is my response:\n\n> I had not tested this before, but I just tested it now and I can confirm that search_terms is vulnerable. All I had to do was go to the groups page and type &show_hidden=1 into the search box, and I was shown the hidden group. I have a feeling that you were probably sending double-encoded values to it in your tests, which is why it wasn't working for you. I believe that the $_POST values are automatically decoded by PHP, which is why this works even though urldecode() isn't being applied by BP. (So the $BP_COOKIE value as actually double-decoded, which is why the values passed to those other places need to be double-encoded.)\n\n@boonebgorges replied that he had indeed been testing with double-encoded values, that he was now able to confirm this attack vector, and that patches were currently being reviewed by the team.", 
+            "markdown_message": "<p><a href=\"/johnbillion\">@johnbillion</a> I forgot to reply to all when responding to that question from <a href=\"/boonebgorges\">@boonebgorges</a> via email. For posterity, here is my response:</p>\n\n<blockquote>\n<p>I had not tested this before, but I just tested it now and I can confirm that search_terms is vulnerable. All I had to do was go to the groups page and type &amp;show_hidden=1 into the search box, and I was shown the hidden group. I have a feeling that you were probably sending double-encoded values to it in your tests, which is why it wasn&#39;t working for you. I believe that the $_POST values are automatically decoded by PHP, which is why this works even though urldecode() isn&#39;t being applied by BP. (So the $BP_COOKIE value as actually double-decoded, which is why the values passed to those other places need to be double-encoded.)</p>\n</blockquote>\n\n<p><a href=\"/boonebgorges\">@boonebgorges</a> replied that he had indeed been testing with double-encoded values, that he was now able to confirm this attack vector, and that patches were currently being reviewed by the team.</p>\n", 
+            "type": "Activities::BugNew", 
+            "id": 2098866, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/233/520/6d646038d09f1f4cdb838bf2e384060ea62944b3/bp-default-show-hidden.diff?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223010Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=41e411bb269a1064127e40f47f8f0b190921dc07915a270455934bf8ead170e4", 
+                    "type": "text/x-diff", 
+                    "id": 233520, 
+                    "filename": "bp-default-show-hidden.diff"
+                }, 
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/233/519/11c65bacbcfa601211cec1054125d7d7c1b030b3/show-hidden.diff?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223010Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=b6864db207d15cef9b5256d7cea3f495a478554e4ac2d9304072eb6f07470a4c", 
+                    "type": "text/x-diff", 
+                    "id": 233519, 
+                    "filename": "show-hidden.diff"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2017-10-27T17:19:43.972Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-27T17:19:43.972Z", 
+            "actor": {
+                "username": "boonebgorges", 
+                "url": "/boonebgorges", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hi @jdgrimes - Thanks for your patience while the BP team took a closer look at your report.\n\nWe've prepared two patches, one for BuddyPress itself and one for the bp-default theme (which we maintain in a separate repo and pull in only at build time). They're attached to this ticket. If you've got a moment, please look them over to verify that they address the vulnerability.\n\nWe are currently planning to release BuddyPress 2.9.2, which will contain this fix as well as those in #263694, on Thursday, November 2. I'll update this ticket if anything changes in the meantime.", 
+            "markdown_message": "<p>Hi <a href=\"/jdgrimes\">@jdgrimes</a> - Thanks for your patience while the BP team took a closer look at your report.</p>\n\n<p>We&#39;ve prepared two patches, one for BuddyPress itself and one for the bp-default theme (which we maintain in a separate repo and pull in only at build time). They&#39;re attached to this ticket. If you&#39;ve got a moment, please look them over to verify that they address the vulnerability.</p>\n\n<p>We are currently planning to release BuddyPress 2.9.2, which will contain this fix as well as those in <a href=\"/reports/263694\">#263694</a>, on Thursday, November 2. I&#39;ll update this ticket if anything changes in the meantime.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2108806, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-27T20:53:55.684Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-27T20:53:55.684Z", 
+            "actor": {
+                "username": "jdgrimes", 
+                "url": "/jdgrimes", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/009/109/7fcc1ee5806583ae395ef3fcc27009ec4b5708db_medium.jpeg?1408366943"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "I've tested both patches and they appear to fix the issue.", 
+            "markdown_message": "<p>I&#39;ve tested both patches and they appear to fix the issue.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2109319, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-28T00:57:51.504Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-28T00:57:51.504Z", 
+            "actor": {
+                "username": "iandunn", 
+                "url": "/iandunn", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/974/4a74c8e7efc3996e6fff3f72ddccc09ab92986a2_medium.jpg?1506561124"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2109689, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "jdgrimes", 
+                "url": "/jdgrimes"
+            }, 
+            "created_at": "2017-11-02T16:39:06.005Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-02T16:39:06.005Z", 
+            "actor": {
+                "username": "boonebgorges", 
+                "url": "/boonebgorges", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Fixed in BP 2.9.2 https://buddypress.org/2017/11/buddypress-2-9-2-security-and-maintenance-release/", 
+            "markdown_message": "<p>Fixed in BP 2.9.2 <a title=\"https://buddypress.org/2017/11/buddypress-2-9-2-security-and-maintenance-release/\" href=\"/redirect?signature=7755e7606d952f647677081064c28b522c0ce2a0&amp;url=https%3A%2F%2Fbuddypress.org%2F2017%2F11%2Fbuddypress-2-9-2-security-and-maintenance-release%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://buddypress.org/2017/11/buddypress-2-9-2-security-and-maintenance-release/</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2126270, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-02T18:20:32.891Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-02T18:20:32.891Z", 
+            "actor": {
+                "username": "jdgrimes", 
+                "url": "/jdgrimes", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/009/109/7fcc1ee5806583ae395ef3fcc27009ec4b5708db_medium.jpeg?1408366943"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2128771, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-02T19:05:57.184Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-02T19:05:57.184Z", 
+            "actor": {
+                "username": "boonebgorges", 
+                "url": "/boonebgorges", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2129033, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-11-02T19:05:57.343Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-02T19:05:57.343Z", 
+            "actor": {
+                "username": "boonebgorges", 
+                "url": "/boonebgorges", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2129034, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-11-08T20:59:40.804Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-11-08T20:59:40.804Z", 
+            "actor": {
+                "url": "/wordpress", 
+                "profile": {
+                    "name": "WordPress"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/055/a7e722c23dedc020ade3b6e7f1a96baa455f86d8_medium.jpg?1392934661"
+                }
+            }, 
+            "team_handle": "wordpress", 
+            "bonus_amount": "50.0", 
+            "bounty_amount": "225.0", 
+            "collaborator": {
+                "username": "jdgrimes", 
+                "url": "/jdgrimes"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2144132, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "jdgrimes", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/jdgrimes", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/009/109/5eeb95717a27c3f84b936df753c44dd7d9d1e083_small.jpeg?1408366943"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 26, 
+        "name": "Improper Access Control - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -31896577.643010017, 
+    "disclosed_at": "2017-11-02T19:05:57.285Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/282176", 
+    "created_at": "2017-10-23T17:52:58.780Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p><em>Note: this issue was previously submitted to <code>security@wordpress.org</code>, because I did not have the rep to submit it here. That was cleared up with HackerOne, so I am now submitting the issue here, at <a href=\"/aaroncampbell\">@aaroncampbell</a>&#39;s direction.</em></p>\n\n<h2 id=\"summary\">Summary</h2>\n\n<p>It is possible for an unauthenticated user to view the title, description, avatar, time of last activity, and membership count of hidden groups. This is possible via the Ajax groups search feature, due to a failure to properly encode user-supplied values when incorporating them into the query string within the Ajax handler. This allows the user to pass args to the groups query that they aren&#39;t intended to be able to use. Specifically, the <code>show_hidden</code> query arg may be used to show hidden groups.</p>\n\n<h2 id=\"technical-details\">Technical details</h2>\n\n<p>Groups in BuddyPress can have one of three different statuses: <code>public</code>, <code>private</code>, or <code>hidden</code>. Public and private groups are publicly queryable, by default, although private groups cannot be joined without an invitation. Hidden groups are not only restricted like private groups, but are also hidden in queries, unless a user has moderator capabilities.</p>\n\n<p>The <code>BP_Groups_Group::get()</code> method is used to query for groups. Of particular interest are the <code>status</code> and <code>show_hidden</code> query args:</p>\n<pre class=\"highlight php\"><code><span class=\"cp\">&lt;?php</span>\n     <span class=\"k\">if</span> <span class=\"p\">(</span> <span class=\"o\">!</span> <span class=\"k\">empty</span><span class=\"p\">(</span> <span class=\"nv\">$r</span><span class=\"p\">[</span><span class=\"s1\">&#39;status&#39;</span><span class=\"p\">]</span> <span class=\"p\">)</span> <span class=\"p\">)</span> <span class=\"p\">{</span>\n        <span class=\"k\">if</span> <span class=\"p\">(</span> <span class=\"o\">!</span> <span class=\"nb\">is_array</span><span class=\"p\">(</span> <span class=\"nv\">$r</span><span class=\"p\">[</span><span class=\"s1\">&#39;status&#39;</span><span class=\"p\">]</span> <span class=\"p\">)</span> <span class=\"p\">)</span> <span class=\"p\">{</span>\n           <span class=\"nv\">$r</span><span class=\"p\">[</span><span class=\"s1\">&#39;status&#39;</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"nb\">preg_split</span><span class=\"p\">(</span> <span class=\"s1\">&#39;/[\\s,]+/&#39;</span><span class=\"p\">,</span> <span class=\"nv\">$r</span><span class=\"p\">[</span><span class=\"s1\">&#39;status&#39;</span><span class=\"p\">]</span> <span class=\"p\">);</span>\n        <span class=\"p\">}</span>\n        <span class=\"nv\">$r</span><span class=\"p\">[</span><span class=\"s1\">&#39;status&#39;</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"nb\">array_map</span><span class=\"p\">(</span> <span class=\"s1\">&#39;sanitize_title&#39;</span><span class=\"p\">,</span> <span class=\"nv\">$r</span><span class=\"p\">[</span><span class=\"s1\">&#39;status&#39;</span><span class=\"p\">]</span> <span class=\"p\">);</span>\n        <span class=\"nv\">$status_in</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;&#39;&quot;</span> <span class=\"o\">.</span> <span class=\"nb\">implode</span><span class=\"p\">(</span> <span class=\"s2\">&quot;&#39;,&#39;&quot;</span><span class=\"p\">,</span> <span class=\"nv\">$r</span><span class=\"p\">[</span><span class=\"s1\">&#39;status&#39;</span><span class=\"p\">]</span> <span class=\"p\">)</span> <span class=\"o\">.</span> <span class=\"s2\">&quot;&#39;&quot;</span><span class=\"p\">;</span>\n        <span class=\"nv\">$where_conditions</span><span class=\"p\">[</span><span class=\"s1\">&#39;status&#39;</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;g.status IN (</span><span class=\"si\">{</span><span class=\"nv\">$status_in</span><span class=\"si\">}</span><span class=\"s2\">)&quot;</span><span class=\"p\">;</span>\n     <span class=\"p\">}</span> <span class=\"k\">elseif</span> <span class=\"p\">(</span> <span class=\"k\">empty</span><span class=\"p\">(</span> <span class=\"nv\">$r</span><span class=\"p\">[</span><span class=\"s1\">&#39;show_hidden&#39;</span><span class=\"p\">]</span> <span class=\"p\">)</span> <span class=\"p\">)</span> <span class=\"p\">{</span>\n        <span class=\"nv\">$where_conditions</span><span class=\"p\">[</span><span class=\"s1\">&#39;hidden&#39;</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;g.status != &#39;hidden&#39;&quot;</span><span class=\"p\">;</span>\n     <span class=\"p\">}</span>\n</code></pre>\n<p>As you can see, there are no restrictions applied as to who can use these args within the method itself. So any code which allows arbitrary query args to be passed to that method by users without proper permissions is vulnerable to hidden groups disclosure.</p>\n\n<p>The only place where the method is called in that manner is in its wrapper function, <code>groups_get_groups()</code>, which in turn is used by <code>BP_Groups_Template</code> to get the groups to display in a groups template. It does not accept the <code>status</code> query arg, but does allow <code>show_hidden</code>.</p>\n\n<p><code>BP_Groups_Template::__construct()</code> does contain this code:</p>\n<pre class=\"highlight php\"><code><span class=\"cp\">&lt;?php</span>\n     <span class=\"k\">if</span> <span class=\"p\">(</span> <span class=\"nx\">bp_current_user_can</span><span class=\"p\">(</span> <span class=\"s1\">&#39;bp_moderate&#39;</span> <span class=\"p\">)</span> <span class=\"o\">||</span> <span class=\"p\">(</span> <span class=\"nx\">is_user_logged_in</span><span class=\"p\">()</span> <span class=\"o\">&amp;&amp;</span> <span class=\"nv\">$user_id</span> <span class=\"o\">==</span> <span class=\"nx\">bp_loggedin_user_id</span><span class=\"p\">()</span> <span class=\"p\">)</span> <span class=\"p\">)</span> <span class=\"p\">{</span>\n        <span class=\"nv\">$show_hidden</span> <span class=\"o\">=</span> <span class=\"kc\">true</span><span class=\"p\">;</span>\n     <span class=\"p\">}</span>\n</code></pre>\n<p>However, note that this doesn&#39;t prevent <code>$show_hidden</code> from being passed in as <code>true</code> even if the condition isn&#39;t met. Thus, the class is still vulnerable if we can find a way to pass the <code>show_hidden</code> arg into it.</p>\n\n<p>The groups template class is utilized only by <code>bp_has_groups()</code>, which is used in the groups template files to set up a groups query. The <code>bp_has_groups()</code> function accepts an array of query args to be passed to it, although usually that feature either isn&#39;t used or it isn&#39;t possible to pass arbitrary args in.</p>\n\n<p>However, there are two places of particular interest. The first is in <code>buddypress/bp-templates/bp-legacy/buddypress/groups/groups-loop.php</code> on line 26:</p>\n<pre class=\"highlight php\"><code><span class=\"cp\">&lt;?php</span> <span class=\"k\">if</span> <span class=\"p\">(</span> <span class=\"nx\">bp_has_groups</span><span class=\"p\">(</span> <span class=\"nx\">bp_ajax_querystring</span><span class=\"p\">(</span> <span class=\"s1\">&#39;groups&#39;</span> <span class=\"p\">)</span> <span class=\"p\">)</span> <span class=\"p\">)</span> <span class=\"o\">:</span> <span class=\"cp\">?&gt;</span>\n</code></pre>\n<p>The value returned by the <code>bp_ajax_querystring()</code> function is determined via the <code>&#39;bp_ajax_querystring&#39;</code> filter. For the Legacy template pack, the <code>bp_legacy_theme_ajax_querystring()</code> function is hooked to that filter to supply the value.</p>\n\n<p><code>bp_legacy_theme_ajax_querystring()</code> is located in <code>buddypress/bp-templates/bp-legacy/buddypress-functions.php</code>, and most of it is pretty well hardened against this kind of issue, properly sanitizing the user-supplied values. However, on line 692, it does this:</p>\n<pre class=\"highlight php\"><code><span class=\"cp\">&lt;?php</span>\n  <span class=\"c1\">// Activity stream filtering on action.\n</span>  <span class=\"k\">if</span> <span class=\"p\">(</span> <span class=\"o\">!</span> <span class=\"k\">empty</span><span class=\"p\">(</span> <span class=\"nv\">$_BP_COOKIE</span><span class=\"p\">[</span><span class=\"s1\">&#39;bp-&#39;</span> <span class=\"o\">.</span> <span class=\"nv\">$object</span> <span class=\"o\">.</span> <span class=\"s1\">&#39;-filter&#39;</span><span class=\"p\">]</span> <span class=\"p\">)</span> <span class=\"o\">&amp;&amp;</span> <span class=\"s1\">&#39;-1&#39;</span> <span class=\"o\">!=</span> <span class=\"nv\">$_BP_COOKIE</span><span class=\"p\">[</span><span class=\"s1\">&#39;bp-&#39;</span> <span class=\"o\">.</span> <span class=\"nv\">$object</span> <span class=\"o\">.</span> <span class=\"s1\">&#39;-filter&#39;</span><span class=\"p\">]</span> <span class=\"p\">)</span> <span class=\"p\">{</span>\n     <span class=\"nv\">$qs</span><span class=\"p\">[]</span> <span class=\"o\">=</span> <span class=\"s1\">&#39;type=&#39;</span> <span class=\"o\">.</span> <span class=\"nv\">$_BP_COOKIE</span><span class=\"p\">[</span><span class=\"s1\">&#39;bp-&#39;</span> <span class=\"o\">.</span> <span class=\"nv\">$object</span> <span class=\"o\">.</span> <span class=\"s1\">&#39;-filter&#39;</span><span class=\"p\">];</span>\n\n     <span class=\"c1\">// ...\n</span>  <span class=\"p\">}</span>\n</code></pre>\n<p>The value of <code>$_BP_COOKIE</code> can be set via <code>$_POST[&#39;cookie&#39;]</code> (line 675):</p>\n<pre class=\"highlight php\"><code><span class=\"cp\">&lt;?php</span>\n  <span class=\"c1\">// Set up the cookies passed on this AJAX request. Store a local var to avoid conflicts.\n</span>  <span class=\"k\">if</span> <span class=\"p\">(</span> <span class=\"o\">!</span> <span class=\"k\">empty</span><span class=\"p\">(</span> <span class=\"nv\">$_POST</span><span class=\"p\">[</span><span class=\"s1\">&#39;cookie&#39;</span><span class=\"p\">]</span> <span class=\"p\">)</span> <span class=\"p\">)</span> <span class=\"p\">{</span>\n     <span class=\"nv\">$_BP_COOKIE</span> <span class=\"o\">=</span> <span class=\"nx\">wp_parse_args</span><span class=\"p\">(</span> <span class=\"nb\">str_replace</span><span class=\"p\">(</span> <span class=\"s1\">&#39;; &#39;</span><span class=\"p\">,</span> <span class=\"s1\">&#39;&amp;&#39;</span><span class=\"p\">,</span> <span class=\"nb\">urldecode</span><span class=\"p\">(</span> <span class=\"nv\">$_POST</span><span class=\"p\">[</span><span class=\"s1\">&#39;cookie&#39;</span><span class=\"p\">]</span> <span class=\"p\">)</span> <span class=\"p\">)</span> <span class=\"p\">);</span>\n  <span class=\"p\">}</span> <span class=\"k\">else</span> <span class=\"p\">{</span>\n     <span class=\"nv\">$_BP_COOKIE</span> <span class=\"o\">=</span> <span class=\"o\">&amp;</span><span class=\"nv\">$_COOKIE</span><span class=\"p\">;</span>\n  <span class=\"p\">}</span>\n</code></pre>\n<p>The <code>bp-$object-scope</code> is also vulnerable on line 714:</p>\n<pre class=\"highlight php\"><code><span class=\"cp\">&lt;?php</span>\n  <span class=\"k\">if</span> <span class=\"p\">(</span> <span class=\"o\">!</span> <span class=\"k\">empty</span><span class=\"p\">(</span> <span class=\"nv\">$_BP_COOKIE</span><span class=\"p\">[</span><span class=\"s1\">&#39;bp-&#39;</span> <span class=\"o\">.</span> <span class=\"nv\">$object</span> <span class=\"o\">.</span> <span class=\"s1\">&#39;-scope&#39;</span><span class=\"p\">]</span> <span class=\"p\">)</span> <span class=\"p\">)</span> <span class=\"p\">{</span>\n\n     <span class=\"c1\">//...\n</span>\n     <span class=\"c1\">// Activity stream scope only on activity directory.\n</span>     <span class=\"k\">if</span> <span class=\"p\">(</span> <span class=\"s1\">&#39;all&#39;</span> <span class=\"o\">!=</span> <span class=\"nv\">$_BP_COOKIE</span><span class=\"p\">[</span><span class=\"s1\">&#39;bp-&#39;</span> <span class=\"o\">.</span> <span class=\"nv\">$object</span> <span class=\"o\">.</span> <span class=\"s1\">&#39;-scope&#39;</span><span class=\"p\">]</span> <span class=\"o\">&amp;&amp;</span> <span class=\"o\">!</span> <span class=\"nx\">bp_displayed_user_id</span><span class=\"p\">()</span> <span class=\"o\">&amp;&amp;</span> <span class=\"o\">!</span> <span class=\"nx\">bp_is_single_item</span><span class=\"p\">()</span> <span class=\"p\">)</span>\n        <span class=\"nv\">$qs</span><span class=\"p\">[]</span> <span class=\"o\">=</span> <span class=\"s1\">&#39;scope=&#39;</span> <span class=\"o\">.</span> <span class=\"nv\">$_BP_COOKIE</span><span class=\"p\">[</span><span class=\"s1\">&#39;bp-&#39;</span> <span class=\"o\">.</span> <span class=\"nv\">$object</span> <span class=\"o\">.</span> <span class=\"s1\">&#39;-scope&#39;</span><span class=\"p\">];</span>\n  <span class=\"p\">}</span>\n</code></pre>\n<p>The solution is to wrap the values in <code>urlencode()</code>, as is done with <code>$_POST[&#39;search_terms&#39;]</code> on line 734.</p>\n<pre class=\"highlight php\"><code><span class=\"cp\">&lt;?php</span>\n\n     <span class=\"nv\">$qs</span><span class=\"p\">[]</span> <span class=\"o\">=</span> <span class=\"s1\">&#39;type=&#39;</span> <span class=\"o\">.</span> <span class=\"nb\">urlencode</span><span class=\"p\">(</span> <span class=\"nv\">$_BP_COOKIE</span><span class=\"p\">[</span><span class=\"s1\">&#39;bp-&#39;</span> <span class=\"o\">.</span> <span class=\"nv\">$object</span> <span class=\"o\">.</span> <span class=\"s1\">&#39;-filter&#39;</span><span class=\"p\">]</span> <span class=\"p\">);</span>\n\n     <span class=\"nv\">$qs</span><span class=\"p\">[]</span> <span class=\"o\">=</span> <span class=\"s1\">&#39;scope=&#39;</span> <span class=\"o\">.</span> <span class=\"nb\">urlencode</span><span class=\"p\">(</span> <span class=\"nv\">$_BP_COOKIE</span><span class=\"p\">[</span><span class=\"s1\">&#39;bp-&#39;</span> <span class=\"o\">.</span> <span class=\"nv\">$object</span> <span class=\"o\">.</span> <span class=\"s1\">&#39;-scope&#39;</span><span class=\"p\">]</span> <span class=\"p\">);</span>\n</code></pre>\n<p>The BuddyPress Default theme also suffers from the same problems, in <code>bp_dtheme_ajax_querystring()</code> (<code>buddypress/bp-themes/bp-default/groups/groups-loop.php</code> uses <code>bp_has_groups( bp_ajax_querystring( &#39;groups&#39; ) )</code> as the Legacy template pack does). In that function, however, <code>$_POST[&#39;search_terms&#39;]</code> is also a vector, since it isn&#39;t passed through <code>urlencode()</code> (<code>buddypress/bp-themes/bp-default/_inc/ajax.php</code> line 137):</p>\n<pre class=\"highlight php\"><code><span class=\"cp\">&lt;?php</span>\n  <span class=\"nv\">$object_search_text</span> <span class=\"o\">=</span> <span class=\"nx\">bp_get_search_default_text</span><span class=\"p\">(</span> <span class=\"nv\">$object</span> <span class=\"p\">);</span>\n  <span class=\"k\">if</span> <span class=\"p\">(</span> <span class=\"o\">!</span> <span class=\"k\">empty</span><span class=\"p\">(</span> <span class=\"nv\">$_POST</span><span class=\"p\">[</span><span class=\"s1\">&#39;search_terms&#39;</span><span class=\"p\">]</span> <span class=\"p\">)</span> <span class=\"o\">&amp;&amp;</span> <span class=\"nv\">$object_search_text</span> <span class=\"o\">!=</span> <span class=\"nv\">$_POST</span><span class=\"p\">[</span><span class=\"s1\">&#39;search_terms&#39;</span><span class=\"p\">]</span> <span class=\"o\">&amp;&amp;</span> <span class=\"s1\">&#39;false&#39;</span> <span class=\"o\">!=</span> <span class=\"nv\">$_POST</span><span class=\"p\">[</span><span class=\"s1\">&#39;search_terms&#39;</span><span class=\"p\">]</span> <span class=\"o\">&amp;&amp;</span> <span class=\"s1\">&#39;undefined&#39;</span> <span class=\"o\">!=</span> <span class=\"nv\">$_POST</span><span class=\"p\">[</span><span class=\"s1\">&#39;search_terms&#39;</span><span class=\"p\">]</span> <span class=\"p\">)</span>\n     <span class=\"nv\">$qs</span><span class=\"p\">[]</span> <span class=\"o\">=</span> <span class=\"s1\">&#39;search_terms=&#39;</span> <span class=\"o\">.</span> <span class=\"nv\">$_POST</span><span class=\"p\">[</span><span class=\"s1\">&#39;search_terms&#39;</span><span class=\"p\">];</span>\n</code></pre>\n<h2 id=\"poc\">POC</h2>\n\n<p>Send a <code>POST</code> request to <code>/wp-admin/admin-ajax.php</code> with the following body:</p>\n<pre class=\"highlight plaintext\"><code>action=groups_filter&amp;cookie=bp-groups-filter%253D%252526show_hidden%3D1&amp;object=groups\n</code></pre>\n<p><code>bp-groups-filter</code> can be replaced with <code>bp-groups-scope</code> to the same effect:</p>\n<pre class=\"highlight plaintext\"><code>action=groups_filter&amp;cookie=bp-groups-scope%253D%252526show_hidden%3D1&amp;object=groups\n</code></pre>", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://wordpress.org/", 
+            "about": "Beautiful sites of any kind.", 
+            "twitter_handle": "wordpress", 
+            "name": "WordPress"
+        }, 
+        "handle": "wordpress", 
+        "url": "https://hackerone.com/wordpress", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/055/2ded484d947025dc191342c9ccdcf00effc53ff6_small.jpg?1392934661", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/055/a7e722c23dedc020ade3b6e7f1a96baa455f86d8_medium.jpg?1392934661"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 55, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

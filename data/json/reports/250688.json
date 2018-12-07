@@ -1,0 +1,717 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-09-05T19:22:02.360Z", 
+    "voters": [
+        "bl4de", 
+        "spam404", 
+        "edoverflow", 
+        "eveeez", 
+        "axolotl", 
+        "mr_r3boot", 
+        "silv3rpoision", 
+        "japz", 
+        "linkks", 
+        "cuso4", 
+        "and 4 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "150.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 250688, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-09-05T19:47:58.549Z", 
+    "vulnerability_information": "##Description\nHello. This issue is not very dangerous itself, but can be dangerous in combination of others (like XSS, or malicious access to the user account). The user/attacker, who got once valid cookie `federalist.sid` from the account, can use it as backdoor for some time, because it is not actually invalidated on Logout. Also, i discovered, that privilege escalation is possible (it is possible to attack another user account in some cases). Actually, logout just invalidating GitHub access token, but session still can be valid. How it can be used by attacker, or malicious user? Let's see the POC below.\n\n##POC\nCase 1. Using the flaw as BackDoor access to the account.\n1) Login to the Federalist instance with your test account.\n2) Save the `federalist.sid` cookie from the `/v0/me` endpoint using Burp or similar Web Debbuger.\n3) Do logout.\n4) Replay the request to the `/v0/me` endpoint using web debugger with same cookie. You will got 403 forbidden, as it should be.\n5) Login with same account.\n6) Replay the request to the `/v0/me` endpoint using web debugger with same cookie. You will got success response.\nCase 2. Using the flaw (same session value) as BackDoor access to the account of another user.\nContinue testing from the last step.\n7) Do logout again.\n8) Login with the second test account.\n9) Replay the request to the `/v0/me` endpoint using web debugger with same cookie from previous steps. You will got success response, and info about users.\n\n##Impact\nExploitation scenario.\n\nLets suppose, that some Federalist user worked on his PC, and did logout from Github and Federalist. It is supposed, that malicious user can't access his account without GitHub credentials. But, because `federalist.sid` was not invalidated properly, it is only a temporary restriction for the attacker. Let's suppose, that attacker somehow got `federalist.sid` cookie (using XSS, physical access to the PC, or attacker was previously the legit user, and saved cookie for the future access). He can't access the API just now, (as it throws 403), but he will can, when the login action will be performed on that PC again. Session will become valid, and, not matter, which user did the login! For example, if the second user logged in to the Federalist from different account, old `federalist.sid` will be assigned to him, and attacker's backdoor `federalist.sid` will work for the another account!\nSure the session cookie has limited lifetime, but still, insufficient invalidation can pose some risks.\n\n##Suggested fix\n1. The session cookie should be destroyed on user logout.\n2. The new session cookie should be established on login.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "Team"
+    }, 
+    "title": "The Federalsit session cookie (federalist.sid) is not properly invalidated - backdoor access to the account is possible", 
+    "is_member_of_team?": null, 
+    "vote_count": 14, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 5270, 
+            "content": "*Thanks to the 18F team for the great experience, fast fix and the bounty!*\n\nThis report describes session management issue, when the session was not actually destroyed on logout - just became inactive till next login. It was possible to affect other user too, in case, if this user used same machine for login (see the \"Exploitation scenario\" section).\n\nIssue was fixed by implementing correct session invalidation.\n\n##References\n[Running Federalist locally](https://federalist-docs.18f.gov/pages/how-federalist-works/running-federalist-locally/ \"Running Federalist locally\")", 
+            "content_html": "<p><em>Thanks to the 18F team for the great experience, fast fix and the bounty!</em></p>\n\n<p>This report describes session management issue, when the session was not actually destroyed on logout - just became inactive till next login. It was possible to affect other user too, in case, if this user used same machine for login (see the &quot;Exploitation scenario&quot; section).</p>\n\n<p>Issue was fixed by implementing correct session invalidation.</p>\n\n<h2 id=\"references\">References</h2>\n\n<p><a title=\"Running Federalist locally\" href=\"/redirect?signature=cebee840e4e4aae31d56e503513e158a2140bf3d&amp;url=https%3A%2F%2Ffederalist-docs.18f.gov%2Fpages%2Fhow-federalist-works%2Frunning-federalist-locally%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>Running Federalist locally</span><i class=\"icon-external-link\"></i></a></p>\n"
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "https://github.com/18F/federalist", 
+        "max_severity": "critical", 
+        "databaseId": 978, 
+        "asset_type": "SOURCE_CODE"
+    }, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$150", 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-20T03:27:50.006Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-20T03:27:50.006Z", 
+            "actor": {
+                "username": "coffeecup", 
+                "url": "/coffeecup", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/163/756/f43e0dda96a575dcb496c1e3028dedc45a10a391_medium.png?1526279637"
+                }, 
+                "hackerone_triager": true
+            }, 
+            "team_handle": "tts", 
+            "message": "Hi there @sp1d3rs - thanks for sending this in! We are currently reviewing this submission and we'll notify you once we have more information to share with you.", 
+            "markdown_message": "<p>Hi there <a href=\"/sp1d3rs\">@sp1d3rs</a> - thanks for sending this in! We are currently reviewing this submission and we&#39;ll notify you once we have more information to share with you.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1851842, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-02T12:51:22.994Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-02T12:54:16.622Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "Small correction - in the suggested fix section i meant the session itself (invalidating of the `fedarist.sid` record in the database on logout), not just clientside cookie.", 
+            "markdown_message": "<p>Small correction - in the suggested fix section i meant the session itself (invalidating of the <code>fedarist.sid</code> record in the database on logout), not just clientside cookie.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1885069, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-03T00:28:59.536Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-03T00:28:59.536Z", 
+            "actor": {
+                "username": "coffeecup", 
+                "url": "/coffeecup", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/163/756/f43e0dda96a575dcb496c1e3028dedc45a10a391_medium.png?1526279637"
+                }, 
+                "hackerone_triager": true
+            }, 
+            "team_handle": "tts", 
+            "message": "Hi @sp1d3rs  - We have not forgotten about this report. We are still investigating and greatly appreciate your patience. I'll update you once we have more info. ", 
+            "markdown_message": "<p>Hi <a href=\"/sp1d3rs\">@sp1d3rs</a>  - We have not forgotten about this report. We are still investigating and greatly appreciate your patience. I&#39;ll update you once we have more info. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1886739, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-22T02:52:19.725Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-22T02:52:19.725Z", 
+            "actor": {
+                "username": "coffeecup", 
+                "url": "/coffeecup", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/163/756/f43e0dda96a575dcb496c1e3028dedc45a10a391_medium.png?1526279637"
+                }, 
+                "hackerone_triager": true
+            }, 
+            "team_handle": "tts", 
+            "message": "Hi @sp1d3rs - We know this has been sitting here for a bit, and I wanted to ensure you that we have still not forgotten about it. I'm trying to get an update for you by the end of this week. Thanks so much for your patience on this. ", 
+            "markdown_message": "<p>Hi <a href=\"/sp1d3rs\">@sp1d3rs</a> - We know this has been sitting here for a bit, and I wanted to ensure you that we have still not forgotten about it. I&#39;m trying to get an update for you by the end of this week. Thanks so much for your patience on this. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1945216, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-23T00:15:37.430Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-23T00:15:37.430Z", 
+            "actor": {
+                "username": "coffeecup", 
+                "url": "/coffeecup", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/163/756/f43e0dda96a575dcb496c1e3028dedc45a10a391_medium.png?1526279637"
+                }, 
+                "hackerone_triager": true
+            }, 
+            "team_handle": "tts", 
+            "message": "Hi @sp1d3rs - \n\nThank you for your report.\nWe were able to validate this and are moving this to Triaged state. \nKeep hacking! Keep those reports coming!", 
+            "markdown_message": "<p>Hi <a href=\"/sp1d3rs\">@sp1d3rs</a> - </p>\n\n<p>Thank you for your report.<br>\nWe were able to validate this and are moving this to Triaged state. <br>\nKeep hacking! Keep those reports coming!</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1947668, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-23T00:27:14.516Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-23T00:27:14.516Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "Hi @coffeecup, thanks for the update! ", 
+            "markdown_message": "<p>Hi <a href=\"/coffeecup\">@coffeecup</a>, thanks for the update! </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1947692, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-23T00:49:41.119Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-23T00:59:10.576Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "I must admit, that the 18F team did a very great work on securing their application, it becomes harder to find valid security issues:) Even mostly all best practices was implemented on the production environment, like security headers/cookie flags.\nThis project is one of the best that take care of security, from my experience on HackerOne.\nIt's a great pleasure for me to work with you. Keep up your great work!", 
+            "markdown_message": "<p>I must admit, that the 18F team did a very great work on securing their application, it becomes harder to find valid security issues:) Even mostly all best practices was implemented on the production environment, like security headers/cookie flags.<br>\nThis project is one of the best that take care of security, from my experience on HackerOne.<br>\nIt&#39;s a great pleasure for me to work with you. Keep up your great work!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1947723, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-23T22:11:11.644Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-23T22:11:11.644Z", 
+            "actor": {
+                "username": "coffeecup", 
+                "url": "/coffeecup", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/163/756/f43e0dda96a575dcb496c1e3028dedc45a10a391_medium.png?1526279637"
+                }, 
+                "hackerone_triager": true
+            }, 
+            "additional_data": {
+                "new_severity": "Low", 
+                "old_severity": "Medium"
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1950416, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-24T18:39:53.010Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-24T18:39:53.010Z", 
+            "actor": {
+                "username": "jseppi", 
+                "url": "/jseppi", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/177/387/ffbb2f455419938d5d8539c6a1f236fdb036dc93_medium.jpeg?1498225347"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "Issue created: https://github.com/18F/federalist/issues/1130", 
+            "markdown_message": "<p>Issue created: <a title=\"https://github.com/18F/federalist/issues/1130\" href=\"/redirect?signature=eba6ab33e398e81ef3f833399138cfd03f4a789c&amp;url=https%3A%2F%2Fgithub.com%2F18F%2Ffederalist%2Fissues%2F1130\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/18F/federalist/issues/1130</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1952645, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-08-24T19:23:56.632Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-24T19:23:56.632Z", 
+            "actor": {
+                "url": "/tts", 
+                "profile": {
+                    "name": "TTS Bug Bounty"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/021/499/d5bd60d453d4826e98026ed64c3645d878e2e3a3_medium.png?1503698073"
+                }
+            }, 
+            "team_handle": "tts", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "150.0", 
+            "collaborator": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs"
+            }, 
+            "message": "Hi @sp1d3rs Congratulations!\n\nYour bug was marked Triaged and is on the queue for a fix to be merged. This falls under Low severity based on our bounty table so we have decided to pay $150 for this. Thank you for the report once again! We would love to see more reports from you in the future!\n\nCheers! Happy Hacking!", 
+            "markdown_message": "<p>Hi <a href=\"/sp1d3rs\">@sp1d3rs</a> Congratulations!</p>\n\n<p>Your bug was marked Triaged and is on the queue for a fix to be merged. This falls under Low severity based on our bounty table so we have decided to pay $150 for this. Thank you for the report once again! We would love to see more reports from you in the future!</p>\n\n<p>Cheers! Happy Hacking!</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1952768, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-24T20:22:14.000Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-24T20:22:14.000Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "Thanks for the bounty! I will try my best.", 
+            "markdown_message": "<p>Thanks for the bounty! I will try my best.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1953009, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-25T22:37:05.866Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-25T22:37:05.866Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "old_team": "TTS Private Bug Bounty", 
+                "new_team": "TTS Bug Bounty"
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReassignedToTeam", 
+            "id": 1956132, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-25T22:37:28.155Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-25T22:39:09.980Z", 
+            "actor": {
+                "username": "wslack", 
+                "url": "/wslack", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/177/495/68bbe55a60f8faaa70f6f19a1922212c04ee661a_medium.jpg?1498054185"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "This has been deployed (but not yet to production): https://github.com/18F/federalist/pull/1131", 
+            "markdown_message": "<p>This has been deployed (but not yet to production): <a title=\"https://github.com/18F/federalist/pull/1131\" href=\"/redirect?signature=70149ce7cee5131c33d55f11724b7065c3132331&amp;url=https%3A%2F%2Fgithub.com%2F18F%2Ffederalist%2Fpull%2F1131\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/18F/federalist/pull/1131</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1956134, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-26T11:29:24.162Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-26T11:29:24.162Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "It works!", 
+            "markdown_message": "<p>It works!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1956775, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-30T22:17:44.978Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-30T22:18:06.028Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "The issue looks fixed on my updated local federalist instance, the report can be moved to the `Resolved` state (now, or after deployment to the production).", 
+            "markdown_message": "<p>The issue looks fixed on my updated local federalist instance, the report can be moved to the <code>Resolved</code> state (now, or after deployment to the production).</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1967566, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-30T22:42:52.733Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-30T22:42:52.733Z", 
+            "actor": {
+                "username": "wslack", 
+                "url": "/wslack", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/177/495/68bbe55a60f8faaa70f6f19a1922212c04ee661a_medium.jpg?1498054185"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "I want to wait until the prod deploy just to make sure its live; that should happen on Friday!", 
+            "markdown_message": "<p>I want to wait until the prod deploy just to make sure its live; that should happen on Friday!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1967601, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-05T15:39:32.265Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-05T15:39:32.265Z", 
+            "actor": {
+                "username": "wslack", 
+                "url": "/wslack", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/177/495/68bbe55a60f8faaa70f6f19a1922212c04ee661a_medium.jpg?1498054185"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "This is now deployed to Prod!", 
+            "markdown_message": "<p>This is now deployed to Prod!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1977178, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-05T15:40:10.977Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-05T15:40:10.977Z", 
+            "actor": {
+                "username": "wslack", 
+                "url": "/wslack", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/177/495/68bbe55a60f8faaa70f6f19a1922212c04ee661a_medium.jpg?1498054185"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "@coffeecup can we move this to the public program?", 
+            "markdown_message": "<p><a href=\"/coffeecup\">@coffeecup</a> can we move this to the public program?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1977181, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-05T15:48:07.023Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-05T15:49:03.205Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "@wslack i think this report has been moved already  to the TTS public program on Aug 26.", 
+            "markdown_message": "<p><a href=\"/wslack\">@wslack</a> i think this report has been moved already  to the TTS public program on Aug 26.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1977200, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-05T16:36:42.586Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-05T16:36:42.586Z", 
+            "actor": {
+                "username": "wslack", 
+                "url": "/wslack", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/177/495/68bbe55a60f8faaa70f6f19a1922212c04ee661a_medium.jpg?1498054185"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "That's correct; I was using an old link and the report appeared to be in the wrong program, but nvm!", 
+            "markdown_message": "<p>That&#39;s correct; I was using an old link and the report appeared to be in the wrong program, but nvm!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1977350, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-05T16:37:16.043Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-05T16:37:16.043Z", 
+            "actor": {
+                "username": "wslack", 
+                "url": "/wslack", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/177/495/68bbe55a60f8faaa70f6f19a1922212c04ee661a_medium.jpg?1498054185"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "Ok with this being disclosed @sp1d3rs?", 
+            "markdown_message": "<p>Ok with this being disclosed <a href=\"/sp1d3rs\">@sp1d3rs</a>?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1977351, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-05T16:41:22.001Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-05T16:41:38.203Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "Sure, this report can be fully disclosed after moving to the `Resolved` state.", 
+            "markdown_message": "<p>Sure, this report can be fully disclosed after moving to the <code>Resolved</code> state.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1977369, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs"
+            }, 
+            "created_at": "2017-09-05T19:04:42.082Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-05T19:04:42.082Z", 
+            "actor": {
+                "username": "coffeecup", 
+                "url": "/coffeecup", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/163/756/f43e0dda96a575dcb496c1e3028dedc45a10a391_medium.png?1526279637"
+                }, 
+                "hackerone_triager": true
+            }, 
+            "team_handle": "tts", 
+            "message": "Thanks again for another great report @sp1d3rs! We look forward to more reports from you in the future. ", 
+            "markdown_message": "<p>Thanks again for another great report <a href=\"/sp1d3rs\">@sp1d3rs</a>! We look forward to more reports from you in the future. </p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1977829, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-05T19:22:02.381Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-05T19:22:02.381Z", 
+            "actor": {
+                "username": "sp1d3rs", 
+                "url": "/sp1d3rs", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/079/690/93b990b2374f4d089706aa293037f203c80f88ae_medium.png?1507170790"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1977890, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-05T19:47:58.588Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-05T19:47:58.588Z", 
+            "actor": {
+                "username": "wslack", 
+                "url": "/wslack", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/177/495/68bbe55a60f8faaa70f6f19a1922212c04ee661a_medium.jpg?1498054185"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1978104, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-09-05T19:47:58.652Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-09-05T19:47:58.652Z", 
+            "actor": {
+                "username": "wslack", 
+                "url": "/wslack", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/177/495/68bbe55a60f8faaa70f6f19a1922212c04ee661a_medium.jpg?1498054185"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "tts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1978105, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "sp1d3rs", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/sp1d3rs", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/079/690/84dbd34ad5cb1cac4cefa3bf71e715d9c9fa7404_small.png?1507170790"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 90, 
+        "name": "Insufficient Session Expiration"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2017-09-05T19:47:58.630Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/250688", 
+    "created_at": "2017-07-17T22:40:51.946Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"description\">Description</h2>\n\n<p>Hello. This issue is not very dangerous itself, but can be dangerous in combination of others (like XSS, or malicious access to the user account). The user/attacker, who got once valid cookie <code>federalist.sid</code> from the account, can use it as backdoor for some time, because it is not actually invalidated on Logout. Also, i discovered, that privilege escalation is possible (it is possible to attack another user account in some cases). Actually, logout just invalidating GitHub access token, but session still can be valid. How it can be used by attacker, or malicious user? Let&#39;s see the POC below.</p>\n\n<h2 id=\"poc\">POC</h2>\n\n<p>Case 1. Using the flaw as BackDoor access to the account.<br>\n1) Login to the Federalist instance with your test account.<br>\n2) Save the <code>federalist.sid</code> cookie from the <code>/v0/me</code> endpoint using Burp or similar Web Debbuger.<br>\n3) Do logout.<br>\n4) Replay the request to the <code>/v0/me</code> endpoint using web debugger with same cookie. You will got 403 forbidden, as it should be.<br>\n5) Login with same account.<br>\n6) Replay the request to the <code>/v0/me</code> endpoint using web debugger with same cookie. You will got success response.<br>\nCase 2. Using the flaw (same session value) as BackDoor access to the account of another user.<br>\nContinue testing from the last step.<br>\n7) Do logout again.<br>\n8) Login with the second test account.<br>\n9) Replay the request to the <code>/v0/me</code> endpoint using web debugger with same cookie from previous steps. You will got success response, and info about users.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Exploitation scenario.</p>\n\n<p>Lets suppose, that some Federalist user worked on his PC, and did logout from Github and Federalist. It is supposed, that malicious user can&#39;t access his account without GitHub credentials. But, because <code>federalist.sid</code> was not invalidated properly, it is only a temporary restriction for the attacker. Let&#39;s suppose, that attacker somehow got <code>federalist.sid</code> cookie (using XSS, physical access to the PC, or attacker was previously the legit user, and saved cookie for the future access). He can&#39;t access the API just now, (as it throws 403), but he will can, when the login action will be performed on that PC again. Session will become valid, and, not matter, which user did the login! For example, if the second user logged in to the Federalist from different account, old <code>federalist.sid</code> will be assigned to him, and attacker&#39;s backdoor <code>federalist.sid</code> will work for the another account!<br>\nSure the session cookie has limited lifetime, but still, insufficient invalidation can pose some risks.</p>\n\n<h2 id=\"suggested-fix\">Suggested fix</h2>\n\n<ol>\n<li>The session cookie should be destroyed on user logout.</li>\n<li>The new session cookie should be established on login.</li>\n</ol>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://18f.gsa.gov", 
+            "about": "The First Civilian Agency Public Bug Bounty Program", 
+            "twitter_handle": "", 
+            "name": "TTS Bug Bounty"
+        }, 
+        "handle": "tts", 
+        "url": "https://hackerone.com/tts", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/021/499/9ccab5d59d5c2db53334d4456698bd97c66dea5a_small.png?1503698073", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/021/499/d5bd60d453d4826e98026ed64c3645d878e2e3a3_medium.png?1503698073"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 21499, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

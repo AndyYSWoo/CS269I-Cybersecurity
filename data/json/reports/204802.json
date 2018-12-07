@@ -1,0 +1,623 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-03-20T19:57:39.592Z", 
+    "voters": [
+        "delimitry", 
+        "hextitan", 
+        "sp1d3rs", 
+        "spam404", 
+        "dawgyg", 
+        "fillawful", 
+        "ngalog", 
+        "flashdisk", 
+        "tk0", 
+        "karel_origin", 
+        "and 11 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "1500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 204802, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-03-20T18:07:32.282Z", 
+    "vulnerability_information": "## Summary\nhttps://github.com/uber/pam-ussh was open-sourced today (kudos!) and is presumably used within Uber's infrastructure. This is a PAM module written a Go that \"will authenticate a user based on them having an ssh certificate in their ssh-agent signed by a specified ssh CA.\" A cursory look at the code and the documentation reveals that the module trusts the SSH_AUTH_SOCK environment variable to determine the Unix domain socket it will use to talk to ssh-agent:\n\nhttps://github.com/uber/pam-ussh/blob/a50585bb7a0f16cd4e813509ad1393731cbb9a14/pam_ussh.go#L70\n\nThe documentation suggests configuring the module for sudo's PAM stack. Since sudo is normally installed SUID root and invokes its PAM stacks with root privileges, it may happily talk to another user's ssh-agent via that other user's and agent's Unix domain socket, despite of this socket not being accessible to the invoking user directly (since it's protected with Unix file permissions). Being an environment variable, SSH_AUTH_SOCK is under control of the user/attacker invoking sudo. In other words, the code and suggested setup effectively bypass Unix file permissions on ssh-agent sockets.\n\nThis appears to be a design error of pam-ussh.\n\n## Security Impact\nA local user may trick pam-ussh and thus sudo to authenticate itself using another local user's certificate. This other user has to be currently logged in, with ssh-agent active. (The attack script may wait for this condition to be met.) The attacking user doesn't have to possess any certificate at all, nor use ssh-agent themselves. In fact, the attack may likely be mounted even by a compromised system service pseudo-user, provided that sudo is within its reach.\n\n## Reproduction Steps\nNot having access to a setup that Uber actually uses within its infrastructure, I can only be moderately confident that this security issue applies and these steps will work. That said, the reproduction steps may be roughly as follows:\n\n1. Login (over SSH or otherwise) as a non-privileged user to a shell account on a system with pam-ussh deployed for sudo.\n\n2. Check the process list and directories matching /tmp/ssh-* for instances of ssh-agent and their sockets corresponding to other logged in users. If none, then wait until this changes.\n\n3. Infer the target user's ssh-agent socket pathname by listing /tmp/ssh-* and obtaining the PID from the process list. The pathname may be of the form /tmp/ssh-RND/agent.PID, where the \"RND\" and \"PID\" portions are determined from the directory listing and the process list, respectively.\n\n4. Invoke a command like \"SSH_AUTH_SOCK=/tmp/ssh-RND/agent.PID sudo bash\" with the \"RND\" and \"PID\" substituted with substrings identified above.\n\n## Specifics\n* If applicable, what account were you using to test?\n * N/A\n* If applicable, what domain(s) does this vulnerability affect?\n * Unclear - it's internal infrastructure that might be in use behind a variety of Uber services\n* Does this only affect specific versions or vendors?\n * pam-ussh at least as published on GitHub as of today (Feb 8, 2017)\n\nThis might or might not be within scope of Uber's bug bounty program, and I have not actually reproduced the issue - only having identified its likelihood through the source code and documentation. Yet I figured I'd give this communication channel a try, and report this. I'd appreciate a review of these findings and any feedback you might provide.\n\nA related concern is that Go's runtime might not be suitable for use in SUID/SGID programs yet - e.g., it might also have environment variables it trusts too much, as well as many other issues that libc's have been hardened against over the years (and decades). I have not looked into that yet, but you might want to.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "low", 
+            "user_interaction": "required", 
+            "attack_vector": "local", 
+            "attack_complexity": "low", 
+            "scope": "unchanged", 
+            "integrity": "high", 
+            "availability": "none"
+        }, 
+        "rating": "medium", 
+        "score": 6.6, 
+        "author_type": "User"
+    }, 
+    "title": "pam-ussh may be tricked into using another logged in user's ssh-agent", 
+    "is_member_of_team?": null, 
+    "vote_count": 21, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$1,500", 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-09T20:23:57.981Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-09T20:23:57.981Z", 
+            "actor": {
+                "username": "dnathe4th", 
+                "url": "/dnathe4th", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/064/148/74e079770e492cc90b99abe011438ac6504337e1_medium.png?1460504047"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hey @solardiz thank you for this report, our first one for the newly-open sourced pam-ussh module! This is not my area of expertise so I have forwarded your concern over to the internal team. I will let you know as soon as I hear back from them.\n\nBest of luck on the rest of the bug bounty program!", 
+            "markdown_message": "<p>Hey <a href=\"/solardiz\">@solardiz</a> thank you for this report, our first one for the newly-open sourced pam-ussh module! This is not my area of expertise so I have forwarded your concern over to the internal team. I will let you know as soon as I hear back from them.</p>\n\n<p>Best of luck on the rest of the bug bounty program!</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1475536, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-09T21:44:15.869Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-09T21:44:15.869Z", 
+            "actor": {
+                "username": "dnathe4th", 
+                "url": "/dnathe4th", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/064/148/74e079770e492cc90b99abe011438ac6504337e1_medium.png?1460504047"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hey @solardiz the author confirms the issue and is working on a fix.", 
+            "markdown_message": "<p>Hey <a href=\"/solardiz\">@solardiz</a> the author confirms the issue and is working on a fix.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1475724, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-09T23:12:58.811Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-09T23:12:58.811Z", 
+            "actor": {
+                "username": "solardiz", 
+                "url": "/solardiz", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi @dnathe4th! Thank you for the timely & clear communication on this issue.\n\nIf the author likes and doesn't mind sharing, I'd be happy to comment on possible approaches to fixing the issue that they might be considering. One approach could be to have the PAM module temporarily switch the euid to the user's. Another could be to verify the Unix domain socket ownership (preferably in a race-free manner, although in this case there are mitigating factors already). Or both. There are other approaches as well, but those feel more invasive (would be harder to deploy).", 
+            "markdown_message": "<p>Hi <a href=\"/dnathe4th\">@dnathe4th</a>! Thank you for the timely &amp; clear communication on this issue.</p>\n\n<p>If the author likes and doesn&#39;t mind sharing, I&#39;d be happy to comment on possible approaches to fixing the issue that they might be considering. One approach could be to have the PAM module temporarily switch the euid to the user&#39;s. Another could be to verify the Unix domain socket ownership (preferably in a race-free manner, although in this case there are mitigating factors already). Or both. There are other approaches as well, but those feel more invasive (would be harder to deploy).</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1475926, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-10T00:55:31.729Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-10T00:55:31.729Z", 
+            "actor": {
+                "username": "dnathe4th", 
+                "url": "/dnathe4th", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/064/148/74e079770e492cc90b99abe011438ac6504337e1_medium.png?1460504047"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hey @solardiz ! We appreciate the recommendations and I have forwarded them on to the author. I believe he already has a fix in progress but additional suggestions are always welcome. I will reach back out next update I get from him.", 
+            "markdown_message": "<p>Hey <a href=\"/solardiz\">@solardiz</a> ! We appreciate the recommendations and I have forwarded them on to the author. I believe he already has a fix in progress but additional suggestions are always welcome. I will reach back out next update I get from him.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1476062, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/159/498/b227be12b29686efcee4308bf18f9c83c749682b/pam_ussh.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224144Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=769eb88e121704cd4a0d425b62d4eada9688ea6edf1d9c08af5509178363177b", 
+                    "type": "text/x-diff", 
+                    "id": 159498, 
+                    "filename": "pam_ussh.patch"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2017-02-10T18:39:43.159Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-10T18:39:43.159Z", 
+            "actor": {
+                "username": "dnathe4th", 
+                "url": "/dnathe4th", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/064/148/74e079770e492cc90b99abe011438ac6504337e1_medium.png?1460504047"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hey @solardiz ! The author and team are working through a proposed solution to your report. They are still discussing how to avoid the race condition currently present in the attached patch, but asked me to send it your way in case you had additional feedback for this in-progress work.\n\nThank you for taking the time to work through this with us!", 
+            "markdown_message": "<p>Hey <a href=\"/solardiz\">@solardiz</a> ! The author and team are working through a proposed solution to your report. They are still discussing how to avoid the race condition currently present in the attached patch, but asked me to send it your way in case you had additional feedback for this in-progress work.</p>\n\n<p>Thank you for taking the time to work through this with us!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1477681, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-10T23:12:06.769Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-10T23:12:06.769Z", 
+            "actor": {
+                "username": "solardiz", 
+                "url": "/solardiz", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Thanks for sharing the patch, @dnathe4th.\n\nMeanwhile, I've been thinking of how to fix this issue best, and I came to the conclusion that the straightforward approach, as this patch takes, results in races that appear unavoidable within traditional Unix syscall semantics. Traditionally, code trying to access untrusted pathnames yet running with excessive privileges uses pre- and post-checks to make sure the file opened is actually the file that was meant to be opened. This would also work for a FIFO, but it doesn't work for Unix domain sockets. Besides, with that approach other (relatively minor) problems traditionally remain: potential side-effects on open(), or in this case on connect() - e.g. another/unintended service receiving a connection attempt, and these attempts/checks serving as an oracle to probe for existence of filesystem entries (not necessarily sockets, and anywhere among mounted filesystems) in directories that the invoking user couldn't have accessed directly.\n\nIn other words, when fixing the main issue (the one with authentication) we should also have in mind that this is privileged code that might have side-effects and/or infoleaks unrelated to its purpose, and the straightforward approach in fact keeps the code problematic in those ways - as well as, and more importantly, in not fully fixing the original issue because of the races, which probably allow for the wrong socket to be accessed again, through the attacker replacing their dummy socket or its holding directory with a (sym)link to the victim's directory/socket. Even if the code post-checked the pathname again, that would be no guarantee the attacker had not replaced the directory/socket back. The attacker can probably manage to obtain the same st_ino, too. (At least with sequential inode number allocation.)\n\nSo I recommend that you temporarily set euid to the target user's id, which in case of running from sudo should match the current ruid, and then after connecting to the socket (or failing) set euid back to whatever it was. The latter operation should work due to saved IDs. For example, see our non-fsuid implementaiton of ch_uid() here:\n\nhttp://cvsweb.openwall.com/cgi/cvsweb.cgi/Owl/packages/tcb/tcb/libs/libtcb.c?rev=1.9\n\n(If you were working with files, I'd recommend only changing fsuid, but it's unclear whether it's supposed to apply to Unix domain sockets as well or not - so changing the euid seems a safer bet in this case.)\n\nKeeping the stat() checks as well is fine, but only as an extra.\n\nOh, and passing the arbitrary attacker-chosen pathname as part of pamLog() message might not be a good idea - e.g., can make this pathname itself be the string \"file /whatever (owner whoevertoblame, uid 1000)\" followed by enough whitespace that the rest of the string doesn't fit into a buffer and is truncated. Similarly, the username is only OK to log if it's been validated, whereas in the code we should have !ok for invalid usernames as well. I suggest only logging the uid's.\n\nI hope this helps.", 
+            "markdown_message": "<p>Thanks for sharing the patch, <a href=\"/dnathe4th\">@dnathe4th</a>.</p>\n\n<p>Meanwhile, I&#39;ve been thinking of how to fix this issue best, and I came to the conclusion that the straightforward approach, as this patch takes, results in races that appear unavoidable within traditional Unix syscall semantics. Traditionally, code trying to access untrusted pathnames yet running with excessive privileges uses pre- and post-checks to make sure the file opened is actually the file that was meant to be opened. This would also work for a FIFO, but it doesn&#39;t work for Unix domain sockets. Besides, with that approach other (relatively minor) problems traditionally remain: potential side-effects on open(), or in this case on connect() - e.g. another/unintended service receiving a connection attempt, and these attempts/checks serving as an oracle to probe for existence of filesystem entries (not necessarily sockets, and anywhere among mounted filesystems) in directories that the invoking user couldn&#39;t have accessed directly.</p>\n\n<p>In other words, when fixing the main issue (the one with authentication) we should also have in mind that this is privileged code that might have side-effects and/or infoleaks unrelated to its purpose, and the straightforward approach in fact keeps the code problematic in those ways - as well as, and more importantly, in not fully fixing the original issue because of the races, which probably allow for the wrong socket to be accessed again, through the attacker replacing their dummy socket or its holding directory with a (sym)link to the victim&#39;s directory/socket. Even if the code post-checked the pathname again, that would be no guarantee the attacker had not replaced the directory/socket back. The attacker can probably manage to obtain the same st_ino, too. (At least with sequential inode number allocation.)</p>\n\n<p>So I recommend that you temporarily set euid to the target user&#39;s id, which in case of running from sudo should match the current ruid, and then after connecting to the socket (or failing) set euid back to whatever it was. The latter operation should work due to saved IDs. For example, see our non-fsuid implementaiton of ch_uid() here:</p>\n\n<p><a title=\"http://cvsweb.openwall.com/cgi/cvsweb.cgi/Owl/packages/tcb/tcb/libs/libtcb.c?rev=1.9\" href=\"/redirect?signature=3774da5094d2aa4958ca7ac09dbd964c5f66147e&amp;url=http%3A%2F%2Fcvsweb.openwall.com%2Fcgi%2Fcvsweb.cgi%2FOwl%2Fpackages%2Ftcb%2Ftcb%2Flibs%2Flibtcb.c%3Frev%3D1.9\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://cvsweb.openwall.com/cgi/cvsweb.cgi/Owl/packages/tcb/tcb/libs/libtcb.c?rev=1.9</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>(If you were working with files, I&#39;d recommend only changing fsuid, but it&#39;s unclear whether it&#39;s supposed to apply to Unix domain sockets as well or not - so changing the euid seems a safer bet in this case.)</p>\n\n<p>Keeping the stat() checks as well is fine, but only as an extra.</p>\n\n<p>Oh, and passing the arbitrary attacker-chosen pathname as part of pamLog() message might not be a good idea - e.g., can make this pathname itself be the string &quot;file /whatever (owner whoevertoblame, uid 1000)&quot; followed by enough whitespace that the rest of the string doesn&#39;t fit into a buffer and is truncated. Similarly, the username is only OK to log if it&#39;s been validated, whereas in the code we should have !ok for invalid usernames as well. I suggest only logging the uid&#39;s.</p>\n\n<p>I hope this helps.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1478225, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/159/565/d68d284aaa2c59002023513a1ecde1ea4abfa3d5/0001-pam-ussh-fix-bug-reported-by-Solar-Designer.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2O5WI6N5%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224144Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDM80lYw7bq6fX2mWmyK3A%2FYy2J%2B1CaNMFFByI49KAHL3ffniSKPgZ5UE0t%2FKuL%2BC7PBXMB98Z3o09TUo7Y1vdlHE%2BoAXqzkGLbuwkVqLEPDARWUueiT00m%2ByRmrzjU0HcpIq%2FedfbYl7Ym2BiNkoMAkztH5poFHAKBO9jzqWCjL27%2F5ZnMlivjJnd5XXtqqHNXZ78qia146VO8%2FZspoQ8n7kXBlOpYH4MUgiCqDgA0xacw4961kpYAdPr8TUaf7rFoFJFfYwqKHGmVA1yrv7%2Bu%2FhPt0NgDTc5dwD0N%2Bll9y0quNuCrcgvP7Y6CkCAOTe%2BwQYMPEdmYzLxKWkdO6eO45stpk39rcEgQF%2F4W0jz8Vf0vt80lPmF%2F38Em2229EVWBo7ZOdQDqVZzqZsU9Eu0yymbkHxkkgA31gv%2FNvPaiGnxbAhArLKXjS7zquNZFtUSHrumqrFvwL0uMWyoU15TwtfQwR%2FPYSGUT8PEW15mFHRrIaTHEu8cMobxXYvxH4mMwBn88FVZ3EcsxYFztByV2pBPgy91GB%2FURlZoVPXQEoXciUGVwjnS5HCYcscMFkk0LL9QAzMBQXEriA7WWItAZtogQkz2PYohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=8e82a5c0bd8219de65c5d2407a329b9d302f37b52e9d7c29088f4b37116465bf", 
+                    "type": "text/x-diff", 
+                    "id": 159565, 
+                    "filename": "0001-pam-ussh-fix-bug-reported-by-Solar-Designer.patch"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2017-02-10T23:49:32.378Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-10T23:49:32.378Z", 
+            "actor": {
+                "username": "dnathe4th", 
+                "url": "/dnathe4th", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/064/148/74e079770e492cc90b99abe011438ac6504337e1_medium.png?1460504047"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "It sounds like they independently came to a similar conclusion and went with the euid swap. I attached their current proposed patch if you are interested.\n\nThank you for the continued iterations on this update!", 
+            "markdown_message": "<p>It sounds like they independently came to a similar conclusion and went with the euid swap. I attached their current proposed patch if you are interested.</p>\n\n<p>Thank you for the continued iterations on this update!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1478295, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-11T00:10:44.203Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-11T00:10:44.203Z", 
+            "actor": {
+                "username": "solardiz", 
+                "url": "/solardiz", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Thanks. This is now good in concept, but problematic in implementation. I'll post a more detailed comment a bit later - am busy at the moment.", 
+            "markdown_message": "<p>Thanks. This is now good in concept, but problematic in implementation. I&#39;ll post a more detailed comment a bit later - am busy at the moment.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1478322, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-11T01:19:27.579Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-11T01:19:27.579Z", 
+            "actor": {
+                "username": "solardiz", 
+                "url": "/solardiz", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Issues with that patch:\n\n1. The call to setuid(0) is wrong in that it will do more than is needed. We have previously only changed the euid - now with setuid(0) we're also setting the real uid to 0 even if it wasn't 0 before we started. It should be replaced with seteuid(origEUID). The change_uid() and setuid() functions may then be dropped.\n\n2. The check \"os.Getuid() != origEUID\" may be enhanced to also take care of the case where the invoking program has already fully switched to root, but we're authenticating against a non-root user's ssh-agent. Thus, \"os.Getuid() != origEUID || origEUID == 0\".\n\n3. The fileUID() check should be after the seteuid(uid) call. Otherwise we have that oracle/infoleak that I mentioned in a previous comment, allowing for probing of arbitrary inaccessible pathnames.\n\n4. Also as I mentioned in that other comment, I suggest that you avoid including the attacker-controlled socket pathname in the log message.", 
+            "markdown_message": "<p>Issues with that patch:</p>\n\n<ol>\n<li><p>The call to setuid(0) is wrong in that it will do more than is needed. We have previously only changed the euid - now with setuid(0) we&#39;re also setting the real uid to 0 even if it wasn&#39;t 0 before we started. It should be replaced with seteuid(origEUID). The change_uid() and setuid() functions may then be dropped.</p></li>\n<li><p>The check &quot;os.Getuid() != origEUID&quot; may be enhanced to also take care of the case where the invoking program has already fully switched to root, but we&#39;re authenticating against a non-root user&#39;s ssh-agent. Thus, &quot;os.Getuid() != origEUID || origEUID == 0&quot;.</p></li>\n<li><p>The fileUID() check should be after the seteuid(uid) call. Otherwise we have that oracle/infoleak that I mentioned in a previous comment, allowing for probing of arbitrary inaccessible pathnames.</p></li>\n<li><p>Also as I mentioned in that other comment, I suggest that you avoid including the attacker-controlled socket pathname in the log message.</p></li>\n</ol>\n", 
+            "type": "Activities::Comment", 
+            "id": 1478450, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-11T01:43:11.045Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-11T01:43:11.045Z", 
+            "actor": {
+                "username": "solardiz", 
+                "url": "/solardiz", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Further comments on the patch (\"non-issues\"):\n\n5. On Linux, whether seteuid() and setuid() are per-thread or not depends on whether you're invoking the direct syscalls or the glibc wrappers of the same name. You possibly already found the discussion at https://github.com/golang/go/issues/1435 where it's said that in Go they happened to be per-thread, yet in there test.go calls syscall.Setuid(), whereas you use an import \"C\" block #include'ing glibc headers and calling those functions. Thus, while I am not familiar with Go, it appears to me that in your case you'd likely be invoking the function versions that are trying to apply the change across all threads (whether they succeed is another matter - it's a can of worms). This means that your source code comments are probably wrong.\n\n6. \"Luckily\", PAM modules are commonly or even typically not thread-safe anyway, and certainly e.g. sudo shouldn't expect thread-safety there. (It's yet another reason why it's pretty crazy to have a PAM module in Go, in my opinion. Why take the extra risks? But I digress.)\n\n7. Similarly, you don't really have to use the *_r() function versions, but if you do I recommend you don't rely solely on the semantics where they NULL out the provided pointer on error. I recommend that you also check the return value.\n\n8. Good thinking about ptrace. On Linux, the dumpable flag is reset automagically on SUID exec as well as when the program changes uid's. This has been so for 20+ years. I don't know re: Mac OS X; I hope they also started doing it right many years ago, but I wouldn't vouch for that. So while your code is likely redundant in that respect, it's indeed OK to keep those hardening changes.\n\n9. I would recommend s/8096/8192/ for clarity (I guess you upgraded this from 4096, but forgot to edit the 96) and, more importantly, I recommend to use sizeof(buf) instead of the constant in the function calls.\n\n10. Strictly speaking, and for some use cases this could conceivably be a real issue, you could also want to switch egid and groups. This could matter in case the module is invoked from a service (so has not only uid 0, but also e.g. gid 0), yet somehow the env var is defined. However, this complicates the logic (of when to do it, how to recover from failures), and I am tired - don't want to increase the number of iterations of code review. ;-) So maybe document this somewhere?", 
+            "markdown_message": "<p>Further comments on the patch (&quot;non-issues&quot;):</p>\n\n<ol>\n<li><p>On Linux, whether seteuid() and setuid() are per-thread or not depends on whether you&#39;re invoking the direct syscalls or the glibc wrappers of the same name. You possibly already found the discussion at <a title=\"https://github.com/golang/go/issues/1435\" href=\"/redirect?signature=4cd1fdfdc892f31bb61ff00f60b40e732ca67740&amp;url=https%3A%2F%2Fgithub.com%2Fgolang%2Fgo%2Fissues%2F1435\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/golang/go/issues/1435</span><i class=\"icon-external-link\"></i></a> where it&#39;s said that in Go they happened to be per-thread, yet in there test.go calls syscall.Setuid(), whereas you use an import &quot;C&quot; block #include&#39;ing glibc headers and calling those functions. Thus, while I am not familiar with Go, it appears to me that in your case you&#39;d likely be invoking the function versions that are trying to apply the change across all threads (whether they succeed is another matter - it&#39;s a can of worms). This means that your source code comments are probably wrong.</p></li>\n<li><p>&quot;Luckily&quot;, PAM modules are commonly or even typically not thread-safe anyway, and certainly e.g. sudo shouldn&#39;t expect thread-safety there. (It&#39;s yet another reason why it&#39;s pretty crazy to have a PAM module in Go, in my opinion. Why take the extra risks? But I digress.)</p></li>\n<li><p>Similarly, you don&#39;t really have to use the *_r() function versions, but if you do I recommend you don&#39;t rely solely on the semantics where they NULL out the provided pointer on error. I recommend that you also check the return value.</p></li>\n<li><p>Good thinking about ptrace. On Linux, the dumpable flag is reset automagically on SUID exec as well as when the program changes uid&#39;s. This has been so for 20+ years. I don&#39;t know re: Mac OS X; I hope they also started doing it right many years ago, but I wouldn&#39;t vouch for that. So while your code is likely redundant in that respect, it&#39;s indeed OK to keep those hardening changes.</p></li>\n<li><p>I would recommend s/8096/8192/ for clarity (I guess you upgraded this from 4096, but forgot to edit the 96) and, more importantly, I recommend to use sizeof(buf) instead of the constant in the function calls.</p></li>\n<li><p>Strictly speaking, and for some use cases this could conceivably be a real issue, you could also want to switch egid and groups. This could matter in case the module is invoked from a service (so has not only uid 0, but also e.g. gid 0), yet somehow the env var is defined. However, this complicates the logic (of when to do it, how to recover from failures), and I am tired - don&#39;t want to increase the number of iterations of code review. ;-) So maybe document this somewhere?</p></li>\n</ol>\n", 
+            "type": "Activities::Comment", 
+            "id": 1478482, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-13T04:54:36.461Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-13T04:54:36.461Z", 
+            "actor": {
+                "username": "solardiz", 
+                "url": "/solardiz", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "I see that most of what I pointed out has been addressed, and the fix made public. That's great. Thank you!\n\nOut of those I pointed out before, the only fix missed, and one still needed, is this:\n\n\"The fileUID() check should be after the seteuid(uid) call. Otherwise we have that oracle/infoleak that I mentioned in a previous comment, allowing for probing of arbitrary inaccessible pathnames.\"\n\nSpecifically, the line \"ownerUID := fileUID(authSock)\" (and its preceding comment) should be moved to below the \"if {  ... }\" block that follows (the one that switches euid). I guess maybe my earlier comment about the oracle/infoleak wasn't communicated to the author, so this concern wasn't understood?\n\nMeanwhile, I updated my understanding of PAM thread-safety. Things have improved a bit since last time I had checked (years ago). It appears that now Linux-PAM's pam_unix does use getpwnam_r() and friends, yet it still switches the process global uids:\n\nhttps://git.fedorahosted.org/cgit/linux-pam.git/tree/modules/pam_unix/passverify.c#n154\nhttps://git.fedorahosted.org/cgit/linux-pam.git/tree/libpam/pam_modutil_getpwnam.c\n\nThis combination appears to be similar to what pam-ussh does now. So this detail on PAM is JFYI, no action needed on it.\n\nIn your code, if you wanted to be thread-safer than pam_unix, you could probably switch fsuid instead of euid, which should do the trick in this case due to parent directory permissions - and in fact the uncertainty regarding whether/how permissions on Unix sockets themselves are applied (across different Unix-likes) is probably the reason why OpenSSH does this mkdtemp() in the first place. Note that there's no getfsuid() - instead, setfsuid()'s return value is the previous fsuid. fsuid should per-thread even with glibc (not only direct syscall). Again, this is just an option, and no change is necessary.\n\nThanks again for the prompt fix.", 
+            "markdown_message": "<p>I see that most of what I pointed out has been addressed, and the fix made public. That&#39;s great. Thank you!</p>\n\n<p>Out of those I pointed out before, the only fix missed, and one still needed, is this:</p>\n\n<p>&quot;The fileUID() check should be after the seteuid(uid) call. Otherwise we have that oracle/infoleak that I mentioned in a previous comment, allowing for probing of arbitrary inaccessible pathnames.&quot;</p>\n\n<p>Specifically, the line &quot;ownerUID := fileUID(authSock)&quot; (and its preceding comment) should be moved to below the &quot;if {  ... }&quot; block that follows (the one that switches euid). I guess maybe my earlier comment about the oracle/infoleak wasn&#39;t communicated to the author, so this concern wasn&#39;t understood?</p>\n\n<p>Meanwhile, I updated my understanding of PAM thread-safety. Things have improved a bit since last time I had checked (years ago). It appears that now Linux-PAM&#39;s pam_unix does use getpwnam_r() and friends, yet it still switches the process global uids:</p>\n\n<p><a title=\"https://git.fedorahosted.org/cgit/linux-pam.git/tree/modules/pam_unix/passverify.c#n154\" href=\"/redirect?signature=523d77ae6fcf39ae593941aaf7948d1072d06507&amp;url=https%3A%2F%2Fgit.fedorahosted.org%2Fcgit%2Flinux-pam.git%2Ftree%2Fmodules%2Fpam_unix%2Fpassverify.c%23n154\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://git.fedorahosted.org/cgit/linux-pam.git/tree/modules/pam_unix/passverify.c#n154</span><i class=\"icon-external-link\"></i></a><br>\n<a title=\"https://git.fedorahosted.org/cgit/linux-pam.git/tree/libpam/pam_modutil_getpwnam.c\" href=\"/redirect?signature=c3b639864bee0f6f480902f534bd2f767814a3a8&amp;url=https%3A%2F%2Fgit.fedorahosted.org%2Fcgit%2Flinux-pam.git%2Ftree%2Flibpam%2Fpam_modutil_getpwnam.c\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://git.fedorahosted.org/cgit/linux-pam.git/tree/libpam/pam_modutil_getpwnam.c</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>This combination appears to be similar to what pam-ussh does now. So this detail on PAM is JFYI, no action needed on it.</p>\n\n<p>In your code, if you wanted to be thread-safer than pam_unix, you could probably switch fsuid instead of euid, which should do the trick in this case due to parent directory permissions - and in fact the uncertainty regarding whether/how permissions on Unix sockets themselves are applied (across different Unix-likes) is probably the reason why OpenSSH does this mkdtemp() in the first place. Note that there&#39;s no getfsuid() - instead, setfsuid()&#39;s return value is the previous fsuid. fsuid should per-thread even with glibc (not only direct syscall). Again, this is just an option, and no change is necessary.</p>\n\n<p>Thanks again for the prompt fix.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1481327, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-13T06:18:21.485Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-13T06:18:21.485Z", 
+            "actor": {
+                "username": "pmoody-uber", 
+                "url": "/pmoody-uber", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi,\n\nthis is peter, the pam-ussh author. first of all, thank you so much for posting this initial bug report, and for following up with the reviews and comments. i'm a little embarrassed by how trivial this bug was, and i'm trying to blame my co-workers for missing it in review, but they're having none of it (this bug is all on me).\n\nanyway, I tried posting a reply earlier but I didn't have appropriate h1 perms to it ended up being an internal only comment.\n\nregarding the fileUID check; I agree that it can be used force the pam-ussh module to reveal more info than the caller would get from running, eg. ls(1), but it seems like if a user is on the system, they should be able to figure out everything that fileUID returns via 'ls /tmp' and 'ps auxgw | grep ssh-agent', right? If the auth sock's are just /tmp/ssh-<random>/agent.<pid>, it's not much work to figure out <pid> and <random>. But from the admin's perspective, a log line of\n\n   pam-ussh[54762]: error opening auth sock (sock owner: 4015/alice) by (caller: 4027/mallory)\n\nis more useful than\n\n   pam-ussh[54762]: error opening auth sock by (caller: 4027/mallory)\n\nor am I missing something?", 
+            "markdown_message": "<p>Hi,</p>\n\n<p>this is peter, the pam-ussh author. first of all, thank you so much for posting this initial bug report, and for following up with the reviews and comments. i&#39;m a little embarrassed by how trivial this bug was, and i&#39;m trying to blame my co-workers for missing it in review, but they&#39;re having none of it (this bug is all on me).</p>\n\n<p>anyway, I tried posting a reply earlier but I didn&#39;t have appropriate h1 perms to it ended up being an internal only comment.</p>\n\n<p>regarding the fileUID check; I agree that it can be used force the pam-ussh module to reveal more info than the caller would get from running, eg. ls(1), but it seems like if a user is on the system, they should be able to figure out everything that fileUID returns via &#39;ls /tmp&#39; and &#39;ps auxgw | grep ssh-agent&#39;, right? If the auth sock&#39;s are just /tmp/ssh-&lt;random&gt;/agent.&lt;pid&gt;, it&#39;s not much work to figure out &lt;pid&gt; and &lt;random&gt;. But from the admin&#39;s perspective, a log line of</p>\n\n<p>pam-ussh[54762]: error opening auth sock (sock owner: 4015/alice) by (caller: 4027/mallory)</p>\n\n<p>is more useful than</p>\n\n<p>pam-ussh[54762]: error opening auth sock by (caller: 4027/mallory)</p>\n\n<p>or am I missing something?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1481419, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-13T17:24:10.526Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-13T17:24:10.526Z", 
+            "actor": {
+                "username": "solardiz", 
+                "url": "/solardiz", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hi Peter! Nice to talk to you directly. (I was already wondering if I should possibly move further discussion to GitHub or e-mail.)\n\nThank you for your prompt handling of this issue and its related sub-issues!\n\nI think you're missing my point regarding the fileUID check. I'll try to explain:\n\nThe problem with doing this check prior to the euid switch isn't limited to accessing another user's ssh-agent socket. It is about probing for existence of any pathname anywhere on the mounted filesystems, not limited to /tmp, nor to sockets. Side-channels allowing for such probing may include timing, log file size growth, log file contents (if readable), and probably/eventually more (e.g., some procfs or sysfs file showing stats on the user's own sudo's use of system resources - protection of such files for user's own invocations of SUID/SGID programs is traditionally inconsistent).\n\nFixing this doesn't strictly require omitting the \"(sock owner: 4015/alice)\" detail from the log message. However, I think I see what you mean: since the other user socket's parent directory is not readable after you've switched the euid, you wouldn't be able to check permissions directly on the socket itself. If you like, you could then fall back to recording permissions of the directory, just for the log message (and have it say those are for the directory). I am not sure if this complexity is justified.\n\nOne more issue I haven't yet mentioned: much of our logic so far is specific to sudo's use of the module. In case the module is stacked for su, the logic falls apart. The target user would be root, so that's the username you'd obtain from PAM and you would be accessing the socket with root privileges. However, the env var remains under control of an unprivileged user (and moreover even if it is not altered then it's set to point to the user's socket). Your \"pam-ussh: check cert against the pam username\" commit hopefully defeats the obvious attack on the authentication (although this depends on some external/setup detail), but it doesn't deal with the pathname probing issue above. Maybe you should re-word the README some further, stating that the module is _only_ meant for use with sudo, and any other use may be unsafe?", 
+            "markdown_message": "<p>Hi Peter! Nice to talk to you directly. (I was already wondering if I should possibly move further discussion to GitHub or e-mail.)</p>\n\n<p>Thank you for your prompt handling of this issue and its related sub-issues!</p>\n\n<p>I think you&#39;re missing my point regarding the fileUID check. I&#39;ll try to explain:</p>\n\n<p>The problem with doing this check prior to the euid switch isn&#39;t limited to accessing another user&#39;s ssh-agent socket. It is about probing for existence of any pathname anywhere on the mounted filesystems, not limited to /tmp, nor to sockets. Side-channels allowing for such probing may include timing, log file size growth, log file contents (if readable), and probably/eventually more (e.g., some procfs or sysfs file showing stats on the user&#39;s own sudo&#39;s use of system resources - protection of such files for user&#39;s own invocations of SUID/SGID programs is traditionally inconsistent).</p>\n\n<p>Fixing this doesn&#39;t strictly require omitting the &quot;(sock owner: 4015/alice)&quot; detail from the log message. However, I think I see what you mean: since the other user socket&#39;s parent directory is not readable after you&#39;ve switched the euid, you wouldn&#39;t be able to check permissions directly on the socket itself. If you like, you could then fall back to recording permissions of the directory, just for the log message (and have it say those are for the directory). I am not sure if this complexity is justified.</p>\n\n<p>One more issue I haven&#39;t yet mentioned: much of our logic so far is specific to sudo&#39;s use of the module. In case the module is stacked for su, the logic falls apart. The target user would be root, so that&#39;s the username you&#39;d obtain from PAM and you would be accessing the socket with root privileges. However, the env var remains under control of an unprivileged user (and moreover even if it is not altered then it&#39;s set to point to the user&#39;s socket). Your &quot;pam-ussh: check cert against the pam username&quot; commit hopefully defeats the obvious attack on the authentication (although this depends on some external/setup detail), but it doesn&#39;t deal with the pathname probing issue above. Maybe you should re-word the README some further, stating that the module is <u>only</u> meant for use with sudo, and any other use may be unsafe?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1482738, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-13T18:00:11.639Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-13T18:00:11.639Z", 
+            "actor": {
+                "username": "pmoody-uber", 
+                "url": "/pmoody-uber", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Ah, of course. I'll stat the owning directory. \n\ncan you open an issue on github for the stacking issue? I think you're correct in your analysis that check the username against the cert should prevent the obvious bug (another embarrassing omission from the original commit :-/) but I want to be sure and that discussion is probably outside of the scope of h1.\n\nThanks again. This has been incredibly helpful.", 
+            "markdown_message": "<p>Ah, of course. I&#39;ll stat the owning directory. </p>\n\n<p>can you open an issue on github for the stacking issue? I think you&#39;re correct in your analysis that check the username against the cert should prevent the obvious bug (another embarrassing omission from the original commit :-/) but I want to be sure and that discussion is probably outside of the scope of h1.</p>\n\n<p>Thanks again. This has been incredibly helpful.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1482840, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-13T21:45:54.357Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-13T21:45:54.357Z", 
+            "actor": {
+                "username": "solardiz", 
+                "url": "/solardiz", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "OK, created https://github.com/uber/pam-ussh/issues/4", 
+            "markdown_message": "<p>OK, created <a title=\"https://github.com/uber/pam-ussh/issues/4\" href=\"/redirect?signature=71f3a2b16ab4dc0fde937755eb77598e1b026146&amp;url=https%3A%2F%2Fgithub.com%2Fuber%2Fpam-ussh%2Fissues%2F4\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/uber/pam-ussh/issues/4</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1483442, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "solardiz", 
+                "url": "/solardiz"
+            }, 
+            "created_at": "2017-02-22T18:38:46.941Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-22T18:38:46.941Z", 
+            "actor": {
+                "username": "dnathe4th", 
+                "url": "/dnathe4th", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/064/148/74e079770e492cc90b99abe011438ac6504337e1_medium.png?1460504047"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Hey @solardiz , thank you one final time for your work on this. It looks like everything is wrapped up and the version bumped, so I am closing this as resolved.\n\nOur team meets weekly to evaluate resolved reports for bounties, so expect to hear back from us soon. Have a great day!", 
+            "markdown_message": "<p>Hey <a href=\"/solardiz\">@solardiz</a> , thank you one final time for your work on this. It looks like everything is wrapped up and the version bumped, so I am closing this as resolved.</p>\n\n<p>Our team meets weekly to evaluate resolved reports for bounties, so expect to hear back from us soon. Have a great day!</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1499902, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-03-01T17:08:27.523Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-01T17:08:27.523Z", 
+            "actor": {
+                "url": "/uber", 
+                "profile": {
+                    "name": "Uber"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/314/0010251d7088db2a1b236eb594b6371af4492609_medium.png?1514905146"
+                }
+            }, 
+            "team_handle": "uber", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "1500.0", 
+            "collaborator": {
+                "username": "solardiz", 
+                "url": "/solardiz"
+            }, 
+            "message": "Hi @solardiz, thanks for this report, and for your participation in our bug bounty program. This was the first submission for an open-source project for our program, and we appreciate your time working with us through the fix. We hope to see more submissions from you in the future! ", 
+            "markdown_message": "<p>Hi <a href=\"/solardiz\">@solardiz</a>, thanks for this report, and for your participation in our bug bounty program. This was the first submission for an open-source project for our program, and we appreciate your time working with us through the fix. We hope to see more submissions from you in the future! </p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1513764, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-01T20:27:21.496Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-01T20:27:21.496Z", 
+            "actor": {
+                "username": "solardiz", 
+                "url": "/solardiz", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "Thank you! How about making this issue public (I mean the HackerOne discussion above, as the actual bug and fix are already public via GitHub commits)? You could use this to set a precedent about your open source projects being in scope and eligible to bounty payouts. Maybe that would encourage others to report bugs in those as well.", 
+            "markdown_message": "<p>Thank you! How about making this issue public (I mean the HackerOne discussion above, as the actual bug and fix are already public via GitHub commits)? You could use this to set a precedent about your open source projects being in scope and eligible to bounty payouts. Maybe that would encourage others to report bugs in those as well.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1514222, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-20T18:07:32.322Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-20T18:07:32.322Z", 
+            "actor": {
+                "username": "fletcher", 
+                "url": "/fletcher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/016/090/ff77c612c467177339fdbacd37000fddabaec61b_medium.jpg?1420748005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1552862, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-20T19:57:39.616Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-20T19:57:39.616Z", 
+            "actor": {
+                "username": "solardiz", 
+                "url": "/solardiz", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1553089, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-20T19:57:39.665Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-20T19:57:39.665Z", 
+            "actor": {
+                "username": "solardiz", 
+                "url": "/solardiz", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "uber", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1553090, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "solardiz", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/solardiz", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 27, 
+        "name": "Improper Authentication - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2017-03-20T19:57:39.640Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/204802", 
+    "created_at": "2017-02-09T00:04:01.367Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"summary\">Summary</h2>\n\n<p><a title=\"https://github.com/uber/pam-ussh\" href=\"/redirect?signature=36081c7fc55f6e89aa49e115ab0c2a58dc2e7cf3&amp;url=https%3A%2F%2Fgithub.com%2Fuber%2Fpam-ussh\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/uber/pam-ussh</span><i class=\"icon-external-link\"></i></a> was open-sourced today (kudos!) and is presumably used within Uber&#39;s infrastructure. This is a PAM module written a Go that &quot;will authenticate a user based on them having an ssh certificate in their ssh-agent signed by a specified ssh CA.&quot; A cursory look at the code and the documentation reveals that the module trusts the SSH_AUTH_SOCK environment variable to determine the Unix domain socket it will use to talk to ssh-agent:</p>\n\n<p><a title=\"https://github.com/uber/pam-ussh/blob/a50585bb7a0f16cd4e813509ad1393731cbb9a14/pam_ussh.go#L70\" href=\"/redirect?signature=2c6e038e66a025bbd58177d370d82f3f763f7ab1&amp;url=https%3A%2F%2Fgithub.com%2Fuber%2Fpam-ussh%2Fblob%2Fa50585bb7a0f16cd4e813509ad1393731cbb9a14%2Fpam_ussh.go%23L70\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/uber/pam-ussh/blob/a50585bb7a0f16cd4e813509ad1393731cbb9a14/pam_ussh.go#L70</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>The documentation suggests configuring the module for sudo&#39;s PAM stack. Since sudo is normally installed SUID root and invokes its PAM stacks with root privileges, it may happily talk to another user&#39;s ssh-agent via that other user&#39;s and agent&#39;s Unix domain socket, despite of this socket not being accessible to the invoking user directly (since it&#39;s protected with Unix file permissions). Being an environment variable, SSH_AUTH_SOCK is under control of the user/attacker invoking sudo. In other words, the code and suggested setup effectively bypass Unix file permissions on ssh-agent sockets.</p>\n\n<p>This appears to be a design error of pam-ussh.</p>\n\n<h2 id=\"security-impact\">Security Impact</h2>\n\n<p>A local user may trick pam-ussh and thus sudo to authenticate itself using another local user&#39;s certificate. This other user has to be currently logged in, with ssh-agent active. (The attack script may wait for this condition to be met.) The attacking user doesn&#39;t have to possess any certificate at all, nor use ssh-agent themselves. In fact, the attack may likely be mounted even by a compromised system service pseudo-user, provided that sudo is within its reach.</p>\n\n<h2 id=\"reproduction-steps\">Reproduction Steps</h2>\n\n<p>Not having access to a setup that Uber actually uses within its infrastructure, I can only be moderately confident that this security issue applies and these steps will work. That said, the reproduction steps may be roughly as follows:</p>\n\n<ol>\n<li><p>Login (over SSH or otherwise) as a non-privileged user to a shell account on a system with pam-ussh deployed for sudo.</p></li>\n<li><p>Check the process list and directories matching /tmp/ssh-* for instances of ssh-agent and their sockets corresponding to other logged in users. If none, then wait until this changes.</p></li>\n<li><p>Infer the target user&#39;s ssh-agent socket pathname by listing /tmp/ssh-* and obtaining the PID from the process list. The pathname may be of the form /tmp/ssh-RND/agent.PID, where the &quot;RND&quot; and &quot;PID&quot; portions are determined from the directory listing and the process list, respectively.</p></li>\n<li><p>Invoke a command like &quot;SSH_AUTH_SOCK=/tmp/ssh-RND/agent.PID sudo bash&quot; with the &quot;RND&quot; and &quot;PID&quot; substituted with substrings identified above.</p></li>\n</ol>\n\n<h2 id=\"specifics\">Specifics</h2>\n\n<ul>\n<li>If applicable, what account were you using to test?\n\n<ul>\n<li>N/A</li>\n</ul>\n</li>\n<li>If applicable, what domain(s) does this vulnerability affect?\n\n<ul>\n<li>Unclear - it&#39;s internal infrastructure that might be in use behind a variety of Uber services</li>\n</ul>\n</li>\n<li>Does this only affect specific versions or vendors?\n\n<ul>\n<li>pam-ussh at least as published on GitHub as of today (Feb 8, 2017)</li>\n</ul>\n</li>\n</ul>\n\n<p>This might or might not be within scope of Uber&#39;s bug bounty program, and I have not actually reproduced the issue - only having identified its likelihood through the source code and documentation. Yet I figured I&#39;d give this communication channel a try, and report this. I&#39;d appreciate a review of these findings and any feedback you might provide.</p>\n\n<p>A related concern is that Go&#39;s runtime might not be suitable for use in SUID/SGID programs yet - e.g., it might also have environment variables it trusts too much, as well as many other issues that libc&#39;s have been hardened against over the years (and decades). I have not looked into that yet, but you might want to.</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.uber.com", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "Uber"
+        }, 
+        "handle": "uber", 
+        "url": "https://hackerone.com/uber", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/314/826c90cba1555458df787ae914793cd5070e18df_small.png?1514905146", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/314/0010251d7088db2a1b236eb594b6371af4492609_medium.png?1514905146"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 314, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

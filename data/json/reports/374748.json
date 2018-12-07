@@ -1,0 +1,335 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-11-09T14:44:05.320Z", 
+    "voters": [
+        "eveeez", 
+        "geeknik", 
+        "wphackedhelp"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 374748, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-11-09T14:37:41.862Z", 
+    "vulnerability_information": "##Summary\n\nAn authenticated administrator can alter *Entries to display on frontpage* and *Entries to display in Feeds* in a way to perform a SQL injection and extract database records or access files on the underlying system.\n\n##Description\n\nThe function `serendipity_fetchComments` (implemented in `functions_comments.inc.php`) allows to obtain an array of comments related to a specific entry id. It accepts six parameters that will impact the query:\n- `$id`: casted as integer and then used in the query;\n- `$limit`: used unescaped in the query;\n- `$order `: used unescaped in the query;\n- `$showAll`: adds a fixed condition to the query;\n- `$type`: used unescaped in the query;\n- `$where`: used unescaped in the query.\n\nThus, any use of `serendipity_fetchComments` where either `$limit`, `$order`, `$type` or `$where` are user-controlled will result in a SQL injection. Two vulnerable calls were discovered.\n\nThe first one can be found in `rss.php`. The value of `$serendipity['RSSfetchLimit']` comes from website's configuration (*Entries to display in Feeds*) and is used as second argument of `serendipity_fetchComments`:\n\n```php\n<?php\n// [...]\nswitch ($_GET['type']) {\n    case 'comments_and_trackbacks':\n    case 'trackbacks':\n    case 'comments':\n        $entries     = serendipity_fetchComments(isset($_GET['cid']) ? $_GET['cid'] : null, $serendipity['RSSfetchLimit'], 'co.id desc', false, $_GET['type']);\n```\n\nThe same way, `serendipity_printCommentsByAuthor` (implemented in `functions_comments.inc.php`) uses `$serendipity['fetchLimit']` as second argument. The value of `$serendipity['fetchLimit']` also comes from website's configuration (*Entries to display on frontpage*):\n\n```php\n<?php\n// [...]\n    $sql_limit = $serendipity['fetchLimit'] * ($serendipity['GET']['page']-1) . ',' . $serendipity['fetchLimit'];\n    $c = serendipity_fetchComments(null, $sql_limit, 'co.entry_id DESC, co.id ASC', false, $type, $sql_where);\n```\n## Steps To Reproduce\n\n  1. Access https://blog.fuzzing-project.org/serendipity_admin.php?serendipity[adminModule]=configuration as authenticated administrator.\n  1. Alter either *Entries to display on frontpage* or *Entries to display in Feeds* (under *Appearance and Options*) by adding any non-numeric character in one of these fields.\n  1. Access https://blog.fuzzing-project.org/rss.php?type=comment if you edited *Entries to display in Feeds*, or the homepage is you edited *Entries to display on frontpage*. The character \nbroke the correctness of the query and an error message will be displayed.\n\nI don't have any test environment at the moment but let me know if you need a real payload to show it's possible to extract arbitrary database records.\n\n## Impact\n\nAn authenticated administrator can extract database records, including password hashes of other users of the instance. Depending on database user privileges, it could also allow to access other bases or files on the underlying server.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "User"
+    }, 
+    "title": "SQL injection in Serendipity (serendipity_fetchComments)", 
+    "is_member_of_team?": null, 
+    "vote_count": 3, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 9817, 
+            "content": "Bug in upstream Serendipity software, got fixed in version 2.1.3.\n\nThe impact is limited, as it requires a backend login. Still it's a great finding and many thanks to the reporter.", 
+            "content_html": "<p>Bug in upstream Serendipity software, got fixed in version 2.1.3.</p>\n\n<p>The impact is limited, as it requires a backend login. Still it&#39;s a great finding and many thanks to the reporter.</p>\n"
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "*.fuzzing-project.org", 
+        "max_severity": "critical", 
+        "databaseId": 11140, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": "2018-12-09T14:37:41.921Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-15T12:47:20.916Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-15T12:47:20.916Z", 
+            "actor": {
+                "username": "oreamnos", 
+                "url": "/oreamnos", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/178/427/b2c3354151638b34c8ae3a64ae38fb0065e84a27_medium.png?1528961006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "Hi @hannob, any update regarding this one? Should I report it directly to upstream?", 
+            "markdown_message": "<p>Hi <a href=\"/hannob\">@hannob</a>, any update regarding this one? Should I report it directly to upstream?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3048154, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-18T14:07:16.141Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-18T14:07:16.141Z", 
+            "actor": {
+                "username": "hanno", 
+                "url": "/hanno", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/918/0cbb82765672dbb4db446f4f2bda31226dbc2076_medium.jpg?1535099750"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "Reported to serendipity.\nGarvin (s9y dev) thinks this is a low impact issue, as it requires a logged in admin. But he'll fix it, likely with a proper cast.", 
+            "markdown_message": "<p>Reported to serendipity.<br>\nGarvin (s9y dev) thinks this is a low impact issue, as it requires a logged in admin. But he&#39;ll fix it, likely with a proper cast.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 3061889, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-18T17:38:17.473Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-18T17:38:17.473Z", 
+            "actor": {
+                "username": "hanno", 
+                "url": "/hanno", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/918/0cbb82765672dbb4db446f4f2bda31226dbc2076_medium.jpg?1535099750"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "This is now fixed with a patch I got from s9y's dev (as should be all other open issues).\nI'd appreciate if you could check that and also look for further issues, s9y will soon release a security update.", 
+            "markdown_message": "<p>This is now fixed with a patch I got from s9y&#39;s dev (as should be all other open issues).<br>\nI&#39;d appreciate if you could check that and also look for further issues, s9y will soon release a security update.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3063067, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-18T17:57:39.424Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-18T17:57:39.424Z", 
+            "actor": {
+                "username": "oreamnos", 
+                "url": "/oreamnos", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/178/427/b2c3354151638b34c8ae3a64ae38fb0065e84a27_medium.png?1528961006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "> Garvin (s9y dev) thinks this is a low impact issue, as it requires a logged in admin. \n\nI agree, even if it could still be exploited by chaining with #373950. \n\n> I'd appreciate if you could check that and also look for further issues, s9y will soon release a security update.\n\nThe fix (https://github.com/s9y/Serendipity/commit/1afc4d929d96e5bf63cafd4cb8155ca2fb4e8f5f#diff-2168c9599f249d04a7bda43923c908f2R104) looks good to me. I would also add a cast to https://github.com/s9y/Serendipity/blob/1afc4d929d96e5bf63cafd4cb8155ca2fb4e8f5f/include/functions_comments.inc.php#L471, just to be sure.", 
+            "markdown_message": "<blockquote>\n<p>Garvin (s9y dev) thinks this is a low impact issue, as it requires a logged in admin. </p>\n</blockquote>\n\n<p>I agree, even if it could still be exploited by chaining with <a href=\"/reports/373950\">#373950</a>. </p>\n\n<blockquote>\n<p>I&#39;d appreciate if you could check that and also look for further issues, s9y will soon release a security update.</p>\n</blockquote>\n\n<p>The fix (<a title=\"https://github.com/s9y/Serendipity/commit/1afc4d929d96e5bf63cafd4cb8155ca2fb4e8f5f#diff-2168c9599f249d04a7bda43923c908f2R104\" href=\"/redirect?signature=ad8f4b733d43914d595a2047812316b11a0522de&amp;url=https%3A%2F%2Fgithub.com%2Fs9y%2FSerendipity%2Fcommit%2F1afc4d929d96e5bf63cafd4cb8155ca2fb4e8f5f%23diff-2168c9599f249d04a7bda43923c908f2R104\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/s9y/Serendipity/commit/1afc4d929d96e5bf63cafd4cb8155ca2fb4e8f5f#diff-2168c9599f249d04a7bda43923c908f2R104</span><i class=\"icon-external-link\"></i></a>) looks good to me. I would also add a cast to <a title=\"https://github.com/s9y/Serendipity/blob/1afc4d929d96e5bf63cafd4cb8155ca2fb4e8f5f/include/functions_comments.inc.php#L471\" href=\"/redirect?signature=aa8d325641825c03e642d4c5e7baf770ad677faa&amp;url=https%3A%2F%2Fgithub.com%2Fs9y%2FSerendipity%2Fblob%2F1afc4d929d96e5bf63cafd4cb8155ca2fb4e8f5f%2Finclude%2Ffunctions_comments.inc.php%23L471\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/s9y/Serendipity/blob/1afc4d929d96e5bf63cafd4cb8155ca2fb4e8f5f/include/functions_comments.inc.php#L471</span><i class=\"icon-external-link\"></i></a>, just to be sure.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3063168, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-20T09:11:53.005Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-20T09:11:53.005Z", 
+            "actor": {
+                "username": "oreamnos", 
+                "url": "/oreamnos", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/178/427/b2c3354151638b34c8ae3a64ae38fb0065e84a27_medium.png?1528961006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "Suggestion implemented in https://github.com/s9y/Serendipity/commit/005a86da1cacdfb579001d4ff9f85df16b4b5316#diff-e9913ab11efe99f0e30efb4d2f6fd2b9R471.", 
+            "markdown_message": "<p>Suggestion implemented in <a title=\"https://github.com/s9y/Serendipity/commit/005a86da1cacdfb579001d4ff9f85df16b4b5316#diff-e9913ab11efe99f0e30efb4d2f6fd2b9R471\" href=\"/redirect?signature=b3b78f5a913eb8cd7ec69a8febc1f1d8d242454c&amp;url=https%3A%2F%2Fgithub.com%2Fs9y%2FSerendipity%2Fcommit%2F005a86da1cacdfb579001d4ff9f85df16b4b5316%23diff-e9913ab11efe99f0e30efb4d2f6fd2b9R471\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/s9y/Serendipity/commit/005a86da1cacdfb579001d4ff9f85df16b4b5316#diff-e9913ab11efe99f0e30efb4d2f6fd2b9R471</span><i class=\"icon-external-link\"></i></a>.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3073292, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "oreamnos", 
+                "url": "/oreamnos"
+            }, 
+            "created_at": "2018-08-16T13:31:51.569Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-16T13:31:51.569Z", 
+            "actor": {
+                "username": "hanno", 
+                "url": "/hanno", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/918/0cbb82765672dbb4db446f4f2bda31226dbc2076_medium.jpg?1535099750"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "This was fixed with the release of Serendipity 2.1.3:\nhttp://blog.s9y.org/archives/278-Serendipity-2.1.3-released.html", 
+            "markdown_message": "<p>This was fixed with the release of Serendipity 2.1.3:<br>\n<a title=\"http://blog.s9y.org/archives/278-Serendipity-2.1.3-released.html\" href=\"/redirect?signature=b89a0b78b798fac31071bd00d582db4e9391cefe&amp;url=http%3A%2F%2Fblog.s9y.org%2Farchives%2F278-Serendipity-2.1.3-released.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://blog.s9y.org/archives/278-Serendipity-2.1.3-released.html</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3203944, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-09T14:37:41.884Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-09T14:37:41.884Z", 
+            "actor": {
+                "username": "hanno", 
+                "url": "/hanno", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/918/0cbb82765672dbb4db446f4f2bda31226dbc2076_medium.jpg?1535099750"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3617247, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-09T14:44:05.345Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-09T14:44:05.345Z", 
+            "actor": {
+                "username": "oreamnos", 
+                "url": "/oreamnos", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/178/427/b2c3354151638b34c8ae3a64ae38fb0065e84a27_medium.png?1528961006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3617257, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-09T14:44:05.395Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-09T14:44:05.395Z", 
+            "actor": {
+                "username": "oreamnos", 
+                "url": "/oreamnos", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/178/427/b2c3354151638b34c8ae3a64ae38fb0065e84a27_medium.png?1528961006"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3617258, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": false, 
+    "reporter": {
+        "username": "oreamnos", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/oreamnos", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/178/427/7be89c2e8725dd5becde6454a2ebeb7db9a94224_small.png?1528961006"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 67, 
+        "name": "SQL Injection"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": 231781.866522634, 
+    "disclosed_at": "2018-11-09T14:44:05.375Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/374748", 
+    "created_at": "2018-06-30T15:34:42.642Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"summary\">Summary</h2>\n\n<p>An authenticated administrator can alter <em>Entries to display on frontpage</em> and <em>Entries to display in Feeds</em> in a way to perform a SQL injection and extract database records or access files on the underlying system.</p>\n\n<h2 id=\"description\">Description</h2>\n\n<p>The function <code>serendipity_fetchComments</code> (implemented in <code>functions_comments.inc.php</code>) allows to obtain an array of comments related to a specific entry id. It accepts six parameters that will impact the query:</p>\n\n<ul>\n<li>\n<code>$id</code>: casted as integer and then used in the query;</li>\n<li>\n<code>$limit</code>: used unescaped in the query;</li>\n<li>\n<code>$order</code>: used unescaped in the query;</li>\n<li>\n<code>$showAll</code>: adds a fixed condition to the query;</li>\n<li>\n<code>$type</code>: used unescaped in the query;</li>\n<li>\n<code>$where</code>: used unescaped in the query.</li>\n</ul>\n\n<p>Thus, any use of <code>serendipity_fetchComments</code> where either <code>$limit</code>, <code>$order</code>, <code>$type</code> or <code>$where</code> are user-controlled will result in a SQL injection. Two vulnerable calls were discovered.</p>\n\n<p>The first one can be found in <code>rss.php</code>. The value of <code>$serendipity[&#39;RSSfetchLimit&#39;]</code> comes from website&#39;s configuration (<em>Entries to display in Feeds</em>) and is used as second argument of <code>serendipity_fetchComments</code>:</p>\n<pre class=\"highlight php\"><code><span class=\"cp\">&lt;?php</span>\n<span class=\"c1\">// [...]\n</span><span class=\"k\">switch</span> <span class=\"p\">(</span><span class=\"nv\">$_GET</span><span class=\"p\">[</span><span class=\"s1\">&#39;type&#39;</span><span class=\"p\">])</span> <span class=\"p\">{</span>\n    <span class=\"k\">case</span> <span class=\"s1\">&#39;comments_and_trackbacks&#39;</span><span class=\"o\">:</span>\n    <span class=\"k\">case</span> <span class=\"s1\">&#39;trackbacks&#39;</span><span class=\"o\">:</span>\n    <span class=\"k\">case</span> <span class=\"s1\">&#39;comments&#39;</span><span class=\"o\">:</span>\n        <span class=\"nv\">$entries</span>     <span class=\"o\">=</span> <span class=\"nx\">serendipity_fetchComments</span><span class=\"p\">(</span><span class=\"nb\">isset</span><span class=\"p\">(</span><span class=\"nv\">$_GET</span><span class=\"p\">[</span><span class=\"s1\">&#39;cid&#39;</span><span class=\"p\">])</span> <span class=\"o\">?</span> <span class=\"nv\">$_GET</span><span class=\"p\">[</span><span class=\"s1\">&#39;cid&#39;</span><span class=\"p\">]</span> <span class=\"o\">:</span> <span class=\"kc\">null</span><span class=\"p\">,</span> <span class=\"nv\">$serendipity</span><span class=\"p\">[</span><span class=\"s1\">&#39;RSSfetchLimit&#39;</span><span class=\"p\">],</span> <span class=\"s1\">&#39;co.id desc&#39;</span><span class=\"p\">,</span> <span class=\"kc\">false</span><span class=\"p\">,</span> <span class=\"nv\">$_GET</span><span class=\"p\">[</span><span class=\"s1\">&#39;type&#39;</span><span class=\"p\">]);</span>\n</code></pre>\n<p>The same way, <code>serendipity_printCommentsByAuthor</code> (implemented in <code>functions_comments.inc.php</code>) uses <code>$serendipity[&#39;fetchLimit&#39;]</code> as second argument. The value of <code>$serendipity[&#39;fetchLimit&#39;]</code> also comes from website&#39;s configuration (<em>Entries to display on frontpage</em>):</p>\n<pre class=\"highlight php\"><code><span class=\"cp\">&lt;?php</span>\n<span class=\"c1\">// [...]\n</span>    <span class=\"nv\">$sql_limit</span> <span class=\"o\">=</span> <span class=\"nv\">$serendipity</span><span class=\"p\">[</span><span class=\"s1\">&#39;fetchLimit&#39;</span><span class=\"p\">]</span> <span class=\"o\">*</span> <span class=\"p\">(</span><span class=\"nv\">$serendipity</span><span class=\"p\">[</span><span class=\"s1\">&#39;GET&#39;</span><span class=\"p\">][</span><span class=\"s1\">&#39;page&#39;</span><span class=\"p\">]</span><span class=\"o\">-</span><span class=\"mi\">1</span><span class=\"p\">)</span> <span class=\"o\">.</span> <span class=\"s1\">&#39;,&#39;</span> <span class=\"o\">.</span> <span class=\"nv\">$serendipity</span><span class=\"p\">[</span><span class=\"s1\">&#39;fetchLimit&#39;</span><span class=\"p\">];</span>\n    <span class=\"nv\">$c</span> <span class=\"o\">=</span> <span class=\"nx\">serendipity_fetchComments</span><span class=\"p\">(</span><span class=\"kc\">null</span><span class=\"p\">,</span> <span class=\"nv\">$sql_limit</span><span class=\"p\">,</span> <span class=\"s1\">&#39;co.entry_id DESC, co.id ASC&#39;</span><span class=\"p\">,</span> <span class=\"kc\">false</span><span class=\"p\">,</span> <span class=\"nv\">$type</span><span class=\"p\">,</span> <span class=\"nv\">$sql_where</span><span class=\"p\">);</span>\n</code></pre>\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce</h2>\n\n<ol>\n<li>Access <a title=\"https://blog.fuzzing-project.org/serendipity_admin.php?serendipity%5BadminModule%5D=configuration\" href=\"/redirect?signature=d817603db4c8fa55dd837473a07dedf8957bbd9b&amp;url=https%3A%2F%2Fblog.fuzzing-project.org%2Fserendipity_admin.php%3Fserendipity%255BadminModule%255D%3Dconfiguration\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://blog.fuzzing-project.org/serendipity_admin.php?serendipity%5BadminModule%5D=configuration</span><i class=\"icon-external-link\"></i></a> as authenticated administrator.</li>\n<li>Alter either <em>Entries to display on frontpage</em> or <em>Entries to display in Feeds</em> (under <em>Appearance and Options</em>) by adding any non-numeric character in one of these fields.</li>\n<li>Access <a title=\"https://blog.fuzzing-project.org/rss.php?type=comment\" href=\"/redirect?signature=204f792a86e4792c5c5f4e5ddc9cc57d83ed84b0&amp;url=https%3A%2F%2Fblog.fuzzing-project.org%2Frss.php%3Ftype%3Dcomment\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://blog.fuzzing-project.org/rss.php?type=comment</span><i class=\"icon-external-link\"></i></a> if you edited <em>Entries to display in Feeds</em>, or the homepage is you edited <em>Entries to display on frontpage</em>. The character \nbroke the correctness of the query and an error message will be displayed.</li>\n</ol>\n\n<p>I don&#39;t have any test environment at the moment but let me know if you need a real payload to show it&#39;s possible to extract arbitrary database records.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>An authenticated administrator can extract database records, including password hashes of other users of the instance. Depending on database user privileges, it could also allow to access other bases or files on the underlying server.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://hboeck.de/", 
+            "about": "Personal web projects from Hanno B\u00f6ck.", 
+            "twitter_handle": "hanno", 
+            "name": "Hanno's projects"
+        }, 
+        "handle": "hannob", 
+        "url": "https://hackerone.com/hannob", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/030/278/253800fbe8bfabdc72f03b7f0f1ddb38adb47f82_small.?1529948333", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/030/278/dfe1a45d96316ca04d5f928eaff3e62f576945a8_medium.?1529948333"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 30278, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

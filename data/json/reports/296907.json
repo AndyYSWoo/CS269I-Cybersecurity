@@ -1,0 +1,344 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "informative", 
+    "bug_reporter_agreed_on_going_public_at": "2018-02-01T06:40:46.068Z", 
+    "voters": [
+        "badshah_"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 296907, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-02-01T23:26:02.304Z", 
+    "vulnerability_information": "One way to add a custom domain name for GitLab pages is to create a new DNS A record pointing to the IP of GitLab Pages server i.e. `52.167.214.135`. A person who owns the domain name, could then add the domain name in the Pages settings (at `https://gitlab.com/<username>/<repo>/pages`). GitLab then assigns the domain name mentioned in the Pages settings to that repository if no other repository uses the domain name. All the visitors of the site will be delivered the HTML content in that repository.\n\nAn attacker who finds any domain name with DNS records pointing to the above mentioned IP, could take over it for malicious purposes. The domain name will be locked to the attackers repository and the legitimate owner cannot claim it until it is released by the attacker.\n\nThere are currently 1953 unique domain names with DNS records pointing to the above mentioned IP, and 115 domains could be taken over.\n\n## Steps To Reproduce:\n\nThere are websites which provide data about DNS records. One such website is DNSTrails.com.\n\n**Automated method to get all the domains pointing their DNS to `52.167.214.135`**:\n```python\nimport requests\nimport json\nimport time\n\nheaders = {\n    'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:57.0) Gecko/20100101 Firefox/57.0',\n    'Referer': 'https://dnstrails.com/',\n    'Origin': 'https://dnstrails.com',\n    'DNT': '1',\n}\n\npage_no = 1\n\nwhile page_no <= 1000:\n  params = (\n      ('page', page_no),\n  )\n  print \"Page : \" + str(page_no)\n  raw_data = requests.get('https://app.securitytrails.com/api/search/by_type/ip/52.167.214.135', headers=headers, params=params, verify=False)\n  data = json.loads(raw_data.text)\n  for s in data[\"result\"][\"items\"]:\n    with open('gitlab_domains.txt', 'a') as file:\n      file.write(s[\"domain\"] + '\\n')\n  page_no = page_no + 1\n#  print \"Sleeping for 5\"\n#  time.sleep(5)\n```\n\nGet the unique domain names using: `sort gitlab_domains.txt | uniq > unique_domains.txt`\n\n**Python code to check if the domain names are vulnerable:**\n```python\nimport requests\n\nwith open('unique_domains.txt') as f:\n    content = f.readlines()\ncontent = [x.strip() for x in content]\n\nfor s in content:\n  print '*'\n  try:\n    req = requests.get('http://' + s, timeout=10)\n    if req.status_code == 404 and \"The page you're looking for could not be found\" in req.text:\n      with open(\"vuln_websites.txt\", \"a\") as myfile:\n        myfile.write(s + '\\n')\n  except Exception as e:\n    with open(\"error.txt\", \"a\") as m:\n      m.write(s + '\\n')\n```\n\nThis script creates two files - `vuln_websites.txt` and `error.txt`. The domain names in `vuln_websites.txt` is vulnerable to domain name take overs on GitLab.\n\nCount of the vulnerable domain names: `wc -l vuln_websites.txt`. The output is : 115\n\n## Simple mitigation technique\n\nWhen the domain is added in the settings, get the whois data of the domain name. Check the DNS records and if it contains GitLab's above mentioned IP, request the OTP sent to the registered email address.\n\nA basic python implementation would be:\n\n```python\n# pip install python-whois\n\nimport whois\nw = whois.whois('domain.com')\nprint w[\"emails\"]\n# The OTP could be sent to that email\n```\n\n## Impact\n\nAttacker can create fake GitLab account(s) using the email(s) from temporary/anonymous email services. Configure fake email addresses with git for further code commits. Create multiple repositories and add domain name from the vulnerable list. The attacker can then:\n\n- Use the static websites as Command and Control centers for their malware / for other malicious intents\n- Phish the customers / visitors of the legitimate domain owners, abusing both the GitLab user's rights and GitLab's Terms of Use.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "medium", 
+        "author_type": "Team"
+    }, 
+    "title": "Lack of validation before assigning custom domain names leading to abuse of GitLab pages service", 
+    "is_member_of_team?": null, 
+    "vote_count": 1, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Informative", 
+    "public": true, 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-11T08:16:22.045Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-11T08:16:22.045Z", 
+            "actor": {
+                "username": "badshah_", 
+                "url": "/badshah_", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Also it is possible for the attacker to monitor all the domains in the `unique_domains.txt` to check if the legitimate author deletes the domain name in settings by chance. In such case the attacker could take over the domain before it is correctly configured.", 
+            "markdown_message": "<p>Also it is possible for the attacker to monitor all the domains in the <code>unique_domains.txt</code> to check if the legitimate author deletes the domain name in settings by chance. In such case the attacker could take over the domain before it is correctly configured.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2213873, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-14T02:43:16.817Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-14T02:43:16.817Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @bnchandrapal,\n\nThanks for the report. For this style of attack, like most attacks involving stale DNS entries, I'm afraid the burden rightfully falls on the owner of the domain. We have to balance the extra work required to verify a domain across thousands of individual sites with the likelihood that domain owners will delete their Pages site _without_ remembering to remove the DNS entry, which seems unlikely for domains of any importance. \n\nI'm closing this report as informative but please feel free to open a debate if you disagree.", 
+            "markdown_message": "<p>Hi <a href=\"/bnchandrapal\">@bnchandrapal</a>,</p>\n\n<p>Thanks for the report. For this style of attack, like most attacks involving stale DNS entries, I&#39;m afraid the burden rightfully falls on the owner of the domain. We have to balance the extra work required to verify a domain across thousands of individual sites with the likelihood that domain owners will delete their Pages site <u>without</u> remembering to remove the DNS entry, which seems unlikely for domains of any importance. </p>\n\n<p>I&#39;m closing this report as informative but please feel free to open a debate if you disagree.</p>\n", 
+            "type": "Activities::BugInformative", 
+            "id": 2221566, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-01T06:40:46.136Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-01T06:40:46.136Z", 
+            "actor": {
+                "username": "badshah_", 
+                "url": "/badshah_", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2341077, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-01T23:26:02.355Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-01T23:26:02.355Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2343425, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-01T23:26:02.440Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-01T23:26:02.440Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2343426, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-05T21:29:49.141Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-05T21:29:49.141Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi @bnchandrapal ,\n\nThank you for submitting this report. We've reconsidered the issue and are implementing a short-term fix as well as a domain verification mechanism. We will keep you updated on our progress via HackerOne.\n\nFeel free to contact us at anytime if you need an update.\n\nThank you,\nJames", 
+            "markdown_message": "<p>Hi <a href=\"/bnchandrapal\">@bnchandrapal</a> ,</p>\n\n<p>Thank you for submitting this report. We&#39;ve reconsidered the issue and are implementing a short-term fix as well as a domain verification mechanism. We will keep you updated on our progress via HackerOne.</p>\n\n<p>Feel free to contact us at anytime if you need an update.</p>\n\n<p>Thank you,<br>\nJames</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2353551, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-05T21:30:12.404Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-05T21:30:12.404Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Medium", 
+                "old_severity": null
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2353553, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-06T02:07:50.117Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-06T02:07:50.117Z", 
+            "actor": {
+                "username": "badshah_", 
+                "url": "/badshah_", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Thank you @jritchey . I also found that making the users add TXT records to the domains would be a good solution. ", 
+            "markdown_message": "<p>Thank you <a href=\"/jritchey\">@jritchey</a> . I also found that making the users add TXT records to the domains would be a good solution. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2354354, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-06T04:18:36.781Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-06T04:18:36.781Z", 
+            "actor": {
+                "username": "jritchey", 
+                "url": "/jritchey", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "We've created https://about.gitlab.com/2018/02/05/gitlab-pages-custom-domain-validation/ to notify our users of this issue.", 
+            "markdown_message": "<p>We&#39;ve created <a title=\"https://about.gitlab.com/2018/02/05/gitlab-pages-custom-domain-validation/\" href=\"/redirect?signature=21ea15d6302cce17c18c68b90ef27be83af7a2ca&amp;url=https%3A%2F%2Fabout.gitlab.com%2F2018%2F02%2F05%2Fgitlab-pages-custom-domain-validation%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://about.gitlab.com/2018/02/05/gitlab-pages-custom-domain-validation/</span><i class=\"icon-external-link\"></i></a> to notify our users of this issue.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2354469, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-22T18:11:14.086Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-22T18:11:14.086Z", 
+            "actor": {
+                "username": "kathyw", 
+                "url": "/kathyw", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Resolved.", 
+            "markdown_message": "<p>Resolved.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2422288, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "badshah_", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/badshah_", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 73, 
+        "name": "Phishing"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2018-02-01T23:26:02.414Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/296907", 
+    "created_at": "2017-12-11T08:14:59.603Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>One way to add a custom domain name for GitLab pages is to create a new DNS A record pointing to the IP of GitLab Pages server i.e. <code>52.167.214.135</code>. A person who owns the domain name, could then add the domain name in the Pages settings (at <code>https://gitlab.com/&lt;username&gt;/&lt;repo&gt;/pages</code>). GitLab then assigns the domain name mentioned in the Pages settings to that repository if no other repository uses the domain name. All the visitors of the site will be delivered the HTML content in that repository.</p>\n\n<p>An attacker who finds any domain name with DNS records pointing to the above mentioned IP, could take over it for malicious purposes. The domain name will be locked to the attackers repository and the legitimate owner cannot claim it until it is released by the attacker.</p>\n\n<p>There are currently 1953 unique domain names with DNS records pointing to the above mentioned IP, and 115 domains could be taken over.</p>\n\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<p>There are websites which provide data about DNS records. One such website is DNSTrails.com.</p>\n\n<p><strong>Automated method to get all the domains pointing their DNS to <code>52.167.214.135</code></strong>:</p>\n<pre class=\"highlight python\"><code><span class=\"kn\">import</span> <span class=\"nn\">requests</span>\n<span class=\"kn\">import</span> <span class=\"nn\">json</span>\n<span class=\"kn\">import</span> <span class=\"nn\">time</span>\n\n<span class=\"n\">headers</span> <span class=\"o\">=</span> <span class=\"p\">{</span>\n    <span class=\"s\">&#39;User-Agent&#39;</span><span class=\"p\">:</span> <span class=\"s\">&#39;Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:57.0) Gecko/20100101 Firefox/57.0&#39;</span><span class=\"p\">,</span>\n    <span class=\"s\">&#39;Referer&#39;</span><span class=\"p\">:</span> <span class=\"s\">&#39;https://dnstrails.com/&#39;</span><span class=\"p\">,</span>\n    <span class=\"s\">&#39;Origin&#39;</span><span class=\"p\">:</span> <span class=\"s\">&#39;https://dnstrails.com&#39;</span><span class=\"p\">,</span>\n    <span class=\"s\">&#39;DNT&#39;</span><span class=\"p\">:</span> <span class=\"s\">&#39;1&#39;</span><span class=\"p\">,</span>\n<span class=\"p\">}</span>\n\n<span class=\"n\">page_no</span> <span class=\"o\">=</span> <span class=\"mi\">1</span>\n\n<span class=\"k\">while</span> <span class=\"n\">page_no</span> <span class=\"o\">&lt;=</span> <span class=\"mi\">1000</span><span class=\"p\">:</span>\n  <span class=\"n\">params</span> <span class=\"o\">=</span> <span class=\"p\">(</span>\n      <span class=\"p\">(</span><span class=\"s\">&#39;page&#39;</span><span class=\"p\">,</span> <span class=\"n\">page_no</span><span class=\"p\">),</span>\n  <span class=\"p\">)</span>\n  <span class=\"k\">print</span> <span class=\"s\">&quot;Page : &quot;</span> <span class=\"o\">+</span> <span class=\"nb\">str</span><span class=\"p\">(</span><span class=\"n\">page_no</span><span class=\"p\">)</span>\n  <span class=\"n\">raw_data</span> <span class=\"o\">=</span> <span class=\"n\">requests</span><span class=\"o\">.</span><span class=\"n\">get</span><span class=\"p\">(</span><span class=\"s\">&#39;https://app.securitytrails.com/api/search/by_type/ip/52.167.214.135&#39;</span><span class=\"p\">,</span> <span class=\"n\">headers</span><span class=\"o\">=</span><span class=\"n\">headers</span><span class=\"p\">,</span> <span class=\"n\">params</span><span class=\"o\">=</span><span class=\"n\">params</span><span class=\"p\">,</span> <span class=\"n\">verify</span><span class=\"o\">=</span><span class=\"bp\">False</span><span class=\"p\">)</span>\n  <span class=\"n\">data</span> <span class=\"o\">=</span> <span class=\"n\">json</span><span class=\"o\">.</span><span class=\"n\">loads</span><span class=\"p\">(</span><span class=\"n\">raw_data</span><span class=\"o\">.</span><span class=\"n\">text</span><span class=\"p\">)</span>\n  <span class=\"k\">for</span> <span class=\"n\">s</span> <span class=\"ow\">in</span> <span class=\"n\">data</span><span class=\"p\">[</span><span class=\"s\">&quot;result&quot;</span><span class=\"p\">][</span><span class=\"s\">&quot;items&quot;</span><span class=\"p\">]:</span>\n    <span class=\"k\">with</span> <span class=\"nb\">open</span><span class=\"p\">(</span><span class=\"s\">&#39;gitlab_domains.txt&#39;</span><span class=\"p\">,</span> <span class=\"s\">&#39;a&#39;</span><span class=\"p\">)</span> <span class=\"k\">as</span> <span class=\"nb\">file</span><span class=\"p\">:</span>\n      <span class=\"nb\">file</span><span class=\"o\">.</span><span class=\"n\">write</span><span class=\"p\">(</span><span class=\"n\">s</span><span class=\"p\">[</span><span class=\"s\">&quot;domain&quot;</span><span class=\"p\">]</span> <span class=\"o\">+</span> <span class=\"s\">&#39;</span><span class=\"se\">\\n</span><span class=\"s\">&#39;</span><span class=\"p\">)</span>\n  <span class=\"n\">page_no</span> <span class=\"o\">=</span> <span class=\"n\">page_no</span> <span class=\"o\">+</span> <span class=\"mi\">1</span>\n<span class=\"c\">#  print &quot;Sleeping for 5&quot;</span>\n<span class=\"c\">#  time.sleep(5)</span>\n</code></pre>\n<p>Get the unique domain names using: <code>sort gitlab_domains.txt | uniq &gt; unique_domains.txt</code></p>\n\n<p><strong>Python code to check if the domain names are vulnerable:</strong></p>\n<pre class=\"highlight python\"><code><span class=\"kn\">import</span> <span class=\"nn\">requests</span>\n\n<span class=\"k\">with</span> <span class=\"nb\">open</span><span class=\"p\">(</span><span class=\"s\">&#39;unique_domains.txt&#39;</span><span class=\"p\">)</span> <span class=\"k\">as</span> <span class=\"n\">f</span><span class=\"p\">:</span>\n    <span class=\"n\">content</span> <span class=\"o\">=</span> <span class=\"n\">f</span><span class=\"o\">.</span><span class=\"n\">readlines</span><span class=\"p\">()</span>\n<span class=\"n\">content</span> <span class=\"o\">=</span> <span class=\"p\">[</span><span class=\"n\">x</span><span class=\"o\">.</span><span class=\"n\">strip</span><span class=\"p\">()</span> <span class=\"k\">for</span> <span class=\"n\">x</span> <span class=\"ow\">in</span> <span class=\"n\">content</span><span class=\"p\">]</span>\n\n<span class=\"k\">for</span> <span class=\"n\">s</span> <span class=\"ow\">in</span> <span class=\"n\">content</span><span class=\"p\">:</span>\n  <span class=\"k\">print</span> <span class=\"s\">&#39;*&#39;</span>\n  <span class=\"k\">try</span><span class=\"p\">:</span>\n    <span class=\"n\">req</span> <span class=\"o\">=</span> <span class=\"n\">requests</span><span class=\"o\">.</span><span class=\"n\">get</span><span class=\"p\">(</span><span class=\"s\">&#39;http://&#39;</span> <span class=\"o\">+</span> <span class=\"n\">s</span><span class=\"p\">,</span> <span class=\"n\">timeout</span><span class=\"o\">=</span><span class=\"mi\">10</span><span class=\"p\">)</span>\n    <span class=\"k\">if</span> <span class=\"n\">req</span><span class=\"o\">.</span><span class=\"n\">status_code</span> <span class=\"o\">==</span> <span class=\"mi\">404</span> <span class=\"ow\">and</span> <span class=\"s\">&quot;The page you&#39;re looking for could not be found&quot;</span> <span class=\"ow\">in</span> <span class=\"n\">req</span><span class=\"o\">.</span><span class=\"n\">text</span><span class=\"p\">:</span>\n      <span class=\"k\">with</span> <span class=\"nb\">open</span><span class=\"p\">(</span><span class=\"s\">&quot;vuln_websites.txt&quot;</span><span class=\"p\">,</span> <span class=\"s\">&quot;a&quot;</span><span class=\"p\">)</span> <span class=\"k\">as</span> <span class=\"n\">myfile</span><span class=\"p\">:</span>\n        <span class=\"n\">myfile</span><span class=\"o\">.</span><span class=\"n\">write</span><span class=\"p\">(</span><span class=\"n\">s</span> <span class=\"o\">+</span> <span class=\"s\">&#39;</span><span class=\"se\">\\n</span><span class=\"s\">&#39;</span><span class=\"p\">)</span>\n  <span class=\"k\">except</span> <span class=\"nb\">Exception</span> <span class=\"k\">as</span> <span class=\"n\">e</span><span class=\"p\">:</span>\n    <span class=\"k\">with</span> <span class=\"nb\">open</span><span class=\"p\">(</span><span class=\"s\">&quot;error.txt&quot;</span><span class=\"p\">,</span> <span class=\"s\">&quot;a&quot;</span><span class=\"p\">)</span> <span class=\"k\">as</span> <span class=\"n\">m</span><span class=\"p\">:</span>\n      <span class=\"n\">m</span><span class=\"o\">.</span><span class=\"n\">write</span><span class=\"p\">(</span><span class=\"n\">s</span> <span class=\"o\">+</span> <span class=\"s\">&#39;</span><span class=\"se\">\\n</span><span class=\"s\">&#39;</span><span class=\"p\">)</span>\n</code></pre>\n<p>This script creates two files - <code>vuln_websites.txt</code> and <code>error.txt</code>. The domain names in <code>vuln_websites.txt</code> is vulnerable to domain name take overs on GitLab.</p>\n\n<p>Count of the vulnerable domain names: <code>wc -l vuln_websites.txt</code>. The output is : 115</p>\n\n<h2 id=\"simple-mitigation-technique\">Simple mitigation technique</h2>\n\n<p>When the domain is added in the settings, get the whois data of the domain name. Check the DNS records and if it contains GitLab&#39;s above mentioned IP, request the OTP sent to the registered email address.</p>\n\n<p>A basic python implementation would be:</p>\n<pre class=\"highlight python\"><code><span class=\"c\"># pip install python-whois</span>\n\n<span class=\"kn\">import</span> <span class=\"nn\">whois</span>\n<span class=\"n\">w</span> <span class=\"o\">=</span> <span class=\"n\">whois</span><span class=\"o\">.</span><span class=\"n\">whois</span><span class=\"p\">(</span><span class=\"s\">&#39;domain.com&#39;</span><span class=\"p\">)</span>\n<span class=\"k\">print</span> <span class=\"n\">w</span><span class=\"p\">[</span><span class=\"s\">&quot;emails&quot;</span><span class=\"p\">]</span>\n<span class=\"c\"># The OTP could be sent to that email</span>\n</code></pre>\n<h2 id=\"impact\">Impact</h2>\n\n<p>Attacker can create fake GitLab account(s) using the email(s) from temporary/anonymous email services. Configure fake email addresses with git for further code commits. Create multiple repositories and add domain name from the vulnerable list. The attacker can then:</p>\n\n<ul>\n<li>Use the static websites as Command and Control centers for their malware / for other malicious intents</li>\n<li>Phish the customers / visitors of the legitimate domain owners, abusing both the GitLab user&#39;s rights and GitLab&#39;s Terms of Use.</li>\n</ul>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://about.gitlab.com", 
+            "about": "Open source software to collaborate on code", 
+            "twitter_handle": "gitlab", 
+            "name": "GitLab"
+        }, 
+        "handle": "gitlab", 
+        "url": "https://hackerone.com/gitlab", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/264/338ec4b43393873324e3f1911f2f107d025d13f1_small.png?1454722206", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/264/f40e550269de1c8aef9adbdfe728c9aa8163a7e5_medium.png?1454722206"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 264, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

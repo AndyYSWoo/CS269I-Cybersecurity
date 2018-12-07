@@ -1,0 +1,491 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-02-08T14:29:22.582Z", 
+    "voters": [
+        "secator", 
+        "foobar7", 
+        "eveeez", 
+        "gamliel", 
+        "babayaga_", 
+        "craxerbikash", 
+        "flex0geek", 
+        "japz", 
+        "noob-walid", 
+        "rajshekar", 
+        "and 1 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "100.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 297751, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-02-08T11:38:55.360Z", 
+    "vulnerability_information": "## Vulnerable URL\n\nhttp://[server]/nextcloud/index.php/settings/personal/authtokens/[token ID]\n\n## Summary\n\nNextcloud users can create app-specific passwords, also called authtokens, giving an app limited access to their account. Users can grant or deny access to their files for each app password.\n\nThe function to change a password's  file access (\"filesystem\") permissions contains an IDOR vulnerability. An authenticated user can change permissions for other user's app passwords by changing the app password ID number when submitting the vulnerable request.\n\nThe vulnerable parameter is in the JSON body sent to the vulnerable URL. Sample request:\n\nPUT /nextcloud/index.php/settings/personal/authtokens/95 HTTP/1.1\nHost: 192.168.1.22\nUser-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:57.0) Gecko/20100101 Firefox/57.0\nAccept: application/json, text/javascript, */*; q=0.01\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate\nContent-Type: application/json\nrequesttoken: vc5TVyC0GjTVwEX/YNUMeJ79CWq4W9G0/F6dJTOKMvE=:i6U7bkv2Tna8lXe2NbN6OdO/QgSKP7X1tR/kV1TsC6Q=\nOCS-APIREQUEST: true\nX-Requested-With: XMLHttpRequest\nContent-Length: 109\nCookie: oc0xkd23iidt=prfrkbtr1t6bdqou018cajubv7; oc_sessionPassphrase=mz4sLu%2BmEY3MNj1ItWaTYM6PsBpJikK34msNsw1zA%2BuUJoM9J2zXY26eF7PDr9Dy9DpafNTaWN8iIBrGmh%2FDghSJASzTIwQhjW4gC%2B%2BTjIDBXm0THC7nixmxvdfIPxNA; nc_sameSiteCookielax=true; nc_sameSiteCookiestrict=true\nConnection: close\n\n{\"id\":95,\"name\":\"thisiatest\",\"lastActivity\":1513224099,\"type\":1,\"scope\":{\"filesystem\":true},\"canDelete\":true}\n\nThe \"id\" parameter is the one vulnerable to IDOR.\n\n## Reproduction\n\nPre-requisites: a Nextcloud server with a couple of test users, a browser setup to go through a proxy like Burp. A WebDav client is also helpful; I used cadaver on Ubuntu.\n\n- Go to Burp, click the \"Proxy\" tab, click the \"Intercept\" subtab, and click \"Intercept is On\" to toggle interception off (if it's not already off)\n- Login to Nextcloud with a test user\n- Create an app password and uncheck \"Allow filesystem access\"\n- Go to Burp, click the \"Proxy\" tab, click the \"HTTP history\" subtab, scroll down the list and find the call to the vulnerable URL. Note the value for the authtoken ID. It's the number at the end of the URL and is also the \"id\" value in the JSON request body\n- Logout of Nextcloud\n- If you have a webdav client, login with the password. For cadaver, open up a terminal and enter \"cadaver http://[server]/remote.php/webdav\", login with the app password, and issue the \"ls\" command. Nothing should appear, since this password lacks permission to the user's files\n- Login to Nextcloud as the second user\n- Create an app password for this user and uncheck 'Allow filesystem access\"\n- Go to Burp -> Proxy -> Intercept and toggle interception on\n- Go back to the browser and re-check the \"Allow filesystem access\" box for the app we just created.\n- Burp should stall the request for viewing. The request should be to the vulnerable URL; if it isn't, click \"Forward\" until the vulnerable URL appears\n- In the JSON request body, change the value of the \"id\" parameter to the authtoken ID noted earlier, from the first victim user\n- Forward the request (or toggle interception off, either works)\n- Go back to the webdav client and issue the \"ls\" command again. You should now get a directory listing for the victim user. If you don't, exit the webdav client and try logging in again\n- If you don't have a webdav client, log out of Nextcloud and log back in as the first user. Go to their Personal settings, scroll down to the authtoken/app specific password and click the 3 dot elipses icon. \"Allow filesystem access\" should now be checked, indicating our IDOR attack was successful in changing this authtoken's permissions\n\n## Screenshots\n\n1_request - vulnerable request as seen in Burp.\n\n## Impact\n\n## Impact/Notes\n\nIf an attacker gained access to an app password that did not have file system access, and the attacker had an account on the same Nextcloud server, he or she could grant file system permissions to the compromised app password and then gain access to the victim's files.\n\nA malicious user could write a quick script to loop through app password IDs and revoke file system access. But this would not really affect data confidentiality and would be more of an annoyance for the victims.\n\nWhile an attacker won't know the app password ID just by compromising it, he or she could use automation to try changing permissions on possible app password IDs.  Since the ID seems to start at 1 and increase sequentially, it should be feasible to \"flip the switch\" on the compromised password in a fairly short time, starting from 1 and working upwards.\n\nTested on Nextcloud 12.0.3, 12.0.4.\n\nIf I can provide any further information please let me know. Thanks!", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "User"
+    }, 
+    "title": "Registered users can change app password permissions for any user", 
+    "is_member_of_team?": null, 
+    "vote_count": 11, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-03-10T11:38:55.492Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2017-0936"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$100", 
+    "attachments": [
+        {
+            "file_name": "1_request.png", 
+            "type": "image/png", 
+            "id": 246742, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/246/742/d0597c0b79b16a6d0dc08dbdea0543913f4e28ab/1_request.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ5B43OTPE%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222714Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDCiDARkX3ArKGaO7%2ByK3A39tqjzyooRkX4qPdNM7MkAemep3r5%2Fh%2B11ZdH6KbZ8q2cgU%2FRMODKRq75fJ6sn%2FkR1fBrPaMFfKsP%2BSLpkSrkbyi968FqbmO6yo59Heb3d1kDMwzaNShj3ou%2Fq9qAc5NWgXlxJtABJqkgxPd5NovxMOsASin8kfBjU8OhOOEnonvd2t16oF509MVoA81P%2Frmr4njIb3UfHzYyccuDQNjHM0qV7B57bCKQeIuO%2FzLl7au%2FWR2v6R6bwK6fGUYVbcnAam9GqobWJnMl6NFbipNSdmUzB5%2BglRYaYeGXxbgxseM7SSFeehfzbywUoHEf4Ve61V1e90uyx3M0Krbm5QjS5gNgwErj0g2rC2mkrl2q%2B9ADfOzgMAX8fUODFalEv4gZf0ZKuLhpmAzEapJE5f%2BarcSkdn5b0ddy4Wa2vdsZ6lQ5NOez8qkcnaBEJZLnv3YGHyInLrIaUkqlq4iavZpr4f5Al5PueqIzLuItn5ztJjfvCu5dDIplWP0eo6r%2BIUCKsDwUNkRSgWCtJbCfl%2BPF3PKHjvnmVEBawLZlpXvaOGUvA%2FKYb2cGGXn89CPjYlwpWCj2J8Z%2B0okbim4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=9a581ddb9090469163e828796b5b1f999f4661fb6df21d6471fc0129d2857116"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": true, 
+            "created_at": "2017-12-14T04:42:48.082Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-14T04:42:48.082Z", 
+            "actor": {
+                "url": "/nextcloud", 
+                "profile": {
+                    "name": "Nextcloud"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/291/1d2ac8991616fcd3e3cdd567d02b7e70e20a3883_medium.png?1491410731"
+                }
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "Thanks a lot for reporting this potential issue back to us!\n\nOur security team will take a look at this issue as soon as possible. We will reply to your report within 72 hours, usually much faster. For obvious reasons we'd like to ask you to not disclose this issue to any other party.", 
+            "markdown_message": "<p>Thanks a lot for reporting this potential issue back to us!</p>\n\n<p>Our security team will take a look at this issue as soon as possible. We will reply to your report within 72 hours, usually much faster. For obvious reasons we&#39;d like to ask you to not disclose this issue to any other party.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2221676, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-08T15:20:54.074Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-08T15:20:54.074Z", 
+            "actor": {
+                "username": "nickvergessen", 
+                "url": "/nickvergessen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/089/223/d25b33c77f181ac0cf249187118c9e6bdd04bdd3_medium.png?1468226203"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "Thanks for your report. We have identified the problem and will ship a fix with the next set of maintenance releases.", 
+            "markdown_message": "<p>Thanks for your report. We have identified the problem and will ship a fix with the next set of maintenance releases.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2270091, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-08T15:21:04.912Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-08T15:21:04.912Z", 
+            "actor": {
+                "username": "nickvergessen", 
+                "url": "/nickvergessen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/089/223/d25b33c77f181ac0cf249187118c9e6bdd04bdd3_medium.png?1468226203"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2270092, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-09T04:37:30.814Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-09T04:37:30.814Z", 
+            "actor": {
+                "username": "icewater", 
+                "url": "/icewater", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "Sounds good, thanks for the update!", 
+            "markdown_message": "<p>Sounds good, thanks for the update!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2271528, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-24T07:55:09.865Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-24T07:55:09.865Z", 
+            "actor": {
+                "username": "nickvergessen", 
+                "url": "/nickvergessen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/089/223/d25b33c77f181ac0cf249187118c9e6bdd04bdd3_medium.png?1468226203"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "Thanks a lot for your report again. This has been resolved in our next maintenance releases and we're working on the advisories at the moment.\n\nPlease let us know how you'd like to be credited in our official advisory. We require the following information:\n\n- Name / Pseudonym\n- Email address (optional)\n- Website (optional)\n- Company (optional)\n", 
+            "markdown_message": "<p>Thanks a lot for your report again. This has been resolved in our next maintenance releases and we&#39;re working on the advisories at the moment.</p>\n\n<p>Please let us know how you&#39;d like to be credited in our official advisory. We require the following information:</p>\n\n<ul>\n<li>Name / Pseudonym</li>\n<li>Email address (optional)</li>\n<li>Website (optional)</li>\n<li>Company (optional)</li>\n</ul>\n", 
+            "type": "Activities::Comment", 
+            "id": 2312884, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-24T14:39:38.424Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-24T14:39:38.424Z", 
+            "actor": {
+                "username": "icewater", 
+                "url": "/icewater", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "Hi Nick, thank you for the update. I can be credited as:\nName: Carl Pearson\nWebsite: https://cp270.wordpress.com", 
+            "markdown_message": "<p>Hi Nick, thank you for the update. I can be credited as:<br>\nName: Carl Pearson<br>\nWebsite: <a title=\"https://cp270.wordpress.com\" href=\"/redirect?signature=7c501d4fd98e7c29356e91574fcb7525136aa40f&amp;url=https%3A%2F%2Fcp270.wordpress.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://cp270.wordpress.com</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2313602, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-26T10:23:26.598Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-26T10:23:26.598Z", 
+            "actor": {
+                "username": "nickvergessen", 
+                "url": "/nickvergessen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/089/223/d25b33c77f181ac0cf249187118c9e6bdd04bdd3_medium.png?1468226203"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_title": "Registered users can change app password permissions for any user", 
+                "old_title": "IDOR when editing app password, can exploit to change other user's app password permissions"
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportTitleUpdated", 
+            "id": 2320393, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "icewater", 
+                "url": "/icewater"
+            }, 
+            "created_at": "2018-01-26T10:47:42.876Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-26T10:47:42.876Z", 
+            "actor": {
+                "username": "nickvergessen", 
+                "url": "/nickvergessen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/089/223/d25b33c77f181ac0cf249187118c9e6bdd04bdd3_medium.png?1468226203"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2320449, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-26T11:01:10.958Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-26T11:01:10.958Z", 
+            "actor": {
+                "username": "nickvergessen", 
+                "url": "/nickvergessen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/089/223/d25b33c77f181ac0cf249187118c9e6bdd04bdd3_medium.png?1468226203"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "The issue has been resolved in the current 12.0.5 and 11.0.7 releases and we plan to publish a security advisory on 7th February and will also request public disclosure of the issue then.", 
+            "markdown_message": "<p>The issue has been resolved in the current 12.0.5 and 11.0.7 releases and we plan to publish a security advisory on 7th February and will also request public disclosure of the issue then.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2320477, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-26T15:23:17.334Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-26T15:23:17.334Z", 
+            "actor": {
+                "username": "icewater", 
+                "url": "/icewater", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "Great, sounds good! Do you know if this bug is in scope for a bounty?", 
+            "markdown_message": "<p>Great, sounds good! Do you know if this bug is in scope for a bounty?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2320998, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-02-08T11:38:15.174Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-08T11:38:15.174Z", 
+            "actor": {
+                "url": "/nextcloud", 
+                "profile": {
+                    "name": "Nextcloud"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/291/1d2ac8991616fcd3e3cdd567d02b7e70e20a3883_medium.png?1491410731"
+                }
+            }, 
+            "team_handle": "nextcloud", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "100.0", 
+            "collaborator": {
+                "username": "icewater", 
+                "url": "/icewater"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2362229, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-08T11:38:55.398Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-08T11:38:55.398Z", 
+            "actor": {
+                "username": "nickvergessen", 
+                "url": "/nickvergessen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/089/223/d25b33c77f181ac0cf249187118c9e6bdd04bdd3_medium.png?1468226203"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2362231, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-08T14:29:22.633Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-08T14:29:22.633Z", 
+            "actor": {
+                "username": "icewater", 
+                "url": "/icewater", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2362763, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-08T14:29:22.751Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-08T14:29:22.751Z", 
+            "actor": {
+                "username": "icewater", 
+                "url": "/icewater", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2362764, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-13T15:22:18.415Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-13T15:22:18.415Z", 
+            "actor": {
+                "username": "nickvergessen", 
+                "url": "/nickvergessen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/089/223/d25b33c77f181ac0cf249187118c9e6bdd04bdd3_medium.png?1468226203"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "nextcloud", 
+            "cve_ids": [
+                "CVE-2017-0936"
+            ], 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::CveIdAdded", 
+            "id": 2378857, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "icewater", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/icewater", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 55, 
+        "name": "Insecure Direct Object Reference (IDOR)"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -23453298.860924568, 
+    "disclosed_at": "2018-02-08T14:29:22.710Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/297751", 
+    "created_at": "2017-12-14T04:42:47.787Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"vulnerable-url\">Vulnerable URL</h2>\n\n<p>http://[server]/nextcloud/index.php/settings/personal/authtokens/[token ID]</p>\n\n<h2 id=\"summary\">Summary</h2>\n\n<p>Nextcloud users can create app-specific passwords, also called authtokens, giving an app limited access to their account. Users can grant or deny access to their files for each app password.</p>\n\n<p>The function to change a password&#39;s  file access (&quot;filesystem&quot;) permissions contains an IDOR vulnerability. An authenticated user can change permissions for other user&#39;s app passwords by changing the app password ID number when submitting the vulnerable request.</p>\n\n<p>The vulnerable parameter is in the JSON body sent to the vulnerable URL. Sample request:</p>\n\n<p>PUT /nextcloud/index.php/settings/personal/authtokens/95 HTTP/1.1<br>\nHost: 192.168.1.22<br>\nUser-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:57.0) Gecko/20100101 Firefox/57.0<br>\nAccept: application/json, text/javascript, <em>/</em>; q=0.01<br>\nAccept-Language: en-US,en;q=0.5<br>\nAccept-Encoding: gzip, deflate<br>\nContent-Type: application/json<br>\nrequesttoken: vc5TVyC0GjTVwEX/YNUMeJ79CWq4W9G0/F6dJTOKMvE=:i6U7bkv2Tna8lXe2NbN6OdO/QgSKP7X1tR/kV1TsC6Q=<br>\nOCS-APIREQUEST: true<br>\nX-Requested-With: XMLHttpRequest<br>\nContent-Length: 109<br>\nCookie: oc0xkd23iidt=prfrkbtr1t6bdqou018cajubv7; oc_sessionPassphrase=mz4sLu%2BmEY3MNj1ItWaTYM6PsBpJikK34msNsw1zA%2BuUJoM9J2zXY26eF7PDr9Dy9DpafNTaWN8iIBrGmh%2FDghSJASzTIwQhjW4gC%2B%2BTjIDBXm0THC7nixmxvdfIPxNA; nc_sameSiteCookielax=true; nc_sameSiteCookiestrict=true<br>\nConnection: close</p>\n\n<p>{&quot;id&quot;:95,&quot;name&quot;:&quot;thisiatest&quot;,&quot;lastActivity&quot;:1513224099,&quot;type&quot;:1,&quot;scope&quot;:{&quot;filesystem&quot;:true},&quot;canDelete&quot;:true}</p>\n\n<p>The &quot;id&quot; parameter is the one vulnerable to IDOR.</p>\n\n<h2 id=\"reproduction\">Reproduction</h2>\n\n<p>Pre-requisites: a Nextcloud server with a couple of test users, a browser setup to go through a proxy like Burp. A WebDav client is also helpful; I used cadaver on Ubuntu.</p>\n\n<ul>\n<li>Go to Burp, click the &quot;Proxy&quot; tab, click the &quot;Intercept&quot; subtab, and click &quot;Intercept is On&quot; to toggle interception off (if it&#39;s not already off)</li>\n<li>Login to Nextcloud with a test user</li>\n<li>Create an app password and uncheck &quot;Allow filesystem access&quot;</li>\n<li>Go to Burp, click the &quot;Proxy&quot; tab, click the &quot;HTTP history&quot; subtab, scroll down the list and find the call to the vulnerable URL. Note the value for the authtoken ID. It&#39;s the number at the end of the URL and is also the &quot;id&quot; value in the JSON request body</li>\n<li>Logout of Nextcloud</li>\n<li>If you have a webdav client, login with the password. For cadaver, open up a terminal and enter &quot;cadaver http://[server]/remote.php/webdav&quot;, login with the app password, and issue the &quot;ls&quot; command. Nothing should appear, since this password lacks permission to the user&#39;s files</li>\n<li>Login to Nextcloud as the second user</li>\n<li>Create an app password for this user and uncheck &#39;Allow filesystem access&quot;</li>\n<li>Go to Burp -&gt; Proxy -&gt; Intercept and toggle interception on</li>\n<li>Go back to the browser and re-check the &quot;Allow filesystem access&quot; box for the app we just created.</li>\n<li>Burp should stall the request for viewing. The request should be to the vulnerable URL; if it isn&#39;t, click &quot;Forward&quot; until the vulnerable URL appears</li>\n<li>In the JSON request body, change the value of the &quot;id&quot; parameter to the authtoken ID noted earlier, from the first victim user</li>\n<li>Forward the request (or toggle interception off, either works)</li>\n<li>Go back to the webdav client and issue the &quot;ls&quot; command again. You should now get a directory listing for the victim user. If you don&#39;t, exit the webdav client and try logging in again</li>\n<li>If you don&#39;t have a webdav client, log out of Nextcloud and log back in as the first user. Go to their Personal settings, scroll down to the authtoken/app specific password and click the 3 dot elipses icon. &quot;Allow filesystem access&quot; should now be checked, indicating our IDOR attack was successful in changing this authtoken&#39;s permissions</li>\n</ul>\n\n<h2 id=\"screenshots\">Screenshots</h2>\n\n<p>1_request - vulnerable request as seen in Burp.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<h2 id=\"impact-notes\">Impact/Notes</h2>\n\n<p>If an attacker gained access to an app password that did not have file system access, and the attacker had an account on the same Nextcloud server, he or she could grant file system permissions to the compromised app password and then gain access to the victim&#39;s files.</p>\n\n<p>A malicious user could write a quick script to loop through app password IDs and revoke file system access. But this would not really affect data confidentiality and would be more of an annoyance for the victims.</p>\n\n<p>While an attacker won&#39;t know the app password ID just by compromising it, he or she could use automation to try changing permissions on possible app password IDs.  Since the ID seems to start at 1 and increase sequentially, it should be feasible to &quot;flip the switch&quot; on the compromised password in a fairly short time, starting from 1 and working upwards.</p>\n\n<p>Tested on Nextcloud 12.0.3, 12.0.4.</p>\n\n<p>If I can provide any further information please let me know. Thanks!</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://nextcloud.com", 
+            "about": "Access, share and protect your files, calendars, contacts, communication & more at home and in your enterprise.", 
+            "twitter_handle": "nextclouders", 
+            "name": "Nextcloud"
+        }, 
+        "handle": "nextcloud", 
+        "url": "https://hackerone.com/nextcloud", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/013/291/5d33b6e08fad356e1743fd899fe7d6dda9971209_small.png?1491410731", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/013/291/1d2ac8991616fcd3e3cdd567d02b7e70e20a3883_medium.png?1491410731"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 13291, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

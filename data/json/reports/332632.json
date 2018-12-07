@@ -1,0 +1,418 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-09-18T14:39:11.939Z", 
+    "voters": [
+        "spam404", 
+        "europa", 
+        "kapytein", 
+        "mik317", 
+        "emitrani", 
+        "malcolmx", 
+        "eveeez", 
+        "an0nym0us", 
+        "mygf", 
+        "apapedulimu", 
+        "and 8 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "200.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 332632, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-09-19T14:42:15.803Z", 
+    "vulnerability_information": "As stated in a brief exchange with @rvn in my other report ##312433, I might have found a logic flaw in the way https://helpdesk.bistudio.com handles the reset flow and tokens.\nI've asked if it was possible to obtain a test account, but I fully understand that it's something that cannot be done; as such I'll submit a \"blind\" report based on my black-box analysis and wait for your team to verify it. Also note that this flaw seems to also be present in the \"Set out of office email response\" flow, albeit less critical.\n\n### Flow\nThe **SYSTEM PASSWORD RESET** flow is a 3-steps process:\n\n1. the staff member requests a SMS TOKEN using the first form\n2. the 6-digits SMS TOKEN is used in the second form\n3. the staff member can now set a new SYSTEM PASSWORD in the third form\n\n### Analysis and logic\nI was able to go through the process even after providing non-existing usernames and tokens by intercepting the **response** in BurpSuite and changing the status code from **400 Bad Request** to **200 OK** and the body from `\"status\":\"error\"` to `\"status\":\"ok\"`, allowing the AngularJS applet to follow through.\nI then noticed that the API endpoint for verifying the SMS TOKEN and changing the password where open and free of rate-limiting measures, allowing for a quick bruteforce of the 000000-999999 space. \nIt should be therefore possible to perform an account takeover on any staff member, provided the SMS TOKEN really is a 6-digits code\n\n### Theoretical POC\n1. adversary starts the SYSTEM PASSWORD RESET process for the target victim using a POST request to `/api/system/verification-codes` (ie: `{\"username\":\"admin\"}`). The backend generates a SMS TOKEN and sends it to the victim's phone. Meanwhile,\n2. adversary obtains the **securityCode** value for the victim by bruteforcing `/api/system/verification-codes/[0-9]{6}` before the victim can cancel the flow (threat scenario places the attack durin night time)\n3. adversary can now reset the SYSTEM PASSWORD by sending the complete POST request to `/api/system/email-account/password` (ie: `{\"password\":\"<NEW PASSWORD>\",\"code\":\"<BRUTEFORCED SMS TOKEN>\",\"securityCode\":\"<RETRIEVED SECURITY CODE>\"}`)\n\nStep #1 offers a ReCAPTCHA anti-CSRF token but it's not used anywhere in the flow, making the attack possible\n\nStep #2 is really a matter of resources. Being free of rate-limiting, the API endpoint will be quickly queried for all the possible token combinations in a matter of minutes using a multithreaded approach (ie: using BurpSuite's Intruder).\n\nAlbeit theoretical, the logic behind the threat scenario seems plausible. It might be worth investigating.\n\n### Recommended actions\nProperly implement the ReCAPTCHA and a strict ratelimiting on the API endpoints\n\n## Impact\n\nAn adversary might be able to takeover staff accounts, or set their \"out of office\" email replies.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "critical", 
+        "author_type": "Team"
+    }, 
+    "title": "(Possible) staff account takeover via reset token bruteforce at helpdesk.bistudio.com", 
+    "is_member_of_team?": null, 
+    "vote_count": 18, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "Domain listed in the policy scope", 
+        "max_severity": "critical", 
+        "databaseId": 5853, 
+        "asset_type": "OTHER"
+    }, 
+    "allow_singular_disclosure_at": "2018-10-18T14:39:12.047Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$200", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-04T08:19:14.783Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-04T08:19:14.783Z", 
+            "actor": {
+                "username": "rvn", 
+                "url": "/rvn", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/144/104/e3129f42a2d2aa21c670b95b230f84988ea31800_medium.png?1487340375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "bohemia", 
+            "message": "Thanks for the report, we will check it out.", 
+            "markdown_message": "<p>Thanks for the report, we will check it out.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2563727, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-04T14:07:38.674Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-04T14:07:38.674Z", 
+            "actor": {
+                "username": "rvn", 
+                "url": "/rvn", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/144/104/e3129f42a2d2aa21c670b95b230f84988ea31800_medium.png?1487340375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "bohemia", 
+            "message": "This has been confirmed as a legitimate issue.", 
+            "markdown_message": "<p>This has been confirmed as a legitimate issue.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2564763, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-04-04T14:29:22.111Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-04T14:29:22.111Z", 
+            "actor": {
+                "url": "/bohemia", 
+                "profile": {
+                    "name": "BOHEMIA INTERACTIVE a.s."
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/018/362/0756f8d343cb71239429ed7eaec8fc3474cec117_medium.?1487251122"
+                }
+            }, 
+            "team_handle": "bohemia", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "200.0", 
+            "collaborator": {
+                "username": "europa", 
+                "url": "/europa"
+            }, 
+            "message": "Bounty awarded. Thanks!", 
+            "markdown_message": "<p>Bounty awarded. Thanks!</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2564813, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-04T14:37:53.810Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-04T14:37:53.810Z", 
+            "actor": {
+                "username": "europa", 
+                "url": "/europa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/189/882/dd8e03ce60a513417afe21ed6bdbedf1dbaa1898_medium.jpg?1533370630"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "bohemia", 
+            "message": "Glad I was able to blindly help!\nThanks for the reward, I remain available for further testing\nCheers!", 
+            "markdown_message": "<p>Glad I was able to blindly help!<br>\nThanks for the reward, I remain available for further testing<br>\nCheers!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2564833, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "europa", 
+                "url": "/europa"
+            }, 
+            "created_at": "2018-04-05T08:04:24.809Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-05T08:04:24.809Z", 
+            "actor": {
+                "username": "rvn", 
+                "url": "/rvn", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/144/104/e3129f42a2d2aa21c670b95b230f84988ea31800_medium.png?1487340375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "bohemia", 
+            "message": "This should be fixed now. Thanks again!", 
+            "markdown_message": "<p>This should be fixed now. Thanks again!</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2567067, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-05T08:43:51.806Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-05T08:43:51.806Z", 
+            "actor": {
+                "username": "europa", 
+                "url": "/europa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/189/882/dd8e03ce60a513417afe21ed6bdbedf1dbaa1898_medium.jpg?1533370630"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "bohemia", 
+            "message": "First of all, thank you again for the highest reward!\n\nI just tested and it's still \"working\":\n* the ReCAPTCHA value isn't  checked in the flow, the X-XSRF-TOKEN header can be omitted and the flow will still go through\n* the `/api/system/email-account/password` API endpoint isn't rate-limited, allowing me to send as many requests as I want (I tried with 1,000)\nHas the fix been deployed in production already?", 
+            "markdown_message": "<p>First of all, thank you again for the highest reward!</p>\n\n<p>I just tested and it&#39;s still &quot;working&quot;:</p>\n\n<ul>\n<li>the ReCAPTCHA value isn&#39;t  checked in the flow, the X-XSRF-TOKEN header can be omitted and the flow will still go through</li>\n<li>the <code>/api/system/email-account/password</code> API endpoint isn&#39;t rate-limited, allowing me to send as many requests as I want (I tried with 1,000)\nHas the fix been deployed in production already?</li>\n</ul>\n", 
+            "type": "Activities::Comment", 
+            "id": 2567641, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-05T10:46:37.563Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-05T10:46:37.563Z", 
+            "actor": {
+                "username": "rvn", 
+                "url": "/rvn", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/144/104/e3129f42a2d2aa21c670b95b230f84988ea31800_medium.png?1487340375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "bohemia", 
+            "message": "Captcha isn't that necessary anymore as now you have a fix amount of tries before the account gets locked. Sending further requests is possible but will not have any effect. There is a side issue related to this that is being fixed right now but overall it should be resolved", 
+            "markdown_message": "<p>Captcha isn&#39;t that necessary anymore as now you have a fix amount of tries before the account gets locked. Sending further requests is possible but will not have any effect. There is a side issue related to this that is being fixed right now but overall it should be resolved</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2568568, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-05T10:55:16.706Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-05T10:55:16.706Z", 
+            "actor": {
+                "username": "europa", 
+                "url": "/europa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/189/882/dd8e03ce60a513417afe21ed6bdbedf1dbaa1898_medium.jpg?1533370630"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "bohemia", 
+            "message": "Alrighty, should be good as long as it's not used to purposely lock staff accounts. Cheers!", 
+            "markdown_message": "<p>Alrighty, should be good as long as it&#39;s not used to purposely lock staff accounts. Cheers!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2568593, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-18T14:39:11.985Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-18T14:39:11.985Z", 
+            "actor": {
+                "username": "europa", 
+                "url": "/europa", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/189/882/dd8e03ce60a513417afe21ed6bdbedf1dbaa1898_medium.jpg?1533370630"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "bohemia", 
+            "first_to_agree": true, 
+            "message": "If you guys are okay with this one, I believe it could be disclosed as it highlights the honesty of the team and why hackers should work on your program regardless of its bounty table.\nNeedless to say, it is also why I sticked around. Great job!", 
+            "markdown_message": "<p>If you guys are okay with this one, I believe it could be disclosed as it highlights the honesty of the team and why hackers should work on your program regardless of its bounty table.<br>\nNeedless to say, it is also why I sticked around. Great job!</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3353850, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-19T14:42:15.848Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-19T14:42:15.848Z", 
+            "actor": {
+                "username": "freespirit", 
+                "url": "/freespirit", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "bohemia", 
+            "message": "Disclosed per reporter's request.", 
+            "markdown_message": "<p>Disclosed per reporter&#39;s request.</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3358692, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-19T14:42:16.012Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-19T14:42:16.012Z", 
+            "actor": {
+                "username": "freespirit", 
+                "url": "/freespirit", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "bohemia", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3358693, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-19T14:43:51.778Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-19T14:43:51.778Z", 
+            "actor": {
+                "username": "rvn", 
+                "url": "/rvn", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/144/104/e3129f42a2d2aa21c670b95b230f84988ea31800_medium.png?1487340375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Critical", 
+                "old_severity": "High"
+            }, 
+            "team_handle": "bohemia", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 3358700, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "europa", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/europa", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/189/882/4f2eec8d4d5ef4e2aa81d558f03da98e62e83c37_small.jpg?1533370630"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 92, 
+        "name": "Weak Password Recovery Mechanism for Forgotten Password"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -4261062.29534352, 
+    "disclosed_at": "2018-09-19T14:42:15.945Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/332632", 
+    "created_at": "2018-04-03T15:53:55.674Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>As stated in a brief exchange with <a href=\"/rvn\">@rvn</a> in my other report ##312433, I might have found a logic flaw in the way <a title=\"https://helpdesk.bistudio.com\" href=\"/redirect?signature=4c445ead7876b5f4943c6ec0bb8f69fca138319d&amp;url=https%3A%2F%2Fhelpdesk.bistudio.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://helpdesk.bistudio.com</span><i class=\"icon-external-link\"></i></a> handles the reset flow and tokens.<br>\nI&#39;ve asked if it was possible to obtain a test account, but I fully understand that it&#39;s something that cannot be done; as such I&#39;ll submit a &quot;blind&quot; report based on my black-box analysis and wait for your team to verify it. Also note that this flaw seems to also be present in the &quot;Set out of office email response&quot; flow, albeit less critical.</p>\n\n<h3 id=\"flow\">Flow</h3>\n\n<p>The <strong>SYSTEM PASSWORD RESET</strong> flow is a 3-steps process:</p>\n\n<ol>\n<li>the staff member requests a SMS TOKEN using the first form</li>\n<li>the 6-digits SMS TOKEN is used in the second form</li>\n<li>the staff member can now set a new SYSTEM PASSWORD in the third form</li>\n</ol>\n\n<h3 id=\"analysis-and-logic\">Analysis and logic</h3>\n\n<p>I was able to go through the process even after providing non-existing usernames and tokens by intercepting the <strong>response</strong> in BurpSuite and changing the status code from <strong>400 Bad Request</strong> to <strong>200 OK</strong> and the body from <code>&quot;status&quot;:&quot;error&quot;</code> to <code>&quot;status&quot;:&quot;ok&quot;</code>, allowing the AngularJS applet to follow through.<br>\nI then noticed that the API endpoint for verifying the SMS TOKEN and changing the password where open and free of rate-limiting measures, allowing for a quick bruteforce of the 000000-999999 space. <br>\nIt should be therefore possible to perform an account takeover on any staff member, provided the SMS TOKEN really is a 6-digits code</p>\n\n<h3 id=\"theoretical-poc\">Theoretical POC</h3>\n\n<ol>\n<li>adversary starts the SYSTEM PASSWORD RESET process for the target victim using a POST request to <code>/api/system/verification-codes</code> (ie: <code>{&quot;username&quot;:&quot;admin&quot;}</code>). The backend generates a SMS TOKEN and sends it to the victim&#39;s phone. Meanwhile,</li>\n<li>adversary obtains the <strong>securityCode</strong> value for the victim by bruteforcing <code>/api/system/verification-codes/[0-9]{6}</code> before the victim can cancel the flow (threat scenario places the attack durin night time)</li>\n<li>adversary can now reset the SYSTEM PASSWORD by sending the complete POST request to <code>/api/system/email-account/password</code> (ie: <code>{&quot;password&quot;:&quot;&lt;NEW PASSWORD&gt;&quot;,&quot;code&quot;:&quot;&lt;BRUTEFORCED SMS TOKEN&gt;&quot;,&quot;securityCode&quot;:&quot;&lt;RETRIEVED SECURITY CODE&gt;&quot;}</code>)</li>\n</ol>\n\n<p>Step #1 offers a ReCAPTCHA anti-CSRF token but it&#39;s not used anywhere in the flow, making the attack possible</p>\n\n<p>Step #2 is really a matter of resources. Being free of rate-limiting, the API endpoint will be quickly queried for all the possible token combinations in a matter of minutes using a multithreaded approach (ie: using BurpSuite&#39;s Intruder).</p>\n\n<p>Albeit theoretical, the logic behind the threat scenario seems plausible. It might be worth investigating.</p>\n\n<h3 id=\"recommended-actions\">Recommended actions</h3>\n\n<p>Properly implement the ReCAPTCHA and a strict ratelimiting on the API endpoints</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>An adversary might be able to takeover staff accounts, or set their &quot;out of office&quot; email replies.</p>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://www.bohemia.net", 
+            "about": "Independent developer of video games @arma3official @DayZ @takeonthegame @ylandsgame", 
+            "twitter_handle": "bohemiainteract", 
+            "name": "BOHEMIA INTERACTIVE a.s."
+        }, 
+        "handle": "bohemia", 
+        "url": "https://hackerone.com/bohemia", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/018/362/5bc4ac2723ccab390af103fe84d134d6ac92ab5d_small.?1487251122", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/018/362/0756f8d343cb71239429ed7eaec8fc3474cec117_medium.?1487251122"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 18362, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

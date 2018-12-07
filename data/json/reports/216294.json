@@ -1,0 +1,431 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-05-21T08:19:55.838Z", 
+    "voters": [
+        "tcpiplab", 
+        "spam404", 
+        "eveeez", 
+        "zerotoone", 
+        "smit", 
+        "ereda", 
+        "mga_bobo", 
+        "rashedhasan007", 
+        "rbcafe", 
+        "spetr0x", 
+        "and 3 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 216294, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "# Session replay vulnerability in www.urbandictionary.com\n\nI considered titling this bug \"*Session tokens not expiring*\", which is what you need to tell your development team. But I titled it as I did to emphasize at least one attack made possible by the bug. There may be others.\n\n## Description\nPrivileged functions, e.g., `/handle.save.php` can still be used after the user has clicked the \"sign out\" link. The cause of the vulnerability seems to be that the server is not invalidating session cookies when the user \"signs out\". I observed session tokens remaining valid even 72 hours after being issued.\n\nExploitation requires the anti-CSRF `authenticity_token` from the privileged page from before the victim \"logged out\", and any one of the victim's `_rails_session` cookies from before the victim \"logged out\". Note that because the server issues a new cookie with each Response, the attacker may choose from among many cookies.\n\n## Impact\n1. Cookies that never expire can impact the security of the user:\n   1. The user's session is susceptible to hijacking or replay.\n   1. The user has no way of causing the application to invalidate their session. This is important in shared computing environments.\n2. Cookies that never expire can impact the security of the server:\n   1. The time window to brute-force a valid session token is increased.\n   1. If many session tokens remain valid, brute-forcing has that many more chances to guess correctly.\n\n## Step-by-step Reproduction Instructions\n1. Set up an HTTP intercept proxy like Burp Suite or ZAP.\n\n1. Authenticate to `http://www.urbandictionary.com/users.php` via the Gmail OAuth function, receiving a valid session cookie from `www.urbandictionary.com`, and then \"sign out\" by clicking `http://www.urbandictionary.com/auth/logout`.\n\n1. Send a `POST` request to `https://www.urbandictionary.com/handle.save.php` containing:\n   1. The `authenticity_token` from the privileged page from before the user \"logged out\".\n   1. Any one of the user's `_rails_session` cookies from before the user \"logged out\".\n   1. In the body of the POST set `user[handle]` to a new value. I've used `H.H. Vong`.\n   1. In the body of the POST set `commit` to `Save`.\n\n   {F171456}\n\n   The screen-shot above shows how to use Burp Repeater to replay a session and modify the user handle.\n\n   Here is that request as a curl command:\n\n   ```\n   $ curl -L -i -s -k  -X $'POST'     -H $'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:45.0) Gecko/20100101 Firefox/45.0' -H $'Referer: https://www.urbandictionary.com/handle.php' -H $'Content-Type: application/x-www-form-urlencoded'     -b $'_rails_session=bnBaYnJjSjNJcmxGN1JrWjFkbmUwa0NFY05GdThtcmtHQU0zTHhsem1iQngyQmhvYUdKQTRCVmNHNlBGRTEvRm9aczFwRXc5ekVUV2FEVDM4RSswQU9rejBReGc1M3dxVGhRV0REQmFCUWFkYWcwQ1RhV2NIN1VUalQyM09tNHAwS3lkc0JaRlJqNkxKd2xNZVdKQzhYOFpBdlhqRHhoYVplWmczTFZBL3hlb3E2YUxkVmp4NEkzZUxtZXBQa1ozME9MUFdXRHRDQStOWXdUT2xkcTRSdz09LS1LNXVZWmFBL0F5STRIUjkwTmdnczR3PT0%3D--4ea5f8f5d73379881a6db43b9b8cdcc9d7c89773'     --data-binary $'authenticity_token=C4EmquHAIijNq8UrFfbdfm%2B3Bp5RxvL1BpzMdf3%2FJgtw%2FSn%2FgTt4AlFlIDWFivaesfXJFgNqrWS8DD85obbnpA%3D%3D&user%5Bhandle%5D=H.H.+Vong&commit=Save'     $'https://www.urbandictionary.com/handle.save.php'\n   ```\n\n1. The response will be a `302/Found` with the `Location` field set to `https://www.urbandictionary.com/users.php`. Your browser will follow the `302` redirect, issuing a `GET` request for the URL in the `Location` field. The server will respond with a `200/OK` status code.\n\n   {F171455}\n\n   The screen-shot above shows the Burp Repeater response with the rendered HTML displaying the successfully modified user handle.\n\n   If you're verifying this with `curl`, you could just `grep` for the modified value. Append this to the `curl` command previously specified: ` | grep -i vong`. Two lines of the HTML in the returned page will contain the newly modified handle:\n\n   ```\n   <title>Urban Dictionary: Hello H.H. Vong</title>\n   <span>Hello H.H. Vong</span>\n   ```\n\n## Suggested Mitigation/Remediation Actions\n1. Configure the server side application to invalidate a user's submitted session token:\n   1. When a new token is issued by the server side application, so that only one token is valid at any given time.\n   1. When the user submits a valid session token to `/auth/logout`.\n   1. When a valid session token has not been submitted to the server side application for greater than *n* seconds where *n* is some value consistent with your own internal policy.\n   1. When a valid session token, stored on the server, is older than *m* seconds, where *m* is the maximum age allowed for a session cookie, based on your own internal policy.\n\n## Product, Version, and Configuration\n* Kali Linux 2016.2\n* Mozilla Firefox 45.7.0\n* Burp Suite 1.7.17\n* `curl` 7.52.1\n\nPlease let me know if you need more information about this issue. Thanks.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "low", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "unchanged", 
+            "integrity": "high", 
+            "availability": "high"
+        }, 
+        "rating": "high", 
+        "score": 8.8, 
+        "author_type": "User"
+    }, 
+    "title": "Session replay vulnerability in www.urbandictionary.com", 
+    "is_member_of_team?": null, 
+    "vote_count": 13, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-06-20T08:19:55.877Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "after-redirect.png", 
+            "type": "image/png", 
+            "id": 171455, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/171/455/d9e18de76ecec3c8359575dab0c85a1cbcb71f3c/after-redirect.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223658Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=2a84e1b180edbb83b2323eb6295f3b92ddc4bba3ef6a146eed92e4da9976a86c"
+        }, 
+        {
+            "file_name": "handle.save.php.png", 
+            "type": "image/png", 
+            "id": 171456, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/171/456/0988f741d9034e72ef9adda45ea395c450a851fb/handle.save.php.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223658Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=3e4e9a44dfcc904827cf015f3f1962253c1b7b2abda255dcc66177ae62568407"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-26T23:46:37.053Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-26T23:46:37.053Z", 
+            "actor": {
+                "username": "apeckham", 
+                "url": "/apeckham", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/006/312/53c67f60428fd4db6b67ca1ae6044bb5aa2fdea6_medium.png?1454713494"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "urbandictionary", 
+            "message": "@tcpiplab, thank you very much for reporting this with so much detail. We will add this to the backlog.", 
+            "markdown_message": "<p><a href=\"/tcpiplab\">@tcpiplab</a>, thank you very much for reporting this with so much detail. We will add this to the backlog.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1564303, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-26T23:49:13.620Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-26T23:49:13.620Z", 
+            "actor": {
+                "username": "tcpiplab", 
+                "url": "/tcpiplab", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/113/049/b2ecf0fb812453a3aaba481bbb963babb8396f01_medium.jpeg?1488262778"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "urbandictionary", 
+            "message": "Thanks. Hopefully the main point is not lost in my verbosity. Good luck, and let me know if you need even more detail. ", 
+            "markdown_message": "<p>Thanks. Hopefully the main point is not lost in my verbosity. Good luck, and let me know if you need even more detail. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1564304, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-04T06:45:21.692Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-04T06:45:21.692Z", 
+            "actor": {
+                "username": "tcpiplab", 
+                "url": "/tcpiplab", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/113/049/b2ecf0fb812453a3aaba481bbb963babb8396f01_medium.jpeg?1488262778"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "urbandictionary", 
+            "message": "Hello. Any progress on this bug? Thank you. ", 
+            "markdown_message": "<p>Hello. Any progress on this bug? Thank you. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1653052, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "tcpiplab", 
+                "url": "/tcpiplab"
+            }, 
+            "created_at": "2017-05-21T07:36:40.028Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-21T07:36:40.028Z", 
+            "actor": {
+                "username": "apeckham", 
+                "url": "/apeckham", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/006/312/53c67f60428fd4db6b67ca1ae6044bb5aa2fdea6_medium.png?1454713494"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "urbandictionary", 
+            "message": "Sorry for the slow update. We fixed this on Apr 26. Thank you very much for the report and for following up.", 
+            "markdown_message": "<p>Sorry for the slow update. We fixed this on Apr 26. Thank you very much for the report and for following up.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1689554, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "tcpiplab", 
+                "url": "/tcpiplab"
+            }, 
+            "created_at": "2017-05-21T07:36:44.911Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-21T07:36:44.911Z", 
+            "actor": {
+                "url": "/urbandictionary", 
+                "profile": {
+                    "name": "Urban Dictionary"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/207/8617c586cd3e2f0db537ee868db6362e2ce1aefa_medium.png?1400430635"
+                }
+            }, 
+            "team_handle": "urbandictionary", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::SwagAwarded", 
+            "id": 1689555, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-21T08:19:33.624Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-21T08:19:33.624Z", 
+            "actor": {
+                "username": "tcpiplab", 
+                "url": "/tcpiplab", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/113/049/b2ecf0fb812453a3aaba481bbb963babb8396f01_medium.jpeg?1488262778"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "urbandictionary", 
+            "message": "Thanks! ", 
+            "markdown_message": "<p>Thanks! </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1689577, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-21T08:19:55.856Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-21T08:19:55.856Z", 
+            "actor": {
+                "username": "tcpiplab", 
+                "url": "/tcpiplab", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/113/049/b2ecf0fb812453a3aaba481bbb963babb8396f01_medium.jpeg?1488262778"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "urbandictionary", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1689578, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-16T18:13:13.375Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-16T18:13:13.375Z", 
+            "actor": {
+                "username": "tcpiplab", 
+                "url": "/tcpiplab", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/113/049/b2ecf0fb812453a3aaba481bbb963babb8396f01_medium.jpeg?1488262778"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "urbandictionary", 
+            "message": "Hi guys, I know you are busy. Just checking in to see if you have had any time to mail the swag and to decide on disclosure or not. Thanks. ", 
+            "markdown_message": "<p>Hi guys, I know you are busy. Just checking in to see if you have had any time to mail the swag and to decide on disclosure or not. Thanks. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1761698, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-20T08:20:00.472Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-20T08:20:00.472Z", 
+            "actor": {
+                "url": "/urbandictionary", 
+                "profile": {
+                    "name": "Urban Dictionary"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/207/8617c586cd3e2f0db537ee868db6362e2ce1aefa_medium.png?1400430635"
+                }
+            }, 
+            "team_handle": "urbandictionary", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1767683, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-20T21:56:37.763Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-20T21:56:37.763Z", 
+            "actor": {
+                "username": "tcpiplab", 
+                "url": "/tcpiplab", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/113/049/b2ecf0fb812453a3aaba481bbb963babb8396f01_medium.jpeg?1488262778"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "urbandictionary", 
+            "message": "Awesome. Thanks for agreeing to the disclosure. By the way, should I have received the swag by now, or was it perhaps lost in shipping? Please let me know if you need any additional information from me. Thank you. ", 
+            "markdown_message": "<p>Awesome. Thanks for agreeing to the disclosure. By the way, should I have received the swag by now, or was it perhaps lost in shipping? Please let me know if you need any additional information from me. Thank you. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1769812, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-21T06:07:58.248Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-21T06:07:58.248Z", 
+            "actor": {
+                "username": "apeckham", 
+                "url": "/apeckham", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/006/312/53c67f60428fd4db6b67ca1ae6044bb5aa2fdea6_medium.png?1454713494"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "urbandictionary", 
+            "message": "Ack, I'm sorry! Your swag shipment did not go out in the last batch. We will place the order ASAP. Thanks again for this report.", 
+            "markdown_message": "<p>Ack, I&#39;m sorry! Your swag shipment did not go out in the last batch. We will place the order ASAP. Thanks again for this report.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1770493, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-21T06:42:15.411Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-21T06:42:15.411Z", 
+            "actor": {
+                "username": "tcpiplab", 
+                "url": "/tcpiplab", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/113/049/b2ecf0fb812453a3aaba481bbb963babb8396f01_medium.jpeg?1488262778"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "urbandictionary", 
+            "message": "Thanks. I'll look for it. ", 
+            "markdown_message": "<p>Thanks. I&#39;ll look for it. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1770514, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "tcpiplab", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/tcpiplab", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/113/049/898c7c85cad843c3a7358e4435df0d0e03a013f7_small.jpeg?1488262778"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 90, 
+        "name": "Insufficient Session Expiration"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -46189022.7171653, 
+    "disclosed_at": "2017-06-20T08:20:00.441Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/216294", 
+    "created_at": "2017-03-26T23:40:02.428Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"session-replay-vulnerability-in-www-urbandictionary-com\">Session replay vulnerability in <a href=\"/redirect?signature=c9e89280d6f196e004537400ef8cbd306508206a&amp;url=http%3A%2F%2Fwww.urbandictionary.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>www.urbandictionary.com</span><i class=\"icon-external-link\"></i></a>\n</h1>\n\n<p>I considered titling this bug &quot;<em>Session tokens not expiring</em>&quot;, which is what you need to tell your development team. But I titled it as I did to emphasize at least one attack made possible by the bug. There may be others.</p>\n\n<h2 id=\"description\">Description</h2>\n\n<p>Privileged functions, e.g., <code>/handle.save.php</code> can still be used after the user has clicked the &quot;sign out&quot; link. The cause of the vulnerability seems to be that the server is not invalidating session cookies when the user &quot;signs out&quot;. I observed session tokens remaining valid even 72 hours after being issued.</p>\n\n<p>Exploitation requires the anti-CSRF <code>authenticity_token</code> from the privileged page from before the victim &quot;logged out&quot;, and any one of the victim&#39;s <code>_rails_session</code> cookies from before the victim &quot;logged out&quot;. Note that because the server issues a new cookie with each Response, the attacker may choose from among many cookies.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<ol>\n<li>Cookies that never expire can impact the security of the user:\n\n<ol>\n<li>The user&#39;s session is susceptible to hijacking or replay.</li>\n<li>The user has no way of causing the application to invalidate their session. This is important in shared computing environments.</li>\n</ol>\n</li>\n<li>Cookies that never expire can impact the security of the server:\n\n<ol>\n<li>The time window to brute-force a valid session token is increased.</li>\n<li>If many session tokens remain valid, brute-forcing has that many more chances to guess correctly.</li>\n</ol>\n</li>\n</ol>\n\n<h2 id=\"step-by-step-reproduction-instructions\">Step-by-step Reproduction Instructions</h2>\n\n<ol>\n<li><p>Set up an HTTP intercept proxy like Burp Suite or ZAP.</p></li>\n<li><p>Authenticate to <code>http://www.urbandictionary.com/users.php</code> via the Gmail OAuth function, receiving a valid session cookie from <code>www.urbandictionary.com</code>, and then &quot;sign out&quot; by clicking <code>http://www.urbandictionary.com/auth/logout</code>.</p></li>\n<li>\n<p>Send a <code>POST</code> request to <code>https://www.urbandictionary.com/handle.save.php</code> containing:</p>\n\n<ol>\n<li>The <code>authenticity_token</code> from the privileged page from before the user &quot;logged out&quot;.</li>\n<li>Any one of the user&#39;s <code>_rails_session</code> cookies from before the user &quot;logged out&quot;.</li>\n<li>In the body of the POST set <code>user[handle]</code> to a new value. I&#39;ve used <code>H.H. Vong</code>.</li>\n<li>In the body of the POST set <code>commit</code> to <code>Save</code>.</li>\n</ol>\n</li>\n</ol>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"handle.save.php.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/171/456/0988f741d9034e72ef9adda45ea395c450a851fb/handle.save.php.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223658Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=3e4e9a44dfcc904827cf015f3f1962253c1b7b2abda255dcc66177ae62568407\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/171/456/0988f741d9034e72ef9adda45ea395c450a851fb/handle.save.php.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223658Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=3e4e9a44dfcc904827cf015f3f1962253c1b7b2abda255dcc66177ae62568407\" class=\"markdown-inline-image\"></a></p>\n\n<p>The screen-shot above shows how to use Burp Repeater to replay a session and modify the user handle.</p>\n\n<p>Here is that request as a curl command:</p>\n<pre class=\"highlight plaintext\"><code>   $ curl -L -i -s -k  -X $&#39;POST&#39;     -H $&#39;User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:45.0) Gecko/20100101 Firefox/45.0&#39; -H $&#39;Referer: https://www.urbandictionary.com/handle.php&#39; -H $&#39;Content-Type: application/x-www-form-urlencoded&#39;     -b $&#39;_rails_session=bnBaYnJjSjNJcmxGN1JrWjFkbmUwa0NFY05GdThtcmtHQU0zTHhsem1iQngyQmhvYUdKQTRCVmNHNlBGRTEvRm9aczFwRXc5ekVUV2FEVDM4RSswQU9rejBReGc1M3dxVGhRV0REQmFCUWFkYWcwQ1RhV2NIN1VUalQyM09tNHAwS3lkc0JaRlJqNkxKd2xNZVdKQzhYOFpBdlhqRHhoYVplWmczTFZBL3hlb3E2YUxkVmp4NEkzZUxtZXBQa1ozME9MUFdXRHRDQStOWXdUT2xkcTRSdz09LS1LNXVZWmFBL0F5STRIUjkwTmdnczR3PT0%3D--4ea5f8f5d73379881a6db43b9b8cdcc9d7c89773&#39;     --data-binary $&#39;authenticity_token=C4EmquHAIijNq8UrFfbdfm%2B3Bp5RxvL1BpzMdf3%2FJgtw%2FSn%2FgTt4AlFlIDWFivaesfXJFgNqrWS8DD85obbnpA%3D%3D&amp;user%5Bhandle%5D=H.H.+Vong&amp;commit=Save&#39;     $&#39;https://www.urbandictionary.com/handle.save.php&#39;\n</code></pre>\n<ol>\n<li>The response will be a <code>302/Found</code> with the <code>Location</code> field set to <code>https://www.urbandictionary.com/users.php</code>. Your browser will follow the <code>302</code> redirect, issuing a <code>GET</code> request for the URL in the <code>Location</code> field. The server will respond with a <code>200/OK</code> status code.</li>\n</ol>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"after-redirect.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/171/455/d9e18de76ecec3c8359575dab0c85a1cbcb71f3c/after-redirect.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223658Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=2a84e1b180edbb83b2323eb6295f3b92ddc4bba3ef6a146eed92e4da9976a86c\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/171/455/d9e18de76ecec3c8359575dab0c85a1cbcb71f3c/after-redirect.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T223658Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=2a84e1b180edbb83b2323eb6295f3b92ddc4bba3ef6a146eed92e4da9976a86c\" class=\"markdown-inline-image\"></a></p>\n\n<p>The screen-shot above shows the Burp Repeater response with the rendered HTML displaying the successfully modified user handle.</p>\n\n<p>If you&#39;re verifying this with <code>curl</code>, you could just <code>grep</code> for the modified value. Append this to the <code>curl</code> command previously specified: <code>| grep -i vong</code>. Two lines of the HTML in the returned page will contain the newly modified handle:</p>\n<pre class=\"highlight plaintext\"><code>   &lt;title&gt;Urban Dictionary: Hello H.H. Vong&lt;/title&gt;\n   &lt;span&gt;Hello H.H. Vong&lt;/span&gt;\n</code></pre>\n<h2 id=\"suggested-mitigation-remediation-actions\">Suggested Mitigation/Remediation Actions</h2>\n\n<ol>\n<li>Configure the server side application to invalidate a user&#39;s submitted session token:\n\n<ol>\n<li>When a new token is issued by the server side application, so that only one token is valid at any given time.</li>\n<li>When the user submits a valid session token to <code>/auth/logout</code>.</li>\n<li>When a valid session token has not been submitted to the server side application for greater than <em>n</em> seconds where <em>n</em> is some value consistent with your own internal policy.</li>\n<li>When a valid session token, stored on the server, is older than <em>m</em> seconds, where <em>m</em> is the maximum age allowed for a session cookie, based on your own internal policy.</li>\n</ol>\n</li>\n</ol>\n\n<h2 id=\"product-version-and-configuration\">Product, Version, and Configuration</h2>\n\n<ul>\n<li>Kali Linux 2016.2</li>\n<li>Mozilla Firefox 45.7.0</li>\n<li>Burp Suite 1.7.17</li>\n<li>\n<code>curl</code> 7.52.1</li>\n</ul>\n\n<p>Please let me know if you need more information about this issue. Thanks.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://www.urbandictionary.com", 
+            "about": "The online dictionary with definitions you write.", 
+            "twitter_handle": "", 
+            "name": "Urban Dictionary"
+        }, 
+        "handle": "urbandictionary", 
+        "url": "https://hackerone.com/urbandictionary", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/207/dd017b69d3bb5f93a9cd11aa7d82e3a47013f2db_small.png?1400430635", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/207/8617c586cd3e2f0db537ee868db6362e2ce1aefa_medium.png?1400430635"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 207, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

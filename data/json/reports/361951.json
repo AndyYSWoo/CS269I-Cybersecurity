@@ -1,0 +1,589 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-06-05T15:46:23.594Z", 
+    "voters": [
+        "sp1d3rs", 
+        "spam404", 
+        "europa", 
+        "jensec", 
+        "kapytein", 
+        "hackerhero", 
+        "emitrani", 
+        "bagipro", 
+        "muon4", 
+        "edoverflow", 
+        "and 16 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "50.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 361951, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-06-05T15:42:19.375Z", 
+    "vulnerability_information": "Hello!\n\n## Vulnerability Details\nThe `/username/charts.json` endpoint can return a JSONP callback due to the fact that `jsonp_dump` is used in the file `charts.json.spt`. It appears that the content of the JSONP request depends on the authentication of the user. If the user enabled the privacy setting which hides the receiving donation data of the user,  a 403 error will be returned **unless**  the user is authenticated.\n\nThis happens [here](https://github.com/liberapay/liberapay.com/blob/b56172c6a6382595b8cfabccf424ba182820ea0e/www/%25username/charts.json.spt#L19):\n\n```python\nif participant.hide_receiving:\n    if user != participant and not user.is_admin:\n        raise response.error(403)\n```\n\nThe vulnerable code is [here](https://github.com/liberapay/liberapay.com/blob/b56172c6a6382595b8cfabccf424ba182820ea0e/www/%25username/charts.json.spt#L85):\n\n```python\n[---] application/json via jsonp_dump\n```\n\nBasically, a `jsonp_dump` is unnecessary in this case (I did not notice a case where cross-domain requests need to be done), and it should be replaced with `json_dump` instead.\n\n## How could this be exploited?\nThis would eventually allow any site to call the JSONP callback, and receive the receiving donation data of the user, despite it's privacy settings. This will lead to unwanted information disclosure.\n\n## Proof of Concept\n```html\n<script>\nfunction rip(a) {\n\nalert(JSON.stringify(a[1]));\n\n}\n</script>\n<script src=\"https://liberapay.com/~153779/charts.json?callback=rip\"></script>\n```\n\nHost this file, visit the site authenticated and it will print out the first row in the JSON Array. If you have not received any donation through LIbrapay so far, an empty JSON array will be returned.\n\n## Impact\n\nThis will lead to unwanted information disclosure due to the fact that privacy settings of the user will be ignored.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "low", 
+            "privileges_required": "none", 
+            "user_interaction": "required", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "unchanged", 
+            "integrity": "none", 
+            "availability": "none"
+        }, 
+        "rating": "medium", 
+        "score": 4.3, 
+        "author_type": "Team"
+    }, 
+    "title": "Exploiting JSONP callback on /username/charts.json endpoint leads to information disclosure despite user's privacy settings", 
+    "is_member_of_team?": null, 
+    "vote_count": 26, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 7615, 
+            "content": "@kapytein submitted a wonderful report describing an XSSI vulnerability in liberapay.com. During the initial review, we thought that the endpoint did not disclose data from profiles that had disabled sharing details on their profiles. However, @kapytein did provide us with additional information that demonstrated leaking private data to a third-party website.", 
+            "content_html": "<p><a href=\"/kapytein\">@kapytein</a> submitted a wonderful report describing an XSSI vulnerability in liberapay.com. During the initial review, we thought that the endpoint did not disclose data from profiles that had disabled sharing details on their profiles. However, <a href=\"/kapytein\">@kapytein</a> did provide us with additional information that demonstrated leaking private data to a third-party website.</p>\n"
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "https://github.com/liberapay/liberapay.com", 
+        "max_severity": "critical", 
+        "databaseId": 8927, 
+        "asset_type": "SOURCE_CODE"
+    }, 
+    "allow_singular_disclosure_at": "2018-07-05T15:42:19.508Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$50", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T02:24:03.864Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T02:24:03.864Z", 
+            "actor": {
+                "username": "kapytein", 
+                "url": "/kapytein", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/193/843/c3ee82e4a5c3b606b17561edb1d106c30a41f652_medium.jpg?1539423526"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_title": "Exploiting JSONP on /username/charts.json endpoint leads to information disclosure despite user's privacy settings", 
+                "old_title": "Exploiting JSONP on /username/charts.json leads to information disclosure despite user's privacy settings"
+            }, 
+            "team_handle": "liberapay", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportTitleUpdated", 
+            "id": 2842537, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T02:26:44.850Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T02:26:44.850Z", 
+            "actor": {
+                "username": "kapytein", 
+                "url": "/kapytein", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/193/843/c3ee82e4a5c3b606b17561edb1d106c30a41f652_medium.jpg?1539423526"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_title": "Exploiting JSONP callback on /username/charts.json endpoint leads to information disclosure despite user's privacy settings", 
+                "old_title": "Exploiting JSONP on /username/charts.json endpoint leads to information disclosure despite user's privacy settings"
+            }, 
+            "team_handle": "liberapay", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportTitleUpdated", 
+            "id": 2842543, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T02:36:24.681Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T02:44:02.505Z", 
+            "actor": {
+                "username": "kapytein", 
+                "url": "/kapytein", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/193/843/c3ee82e4a5c3b606b17561edb1d106c30a41f652_medium.jpg?1539423526"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "liberapay", 
+            "message": "If you do need cross-domain requests, you might want to keep the CORS header `Access-Control-Allow-Origin` at [L23](https://github.com/liberapay/liberapay.com/blob/87dacd58e9e29a9b5920cb1f2f211e105dd0ae56/www/%25username/charts.json.spt#L23), and just remove the JSONP response. This won't break the application on subdomains, as users who disabled the receiving privacy setting (thus making it public), do not require to be authenticated for the `/username/charts.json` endpoint. Loading JS files cross-origin will include cookies, so a JSONP callback response will be vulnerable. I think you should be good with the `Access-Control-Allow-Origin` header only.", 
+            "markdown_message": "<p>If you do need cross-domain requests, you might want to keep the CORS header <code>Access-Control-Allow-Origin</code> at <a href=\"/redirect?signature=a80917a4f328216f6fa046ee3ecf6ca19a8d5795&amp;url=https%3A%2F%2Fgithub.com%2Fliberapay%2Fliberapay.com%2Fblob%2F87dacd58e9e29a9b5920cb1f2f211e105dd0ae56%2Fwww%2F%2525username%2Fcharts.json.spt%23L23\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>L23</span><i class=\"icon-external-link\"></i></a>, and just remove the JSONP response. This won&#39;t break the application on subdomains, as users who disabled the receiving privacy setting (thus making it public), do not require to be authenticated for the <code>/username/charts.json</code> endpoint. Loading JS files cross-origin will include cookies, so a JSONP callback response will be vulnerable. I think you should be good with the <code>Access-Control-Allow-Origin</code> header only.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2842551, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": true, 
+            "created_at": "2018-06-05T02:53:51.446Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T02:53:51.446Z", 
+            "actor": {
+                "url": "/liberapay", 
+                "profile": {
+                    "name": "Liberapay"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/028/411/eb1bc1321b1b84c9057c721f5705b51a93438fe2_medium.?1524732576"
+                }
+            }, 
+            "team_handle": "liberapay", 
+            "message": "Thank you for your submission! We have received your report and a security analyst will respond shortly.", 
+            "markdown_message": "<p>Thank you for your submission! We have received your report and a security analyst will respond shortly.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2842568, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T10:10:16.543Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T10:10:16.543Z", 
+            "actor": {
+                "username": "changaco", 
+                "url": "/changaco", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/057/214/cc8d435848b731655b95ddf182cb51f6bb70a856_medium.png?1506425096"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Medium (4.3)", 
+                "old_severity": null
+            }, 
+            "team_handle": "liberapay", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2844102, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T11:14:24.995Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T11:14:24.995Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "liberapay", 
+            "message": "Thank you for your submission. We are currently reviewing your report.", 
+            "markdown_message": "<p>Thank you for your submission. We are currently reviewing your report.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2844251, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T11:23:27.639Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T11:23:27.639Z", 
+            "actor": {
+                "username": "changaco", 
+                "url": "/changaco", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/057/214/cc8d435848b731655b95ddf182cb51f6bb70a856_medium.png?1506425096"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "liberapay", 
+            "message": "Thank your for this excellent report. I concur that there is a possibility of cross-origin private information disclosure.\n\nAs a general browser-side solution to this kind of vulnerability we are going to restrict our cookies to same-site requests by default (see [pull request 1133](https://github.com/liberapay/liberapay.com/pull/1133)). However we also need a server-side solution, especially since many browser versions currently in use do not support the `SameSite` cookie attribute (see [caniuse.com](https://caniuse.com/#feat=same-site-cookie-attribute) for details). Checking the `Referer` header may be an effective general solution to preventing cross-origin private information disclosure, with a low percentage of false positives (the vast majority of browsers are configured to send an appropriate `Referer` for same-origin requests).", 
+            "markdown_message": "<p>Thank your for this excellent report. I concur that there is a possibility of cross-origin private information disclosure.</p>\n\n<p>As a general browser-side solution to this kind of vulnerability we are going to restrict our cookies to same-site requests by default (see <a href=\"/redirect?signature=87871c020cd8e445d6f04aff04e592f9b934b5bf&amp;url=https%3A%2F%2Fgithub.com%2Fliberapay%2Fliberapay.com%2Fpull%2F1133\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>pull request 1133</span><i class=\"icon-external-link\"></i></a>). However we also need a server-side solution, especially since many browser versions currently in use do not support the <code>SameSite</code> cookie attribute (see <a href=\"/redirect?signature=1e4c90deaeb3680f01dbe59e29d84ab161c29ff9&amp;url=https%3A%2F%2Fcaniuse.com%2F%23feat%3Dsame-site-cookie-attribute\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>caniuse.com</span><i class=\"icon-external-link\"></i></a> for details). Checking the <code>Referer</code> header may be an effective general solution to preventing cross-origin private information disclosure, with a low percentage of false positives (the vast majority of browsers are configured to send an appropriate <code>Referer</code> for same-origin requests).</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2844271, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T11:25:59.493Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T11:25:59.493Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "liberapay", 
+            "message": "You have submitted a valid security vulnerability. We will now focus on resolving the reported issue as quickly as possible. Thank you so much for the beautifully-written report, @kapytein \u2014 it is always a pleasure to work with you.", 
+            "markdown_message": "<p>You have submitted a valid security vulnerability. We will now focus on resolving the reported issue as quickly as possible. Thank you so much for the beautifully-written report, <a href=\"/kapytein\">@kapytein</a> \u2014 it is always a pleasure to work with you.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2844279, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T11:30:50.203Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T11:32:04.692Z", 
+            "actor": {
+                "username": "kapytein", 
+                "url": "/kapytein", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/193/843/c3ee82e4a5c3b606b17561edb1d106c30a41f652_medium.jpg?1539423526"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "liberapay", 
+            "message": "> You have submitted a valid security vulnerability. We will now focus on resolving the reported issue as quickly as possible. Thank you so much for the beautifully-written report, @kapytein \u2014 it is always a pleasure to work with you.\n\nThank you! It's great to work with you guys! :)\n\n> Thank your for this excellent report. I concur that there is a possibility of cross-origin private information disclosure.\n\n> As a general browser-side solution to this kind of vulnerability we are going to restrict our cookies to same-site requests by default (see pull request 1133). However we also need a server-side solution, especially since many browser versions currently in use do not support the SameSite cookie attribute (see caniuse.com for details). Checking the Referer header may be an effective general solution to preventing cross-origin private information disclosure, with a low percentage of false positives (the vast majority of browsers are configured to send an appropriate Referer for same-origin requests).\n\nThanks again. That's true, but in this case,  replacing the `jsonp_dump` with `json_dump` will basically resolve the issue. You can keep the CORS header `Access-Control-Allow-Origin`, as XHR requests won't include cookies unless you respond with the `Access-Control-Allow-Credentials` as well (then again, you need to respond with a specific domain in the ACAC header in order to make it work on most browsers), which is totally not needed in this case. Unless, you of course, need the JSONP callback, however I couldn't notice where it is really required.\n", 
+            "markdown_message": "<blockquote>\n<p>You have submitted a valid security vulnerability. We will now focus on resolving the reported issue as quickly as possible. Thank you so much for the beautifully-written report, <a href=\"/kapytein\">@kapytein</a> \u2014 it is always a pleasure to work with you.</p>\n</blockquote>\n\n<p>Thank you! It&#39;s great to work with you guys! :)</p>\n\n<blockquote>\n<p>Thank your for this excellent report. I concur that there is a possibility of cross-origin private information disclosure.</p>\n\n<p>As a general browser-side solution to this kind of vulnerability we are going to restrict our cookies to same-site requests by default (see pull request 1133). However we also need a server-side solution, especially since many browser versions currently in use do not support the SameSite cookie attribute (see caniuse.com for details). Checking the Referer header may be an effective general solution to preventing cross-origin private information disclosure, with a low percentage of false positives (the vast majority of browsers are configured to send an appropriate Referer for same-origin requests).</p>\n</blockquote>\n\n<p>Thanks again. That&#39;s true, but in this case,  replacing the <code>jsonp_dump</code> with <code>json_dump</code> will basically resolve the issue. You can keep the CORS header <code>Access-Control-Allow-Origin</code>, as XHR requests won&#39;t include cookies unless you respond with the <code>Access-Control-Allow-Credentials</code> as well (then again, you need to respond with a specific domain in the ACAC header in order to make it work on most browsers), which is totally not needed in this case. Unless, you of course, need the JSONP callback, however I couldn&#39;t notice where it is really required.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2844291, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T11:34:29.330Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T11:34:42.111Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "liberapay", 
+            "message": "Just to add to @changaco's comment above, you cannot abuse this bug to disclose details from profiles that have their privacy settings set to remain completely private as you can see below.\n\n```\n$ curl -Is https://liberapay.com/EdOverflow/charts.json?callback=rip | head -1\nHTTP/2 403 \n$ curl -Is https://liberapay.com/Liberapay/charts.json?callback=rip | head -1\nHTTP/2 200 \n```", 
+            "markdown_message": "<p>Just to add to <a href=\"/changaco\">@changaco</a>&#39;s comment above, you cannot abuse this bug to disclose details from profiles that have their privacy settings set to remain completely private as you can see below.</p>\n<pre class=\"highlight plaintext\"><code>$ curl -Is https://liberapay.com/EdOverflow/charts.json?callback=rip | head -1\nHTTP/2 403 \n$ curl -Is https://liberapay.com/Liberapay/charts.json?callback=rip | head -1\nHTTP/2 200 \n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 2844298, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T11:36:58.278Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T11:37:31.677Z", 
+            "actor": {
+                "username": "kapytein", 
+                "url": "/kapytein", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/193/843/c3ee82e4a5c3b606b17561edb1d106c30a41f652_medium.jpg?1539423526"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "liberapay", 
+            "message": "Unless you visit the attacker's page while being authenticated to Liberapay. @edoverflow ", 
+            "markdown_message": "<p>Unless you visit the attacker&#39;s page while being authenticated to Liberapay. <a href=\"/edoverflow\">@edoverflow</a> </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2844302, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T11:39:42.618Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T11:39:42.618Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "liberapay", 
+            "message": "Ah, good point! In that case, I need to discuss the impact again with @changaco. Thank you for pointing that out, @kapytein! XSSI bugs are really interesting. :D", 
+            "markdown_message": "<p>Ah, good point! In that case, I need to discuss the impact again with <a href=\"/changaco\">@changaco</a>. Thank you for pointing that out, <a href=\"/kapytein\">@kapytein</a>! XSSI bugs are really interesting. :D</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2844307, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-06-05T11:42:40.510Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T11:42:40.510Z", 
+            "actor": {
+                "url": "/liberapay", 
+                "profile": {
+                    "name": "Liberapay"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/028/411/eb1bc1321b1b84c9057c721f5705b51a93438fe2_medium.?1524732576"
+                }
+            }, 
+            "team_handle": "liberapay", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "50.0", 
+            "collaborator": {
+                "username": "kapytein", 
+                "url": "/kapytein"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2844312, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T11:46:42.107Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T11:46:42.107Z", 
+            "actor": {
+                "username": "kapytein", 
+                "url": "/kapytein", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/193/843/c3ee82e4a5c3b606b17561edb1d106c30a41f652_medium.jpg?1539423526"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "liberapay", 
+            "message": "Thank you for the bounty! Amazing response time!", 
+            "markdown_message": "<p>Thank you for the bounty! Amazing response time!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2844323, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "kapytein", 
+                "url": "/kapytein"
+            }, 
+            "created_at": "2018-06-05T14:39:40.037Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T14:39:40.037Z", 
+            "actor": {
+                "username": "changaco", 
+                "url": "/changaco", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/057/214/cc8d435848b731655b95ddf182cb51f6bb70a856_medium.png?1506425096"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "liberapay", 
+            "message": "The vulnerability should be fixed now, the patch in <https://github.com/liberapay/liberapay.com/pull/1135> has been deployed to production.\n\n@kapytein Thank you for the advice on how to fix the issue, I've followed your suggestion and simply dropped support for JSONP.", 
+            "markdown_message": "<p>The vulnerability should be fixed now, the patch in <a title=\"https://github.com/liberapay/liberapay.com/pull/1135\" href=\"/redirect?signature=8d726f0bcf139ad4c43fa167923ef229ab81b694&amp;url=https%3A%2F%2Fgithub.com%2Fliberapay%2Fliberapay.com%2Fpull%2F1135\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/liberapay/liberapay.com/pull/1135</span><i class=\"icon-external-link\"></i></a> has been deployed to production.</p>\n\n<p><a href=\"/kapytein\">@kapytein</a> Thank you for the advice on how to fix the issue, I&#39;ve followed your suggestion and simply dropped support for JSONP.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2844702, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T15:16:33.048Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T15:16:33.048Z", 
+            "actor": {
+                "username": "kapytein", 
+                "url": "/kapytein", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/193/843/c3ee82e4a5c3b606b17561edb1d106c30a41f652_medium.jpg?1539423526"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "liberapay", 
+            "message": "Hi @changaco,\n\nIssue seems to be fixed in production. Dropping JSONP support indeed fixes the problem. Glad I could help out!", 
+            "markdown_message": "<p>Hi <a href=\"/changaco\">@changaco</a>,</p>\n\n<p>Issue seems to be fixed in production. Dropping JSONP support indeed fixes the problem. Glad I could help out!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2844778, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T15:42:19.427Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T15:42:19.427Z", 
+            "actor": {
+                "username": "edoverflow", 
+                "url": "/edoverflow", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/374/95f9ffa246b2d43ca4f14a95d8815f429544fe54_medium.png?1527882436"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "liberapay", 
+            "first_to_agree": true, 
+            "message": "Keep up the good work, @kapytein! :)", 
+            "markdown_message": "<p>Keep up the good work, <a href=\"/kapytein\">@kapytein</a>! :)</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2844859, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T15:46:23.630Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T15:46:23.630Z", 
+            "actor": {
+                "username": "kapytein", 
+                "url": "/kapytein", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/193/843/c3ee82e4a5c3b606b17561edb1d106c30a41f652_medium.jpg?1539423526"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "liberapay", 
+            "message": "Thank you, @edoverflow!", 
+            "markdown_message": "<p>Thank you, <a href=\"/edoverflow\">@edoverflow</a>!</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2844876, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T15:46:23.792Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T15:46:23.792Z", 
+            "actor": {
+                "username": "kapytein", 
+                "url": "/kapytein", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/193/843/c3ee82e4a5c3b606b17561edb1d106c30a41f652_medium.jpg?1539423526"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "liberapay", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2844877, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "kapytein", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/kapytein", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/193/843/3661c0c23b292e7889e3e10710671e7d7ab03aa3_small.jpg?1539423526"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 18, 
+        "name": "Information Disclosure"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -13329469.732869375, 
+    "disclosed_at": "2018-06-05T15:46:23.714Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/361951", 
+    "created_at": "2018-06-05T02:23:45.221Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Hello!</p>\n\n<h2 id=\"vulnerability-details\">Vulnerability Details</h2>\n\n<p>The <code>/username/charts.json</code> endpoint can return a JSONP callback due to the fact that <code>jsonp_dump</code> is used in the file <code>charts.json.spt</code>. It appears that the content of the JSONP request depends on the authentication of the user. If the user enabled the privacy setting which hides the receiving donation data of the user,  a 403 error will be returned <strong>unless</strong>  the user is authenticated.</p>\n\n<p>This happens <a href=\"/redirect?signature=5e25d2cd21f45129988cfb27f54f75fe0d45b7ea&amp;url=https%3A%2F%2Fgithub.com%2Fliberapay%2Fliberapay.com%2Fblob%2Fb56172c6a6382595b8cfabccf424ba182820ea0e%2Fwww%2F%2525username%2Fcharts.json.spt%23L19\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>here</span><i class=\"icon-external-link\"></i></a>:</p>\n<pre class=\"highlight python\"><code><span class=\"k\">if</span> <span class=\"n\">participant</span><span class=\"o\">.</span><span class=\"n\">hide_receiving</span><span class=\"p\">:</span>\n    <span class=\"k\">if</span> <span class=\"n\">user</span> <span class=\"o\">!=</span> <span class=\"n\">participant</span> <span class=\"ow\">and</span> <span class=\"ow\">not</span> <span class=\"n\">user</span><span class=\"o\">.</span><span class=\"n\">is_admin</span><span class=\"p\">:</span>\n        <span class=\"k\">raise</span> <span class=\"n\">response</span><span class=\"o\">.</span><span class=\"n\">error</span><span class=\"p\">(</span><span class=\"mi\">403</span><span class=\"p\">)</span>\n</code></pre>\n<p>The vulnerable code is <a href=\"/redirect?signature=3a95940b428c029f73c68256ec41d4a0929b36ba&amp;url=https%3A%2F%2Fgithub.com%2Fliberapay%2Fliberapay.com%2Fblob%2Fb56172c6a6382595b8cfabccf424ba182820ea0e%2Fwww%2F%2525username%2Fcharts.json.spt%23L85\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>here</span><i class=\"icon-external-link\"></i></a>:</p>\n<pre class=\"highlight python\"><code><span class=\"p\">[</span><span class=\"o\">---</span><span class=\"p\">]</span> <span class=\"n\">application</span><span class=\"o\">/</span><span class=\"n\">json</span> <span class=\"n\">via</span> <span class=\"n\">jsonp_dump</span>\n</code></pre>\n<p>Basically, a <code>jsonp_dump</code> is unnecessary in this case (I did not notice a case where cross-domain requests need to be done), and it should be replaced with <code>json_dump</code> instead.</p>\n\n<h2 id=\"how-could-this-be-exploited\">How could this be exploited?</h2>\n\n<p>This would eventually allow any site to call the JSONP callback, and receive the receiving donation data of the user, despite it&#39;s privacy settings. This will lead to unwanted information disclosure.</p>\n\n<h2 id=\"proof-of-concept\">Proof of Concept</h2>\n<pre class=\"highlight html\"><code><span class=\"nt\">&lt;script&gt;</span>\n<span class=\"kd\">function</span> <span class=\"nx\">rip</span><span class=\"p\">(</span><span class=\"nx\">a</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n\n<span class=\"nx\">alert</span><span class=\"p\">(</span><span class=\"nx\">JSON</span><span class=\"p\">.</span><span class=\"nx\">stringify</span><span class=\"p\">(</span><span class=\"nx\">a</span><span class=\"p\">[</span><span class=\"mi\">1</span><span class=\"p\">]));</span>\n\n<span class=\"p\">}</span>\n<span class=\"nt\">&lt;/script&gt;</span>\n<span class=\"nt\">&lt;script </span><span class=\"na\">src=</span><span class=\"s\">&quot;https://liberapay.com/~153779/charts.json?callback=rip&quot;</span><span class=\"nt\">&gt;&lt;/script&gt;</span>\n</code></pre>\n<p>Host this file, visit the site authenticated and it will print out the first row in the JSON Array. If you have not received any donation through LIbrapay so far, an empty JSON array will be returned.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>This will lead to unwanted information disclosure due to the fact that privacy settings of the user will be ignored.</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://liberapay.com", 
+            "about": "An open source platform designed to facilitate recurrent donations.", 
+            "twitter_handle": "liberapay", 
+            "name": "Liberapay"
+        }, 
+        "handle": "liberapay", 
+        "url": "https://hackerone.com/liberapay", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/028/411/0782331e0ae0dfac7617ae2c5cc5f275a4a84ebe_small.?1524732576", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/028/411/eb1bc1321b1b84c9057c721f5705b51a93438fe2_medium.?1524732576"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 28411, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

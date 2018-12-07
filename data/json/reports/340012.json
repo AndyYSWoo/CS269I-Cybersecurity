@@ -1,0 +1,355 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "spam404", 
+        "mik317", 
+        "eveeez", 
+        "geeknik", 
+        "axolotl", 
+        "mygf", 
+        "apapedulimu", 
+        "japz", 
+        "back", 
+        "zer0min9", 
+        "and 1 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 340012, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-04-25T05:27:06.891Z", 
+    "vulnerability_information": "**Summary:**\n\nThis is a buffer oob read vulnerability in miniupnpc when parsing xml response. This vulnerability could result in denial of service attack in monero client to in local area Network.\n\n**Description:** \n\nIn miniupnpc, file \"Minixml.c\":\n\nThe funnction parseelt:\n\nstatic void parseelt(struct xmlparser * p)\n{\n...\n\t\t\t\tif(memcmp(p->xml, \"<![CDATA[\", 9) == 0)\t\t// (1)  Failed to do bound check prior to \"memcmp\" here\n\t\t\t\t{\n\t\t\t\t\t/* CDATA handling */\n\t\t\t\t\tp->xml += 9;\n\t\t\t\t\tdata = p->xml;\n\t\t\t\t\ti = 0;\n\t\t\t\t\twhile(memcmp(p->xml, \"]]>\", 3) != 0)\n...\n}\n\nHere it tries to match the CDATA section in the xml file using memcmp. However, it does not check whether it has already reached the end of the xml buffer. By sending a specially crafted xml response, we can make it read out of bounds of the xml buffer, which may crash the client.\n\n\n## Releases Affected:\n\nIt affects all monero clients which use miniupnpc.\n\nI have tested with the Windows, 64-bit (Command-Line Tools Only), version 0.12.0.0 Lithium Luna, downloaded from:   https://getmonero.org/downloads/\n\nThe environment I used to test was Windows 10 64-bits.\n\n\n## Steps To Reproduce:\n\nStep  1. Enable page heap for monerod.exe:\n\nThe page heap on windows helps to crash the program at the first place when memory corruption issue (buffer overrun, uaf...) happens, similar to tools like valgrind, ASAN. \n\nSee:\nhttps://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/gflags-and-pageheap\n\n\n1.1 Install WinDbg to get gflags\nInstall the Debugging tools for windows, which contains the gflags.exe tool.\n\n1.2 Enable page heap for monerod.exe\nExecute the following command:\n\"c:\\Program Files\\Debugging Tools for Windows (x64)\\gflags.exe\" /i monerod.exe +hpa\n\n\nStep 2. Start the malicious upnp server:\n\npython poc.py --listen 127.0.0.1:65000 --target havoc\n\n\nStep3. Start monerod:\n\nmonerod.exe --test-drop-download\n\n\nStep 4. Wait for monerod crash\n\nThe crash stack trace:\n\n\n(5c10.56c0): Access violation - code c0000005 (!!! second chance !!!)\n*** ERROR: Symbol file could not be found.  Defaulted to export symbols for C:\\Users\\test\\Desktop\\monero\\monero-win-x64-v0.12.0.0\\monero-v0.12.0.0\\monerod.exe - \nmonerod+0x448737:\n00000000`01768737 4c3908          cmp     qword ptr [rax],r9 ds:00000000`200b0fff=????????????????\n0:000> k\nChild-SP          RetAddr           Call Site\n00000000`0294d5f0 00000000`01767edb monerod+0x448737\n00000000`0294d660 00000000`01970b5b monerod+0x447edb\n00000000`0294d7a0 00000000`019792ff monerod!ZN5boost7archive6detail11oserializerINS0_24portable_binary_oarchiveEN8nodetool26anchor_peerlist_entry_baseIN4epee9net_utils15network_addressEEEEC2Ev+0x1addb\n00000000`0294e6b0 00000000`01987503 monerod!ZN5boost7archive6detail11oserializerINS0_24portable_binary_oarchiveEN8nodetool26anchor_peerlist_entry_baseIN4epee9net_utils15network_addressEEEEC2Ev+0x2357f\n00000000`0294e960 00000000`01986aa2 monerod!ZN5boost7archive6detail11oserializerINS0_24portable_binary_oarchiveEN8nodetool26anchor_peerlist_entry_baseIN4epee9net_utils15network_addressEEEEC2Ev+0x31783\n00000000`0294ead0 00000000`01331c96 monerod!ZN5boost7archive6detail11oserializerINS0_24portable_binary_oarchiveEN8nodetool26anchor_peerlist_entry_baseIN4epee9net_utils15network_addressEEEEC2Ev+0x30d22\n00000000`0294eca0 00000000`01336735 monerod+0x11c96\n00000000`0294ede0 00000000`017fdb73 monerod+0x16735\n00000000`0294ee70 00000000`01ab0f0b monerod+0x4ddb73\n00000000`0294f000 00000000`013213c7 monerod!ZNK5boost7archive6detail11oserializerINS0_24portable_binary_oarchiveEN8nodetool26anchor_peerlist_entry_baseIN4epee9net_utils15network_addressEEEE16save_object_dataERNS1_14basic_oarchiveEPKv+0x112c1b\n00000000`0294f860 00000000`013214fb monerod+0x13c7\n00000000`0294f930 00007ffa`6b921fe4 monerod+0x14fb\n00000000`0294f960 00007ffa`6d7bf061 KERNEL32!BaseThreadInitThunk+0x14\n00000000`0294f990 00000000`00000000 ntdll!RtlUserThreadStart+0x21\n\n\n\n## Supporting Material/References:\n\n  * List any additional material (e.g. screenshots, logs, etc.)\n\n## Impact\n\nA malicious attacker may crash the monero clients within the same local network area.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "User"
+    }, 
+    "title": "Buffer out of bound read in miniupnpc xml parser ", 
+    "is_member_of_team?": null, 
+    "vote_count": 11, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-05-25T05:27:06.981Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "monerod_crash.png", 
+            "type": "image/png", 
+            "id": 288194, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/288/194/e2864bdd5576623ec39b263e76e17b6311ccb7e0/monerod_crash.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222506Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=1f783866e4876f9de388447bede55ef32a038aec743425764bf9989e9cce1909"
+        }, 
+        {
+            "file_name": "poc.py", 
+            "type": "text/x-python", 
+            "id": 288195, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/288/195/0e68d8d4c216219130ffd30c1a242ad982b1db54/poc.py?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ74T23ZH2%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222506Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDKP8gtonlolbwRCFkSK3A8zRiM4XrfrPxhuRQyPzGewY%2F8%2BrZubJgueFivdcxl7%2F3iKHqTcriXEfjKl%2BSTmdTrFI3DombVHMKOYwlG1hM21jXAfSh72gDN%2BHds5TF5Hko27v6DRiCzuemhdgF47giYHnyCL3NCtcZ280H43hMDk8jiMZIUa5jSGS%2FYM0UQD2eITjNKscKu9Fg3jnQOs%2FtI0LbTq4ZOYkHzJsx3Gx5wmY15OB78PVb%2FoanvGsdZ1G6JLoOvoTJtP%2BBGbZSfLbuJ1WmFVnDe95bwaZBXmmNFIwMDxV%2BIfpWj4A6egpifpz3xxmRRWcE1dqWPIhLKaatOintqSYA20U00rLoCNdGd9IKmu0qa6%2B8Nt35qrWRxLjUKFoVkfzI8plSmUmq%2B7hZ71fbl9wB5sUhWpjZP521spZTb6QY8FJEa8S3BRJSDNUSr0ecK5GZt3wvmq5ONCWAeZbidiSFNHoYpY72e9tiuClRIfQzkSOa7JE0OSN9ATAt8rjzLAGibK5D8CP7%2F23wI%2Fce9%2BQ7jYxhSDeUleT1ird2slt6z2voHzFGPzgGkupeiNthV4QvkyXxyIQFGYYyeRDJ%2FnjD%2Boo666m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=7ea8776e940ba1cdfef9ee8a26506d3f1e3f496276f5e406568935320de09582"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-18T23:21:20.071Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-18T23:21:20.071Z", 
+            "actor": {
+                "username": "anonimal", 
+                "url": "/anonimal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/857/5d3774e5d965a4122d4364133d467ea77fc31acd_medium.png?1449305173"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Hi @yukichen, thank you for the report.\n\nMonero is using the latest release of miniupnp. The issue you are describing is 100% an upstream issue, not a monero code issue, and was resolved in https://github.com/miniupnp/miniupnp/commit/a0573e251817ec090a8c9f9f41b56d720c835a6c. I don't know why miniupnp hasn't done a point release as a result.\n\nWe can remedy this issue trivially by proceeding as planned: submodule'ing miniupnp. This was meant to be done sooner than later but there are only so many hands on deck. We will have to pull against their master branch to get the patch (which is less than ideal - but c'est la vie).\n\nIf you would like to receive bounty, paste an XMR address into this ticket. The address can be one-time/temporary address if needed.", 
+            "markdown_message": "<p>Hi <a href=\"/yukichen\">@yukichen</a>, thank you for the report.</p>\n\n<p>Monero is using the latest release of miniupnp. The issue you are describing is 100% an upstream issue, not a monero code issue, and was resolved in <a title=\"https://github.com/miniupnp/miniupnp/commit/a0573e251817ec090a8c9f9f41b56d720c835a6c\" href=\"/redirect?signature=346c1fd34aa2e0a7226ebfd52d322f31ed79ae96&amp;url=https%3A%2F%2Fgithub.com%2Fminiupnp%2Fminiupnp%2Fcommit%2Fa0573e251817ec090a8c9f9f41b56d720c835a6c\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/miniupnp/miniupnp/commit/a0573e251817ec090a8c9f9f41b56d720c835a6c</span><i class=\"icon-external-link\"></i></a>. I don&#39;t know why miniupnp hasn&#39;t done a point release as a result.</p>\n\n<p>We can remedy this issue trivially by proceeding as planned: submodule&#39;ing miniupnp. This was meant to be done sooner than later but there are only so many hands on deck. We will have to pull against their master branch to get the patch (which is less than ideal - but c&#39;est la vie).</p>\n\n<p>If you would like to receive bounty, paste an XMR address into this ticket. The address can be one-time/temporary address if needed.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2630759, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-19T03:06:19.369Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-19T03:06:19.369Z", 
+            "actor": {
+                "username": "yukichen", 
+                "url": "/yukichen", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Hi @anonimal ,\n\nThank you for pointing out this miniunpc patch.\n\nI did not notice that patch, I just checkout their latest code and found this bug, it's wired the patch was not merged into the latest code...\n\nMy monero wallet address is:\n43tvvwbyVKJ3roqAZjVNW8NtnF1yd9QdxL6NGDsN1oC2KLc9biBgTBuJRiaQ5tDuZfPYgeRJYrU7APcoa8ZUkcz13Z1UCeo\n\nAlso one more question, if I have other miniupnp bugs, are they still qualified for this bounty program?\n\n", 
+            "markdown_message": "<p>Hi <a href=\"/anonimal\">@anonimal</a> ,</p>\n\n<p>Thank you for pointing out this miniunpc patch.</p>\n\n<p>I did not notice that patch, I just checkout their latest code and found this bug, it&#39;s wired the patch was not merged into the latest code...</p>\n\n<p>My monero wallet address is:<br>\n43tvvwbyVKJ3roqAZjVNW8NtnF1yd9QdxL6NGDsN1oC2KLc9biBgTBuJRiaQ5tDuZfPYgeRJYrU7APcoa8ZUkcz13Z1UCeo</p>\n\n<p>Also one more question, if I have other miniupnp bugs, are they still qualified for this bounty program?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2633613, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-19T05:20:37.476Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-19T05:20:37.476Z", 
+            "actor": {
+                "username": "anonimal", 
+                "url": "/anonimal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/857/5d3774e5d965a4122d4364133d467ea77fc31acd_medium.png?1449305173"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": ">Also one more question, if I have other miniupnp bugs, are they still qualified for this bounty program?\n\nFirst, check if the miniupnp repo has already patched the bugs. Secondly, check if they have a bug bounty program or a responsible disclosure process in place - and then proceed through them as appropriate. Unfortunately, no: miniupnp bugs do not qualify for the Monero Project bounty program.\n\nWe'll send bounty for this issue (#340012) soon.", 
+            "markdown_message": "<blockquote>\n<p>Also one more question, if I have other miniupnp bugs, are they still qualified for this bounty program?</p>\n</blockquote>\n\n<p>First, check if the miniupnp repo has already patched the bugs. Secondly, check if they have a bug bounty program or a responsible disclosure process in place - and then proceed through them as appropriate. Unfortunately, no: miniupnp bugs do not qualify for the Monero Project bounty program.</p>\n\n<p>We&#39;ll send bounty for this issue (#340012) soon.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2635383, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-25T02:24:57.877Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-25T02:24:57.877Z", 
+            "actor": {
+                "username": "luigi1111w", 
+                "url": "/luigi1111w", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Sent 3 XMR: <52f4b7ba5ad05d8ff37a4edd6a99dfed1978524158168ebf56c7365a9d5ae086>", 
+            "markdown_message": "<p>Sent 3 XMR: &lt;52f4b7ba5ad05d8ff37a4edd6a99dfed1978524158168ebf56c7365a9d5ae086&gt;</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2662059, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "yukichen", 
+                "url": "/yukichen"
+            }, 
+            "created_at": "2018-04-25T05:24:36.775Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-25T05:24:36.775Z", 
+            "actor": {
+                "url": "/monero", 
+                "profile": {
+                    "name": "Monero"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/731/3428da1efb473c529a0d2e5836012a846f8b8d1e_medium.png?1484006970"
+                }
+            }, 
+            "team_handle": "monero", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::SwagAwarded", 
+            "id": 2662158, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "yukichen", 
+                "url": "/yukichen"
+            }, 
+            "created_at": "2018-04-25T05:26:55.496Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-25T05:26:55.496Z", 
+            "actor": {
+                "username": "anonimal", 
+                "url": "/anonimal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/857/5d3774e5d965a4122d4364133d467ea77fc31acd_medium.png?1449305173"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "https://github.com/monero-project/monero/pull/3668\nhttps://github.com/monero-project/monero/pull/3670\nhttps://github.com/monero-project/monero/pull/3692", 
+            "markdown_message": "<p><a title=\"https://github.com/monero-project/monero/pull/3668\" href=\"/redirect?signature=a65e793c96d71bcd556d2898083b9fa3747b9063&amp;url=https%3A%2F%2Fgithub.com%2Fmonero-project%2Fmonero%2Fpull%2F3668\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/monero-project/monero/pull/3668</span><i class=\"icon-external-link\"></i></a><br>\n<a title=\"https://github.com/monero-project/monero/pull/3670\" href=\"/redirect?signature=c6af40ee2f728793e506fdc771863bb7d10cf0fa&amp;url=https%3A%2F%2Fgithub.com%2Fmonero-project%2Fmonero%2Fpull%2F3670\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/monero-project/monero/pull/3670</span><i class=\"icon-external-link\"></i></a><br>\n<a title=\"https://github.com/monero-project/monero/pull/3692\" href=\"/redirect?signature=f9862dc3190c753c35ec7439d60eb461de518f00&amp;url=https%3A%2F%2Fgithub.com%2Fmonero-project%2Fmonero%2Fpull%2F3692\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/monero-project/monero/pull/3692</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2662159, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-25T05:27:06.926Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-25T05:27:06.926Z", 
+            "actor": {
+                "username": "anonimal", 
+                "url": "/anonimal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/857/5d3774e5d965a4122d4364133d467ea77fc31acd_medium.png?1449305173"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2662160, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-25T05:49:15.596Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-25T05:49:15.596Z", 
+            "actor": {
+                "username": "anonimal", 
+                "url": "/anonimal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/857/5d3774e5d965a4122d4364133d467ea77fc31acd_medium.png?1449305173"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ManuallyDisclosed", 
+            "id": 2662187, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-26T04:35:24.719Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-26T04:35:24.719Z", 
+            "actor": {
+                "username": "yukichen", 
+                "url": "/yukichen", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Thank you for the bounty reward  :)", 
+            "markdown_message": "<p>Thank you for the bounty reward  :)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2665890, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "yukichen", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/yukichen", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 9, 
+        "name": "Buffer Over-read"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -16909079.272759717, 
+    "disclosed_at": "2018-04-25T05:49:15.662Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/340012", 
+    "created_at": "2018-04-18T09:32:51.100Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p><strong>Summary:</strong></p>\n\n<p>This is a buffer oob read vulnerability in miniupnpc when parsing xml response. This vulnerability could result in denial of service attack in monero client to in local area Network.</p>\n\n<p><strong>Description:</strong> </p>\n\n<p>In miniupnpc, file &quot;Minixml.c&quot;:</p>\n\n<p>The funnction parseelt:</p>\n\n<p>static void parseelt(struct xmlparser * p)<br>\n{<br>\n...<br>\n                if(memcmp(p-&gt;xml, &quot;&lt;![CDATA[&quot;, 9) == 0)     // (1)  Failed to do bound check prior to &quot;memcmp&quot; here<br>\n                {<br>\n                    /* CDATA handling */<br>\n                    p-&gt;xml += 9;<br>\n                    data = p-&gt;xml;<br>\n                    i = 0;<br>\n                    while(memcmp(p-&gt;xml, &quot;]]&gt;&quot;, 3) != 0)<br>\n...<br>\n}</p>\n\n<p>Here it tries to match the CDATA section in the xml file using memcmp. However, it does not check whether it has already reached the end of the xml buffer. By sending a specially crafted xml response, we can make it read out of bounds of the xml buffer, which may crash the client.</p>\n\n<h2 id=\"releases-affected\">Releases Affected:</h2>\n\n<p>It affects all monero clients which use miniupnpc.</p>\n\n<p>I have tested with the Windows, 64-bit (Command-Line Tools Only), version 0.12.0.0 Lithium Luna, downloaded from:   <a title=\"https://getmonero.org/downloads/\" href=\"/redirect?signature=dc8c4c764a5044da62e83e73084f5f8d67b58c8e&amp;url=https%3A%2F%2Fgetmonero.org%2Fdownloads%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://getmonero.org/downloads/</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>The environment I used to test was Windows 10 64-bits.</p>\n\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<p>Step  1. Enable page heap for monerod.exe:</p>\n\n<p>The page heap on windows helps to crash the program at the first place when memory corruption issue (buffer overrun, uaf...) happens, similar to tools like valgrind, ASAN. </p>\n\n<p>See:<br>\n<a title=\"https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/gflags-and-pageheap\" href=\"/redirect?signature=72111bb7aaed818e2633278929c17e4db1c6aa12&amp;url=https%3A%2F%2Fdocs.microsoft.com%2Fen-us%2Fwindows-hardware%2Fdrivers%2Fdebugger%2Fgflags-and-pageheap\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/gflags-and-pageheap</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>1.1 Install WinDbg to get gflags<br>\nInstall the Debugging tools for windows, which contains the gflags.exe tool.</p>\n\n<p>1.2 Enable page heap for monerod.exe<br>\nExecute the following command:<br>\n&quot;c:\\Program Files\\Debugging Tools for Windows (x64)\\gflags.exe&quot; /i monerod.exe +hpa</p>\n\n<p>Step 2. Start the malicious upnp server:</p>\n\n<p>python poc.py --listen 127.0.0.1:65000 --target havoc</p>\n\n<p>Step3. Start monerod:</p>\n\n<p>monerod.exe --test-drop-download</p>\n\n<p>Step 4. Wait for monerod crash</p>\n\n<p>The crash stack trace:</p>\n\n<p>(5c10.56c0): Access violation - code c0000005 (!!! second chance !!!)<br>\n*** ERROR: Symbol file could not be found.  Defaulted to export symbols for C:\\Users\\test\\Desktop\\monero\\monero-win-x64-v0.12.0.0\\monero-v0.12.0.0\\monerod.exe - <br>\nmonerod+0x448737:<br>\n00000000<code>01768737 4c3908          cmp     qword ptr [rax],r9 ds:00000000</code>200b0fff=????????????????<br>\n0:000&gt; k<br>\nChild-SP          RetAddr           Call Site<br>\n00000000<code>0294d5f0 00000000</code>01767edb monerod+0x448737<br>\n00000000<code>0294d660 00000000</code>01970b5b monerod+0x447edb<br>\n00000000<code>0294d7a0 00000000</code>019792ff monerod!ZN5boost7archive6detail11oserializerINS0_24portable_binary_oarchiveEN8nodetool26anchor_peerlist_entry_baseIN4epee9net_utils15network_addressEEEEC2Ev+0x1addb<br>\n00000000<code>0294e6b0 00000000</code>01987503 monerod!ZN5boost7archive6detail11oserializerINS0_24portable_binary_oarchiveEN8nodetool26anchor_peerlist_entry_baseIN4epee9net_utils15network_addressEEEEC2Ev+0x2357f<br>\n00000000<code>0294e960 00000000</code>01986aa2 monerod!ZN5boost7archive6detail11oserializerINS0_24portable_binary_oarchiveEN8nodetool26anchor_peerlist_entry_baseIN4epee9net_utils15network_addressEEEEC2Ev+0x31783<br>\n00000000<code>0294ead0 00000000</code>01331c96 monerod!ZN5boost7archive6detail11oserializerINS0_24portable_binary_oarchiveEN8nodetool26anchor_peerlist_entry_baseIN4epee9net_utils15network_addressEEEEC2Ev+0x30d22<br>\n00000000<code>0294eca0 00000000</code>01336735 monerod+0x11c96<br>\n00000000<code>0294ede0 00000000</code>017fdb73 monerod+0x16735<br>\n00000000<code>0294ee70 00000000</code>01ab0f0b monerod+0x4ddb73<br>\n00000000<code>0294f000 00000000</code>013213c7 monerod!ZNK5boost7archive6detail11oserializerINS0_24portable_binary_oarchiveEN8nodetool26anchor_peerlist_entry_baseIN4epee9net_utils15network_addressEEEE16save_object_dataERNS1_14basic_oarchiveEPKv+0x112c1b<br>\n00000000<code>0294f860 00000000</code>013214fb monerod+0x13c7<br>\n00000000<code>0294f930 00007ffa</code>6b921fe4 monerod+0x14fb<br>\n00000000<code>0294f960 00007ffa</code>6d7bf061 KERNEL32!BaseThreadInitThunk+0x14<br>\n00000000<code>0294f990 00000000</code>00000000 ntdll!RtlUserThreadStart+0x21</p>\n\n<h2 id=\"supporting-material-references\">Supporting Material/References:</h2>\n\n<ul>\n<li>List any additional material (e.g. screenshots, logs, etc.)</li>\n</ul>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>A malicious attacker may crash the monero clients within the same local network area.</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://getmonero.org", 
+            "about": " Monero: the secure, private, untraceable cryptocurrency", 
+            "twitter_handle": "monerocurrency", 
+            "name": "Monero"
+        }, 
+        "handle": "monero", 
+        "url": "https://hackerone.com/monero", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/007/731/e9db7ce84f372b423c4d212b494be78c2e0a571e_small.png?1484006970", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/007/731/3428da1efb473c529a0d2e5836012a846f8b8d1e_medium.png?1484006970"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 7731, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

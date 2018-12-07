@@ -1,0 +1,309 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2016-12-06T00:56:29.986Z", 
+    "voters": [
+        "michiel", 
+        "eveeez", 
+        "xsam", 
+        "dilawer01", 
+        "mpz", 
+        "alfredsaonoy", 
+        "japz", 
+        "efernandes", 
+        "spetr0x", 
+        "martijn", 
+        "and 1 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 186194, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2016-12-06T00:57:18.072Z", 
+    "vulnerability_information": "# Vulnerability details\nThe state filter in the `IssuableFinder` class has the ability to filter issues and merge requests by state. This filter is implemented by calling `public_send` with unfiltered user input. This allows an attacker to call `delete_all` or `destroy_all`. Because the method is called **before** the project / group scope is applied, it deletes all issues and merge requests of the GitLab instance.\n\n# Proof of concept\nCreate two users and a new project for each of them. It doesn't matter if they're private or not. Now create an issue (or merge request) for each project. Now browse to the Issues overview. When clicking All, you'll be redirected to http://gitlab-instance/root/xxxx/issues?scope=all&state=all. Simply substitude `all` with `delete_all` in the URL and ALL issues will be deleted: http://gitlab-instance/root/xxxx/issues?scope=all&state=delete_all. To delete all merge requests, substitude `issues` with `merge_requests`. When requesting the `delete_all` URL, a 500 internal server error will be shown. This is caused by the `delete_all` method returning a boolean instead of an `ActiveRecord::Relation` class. Do **NOT** call this on the GitLab production site.\n\n# Origin\nThe vulnerability comes from the fact that unsanitized user input is passed into a `public_send` call that is being called on `model.all`. Here's the `execute` method of the `IssuableFinder`:\n\n```ruby\ndef execute\n  items = init_collection\n  items = by_scope(items)\n  items = by_state(items)\n  items = by_group(items)\n  items = by_project(items)\n  items = by_search(items)\n  items = by_milestone(items)\n  items = by_assignee(items)\n  items = by_author(items)\n  items = by_label(items)\n  items = by_due_date(items)\n  sort(items)\nend\n```\n\nNow take a look at the `by_state` method:\n\n```ruby\ndef by_state(items)\n  params[:state] ||= 'all'\n\n  if items.respond_to?(params[:state])\n    items.public_send(params[:state])\n  else\n    items\n  end\nend\n```\n\nThe controllers are passing the `state` parameter without any form of sanitization or validation to the finder. Since you're passing around ActiveRecord relations, `delete_all` can be called early on in the relation chain. Since the scope hasn't been applied (the `by_project` is called later), this will affect all issues and merge requests.\n\n# Remediation\nNever pass unsanitized or unvalidated user input to `public_send` or `send`.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "none", 
+            "privileges_required": "low", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "unchanged", 
+            "integrity": "high", 
+            "availability": "high"
+        }, 
+        "rating": "high", 
+        "score": 8.1, 
+        "author_type": "User"
+    }, 
+    "title": "State filter in IssuableFinder allows attacker to delete all issues and merge requests", 
+    "is_member_of_team?": null, 
+    "vote_count": 11, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 3039, 
+            "content": "Multiple versions of GitLab expose a dangerous method to any authenticated user that could lead to the deletion of all `Issue` and `MergeRequest` objects on a GitLab instance. For GitLab instances with publicly available projects this vulnerability could be exploited by an unauthenticated user. A fix was included in versions 8.14.3, 8.13.8, and 8.12.11, which were released on December 5th 2016 at 3:59 PST. The GitLab versions vulnerable to this are 8.13.0, 8.13.0-ee, 8.13.1, 8.13.1-ee, 8.13.2, 8.13.2-ee, 8.13.3, 8.13.3-ee, 8.13.4, 8.13.4-ee, 8.13.5, 8.13.5-ee, 8.13.6, 8.13.6-ee, 8.13.7, 8.14.0, 8.14.0-ee, 8.14.1, 8.14.2, and 8.14.2-ee.\n\nMore information can be found at https://about.gitlab.com/2016/12/05/cve-2016-9469/.", 
+            "content_html": "<p>Multiple versions of GitLab expose a dangerous method to any authenticated user that could lead to the deletion of all <code>Issue</code> and <code>MergeRequest</code> objects on a GitLab instance. For GitLab instances with publicly available projects this vulnerability could be exploited by an unauthenticated user. A fix was included in versions 8.14.3, 8.13.8, and 8.12.11, which were released on December 5th 2016 at 3:59 PST. The GitLab versions vulnerable to this are 8.13.0, 8.13.0-ee, 8.13.1, 8.13.1-ee, 8.13.2, 8.13.2-ee, 8.13.3, 8.13.3-ee, 8.13.4, 8.13.4-ee, 8.13.5, 8.13.5-ee, 8.13.6, 8.13.6-ee, 8.13.7, 8.14.0, 8.14.0-ee, 8.14.1, 8.14.2, and 8.14.2-ee.</p>\n\n<p>More information can be found at <a title=\"https://about.gitlab.com/2016/12/05/cve-2016-9469/\" href=\"/redirect?signature=a0217af38504b80d2d05ac147c78ff884be55bc6&amp;url=https%3A%2F%2Fabout.gitlab.com%2F2016%2F12%2F05%2Fcve-2016-9469%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://about.gitlab.com/2016/12/05/cve-2016-9469/</span><i class=\"icon-external-link\"></i></a>.</p>\n"
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-01-05T00:56:30.016Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2016-9469"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-28T23:55:09.745Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-28T23:55:09.745Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Confirmed exploitable. I've opened a confidential issue to address the vulnerability. Thanks again, Jobert.\n\nhttps://gitlab.com/gitlab-org/gitlab-ce/issues/25064", 
+            "markdown_message": "<p>Confirmed exploitable. I&#39;ve opened a confidential issue to address the vulnerability. Thanks again, Jobert.</p>\n\n<p><a title=\"https://gitlab.com/gitlab-org/gitlab-ce/issues/25064\" href=\"/redirect?signature=aeac4b009ba820ce134a8275cf2e476cd6f8e12c&amp;url=https%3A%2F%2Fgitlab.com%2Fgitlab-org%2Fgitlab-ce%2Fissues%2F25064\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://gitlab.com/gitlab-org/gitlab-ce/issues/25064</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1324735, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-29T04:21:54.340Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-29T04:21:54.340Z", 
+            "actor": {
+                "username": "rspeicher", 
+                "url": "/rspeicher", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/070/800/71ae869ab45b05d47a2118c159952ebe3ceca17e_medium.jpg?1519748506"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "A fix is currently undergoing review and coordination for patch releases has begun.", 
+            "markdown_message": "<p>A fix is currently undergoing review and coordination for patch releases has begun.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1325067, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "jobert", 
+                "url": "/jobert"
+            }, 
+            "created_at": "2016-12-06T00:55:16.283Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-06T00:55:16.283Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Fix has been rolled out to everyone. Release the CVE!", 
+            "markdown_message": "<p>Fix has been rolled out to everyone. Release the CVE!</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1343024, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-06T00:56:24.193Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-06T00:56:24.193Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Thanks @briann, we'll get that going on our side!", 
+            "markdown_message": "<p>Thanks <a href=\"/briann\">@briann</a>, we&#39;ll get that going on our side!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1343025, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-06T00:56:30.003Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-06T00:56:30.003Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1343026, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-06T00:57:18.089Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-06T00:57:18.089Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1343028, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-06T00:57:18.130Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-06T00:57:18.130Z", 
+            "actor": {
+                "username": "briann", 
+                "url": "/briann", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1343029, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "jobert", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/jobert", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/002/15c798072d48f06507cde4b11352a3338ae973fc_small.png?1410255083"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 75, 
+        "name": "Privilege Escalation"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -60558583.66645184, 
+    "disclosed_at": "2016-12-06T00:57:18.114Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/186194", 
+    "created_at": "2016-11-28T23:32:53.862Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h1 id=\"vulnerability-details\">Vulnerability details</h1>\n\n<p>The state filter in the <code>IssuableFinder</code> class has the ability to filter issues and merge requests by state. This filter is implemented by calling <code>public_send</code> with unfiltered user input. This allows an attacker to call <code>delete_all</code> or <code>destroy_all</code>. Because the method is called <strong>before</strong> the project / group scope is applied, it deletes all issues and merge requests of the GitLab instance.</p>\n\n<h1 id=\"proof-of-concept\">Proof of concept</h1>\n\n<p>Create two users and a new project for each of them. It doesn&#39;t matter if they&#39;re private or not. Now create an issue (or merge request) for each project. Now browse to the Issues overview. When clicking All, you&#39;ll be redirected to <a title=\"http://gitlab-instance/root/xxxx/issues?scope=all&amp;state=all\" href=\"/redirect?signature=67a38a24a9acd2dc0f052b8d2e99255f3ab1ae52&amp;url=http%3A%2F%2Fgitlab-instance%2Froot%2Fxxxx%2Fissues%3Fscope%3Dall%26state%3Dall\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://gitlab-instance/root/xxxx/issues?scope=all&amp;state=all</span><i class=\"icon-external-link\"></i></a>. Simply substitude <code>all</code> with <code>delete_all</code> in the URL and ALL issues will be deleted: <a title=\"http://gitlab-instance/root/xxxx/issues?scope=all&amp;state=delete_all\" href=\"/redirect?signature=9283ee41f02c95156d63073b414d0b8a6c5ec8e1&amp;url=http%3A%2F%2Fgitlab-instance%2Froot%2Fxxxx%2Fissues%3Fscope%3Dall%26state%3Ddelete_all\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://gitlab-instance/root/xxxx/issues?scope=all&amp;state=delete_all</span><i class=\"icon-external-link\"></i></a>. To delete all merge requests, substitude <code>issues</code> with <code>merge_requests</code>. When requesting the <code>delete_all</code> URL, a 500 internal server error will be shown. This is caused by the <code>delete_all</code> method returning a boolean instead of an <code>ActiveRecord::Relation</code> class. Do <strong>NOT</strong> call this on the GitLab production site.</p>\n\n<h1 id=\"origin\">Origin</h1>\n\n<p>The vulnerability comes from the fact that unsanitized user input is passed into a <code>public_send</code> call that is being called on <code>model.all</code>. Here&#39;s the <code>execute</code> method of the <code>IssuableFinder</code>:</p>\n<pre class=\"highlight ruby\"><code><span class=\"k\">def</span> <span class=\"nf\">execute</span>\n  <span class=\"n\">items</span> <span class=\"o\">=</span> <span class=\"n\">init_collection</span>\n  <span class=\"n\">items</span> <span class=\"o\">=</span> <span class=\"n\">by_scope</span><span class=\"p\">(</span><span class=\"n\">items</span><span class=\"p\">)</span>\n  <span class=\"n\">items</span> <span class=\"o\">=</span> <span class=\"n\">by_state</span><span class=\"p\">(</span><span class=\"n\">items</span><span class=\"p\">)</span>\n  <span class=\"n\">items</span> <span class=\"o\">=</span> <span class=\"n\">by_group</span><span class=\"p\">(</span><span class=\"n\">items</span><span class=\"p\">)</span>\n  <span class=\"n\">items</span> <span class=\"o\">=</span> <span class=\"n\">by_project</span><span class=\"p\">(</span><span class=\"n\">items</span><span class=\"p\">)</span>\n  <span class=\"n\">items</span> <span class=\"o\">=</span> <span class=\"n\">by_search</span><span class=\"p\">(</span><span class=\"n\">items</span><span class=\"p\">)</span>\n  <span class=\"n\">items</span> <span class=\"o\">=</span> <span class=\"n\">by_milestone</span><span class=\"p\">(</span><span class=\"n\">items</span><span class=\"p\">)</span>\n  <span class=\"n\">items</span> <span class=\"o\">=</span> <span class=\"n\">by_assignee</span><span class=\"p\">(</span><span class=\"n\">items</span><span class=\"p\">)</span>\n  <span class=\"n\">items</span> <span class=\"o\">=</span> <span class=\"n\">by_author</span><span class=\"p\">(</span><span class=\"n\">items</span><span class=\"p\">)</span>\n  <span class=\"n\">items</span> <span class=\"o\">=</span> <span class=\"n\">by_label</span><span class=\"p\">(</span><span class=\"n\">items</span><span class=\"p\">)</span>\n  <span class=\"n\">items</span> <span class=\"o\">=</span> <span class=\"n\">by_due_date</span><span class=\"p\">(</span><span class=\"n\">items</span><span class=\"p\">)</span>\n  <span class=\"n\">sort</span><span class=\"p\">(</span><span class=\"n\">items</span><span class=\"p\">)</span>\n<span class=\"k\">end</span>\n</code></pre>\n<p>Now take a look at the <code>by_state</code> method:</p>\n<pre class=\"highlight ruby\"><code><span class=\"k\">def</span> <span class=\"nf\">by_state</span><span class=\"p\">(</span><span class=\"n\">items</span><span class=\"p\">)</span>\n  <span class=\"n\">params</span><span class=\"p\">[</span><span class=\"ss\">:state</span><span class=\"p\">]</span> <span class=\"o\">||=</span> <span class=\"s1\">&#39;all&#39;</span>\n\n  <span class=\"k\">if</span> <span class=\"n\">items</span><span class=\"p\">.</span><span class=\"nf\">respond_to?</span><span class=\"p\">(</span><span class=\"n\">params</span><span class=\"p\">[</span><span class=\"ss\">:state</span><span class=\"p\">])</span>\n    <span class=\"n\">items</span><span class=\"p\">.</span><span class=\"nf\">public_send</span><span class=\"p\">(</span><span class=\"n\">params</span><span class=\"p\">[</span><span class=\"ss\">:state</span><span class=\"p\">])</span>\n  <span class=\"k\">else</span>\n    <span class=\"n\">items</span>\n  <span class=\"k\">end</span>\n<span class=\"k\">end</span>\n</code></pre>\n<p>The controllers are passing the <code>state</code> parameter without any form of sanitization or validation to the finder. Since you&#39;re passing around ActiveRecord relations, <code>delete_all</code> can be called early on in the relation chain. Since the scope hasn&#39;t been applied (the <code>by_project</code> is called later), this will affect all issues and merge requests.</p>\n\n<h1 id=\"remediation\">Remediation</h1>\n\n<p>Never pass unsanitized or unvalidated user input to <code>public_send</code> or <code>send</code>.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://about.gitlab.com", 
+            "about": "Open source software to collaborate on code", 
+            "twitter_handle": "gitlab", 
+            "name": "GitLab"
+        }, 
+        "handle": "gitlab", 
+        "url": "https://hackerone.com/gitlab", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/264/338ec4b43393873324e3f1911f2f107d025d13f1_small.png?1454722206", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/264/f40e550269de1c8aef9adbdfe728c9aa8163a7e5_medium.png?1454722206"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 264, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

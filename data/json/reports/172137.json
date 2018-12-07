@@ -1,0 +1,719 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "duplicate", 
+    "bug_reporter_agreed_on_going_public_at": "2016-10-28T20:32:51.252Z", 
+    "voters": [
+        "arneswinnen", 
+        "michiel", 
+        "troubleshooter", 
+        "bogdantcaciuc", 
+        "skansing", 
+        "tk0", 
+        "mdv", 
+        "vincentds", 
+        "pekafat", 
+        "bugdiscloseguys", 
+        "and 26 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": 145224, 
+    "id": 172137, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2016-11-29T08:39:46.398Z", 
+    "vulnerability_information": "# Summary\nThis is not a standard vulnerability, but a chain of two more exotic vulnerabilities leading to a full authentication bypass of your SSO login system at sso.ubnt.com (via account.ubnt.com). The root cause of this authentication bypass is two-fold:\n\n1. Subdomain ping.ubnt.com was pointing to Amazon Cloudfront CDN, but the hostname was not registered there anymore. This allowed me to fully takeover this domain. It is now serving content of my own webserver, both over http and https.\n2. The session cookie of your SSO subdomain sso.ubnt.com is (deliberately?) shared with all https://*.ubnt.com subdomains through its \"domain=.ubnt.com\" attribute. This allows leakage of this high-value session cookie to the overtaken subdomain https://ping.ubnt.com in all modern browsers.\n\n# Impact\n\nThe following attack scenario was invented: Assume that a victim is logged in in his/her browser to any of the `*.ubnt.com` services via the SSO system at account.ubnt.com, which uses sso.ubnt.com under the hood. If an attacker can then let the victim make a request to ping.ubnt.com in a second browser tab, either on purpose or unknowingly, the browser will transparently add the session cookie \"UBIC_AUTH\" set by sso.ubnt.com to this subdomain. Since the attacker has full visibility into incoming requests to his/her webserver (in this case, mine), the session cookie is now compromised. Once the attacker's got his/her hands on the session cookie, he/she can now hijack the victim's session on sso.ubnt.com. Since sso.ubnt.com is the centralized place where authentication occurs for all `*.ubnt.com` services (and perhaps even on other domains via OAuth?), this is a major risk, as an attacker can now impersonate the victim on **all** their Ubiquity services and connected devices who rely on SSO for authentication. \n\nIn order for this depicted attack to work, the following questions still remain:\n- Valid SSL Certificate: the \"UBIC_AUTH\" session cookie has the \"secure\" cookie attribute set, which instructs the browser to only send its value over a secured channel. This means that the browser will only send it to https://ping.ubnt.com but not to http://ping.ubnt.com, which now requires the attacker to have a valid SSL certificate for this domain. However, many Certificate Authorities support automated domain verification through hosting a specific HTML file in the root directory of a (sub)domain nowadays (e.g. [Lets Encrypt](https://letsencrypt.org/how-it-works/), [GoDaddy]( https://be.godaddy.com/help/verify-domain-ownership-html-or-dns-7452 ), ...). Since the subdomain takeover yields the attacker complete control over the webserver serving ping.ubnt.com, this would be trivial. This was not performed as a PoC to not upset you by generating a malicious SSL certificate for your domain and effectively deploying it on a production system, but feel free to give me a heads up if you would like me to actually proceed with this attack scenario. It is literally [one command with the certbot utility](https://certbot.eff.org/#ubuntutrusty-apache) and [free to deploy on AWS Cloudfront](https://aws.amazon.com/cloudfront/custom-ssl-domains/). \n- Request to ping.ubnt.com: In order for the attacker to convince his/her authenticated victim to make a request to the overtaken subdomain ping.ubnt.com, a number of techniques can be utilized:\n * Targeted attack: An attacker could simply send his/her victim a mail with an embedded 1x1 image hosted on https://ping.ubnt.com/ inside its HTML. Since email supports HTML by default, this would silently make a request to the overtaken subdomain when being rendered in the victim's browser. Another option would be to lure the victim to an arbitrary attacker-controlled domain which houses a hidden iframe to the overtaken subdomain. Again, the browser would stealthily make the request and leak the \"UBIC_AUTH\" session cookie of sso.ubnt.com to the attacker.\n * Mass exploitation: An attacker could again host a media resource on https://ping.ubnt.com/ and buy some advertisement space on popular websites to serve it. Every authenticated Ubiquity victim who browses here would leak his/her session cookie to the attacker unknowingly. However, to increase the likelihood that the victims are already authenticated to sso.ubnt.com, an attacker might just post a reply on https://community.ubnt.com with a hidden IMG tag and source https://ping.ubnt.com. Every logged-in reader of the reply would unknowingly make a request to the hijacked subdomain, which would go through IF there was a valid SSL Certificate installed (not currently). Here's the PoC link: https://community.ubnt.com/t5/Getting-Started-Product/2-week-old-wisp/m-p/1687239#M65439 (post of my testuser \"ferrariverdasco\" - see also attached screenshot \"1. Waterhole community reply.png\"). \n\n# 1. Subdomain takeover\nThe subdomain \"ping.ubnt.com\" was (and still is) a CNAME pointing to a AWS Cloudfront CDN server (depending on your location, the latter will resolve differently):\n```\n# nslookup ping.ubnt.com 8.8.8.8\nServer:\t\t8.8.8.8\nAddress:\t8.8.8.8#53\n\nNon-authoritative answer:\nping.ubnt.com\tcanonical name = dl.ubnt.com.\ndl.ubnt.com\tcanonical name = d2cnv2pop2xy4v.cloudfront.net.\nName:\td2cnv2pop2xy4v.cloudfront.net\nAddress: 54.192.96.244\n```\nHowever, the hostname \"ping.ubnt.com\" was not claimed anymore on Cloudfront, resulting in a Cloudfront error page when visiting the subdomain before the takeover (see screenshot \"2. Before takeover.png\"). Subsequently, a new Amazon Cloudfront CDN endpoint was created and linked to an attacker-controlled origin server. For the new Cloudfront CDN endpoint, \"ping.ubnt.com\" was designated as hostname successfully (\"3. CNAME takeover.png\"). This concluded the subdomain takeover (see screenshots \"4. After takeover.png\" and \"5. After takeover - source.png\"). PoC URL: http://ping.ubnt.com/34902385023958329058235.html (random filename chosen to not negatively affect Ubiquity's reputation during takeover period). \n\n# 2. Authentication bypass proof-of-concept\nIn the PoC below, the assumption is made that https://ping.ubnt.com is actually serving a valid certificate in the victim's browser, which currently is not the case (so there is currently no actual risk) - see above.\n\n1. Open browser & navigate to https://ping.ubnt.com. Accept the invalid SSL certificate for PoC reasons.  Then launch an intercepting proxy tool and configure your browser proxy settings to see traffic going back & forth.\n2. Browse to https://community.ubnt.com/t5/Getting-Started-Product/2-week-old-wisp/m-p/1687239#M65439. Find the request to https://ping.ubnt.com/imagefetch.php?f=thanks.png in the intercepting proxy and view its response (hidden in HTML comments). It should say \"Cookie named 'UBIC_AUTH' is not set!\".\n2. Login to account.ubnt.com in a second browser tab with the victim's account. Notice the \"UBIC_AUTH\" cookie being issued by sso.ubnt.com after successful authentication, with \"domain=.ubnt.com\" attribute.\n3. Refresh first tab https://community.ubnt.com/t5/Getting-Started-Product/2-week-old-wisp/m-p/1687239#M65439. Check in your intercepting proxy that a new request to https://ping.ubnt.com/imagefetch.php?f=thanks.png is made, with a bunch of cookies transparently added by the browser, among which UBIC_AUTH.\n4. The HTML comment body of the response should now show the value of the UBIC_AUTH value, clearly demonstrating that the session cookie's value was well-received. However, this PHP page will make a request to endpoint https://sso.ubnt.com/api/sso/v1/user/self with this cookie and show its response. This should be a JSON array containing victim-account sensitive information, hereby proving that the session cookie can actually be hijacked and used from another system (my webserver in this case). \n\nIn a real attack scenario, an attacker would probably want to store the received cookie locally and use a cookie addon for his/her specific browser, to inject the session cookie value in the browser more persistently, as opposed to in a webserver's PHP curl script. However, I believe this method was more clear for PoC purposes. From here on, an attacker has complete control over a victim's account. He/she can see and modify anything, as long as no extra verification is required (e.g. current password to update to a new password). This is a similar impact of a global XSS & CSRF vulnerability on all *.ubnt.com pages.\n\nYou can see all these PoC steps executed in attachment \"6. Authentication Bypass PoC video.mp4\". The code of the https://ping.ubnt.com/imagefetch.php page is also attached (\"7. imagefetch.php\"). \n\n# Recommendation\nThe root cause of the vulnerability is the dangling CNAME pointer to Cloudfront from the affected subdomain. It is advised to remove the DNS CNAME pointer from ping.ubnt.com to the Cloudfront CDN server. This will mitigate the root cause vulnerability. If you are interested in keeping the subdomain on the Cloudfront CDN, I'll have to release it first before you can reclaim it. In that case, just let me know.\n\nAdditionally, it is advised to investigate whether the session cookie \"UBIC_AUTH\" of sso.ubnt.com should really be shared among all subdomains. This makes subdomain takeovers significantly more impactful, as shown through this report. \n\n# References\n- https://labs.detectify.com/tag/hostile-subdomain-takeover/\n\nI know this is a very long and complex report for a non-standard issue. Please don't hesitate to contact me if I haven't explained something clearly enough, so I can elaborate. \n\nRegards,\n\nArne Swinnen\nhttps://www.arneswinnen.net", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "User"
+    }, 
+    "title": "Authentication bypass on sso.ubnt.com via subdomain takeover of ping.ubnt.com", 
+    "is_member_of_team?": null, 
+    "vote_count": 36, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Duplicate", 
+    "public": true, 
+    "formatted_bounty": "$500", 
+    "attachments": [
+        {
+            "file_name": "5._After_takeover_-_source.png", 
+            "type": "image/png", 
+            "id": 123069, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/123/069/6391a5ab9cf371fffa6e98c216a7a55960a5426b/5._After_takeover_-_source.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ3XJAUJU3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224626Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDFhsOVc%2BLBuZJpN2%2FSK3A3ZSLRshQ37cr%2FnNfrsDZBl9Q9MwEJMM1w9f3SvUV6XmoP9nE3PeRToIYvFP152VEnHi03BXq%2BWX7mrp9duCLiSGu%2BuVj85dqXhL9hy5iZ8Baa9Dz1PfTpOuhKCmbaYzCWIDNTGGHjLe%2FHfj5BNMi3SKneAl%2FX0h%2BZqSIdJKDz1SK5Y92eHwZBEL8GznF9GsT%2Fe6zDxKRumhz8Vkk3IGYi5pwUBa6qmtuvb0%2FFBueYSgxUsIbsmK0uIt1sxLJbfLOybgHUA18Z80yVa0KlQc%2BgoSsS484NaEhLTbRqdlZ%2BxywVi8oiNq8ePPGFix9FXwU3HcD5DsyS3oPWa%2BzB9%2FB%2Fj5i%2F%2B%2Fdj%2Fww%2BhTYa6J%2BrE25cJz8f7DhYt5rCg9X8q2TCUwBOYuOUl5A0l4eFCWneCTq2xxhRjl1g1J%2BaAUAShH%2BiAD7%2BKi%2B3APDa6E97UEIGwiReOW1M7p2dsYu%2BTRFAcWFkx%2FfdNcmK%2F1EAANP1i4cT%2FBf2l24Vc5LPZJjCm1RkrTRxc90qzl8fyslqz595eagGsI73K0uzaibH5HvlrUQwLfX4TmlW%2Foze1zEhFUOiAB5qs%2FM3wow8am4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=6887861eb71179e72e248aa53a1df4780454db4a7877abe24515091a93286bb0"
+        }, 
+        {
+            "file_name": "4._After_takeover.png", 
+            "type": "image/png", 
+            "id": 123070, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/123/070/74fdfb90511387417519c90977dfdd55748ddaf3/4._After_takeover.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ3XJAUJU3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224626Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDFhsOVc%2BLBuZJpN2%2FSK3A3ZSLRshQ37cr%2FnNfrsDZBl9Q9MwEJMM1w9f3SvUV6XmoP9nE3PeRToIYvFP152VEnHi03BXq%2BWX7mrp9duCLiSGu%2BuVj85dqXhL9hy5iZ8Baa9Dz1PfTpOuhKCmbaYzCWIDNTGGHjLe%2FHfj5BNMi3SKneAl%2FX0h%2BZqSIdJKDz1SK5Y92eHwZBEL8GznF9GsT%2Fe6zDxKRumhz8Vkk3IGYi5pwUBa6qmtuvb0%2FFBueYSgxUsIbsmK0uIt1sxLJbfLOybgHUA18Z80yVa0KlQc%2BgoSsS484NaEhLTbRqdlZ%2BxywVi8oiNq8ePPGFix9FXwU3HcD5DsyS3oPWa%2BzB9%2FB%2Fj5i%2F%2B%2Fdj%2Fww%2BhTYa6J%2BrE25cJz8f7DhYt5rCg9X8q2TCUwBOYuOUl5A0l4eFCWneCTq2xxhRjl1g1J%2BaAUAShH%2BiAD7%2BKi%2B3APDa6E97UEIGwiReOW1M7p2dsYu%2BTRFAcWFkx%2FfdNcmK%2F1EAANP1i4cT%2FBf2l24Vc5LPZJjCm1RkrTRxc90qzl8fyslqz595eagGsI73K0uzaibH5HvlrUQwLfX4TmlW%2Foze1zEhFUOiAB5qs%2FM3wow8am4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=0eabeca5a540d0f385b26fa27dc12b0c5c15daf369d630c3790a45e6ee616bfd"
+        }, 
+        {
+            "file_name": "3._CNAME_takeover.png", 
+            "type": "image/png", 
+            "id": 123071, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/123/071/27a104f57daceb35423efac87f81e194c251f2cf/3._CNAME_takeover.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ3XJAUJU3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224626Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDFhsOVc%2BLBuZJpN2%2FSK3A3ZSLRshQ37cr%2FnNfrsDZBl9Q9MwEJMM1w9f3SvUV6XmoP9nE3PeRToIYvFP152VEnHi03BXq%2BWX7mrp9duCLiSGu%2BuVj85dqXhL9hy5iZ8Baa9Dz1PfTpOuhKCmbaYzCWIDNTGGHjLe%2FHfj5BNMi3SKneAl%2FX0h%2BZqSIdJKDz1SK5Y92eHwZBEL8GznF9GsT%2Fe6zDxKRumhz8Vkk3IGYi5pwUBa6qmtuvb0%2FFBueYSgxUsIbsmK0uIt1sxLJbfLOybgHUA18Z80yVa0KlQc%2BgoSsS484NaEhLTbRqdlZ%2BxywVi8oiNq8ePPGFix9FXwU3HcD5DsyS3oPWa%2BzB9%2FB%2Fj5i%2F%2B%2Fdj%2Fww%2BhTYa6J%2BrE25cJz8f7DhYt5rCg9X8q2TCUwBOYuOUl5A0l4eFCWneCTq2xxhRjl1g1J%2BaAUAShH%2BiAD7%2BKi%2B3APDa6E97UEIGwiReOW1M7p2dsYu%2BTRFAcWFkx%2FfdNcmK%2F1EAANP1i4cT%2FBf2l24Vc5LPZJjCm1RkrTRxc90qzl8fyslqz595eagGsI73K0uzaibH5HvlrUQwLfX4TmlW%2Foze1zEhFUOiAB5qs%2FM3wow8am4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=d8ef1f1373a06205af7af682034d8cb6a246e272c40e70afb974fa2c30b21272"
+        }, 
+        {
+            "file_name": "2._Before_takeover.png", 
+            "type": "image/png", 
+            "id": 123072, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/123/072/c3cbf3cadeecbe1210e2b177eb786953a9f2b528/2._Before_takeover.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ3XJAUJU3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224626Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDFhsOVc%2BLBuZJpN2%2FSK3A3ZSLRshQ37cr%2FnNfrsDZBl9Q9MwEJMM1w9f3SvUV6XmoP9nE3PeRToIYvFP152VEnHi03BXq%2BWX7mrp9duCLiSGu%2BuVj85dqXhL9hy5iZ8Baa9Dz1PfTpOuhKCmbaYzCWIDNTGGHjLe%2FHfj5BNMi3SKneAl%2FX0h%2BZqSIdJKDz1SK5Y92eHwZBEL8GznF9GsT%2Fe6zDxKRumhz8Vkk3IGYi5pwUBa6qmtuvb0%2FFBueYSgxUsIbsmK0uIt1sxLJbfLOybgHUA18Z80yVa0KlQc%2BgoSsS484NaEhLTbRqdlZ%2BxywVi8oiNq8ePPGFix9FXwU3HcD5DsyS3oPWa%2BzB9%2FB%2Fj5i%2F%2B%2Fdj%2Fww%2BhTYa6J%2BrE25cJz8f7DhYt5rCg9X8q2TCUwBOYuOUl5A0l4eFCWneCTq2xxhRjl1g1J%2BaAUAShH%2BiAD7%2BKi%2B3APDa6E97UEIGwiReOW1M7p2dsYu%2BTRFAcWFkx%2FfdNcmK%2F1EAANP1i4cT%2FBf2l24Vc5LPZJjCm1RkrTRxc90qzl8fyslqz595eagGsI73K0uzaibH5HvlrUQwLfX4TmlW%2Foze1zEhFUOiAB5qs%2FM3wow8am4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=2452adacf255d44df2a7fd56d6d5b2437006a8ff92b920ad337c6ca90ba6886c"
+        }, 
+        {
+            "file_name": "1._Waterhole_community_reply.png", 
+            "type": "image/png", 
+            "id": 123073, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/123/073/9f450613e9b69dd6e2b60bcf5ae84236fc45ed91/1._Waterhole_community_reply.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ3XJAUJU3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224626Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDFhsOVc%2BLBuZJpN2%2FSK3A3ZSLRshQ37cr%2FnNfrsDZBl9Q9MwEJMM1w9f3SvUV6XmoP9nE3PeRToIYvFP152VEnHi03BXq%2BWX7mrp9duCLiSGu%2BuVj85dqXhL9hy5iZ8Baa9Dz1PfTpOuhKCmbaYzCWIDNTGGHjLe%2FHfj5BNMi3SKneAl%2FX0h%2BZqSIdJKDz1SK5Y92eHwZBEL8GznF9GsT%2Fe6zDxKRumhz8Vkk3IGYi5pwUBa6qmtuvb0%2FFBueYSgxUsIbsmK0uIt1sxLJbfLOybgHUA18Z80yVa0KlQc%2BgoSsS484NaEhLTbRqdlZ%2BxywVi8oiNq8ePPGFix9FXwU3HcD5DsyS3oPWa%2BzB9%2FB%2Fj5i%2F%2B%2Fdj%2Fww%2BhTYa6J%2BrE25cJz8f7DhYt5rCg9X8q2TCUwBOYuOUl5A0l4eFCWneCTq2xxhRjl1g1J%2BaAUAShH%2BiAD7%2BKi%2B3APDa6E97UEIGwiReOW1M7p2dsYu%2BTRFAcWFkx%2FfdNcmK%2F1EAANP1i4cT%2FBf2l24Vc5LPZJjCm1RkrTRxc90qzl8fyslqz595eagGsI73K0uzaibH5HvlrUQwLfX4TmlW%2Foze1zEhFUOiAB5qs%2FM3wow8am4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=5f8ac101613b872cd5aeff3beeb2378906338a13677d825352ad7a23059936f3"
+        }, 
+        {
+            "file_name": "7._imagefetch.php", 
+            "type": "text/html", 
+            "id": 123084, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/123/084/7d7d24390f97c96658dfc7f1761be70446562ebe/7._imagefetch.php?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ3XJAUJU3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224626Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDFhsOVc%2BLBuZJpN2%2FSK3A3ZSLRshQ37cr%2FnNfrsDZBl9Q9MwEJMM1w9f3SvUV6XmoP9nE3PeRToIYvFP152VEnHi03BXq%2BWX7mrp9duCLiSGu%2BuVj85dqXhL9hy5iZ8Baa9Dz1PfTpOuhKCmbaYzCWIDNTGGHjLe%2FHfj5BNMi3SKneAl%2FX0h%2BZqSIdJKDz1SK5Y92eHwZBEL8GznF9GsT%2Fe6zDxKRumhz8Vkk3IGYi5pwUBa6qmtuvb0%2FFBueYSgxUsIbsmK0uIt1sxLJbfLOybgHUA18Z80yVa0KlQc%2BgoSsS484NaEhLTbRqdlZ%2BxywVi8oiNq8ePPGFix9FXwU3HcD5DsyS3oPWa%2BzB9%2FB%2Fj5i%2F%2B%2Fdj%2Fww%2BhTYa6J%2BrE25cJz8f7DhYt5rCg9X8q2TCUwBOYuOUl5A0l4eFCWneCTq2xxhRjl1g1J%2BaAUAShH%2BiAD7%2BKi%2B3APDa6E97UEIGwiReOW1M7p2dsYu%2BTRFAcWFkx%2FfdNcmK%2F1EAANP1i4cT%2FBf2l24Vc5LPZJjCm1RkrTRxc90qzl8fyslqz595eagGsI73K0uzaibH5HvlrUQwLfX4TmlW%2Foze1zEhFUOiAB5qs%2FM3wow8am4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=65cbde6ed429b6ab9933fe9fa9c47b61b8d94e7835b261f9a63b174cfc0b08ae"
+        }, 
+        {
+            "file_name": "6._Authentication_Bypass_PoC_video.mp4", 
+            "type": "video/mp4", 
+            "id": 123085, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/123/085/5c1943af79c71148721b75b4f92f88c983f6a240/6._Authentication_Bypass_PoC_video.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ3XJAUJU3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224626Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDFhsOVc%2BLBuZJpN2%2FSK3A3ZSLRshQ37cr%2FnNfrsDZBl9Q9MwEJMM1w9f3SvUV6XmoP9nE3PeRToIYvFP152VEnHi03BXq%2BWX7mrp9duCLiSGu%2BuVj85dqXhL9hy5iZ8Baa9Dz1PfTpOuhKCmbaYzCWIDNTGGHjLe%2FHfj5BNMi3SKneAl%2FX0h%2BZqSIdJKDz1SK5Y92eHwZBEL8GznF9GsT%2Fe6zDxKRumhz8Vkk3IGYi5pwUBa6qmtuvb0%2FFBueYSgxUsIbsmK0uIt1sxLJbfLOybgHUA18Z80yVa0KlQc%2BgoSsS484NaEhLTbRqdlZ%2BxywVi8oiNq8ePPGFix9FXwU3HcD5DsyS3oPWa%2BzB9%2FB%2Fj5i%2F%2B%2Fdj%2Fww%2BhTYa6J%2BrE25cJz8f7DhYt5rCg9X8q2TCUwBOYuOUl5A0l4eFCWneCTq2xxhRjl1g1J%2BaAUAShH%2BiAD7%2BKi%2B3APDa6E97UEIGwiReOW1M7p2dsYu%2BTRFAcWFkx%2FfdNcmK%2F1EAANP1i4cT%2FBf2l24Vc5LPZJjCm1RkrTRxc90qzl8fyslqz595eagGsI73K0uzaibH5HvlrUQwLfX4TmlW%2Foze1zEhFUOiAB5qs%2FM3wow8am4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=89c6c1aa937ca2ed6891725a51a8066c4c9c9a13238ed487494bea863ad2110b"
+        }
+    ], 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2016-09-27T14:26:23.027Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-09-27T14:26:23.027Z", 
+            "actor": {
+                "username": "bugtriage-rob", 
+                "url": "/bugtriage-rob", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "Thanks for you report. \n\nWe're able to reproduce your proof of concept and our investigation is ongoing. We'll be sure to update you as soon as we have more information. \n\nThanks and good luck in your future bug hunting.  ", 
+            "markdown_message": "<p>Thanks for you report. </p>\n\n<p>We&#39;re able to reproduce your proof of concept and our investigation is ongoing. We&#39;ll be sure to update you as soon as we have more information. </p>\n\n<p>Thanks and good luck in your future bug hunting.  </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1219007, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/123/441/5fe1cb37744bb8d5b4ce3e8a6ccb7b7a3c571c7a/Session_cookie_theft___injection_in_attacker%27s_browser.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ3XJAUJU3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224626Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDFhsOVc%2BLBuZJpN2%2FSK3A3ZSLRshQ37cr%2FnNfrsDZBl9Q9MwEJMM1w9f3SvUV6XmoP9nE3PeRToIYvFP152VEnHi03BXq%2BWX7mrp9duCLiSGu%2BuVj85dqXhL9hy5iZ8Baa9Dz1PfTpOuhKCmbaYzCWIDNTGGHjLe%2FHfj5BNMi3SKneAl%2FX0h%2BZqSIdJKDz1SK5Y92eHwZBEL8GznF9GsT%2Fe6zDxKRumhz8Vkk3IGYi5pwUBa6qmtuvb0%2FFBueYSgxUsIbsmK0uIt1sxLJbfLOybgHUA18Z80yVa0KlQc%2BgoSsS484NaEhLTbRqdlZ%2BxywVi8oiNq8ePPGFix9FXwU3HcD5DsyS3oPWa%2BzB9%2FB%2Fj5i%2F%2B%2Fdj%2Fww%2BhTYa6J%2BrE25cJz8f7DhYt5rCg9X8q2TCUwBOYuOUl5A0l4eFCWneCTq2xxhRjl1g1J%2BaAUAShH%2BiAD7%2BKi%2B3APDa6E97UEIGwiReOW1M7p2dsYu%2BTRFAcWFkx%2FfdNcmK%2F1EAANP1i4cT%2FBf2l24Vc5LPZJjCm1RkrTRxc90qzl8fyslqz595eagGsI73K0uzaibH5HvlrUQwLfX4TmlW%2Foze1zEhFUOiAB5qs%2FM3wow8am4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=95eec42e133a8c8db561a3c184f76f3ef5450c668dc9c28f5514720f6089ab0c", 
+                    "type": "video/mp4", 
+                    "id": 123441, 
+                    "filename": "Session_cookie_theft___injection_in_attacker's_browser.mp4"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2016-09-27T17:46:34.437Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-09-27T17:46:34.437Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "Hi,\n\nThat's an impressive response time, congratulations! For the subdomain takeover resolution part: Just let me know if you'd like me to release the domain CNAME again, and I'll do that ASAP.\n\nIn addition, I made another PoC video which demonstrates how an attacker could inject the stolen cookie in his/her own browser and be logged in to any `*.ubnt.com` victim services transparently. In the PoC, I first pretend to be the victim in browser Google Chrome. I login and then \"accidentally\" visit https://ping.ubnt.com/imagefetch.php, hereby leaking my UBIC_AUTH session cookie to the attacker's webserver.\n\nThe attacker now injects this session cookie in his own browser (Mozilla Firefox in this case on the same system, for practical reasons) by setting the cookie via the Set-Cookie: directive in an UNAUTHORIZED response from the https://sso.ubnt.com/api/sso/v1/user/self endpoint. This instructs the attacker's browser to include the session cookie from then on in future requests to sso.ubnt.com, which now makes the attacker authenticated as the victim after refreshing. Furthermore, since it's on sso.ubnt.com, an attacker can now access any `*.ubnt.com` services from the victim transparently in his/her browser, in the PoC video's case account.ubnt.com, store.ubnt.com and community.ubnt.com. Even when the victim logs out in his/her browser (Google Chrome in the PoC), the attacker's session of the victim account keeps alive, as demonstrated at the end of the video.\n\nLet me know if anything is unclear.\nRegards,\n\nArne", 
+            "markdown_message": "<p>Hi,</p>\n\n<p>That&#39;s an impressive response time, congratulations! For the subdomain takeover resolution part: Just let me know if you&#39;d like me to release the domain CNAME again, and I&#39;ll do that ASAP.</p>\n\n<p>In addition, I made another PoC video which demonstrates how an attacker could inject the stolen cookie in his/her own browser and be logged in to any <code>*.ubnt.com</code> victim services transparently. In the PoC, I first pretend to be the victim in browser Google Chrome. I login and then &quot;accidentally&quot; visit <a title=\"https://ping.ubnt.com/imagefetch.php\" href=\"/redirect?signature=8b4564eeff2cf2967eb4f6a64960b069760ea66a&amp;url=https%3A%2F%2Fping.ubnt.com%2Fimagefetch.php\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://ping.ubnt.com/imagefetch.php</span><i class=\"icon-external-link\"></i></a>, hereby leaking my UBIC_AUTH session cookie to the attacker&#39;s webserver.</p>\n\n<p>The attacker now injects this session cookie in his own browser (Mozilla Firefox in this case on the same system, for practical reasons) by setting the cookie via the Set-Cookie: directive in an UNAUTHORIZED response from the <a title=\"https://sso.ubnt.com/api/sso/v1/user/self\" href=\"/redirect?signature=fb39eb9886788dedab64b90276c77b15f390b874&amp;url=https%3A%2F%2Fsso.ubnt.com%2Fapi%2Fsso%2Fv1%2Fuser%2Fself\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://sso.ubnt.com/api/sso/v1/user/self</span><i class=\"icon-external-link\"></i></a> endpoint. This instructs the attacker&#39;s browser to include the session cookie from then on in future requests to sso.ubnt.com, which now makes the attacker authenticated as the victim after refreshing. Furthermore, since it&#39;s on sso.ubnt.com, an attacker can now access any <code>*.ubnt.com</code> services from the victim transparently in his/her browser, in the PoC video&#39;s case account.ubnt.com, store.ubnt.com and community.ubnt.com. Even when the victim logs out in his/her browser (Google Chrome in the PoC), the attacker&#39;s session of the victim account keeps alive, as demonstrated at the end of the video.</p>\n\n<p>Let me know if anything is unclear.<br>\nRegards,</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1219503, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-05T20:40:20.834Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-05T20:40:20.834Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "Hi @Ubiquity,\n\nAny news about this? It does cost *some* money to keep serving this domain via Cloudfront from my own AWS account... \n\nRegards,\n\nArne", 
+            "markdown_message": "<p>Hi <a href=\"/ubiquity\">@Ubiquity</a>,</p>\n\n<p>Any news about this? It does cost <em>some</em> money to keep serving this domain via Cloudfront from my own AWS account... </p>\n\n<p>Regards,</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1234217, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-06T08:56:12.373Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-06T08:56:12.373Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "High", 
+                "old_severity": null
+            }, 
+            "team_handle": "ubnt", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1234963, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-28T09:32:52.455Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-28T09:32:52.455Z", 
+            "actor": {
+                "username": "ubnt-rubens", 
+                "url": "/ubnt-rubens", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "Hi @arneswinnen \n\nThanks for your report and sorry for the delay, our team is fixing the problem.\n\nThanks for testing", 
+            "markdown_message": "<p>Hi <a href=\"/arneswinnen\">@arneswinnen</a> </p>\n\n<p>Thanks for your report and sorry for the delay, our team is fixing the problem.</p>\n\n<p>Thanks for testing</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1272486, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-28T09:49:54.708Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-28T09:49:54.708Z", 
+            "actor": {
+                "username": "ubnt-rubens", 
+                "url": "/ubnt-rubens", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "Hi @arneswinnen can you release the domain?", 
+            "markdown_message": "<p>Hi <a href=\"/arneswinnen\">@arneswinnen</a> can you release the domain?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1272502, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-28T10:25:40.150Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-28T10:25:40.150Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "Hi,\n\nDomain released & already reclaimed by Ubiquity, so it seems :-).\n\nCheers,\n\nArne", 
+            "markdown_message": "<p>Hi,</p>\n\n<p>Domain released &amp; already reclaimed by Ubiquity, so it seems :-).</p>\n\n<p>Cheers,</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1272538, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-28T16:05:58.384Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-28T16:05:58.384Z", 
+            "actor": {
+                "username": "ubnt-rubens", 
+                "url": "/ubnt-rubens", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "@arneswinnen Can you verify the domain takeover gain?", 
+            "markdown_message": "<p><a href=\"/arneswinnen\">@arneswinnen</a> Can you verify the domain takeover gain?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1273043, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/130/803/446f978337138ed400bcfb0bbd88ffbd5c95cf18/Screenshot_20161028-180656.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ3XJAUJU3%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224626Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDFhsOVc%2BLBuZJpN2%2FSK3A3ZSLRshQ37cr%2FnNfrsDZBl9Q9MwEJMM1w9f3SvUV6XmoP9nE3PeRToIYvFP152VEnHi03BXq%2BWX7mrp9duCLiSGu%2BuVj85dqXhL9hy5iZ8Baa9Dz1PfTpOuhKCmbaYzCWIDNTGGHjLe%2FHfj5BNMi3SKneAl%2FX0h%2BZqSIdJKDz1SK5Y92eHwZBEL8GznF9GsT%2Fe6zDxKRumhz8Vkk3IGYi5pwUBa6qmtuvb0%2FFBueYSgxUsIbsmK0uIt1sxLJbfLOybgHUA18Z80yVa0KlQc%2BgoSsS484NaEhLTbRqdlZ%2BxywVi8oiNq8ePPGFix9FXwU3HcD5DsyS3oPWa%2BzB9%2FB%2Fj5i%2F%2B%2Fdj%2Fww%2BhTYa6J%2BrE25cJz8f7DhYt5rCg9X8q2TCUwBOYuOUl5A0l4eFCWneCTq2xxhRjl1g1J%2BaAUAShH%2BiAD7%2BKi%2B3APDa6E97UEIGwiReOW1M7p2dsYu%2BTRFAcWFkx%2FfdNcmK%2F1EAANP1i4cT%2FBf2l24Vc5LPZJjCm1RkrTRxc90qzl8fyslqz595eagGsI73K0uzaibH5HvlrUQwLfX4TmlW%2Foze1zEhFUOiAB5qs%2FM3wow8am4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=58752b6d642f69d9a241e6803f7cf2449d7e3892cc99593b34f1844b393c21e7", 
+                    "type": "image/png", 
+                    "id": 130803, 
+                    "filename": "Screenshot_20161028-180656.png"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2016-10-28T16:12:13.933Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-28T16:12:13.933Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "Hi,\n\nI double-checked and the issue seems resolved. It is still pointing to cloudfront, but now returns an Ubiquity-specific 404 error page, indicating that you have control over the domain again.\n\nThe Authentication Bypass issue on your sso. ubnt.com domain is also indirectly resolved because of this.\n\nCheers,\n\nArne", 
+            "markdown_message": "<p>Hi,</p>\n\n<p>I double-checked and the issue seems resolved. It is still pointing to cloudfront, but now returns an Ubiquity-specific 404 error page, indicating that you have control over the domain again.</p>\n\n<p>The Authentication Bypass issue on your sso. ubnt.com domain is also indirectly resolved because of this.</p>\n\n<p>Cheers,</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1273049, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2016-10-28T16:16:44.303Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-28T16:16:44.303Z", 
+            "actor": {
+                "url": "/ubnt", 
+                "profile": {
+                    "name": "Ubiquiti Networks"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/800/50186ca2136da762df66f3ba92606dc8b925816f_medium.png?1419364363"
+                }
+            }, 
+            "team_handle": "ubnt", 
+            "bounty_amount": "500.0", 
+            "collaborator": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1273057, 
+            "genius_execution_id": null
+        }, 
+        {
+            "original_report_id": 145224, 
+            "automated_response": false, 
+            "created_at": "2016-10-28T16:18:14.726Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-28T16:18:14.726Z", 
+            "actor": {
+                "username": "ubnt-rubens", 
+                "url": "/ubnt-rubens", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "Thanks for testing", 
+            "markdown_message": "<p>Thanks for testing</p>\n", 
+            "type": "Activities::BugDuplicate", 
+            "id": 1273061, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-28T17:23:20.216Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-28T17:23:20.216Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "Hi,\n\nCould you please elaborate on the updated duplicate status? I effectively claimed this domain and held on to it for more than a month, so it would seem a bit odd to me in this case...\n\nThanks in advance,\n\nArne", 
+            "markdown_message": "<p>Hi,</p>\n\n<p>Could you please elaborate on the updated duplicate status? I effectively claimed this domain and held on to it for more than a month, so it would seem a bit odd to me in this case...</p>\n\n<p>Thanks in advance,</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1273159, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-28T17:25:37.150Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-28T17:25:37.150Z", 
+            "actor": {
+                "username": "ubnt-rubens", 
+                "url": "/ubnt-rubens", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "Sorry @arneswinnen we had fixed this domain takeover before, around 4 month ago, but it got reversed.", 
+            "markdown_message": "<p>Sorry <a href=\"/arneswinnen\">@arneswinnen</a> we had fixed this domain takeover before, around 4 month ago, but it got reversed.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1273169, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-28T17:30:19.193Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-28T17:30:19.193Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "Hi,\n\nDoesn't this constitute a new vulnerability in that case? If the previous report was fixed 4 months ago and suddenly became vulnerable again to takeover around one month ago, this does seem as a new regression issue to me, as the timelines of both reports definitely do not overlap.\n\nArne\n\n", 
+            "markdown_message": "<p>Hi,</p>\n\n<p>Doesn&#39;t this constitute a new vulnerability in that case? If the previous report was fixed 4 months ago and suddenly became vulnerable again to takeover around one month ago, this does seem as a new regression issue to me, as the timelines of both reports definitely do not overlap.</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1273175, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-28T17:35:40.617Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-28T17:35:40.617Z", 
+            "actor": {
+                "username": "ubnt-rubens", 
+                "url": "/ubnt-rubens", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "Yes but the original submitter reported the regression (1 mouth like you), creating a overlapping in our point of view. I'm sorry for the inconvenience :(", 
+            "markdown_message": "<p>Yes but the original submitter reported the regression (1 mouth like you), creating a overlapping in our point of view. I&#39;m sorry for the inconvenience :(</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1273182, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-28T18:08:06.319Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-28T18:08:06.319Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "Hi,\n\nOk, that clarifies things. In that case, thank you very much for still awarding a bounty for this duplicate issue!\n\nWould you mind public disclosure of this report?\n\nThanks in advance,\n\nArne", 
+            "markdown_message": "<p>Hi,</p>\n\n<p>Ok, that clarifies things. In that case, thank you very much for still awarding a bounty for this duplicate issue!</p>\n\n<p>Would you mind public disclosure of this report?</p>\n\n<p>Thanks in advance,</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1273239, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-28T18:28:31.689Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-28T18:28:31.689Z", 
+            "actor": {
+                "username": "ubnt-rubens", 
+                "url": "/ubnt-rubens", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "Hi @arneswinnen,\n\nCan you wait 1 month? So we can be sure that the takeover will not happen again.\n\nThanks", 
+            "markdown_message": "<p>Hi <a href=\"/arneswinnen\">@arneswinnen</a>,</p>\n\n<p>Can you wait 1 month? So we can be sure that the takeover will not happen again.</p>\n\n<p>Thanks</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1273290, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-28T20:32:36.102Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-28T20:32:36.102Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "Sure. As long as you don't explicitly accept/deny my request for public disclosure, it will only become active in 30 days from here.", 
+            "markdown_message": "<p>Sure. As long as you don&#39;t explicitly accept/deny my request for public disclosure, it will only become active in 30 days from here.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1273501, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-10-28T20:32:51.283Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-10-28T20:32:51.283Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1273502, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-29T06:40:05.102Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-29T06:40:05.102Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "Hi @ubnt ,\n\nSince this is a duplicate report, it does require your approval to be disclosed publicly. Could you consider this? The [original report](https://hackerone.com/reports/145224) has already been made public, so I don't see any reason not to publicly disclose. \n\nThanks in advance,\n\nArne", 
+            "markdown_message": "<p>Hi <a href=\"/ubnt\">@ubnt</a> ,</p>\n\n<p>Since this is a duplicate report, it does require your approval to be disclosed publicly. Could you consider this? The <a href=\"https://hackerone.com/reports/145224\">original report</a> has already been made public, so I don&#39;t see any reason not to publicly disclose. </p>\n\n<p>Thanks in advance,</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1325208, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-29T08:37:15.827Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-29T08:37:15.827Z", 
+            "actor": {
+                "username": "ubnt-rubens", 
+                "url": "/ubnt-rubens", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "Ok, you can request public disclosure", 
+            "markdown_message": "<p>Ok, you can request public disclosure</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1325357, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-29T08:38:12.341Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-29T08:38:12.341Z", 
+            "actor": {
+                "username": "arneswinnen", 
+                "url": "/arneswinnen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/061/086/0e04ab91b3592e0d93cb03ea751ee23d36052742_medium.JPG?1458046997"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "Hi,\n\nThat should already be the case, I requested it around a month ago. Can you approve?\n\nThanks in advance,\n\nArne", 
+            "markdown_message": "<p>Hi,</p>\n\n<p>That should already be the case, I requested it around a month ago. Can you approve?</p>\n\n<p>Thanks in advance,</p>\n\n<p>Arne</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1325359, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-29T08:39:46.422Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-29T08:39:46.422Z", 
+            "actor": {
+                "username": "ubnt-rubens", 
+                "url": "/ubnt-rubens", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1325365, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-11-29T08:39:48.268Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-11-29T08:39:48.268Z", 
+            "actor": {
+                "username": "ubnt-rubens", 
+                "url": "/ubnt-rubens", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ubnt", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1325366, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "arneswinnen", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/arneswinnen", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/061/086/b0d69107cdd8b47f2226431d3cd85241611c19ae_small.JPG?1458046997"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 45, 
+        "name": "Cross-Site Request Forgery (CSRF)"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2016-11-29T08:39:46.444Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/172137", 
+    "created_at": "2016-09-26T15:18:13.317Z", 
+    "original_report_url": "https://hackerone.com/reports/145224", 
+    "vulnerability_information_html": "<h1 id=\"summary\">Summary</h1>\n\n<p>This is not a standard vulnerability, but a chain of two more exotic vulnerabilities leading to a full authentication bypass of your SSO login system at sso.ubnt.com (via account.ubnt.com). The root cause of this authentication bypass is two-fold:</p>\n\n<ol>\n<li>Subdomain ping.ubnt.com was pointing to Amazon Cloudfront CDN, but the hostname was not registered there anymore. This allowed me to fully takeover this domain. It is now serving content of my own webserver, both over http and https.</li>\n<li>The session cookie of your SSO subdomain sso.ubnt.com is (deliberately?) shared with all https://*.ubnt.com subdomains through its &quot;domain=.ubnt.com&quot; attribute. This allows leakage of this high-value session cookie to the overtaken subdomain <a title=\"https://ping.ubnt.com\" href=\"/redirect?signature=8de54c3ff7714a142aff4df5d61e638d5b0ad07f&amp;url=https%3A%2F%2Fping.ubnt.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://ping.ubnt.com</span><i class=\"icon-external-link\"></i></a> in all modern browsers.</li>\n</ol>\n\n<h1 id=\"impact\">Impact</h1>\n\n<p>The following attack scenario was invented: Assume that a victim is logged in in his/her browser to any of the <code>*.ubnt.com</code> services via the SSO system at account.ubnt.com, which uses sso.ubnt.com under the hood. If an attacker can then let the victim make a request to ping.ubnt.com in a second browser tab, either on purpose or unknowingly, the browser will transparently add the session cookie &quot;UBIC_AUTH&quot; set by sso.ubnt.com to this subdomain. Since the attacker has full visibility into incoming requests to his/her webserver (in this case, mine), the session cookie is now compromised. Once the attacker&#39;s got his/her hands on the session cookie, he/she can now hijack the victim&#39;s session on sso.ubnt.com. Since sso.ubnt.com is the centralized place where authentication occurs for all <code>*.ubnt.com</code> services (and perhaps even on other domains via OAuth?), this is a major risk, as an attacker can now impersonate the victim on <strong>all</strong> their Ubiquity services and connected devices who rely on SSO for authentication. </p>\n\n<p>In order for this depicted attack to work, the following questions still remain:</p>\n\n<ul>\n<li>Valid SSL Certificate: the &quot;UBIC_AUTH&quot; session cookie has the &quot;secure&quot; cookie attribute set, which instructs the browser to only send its value over a secured channel. This means that the browser will only send it to <a title=\"https://ping.ubnt.com\" href=\"/redirect?signature=8de54c3ff7714a142aff4df5d61e638d5b0ad07f&amp;url=https%3A%2F%2Fping.ubnt.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://ping.ubnt.com</span><i class=\"icon-external-link\"></i></a> but not to <a title=\"http://ping.ubnt.com\" href=\"/redirect?signature=6c7f8f94c6c66058822859ad9bbc8ce06ba907a6&amp;url=http%3A%2F%2Fping.ubnt.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://ping.ubnt.com</span><i class=\"icon-external-link\"></i></a>, which now requires the attacker to have a valid SSL certificate for this domain. However, many Certificate Authorities support automated domain verification through hosting a specific HTML file in the root directory of a (sub)domain nowadays (e.g. <a href=\"/redirect?signature=839f050fab5846668ec07f04f15a859a617a02e5&amp;url=https%3A%2F%2Fletsencrypt.org%2Fhow-it-works%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>Lets Encrypt</span><i class=\"icon-external-link\"></i></a>, <a href=\"/redirect?signature=64ea9f9afe221f7573721918e902aee6c9884018&amp;url=https%3A%2F%2Fbe.godaddy.com%2Fhelp%2Fverify-domain-ownership-html-or-dns-7452\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>GoDaddy</span><i class=\"icon-external-link\"></i></a>, ...). Since the subdomain takeover yields the attacker complete control over the webserver serving ping.ubnt.com, this would be trivial. This was not performed as a PoC to not upset you by generating a malicious SSL certificate for your domain and effectively deploying it on a production system, but feel free to give me a heads up if you would like me to actually proceed with this attack scenario. It is literally <a href=\"/redirect?signature=a5923c19e2cc5a4255fd1a46a91eaa00f03129f7&amp;url=https%3A%2F%2Fcertbot.eff.org%2F%23ubuntutrusty-apache\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>one command with the certbot utility</span><i class=\"icon-external-link\"></i></a> and <a href=\"/redirect?signature=e1d7e1049f1ce9719e0dded469ddf92bc681faf7&amp;url=https%3A%2F%2Faws.amazon.com%2Fcloudfront%2Fcustom-ssl-domains%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>free to deploy on AWS Cloudfront</span><i class=\"icon-external-link\"></i></a>. </li>\n<li>Request to ping.ubnt.com: In order for the attacker to convince his/her authenticated victim to make a request to the overtaken subdomain ping.ubnt.com, a number of techniques can be utilized:\n\n<ul>\n<li>Targeted attack: An attacker could simply send his/her victim a mail with an embedded 1x1 image hosted on <a title=\"https://ping.ubnt.com/\" href=\"/redirect?signature=7651a6a47099bcc65706e074212e6165a1bc87be&amp;url=https%3A%2F%2Fping.ubnt.com%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://ping.ubnt.com/</span><i class=\"icon-external-link\"></i></a> inside its HTML. Since email supports HTML by default, this would silently make a request to the overtaken subdomain when being rendered in the victim&#39;s browser. Another option would be to lure the victim to an arbitrary attacker-controlled domain which houses a hidden iframe to the overtaken subdomain. Again, the browser would stealthily make the request and leak the &quot;UBIC_AUTH&quot; session cookie of sso.ubnt.com to the attacker.</li>\n<li>Mass exploitation: An attacker could again host a media resource on <a title=\"https://ping.ubnt.com/\" href=\"/redirect?signature=7651a6a47099bcc65706e074212e6165a1bc87be&amp;url=https%3A%2F%2Fping.ubnt.com%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://ping.ubnt.com/</span><i class=\"icon-external-link\"></i></a> and buy some advertisement space on popular websites to serve it. Every authenticated Ubiquity victim who browses here would leak his/her session cookie to the attacker unknowingly. However, to increase the likelihood that the victims are already authenticated to sso.ubnt.com, an attacker might just post a reply on <a title=\"https://community.ubnt.com\" href=\"/redirect?signature=91e4fba844a1f5bc801f4793e1d31100b565fa68&amp;url=https%3A%2F%2Fcommunity.ubnt.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://community.ubnt.com</span><i class=\"icon-external-link\"></i></a> with a hidden IMG tag and source <a title=\"https://ping.ubnt.com\" href=\"/redirect?signature=8de54c3ff7714a142aff4df5d61e638d5b0ad07f&amp;url=https%3A%2F%2Fping.ubnt.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://ping.ubnt.com</span><i class=\"icon-external-link\"></i></a>. Every logged-in reader of the reply would unknowingly make a request to the hijacked subdomain, which would go through IF there was a valid SSL Certificate installed (not currently). Here&#39;s the PoC link: <a title=\"https://community.ubnt.com/t5/Getting-Started-Product/2-week-old-wisp/m-p/1687239#M65439\" href=\"/redirect?signature=d7227e5bc14aac19db320753f39c1bf6f534dc9b&amp;url=https%3A%2F%2Fcommunity.ubnt.com%2Ft5%2FGetting-Started-Product%2F2-week-old-wisp%2Fm-p%2F1687239%23M65439\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://community.ubnt.com/t5/Getting-Started-Product/2-week-old-wisp/m-p/1687239#M65439</span><i class=\"icon-external-link\"></i></a> (post of my testuser &quot;ferrariverdasco&quot; - see also attached screenshot &quot;1. Waterhole community reply.png&quot;). </li>\n</ul>\n</li>\n</ul>\n\n<h1 id=\"1-subdomain-takeover\">1. Subdomain takeover</h1>\n\n<p>The subdomain &quot;ping.ubnt.com&quot; was (and still is) a CNAME pointing to a AWS Cloudfront CDN server (depending on your location, the latter will resolve differently):</p>\n<pre class=\"highlight plaintext\"><code># nslookup ping.ubnt.com 8.8.8.8\nServer:     8.8.8.8\nAddress:    8.8.8.8#53\n\nNon-authoritative answer:\nping.ubnt.com   canonical name = dl.ubnt.com.\ndl.ubnt.com canonical name = d2cnv2pop2xy4v.cloudfront.net.\nName:   d2cnv2pop2xy4v.cloudfront.net\nAddress: 54.192.96.244\n</code></pre>\n<p>However, the hostname &quot;ping.ubnt.com&quot; was not claimed anymore on Cloudfront, resulting in a Cloudfront error page when visiting the subdomain before the takeover (see screenshot &quot;2. Before takeover.png&quot;). Subsequently, a new Amazon Cloudfront CDN endpoint was created and linked to an attacker-controlled origin server. For the new Cloudfront CDN endpoint, &quot;ping.ubnt.com&quot; was designated as hostname successfully (&quot;3. CNAME takeover.png&quot;). This concluded the subdomain takeover (see screenshots &quot;4. After takeover.png&quot; and &quot;5. After takeover - source.png&quot;). PoC URL: <a title=\"http://ping.ubnt.com/34902385023958329058235.html\" href=\"/redirect?signature=fd6752142b48cc59553f92dee4c1a5460aebf8ca&amp;url=http%3A%2F%2Fping.ubnt.com%2F34902385023958329058235.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://ping.ubnt.com/34902385023958329058235.html</span><i class=\"icon-external-link\"></i></a> (random filename chosen to not negatively affect Ubiquity&#39;s reputation during takeover period). </p>\n\n<h1 id=\"2-authentication-bypass-proof-of-concept\">2. Authentication bypass proof-of-concept</h1>\n\n<p>In the PoC below, the assumption is made that <a title=\"https://ping.ubnt.com\" href=\"/redirect?signature=8de54c3ff7714a142aff4df5d61e638d5b0ad07f&amp;url=https%3A%2F%2Fping.ubnt.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://ping.ubnt.com</span><i class=\"icon-external-link\"></i></a> is actually serving a valid certificate in the victim&#39;s browser, which currently is not the case (so there is currently no actual risk) - see above.</p>\n\n<ol>\n<li>Open browser &amp; navigate to <a title=\"https://ping.ubnt.com\" href=\"/redirect?signature=8de54c3ff7714a142aff4df5d61e638d5b0ad07f&amp;url=https%3A%2F%2Fping.ubnt.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://ping.ubnt.com</span><i class=\"icon-external-link\"></i></a>. Accept the invalid SSL certificate for PoC reasons.  Then launch an intercepting proxy tool and configure your browser proxy settings to see traffic going back &amp; forth.</li>\n<li>Browse to <a title=\"https://community.ubnt.com/t5/Getting-Started-Product/2-week-old-wisp/m-p/1687239#M65439\" href=\"/redirect?signature=d7227e5bc14aac19db320753f39c1bf6f534dc9b&amp;url=https%3A%2F%2Fcommunity.ubnt.com%2Ft5%2FGetting-Started-Product%2F2-week-old-wisp%2Fm-p%2F1687239%23M65439\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://community.ubnt.com/t5/Getting-Started-Product/2-week-old-wisp/m-p/1687239#M65439</span><i class=\"icon-external-link\"></i></a>. Find the request to <a title=\"https://ping.ubnt.com/imagefetch.php?f=thanks.png\" href=\"/redirect?signature=4a1b9677f1276bead257ae3677fa6dca8a46dfeb&amp;url=https%3A%2F%2Fping.ubnt.com%2Fimagefetch.php%3Ff%3Dthanks.png\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://ping.ubnt.com/imagefetch.php?f=thanks.png</span><i class=\"icon-external-link\"></i></a> in the intercepting proxy and view its response (hidden in HTML comments). It should say &quot;Cookie named &#39;UBIC_AUTH&#39; is not set!&quot;.</li>\n<li>Login to account.ubnt.com in a second browser tab with the victim&#39;s account. Notice the &quot;UBIC_AUTH&quot; cookie being issued by sso.ubnt.com after successful authentication, with &quot;domain=.ubnt.com&quot; attribute.</li>\n<li>Refresh first tab <a title=\"https://community.ubnt.com/t5/Getting-Started-Product/2-week-old-wisp/m-p/1687239#M65439\" href=\"/redirect?signature=d7227e5bc14aac19db320753f39c1bf6f534dc9b&amp;url=https%3A%2F%2Fcommunity.ubnt.com%2Ft5%2FGetting-Started-Product%2F2-week-old-wisp%2Fm-p%2F1687239%23M65439\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://community.ubnt.com/t5/Getting-Started-Product/2-week-old-wisp/m-p/1687239#M65439</span><i class=\"icon-external-link\"></i></a>. Check in your intercepting proxy that a new request to <a title=\"https://ping.ubnt.com/imagefetch.php?f=thanks.png\" href=\"/redirect?signature=4a1b9677f1276bead257ae3677fa6dca8a46dfeb&amp;url=https%3A%2F%2Fping.ubnt.com%2Fimagefetch.php%3Ff%3Dthanks.png\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://ping.ubnt.com/imagefetch.php?f=thanks.png</span><i class=\"icon-external-link\"></i></a> is made, with a bunch of cookies transparently added by the browser, among which UBIC_AUTH.</li>\n<li>The HTML comment body of the response should now show the value of the UBIC_AUTH value, clearly demonstrating that the session cookie&#39;s value was well-received. However, this PHP page will make a request to endpoint <a title=\"https://sso.ubnt.com/api/sso/v1/user/self\" href=\"/redirect?signature=fb39eb9886788dedab64b90276c77b15f390b874&amp;url=https%3A%2F%2Fsso.ubnt.com%2Fapi%2Fsso%2Fv1%2Fuser%2Fself\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://sso.ubnt.com/api/sso/v1/user/self</span><i class=\"icon-external-link\"></i></a> with this cookie and show its response. This should be a JSON array containing victim-account sensitive information, hereby proving that the session cookie can actually be hijacked and used from another system (my webserver in this case). </li>\n</ol>\n\n<p>In a real attack scenario, an attacker would probably want to store the received cookie locally and use a cookie addon for his/her specific browser, to inject the session cookie value in the browser more persistently, as opposed to in a webserver&#39;s PHP curl script. However, I believe this method was more clear for PoC purposes. From here on, an attacker has complete control over a victim&#39;s account. He/she can see and modify anything, as long as no extra verification is required (e.g. current password to update to a new password). This is a similar impact of a global XSS &amp; CSRF vulnerability on all *.ubnt.com pages.</p>\n\n<p>You can see all these PoC steps executed in attachment &quot;6. Authentication Bypass PoC video.mp4&quot;. The code of the <a title=\"https://ping.ubnt.com/imagefetch.php\" href=\"/redirect?signature=8b4564eeff2cf2967eb4f6a64960b069760ea66a&amp;url=https%3A%2F%2Fping.ubnt.com%2Fimagefetch.php\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://ping.ubnt.com/imagefetch.php</span><i class=\"icon-external-link\"></i></a> page is also attached (&quot;7. imagefetch.php&quot;). </p>\n\n<h1 id=\"recommendation\">Recommendation</h1>\n\n<p>The root cause of the vulnerability is the dangling CNAME pointer to Cloudfront from the affected subdomain. It is advised to remove the DNS CNAME pointer from ping.ubnt.com to the Cloudfront CDN server. This will mitigate the root cause vulnerability. If you are interested in keeping the subdomain on the Cloudfront CDN, I&#39;ll have to release it first before you can reclaim it. In that case, just let me know.</p>\n\n<p>Additionally, it is advised to investigate whether the session cookie &quot;UBIC_AUTH&quot; of sso.ubnt.com should really be shared among all subdomains. This makes subdomain takeovers significantly more impactful, as shown through this report. </p>\n\n<h1 id=\"references\">References</h1>\n\n<ul>\n<li><a title=\"https://labs.detectify.com/tag/hostile-subdomain-takeover/\" href=\"/redirect?signature=776f37317c3213988ba0aae726f9a48e49fe1be9&amp;url=https%3A%2F%2Flabs.detectify.com%2Ftag%2Fhostile-subdomain-takeover%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://labs.detectify.com/tag/hostile-subdomain-takeover/</span><i class=\"icon-external-link\"></i></a></li>\n</ul>\n\n<p>I know this is a very long and complex report for a non-standard issue. Please don&#39;t hesitate to contact me if I haven&#39;t explained something clearly enough, so I can elaborate. </p>\n\n<p>Regards,</p>\n\n<p>Arne Swinnen<br>\n<a title=\"https://www.arneswinnen.net\" href=\"/redirect?signature=b36b3bff6f7228758fa087b6c9a475c8d1dd90a6&amp;url=https%3A%2F%2Fwww.arneswinnen.net\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://www.arneswinnen.net</span><i class=\"icon-external-link\"></i></a></p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://ubnt.com", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "Ubiquiti Networks"
+        }, 
+        "handle": "ubnt", 
+        "url": "https://hackerone.com/ubnt", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/800/19a040983c9b2494808c87f77337d30023b97ea7_small.png?1419364363", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/800/50186ca2136da762df66f3ba92606dc8b925816f_medium.png?1419364363"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 800, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

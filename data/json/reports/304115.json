@@ -1,0 +1,279 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "informative", 
+    "bug_reporter_agreed_on_going_public_at": "2018-01-12T13:38:42.880Z", 
+    "voters": [], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 304115, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-02-23T07:18:57.553Z", 
+    "vulnerability_information": "Integer Underflow @ ossl_cipher_pkcs5_keyivgen \nfile : ext/openssl/ossl_cipher.c\naffected parameter: iterations\n\nINFO\nGenerates and sets the key/IV based on a password.\ncall-seq:\n```\ncipher.pkcs5_keyivgen(pass, salt = nil, iterations = 2048, digest = \"MD5\") -> nil\n```\n\n\nANALYSIS\niter(int) in ossl_cipher_pkcs5_keyivgen  which holds iterations value is not validated before use.\ntherefore passed on to openssl library function EVP_BytesToKey which loops over\niter(iterations) using count\n```\nfor (i = 1; i < (unsigned int)count; i++) {\n  if (!EVP_DigestInit_ex(c, md, NULL))\n  [code redacted]\n]\n```\nif count aka iterations is negative this loop runs forever and therefore causing \nruby to hang and eat up memory since allocation are performed during \nthis loop and \"i\" can never be greater than count\n\nPOC\n```\nrequire 'digest'\nrequire 'openssl'\nrequire 'base64'\n\ndata = 'abc'\nkey = '1234567887654321'\niv = key[0..7]\ncipher = OpenSSL::Cipher::Cipher.new('DES-EDE3-CBC') # or any other algorithm?\n\ncipher.encrypt\ncipher.pkcs5_keyivgen(key, iv, -1)\noutput = cipher.update(data)\noutput << cipher.final\n```\n\nCONFIGURATIONS\n./ruby -v\nruby 2.6.0dev (2018-01-11 trunk 61764) [x86_64-linux]\n\nopenssl version\nOpenSSL 1.0.1t  3 May 2016\n\n## Impact\n\nThis result in a DDOS Attack", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "none", 
+        "author_type": "Team"
+    }, 
+    "title": "Integer Underflow @ ossl_cipher_pkcs5_keyivgen ", 
+    "is_member_of_team?": null, 
+    "vote_count": 0, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Informative", 
+    "public": true, 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-12T02:26:54.105Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-12T02:26:54.105Z", 
+            "actor": {
+                "username": "rhe", 
+                "url": "/rhe", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/970/0e61496fb463d2b606a7feca14a367595d7af7e3_medium.png?1467721168"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "> if count aka iterations is negative this loop runs forever and therefore causing \nruby to hang and eat up memory since allocation are performed during \nthis loop and \"i\" can never be greater than count\n\nCorrection: technically the loop does not run forever since [the variable \"i\" is declared as an \"unsigned int\"](https://github.com/openssl/openssl/blob/a41a6120cdcb7e883481bc1bed55e7157c9255c4/crypto/evp/evp_key.c#L82). Also, the memory consumption is not proportional to the iteration count.\n\nWhile it is certainly a bug that OpenSSL::Cipher#pkcs5_keyivgen accepts a non-positive number as the iteration count, this is not considered a security issue. Applications passing user input as the iteration count are vulnerable to DoS attack without this bug, by accepting a large number.", 
+            "markdown_message": "<blockquote>\n<p>if count aka iterations is negative this loop runs forever and therefore causing <br>\nruby to hang and eat up memory since allocation are performed during <br>\nthis loop and &quot;i&quot; can never be greater than count</p>\n</blockquote>\n\n<p>Correction: technically the loop does not run forever since <a href=\"/redirect?signature=02adb7a41f9c81a15ec9d5f97c460b20b2bc5b67&amp;url=https%3A%2F%2Fgithub.com%2Fopenssl%2Fopenssl%2Fblob%2Fa41a6120cdcb7e883481bc1bed55e7157c9255c4%2Fcrypto%2Fevp%2Fevp_key.c%23L82\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>the variable &quot;i&quot; is declared as an &quot;unsigned int&quot;</span><i class=\"icon-external-link\"></i></a>. Also, the memory consumption is not proportional to the iteration count.</p>\n\n<p>While it is certainly a bug that OpenSSL::Cipher#pkcs5_keyivgen accepts a non-positive number as the iteration count, this is not considered a security issue. Applications passing user input as the iteration count are vulnerable to DoS attack without this bug, by accepting a large number.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2279432, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-12T10:35:04.007Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-12T10:35:04.007Z", 
+            "actor": {
+                "username": "rhe", 
+                "url": "/rhe", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/970/0e61496fb463d2b606a7feca14a367595d7af7e3_medium.png?1467721168"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "None", 
+                "old_severity": "Medium"
+            }, 
+            "team_handle": "ruby", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 2279869, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-12T10:35:13.908Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-12T10:35:13.908Z", 
+            "actor": {
+                "username": "rhe", 
+                "url": "/rhe", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/013/970/0e61496fb463d2b606a7feca14a367595d7af7e3_medium.png?1467721168"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "Patch: https://github.com/ruby/openssl/pull/184", 
+            "markdown_message": "<p>Patch: <a title=\"https://github.com/ruby/openssl/pull/184\" href=\"/redirect?signature=cbe070e91e52a328ae0ccb60af5d139806ad2cb4&amp;url=https%3A%2F%2Fgithub.com%2Fruby%2Fopenssl%2Fpull%2F184\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/ruby/openssl/pull/184</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::BugInformative", 
+            "id": 2279870, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-12T13:37:40.982Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-12T13:37:40.982Z", 
+            "actor": {
+                "username": "finb", 
+                "url": "/finb", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/607/09b704086e652e0b6e597eb1c0f790b22f920d54_medium.jpg?1519378421"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "No problem \nThanks for the quick feedback.\n\nThanks", 
+            "markdown_message": "<p>No problem <br>\nThanks for the quick feedback.</p>\n\n<p>Thanks</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2280112, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-12T13:38:42.914Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-12T13:38:42.914Z", 
+            "actor": {
+                "username": "finb", 
+                "url": "/finb", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/116/607/09b704086e652e0b6e597eb1c0f790b22f920d54_medium.jpg?1519378421"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2280116, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-23T07:18:57.583Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-23T07:18:57.583Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2424146, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-02-23T07:18:57.642Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-02-23T07:18:57.642Z", 
+            "actor": {
+                "username": "hsbt", 
+                "url": "/hsbt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/051/808/a7d4f1d7b3f5de51caf190236c85c70986dc15ff_medium.jpg?1486003618"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ruby", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2424147, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "finb", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/finb", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/116/607/c323c68cf04eb54ca3ce6839be7c8d46a1121e4a_small.jpg?1519378421"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 16, 
+        "name": "Integer Underflow"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2018-02-23T07:18:57.620Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/304115", 
+    "created_at": "2018-01-11T20:55:21.152Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Integer Underflow @ ossl_cipher_pkcs5_keyivgen <br>\nfile : ext/openssl/ossl_cipher.c<br>\naffected parameter: iterations</p>\n\n<p>INFO<br>\nGenerates and sets the key/IV based on a password.<br>\ncall-seq:</p>\n<pre class=\"highlight plaintext\"><code>cipher.pkcs5_keyivgen(pass, salt = nil, iterations = 2048, digest = &quot;MD5&quot;) -&gt; nil\n</code></pre>\n<p>ANALYSIS<br>\niter(int) in ossl_cipher_pkcs5_keyivgen  which holds iterations value is not validated before use.<br>\ntherefore passed on to openssl library function EVP_BytesToKey which loops over<br>\niter(iterations) using count</p>\n<pre class=\"highlight plaintext\"><code>for (i = 1; i &lt; (unsigned int)count; i++) {\n  if (!EVP_DigestInit_ex(c, md, NULL))\n  [code redacted]\n]\n</code></pre>\n<p>if count aka iterations is negative this loop runs forever and therefore causing <br>\nruby to hang and eat up memory since allocation are performed during <br>\nthis loop and &quot;i&quot; can never be greater than count</p>\n\n<p>POC</p>\n<pre class=\"highlight plaintext\"><code>require &#39;digest&#39;\nrequire &#39;openssl&#39;\nrequire &#39;base64&#39;\n\ndata = &#39;abc&#39;\nkey = &#39;1234567887654321&#39;\niv = key[0..7]\ncipher = OpenSSL::Cipher::Cipher.new(&#39;DES-EDE3-CBC&#39;) # or any other algorithm?\n\ncipher.encrypt\ncipher.pkcs5_keyivgen(key, iv, -1)\noutput = cipher.update(data)\noutput &lt;&lt; cipher.final\n</code></pre>\n<p>CONFIGURATIONS<br>\n./ruby -v<br>\nruby 2.6.0dev (2018-01-11 trunk 61764) [x86_64-linux]</p>\n\n<p>openssl version<br>\nOpenSSL 1.0.1t  3 May 2016</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>This result in a DDOS Attack</p>\n", 
+    "severity_rating": "none", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.ruby-lang.org", 
+            "about": "A Programmer's Best Friend", 
+            "twitter_handle": "", 
+            "name": "Ruby"
+        }, 
+        "handle": "ruby", 
+        "url": "https://hackerone.com/ruby", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/007/724/36e273f967b252ae8b4051d09ffc08f7de16d7d5_small.png?1449271894", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/007/724/0c1556227f51c9b2b13ada11ccd2fb02cc9fa257_medium.png?1449271894"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 7724, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

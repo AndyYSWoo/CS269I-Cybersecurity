@@ -1,0 +1,436 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-07-27T21:28:34.387Z", 
+    "voters": [
+        "spam404", 
+        "0x9090", 
+        "muon4", 
+        "eveeez", 
+        "an0nym0us", 
+        "babayaga_", 
+        "dudez", 
+        "apapedulimu", 
+        "cryptographer", 
+        "jrballi", 
+        "and 3 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 379049, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-07-27T10:19:44.809Z", 
+    "vulnerability_information": "**Summary:** multiple identical  tx_pub_keys were patched, but you can still use alternative tx_pub_keys to get the same result.\n\n**Description:** An attacker can craft an XMR transaction which causes the receiving wallet to report that it received twice as much XMR as the attacker actually sent.\n\nThe balance of the wallet isn't effected, so a personal user probably won't be ticked, however the doubled amount is reported over the get_transfers RPC call.\n\nThis is especially devastating for automated wallets, such as cryptocurrency exchanges that rely on RPC calls returning the correct result. \n\nThis attack is a slight modification of the previous flaw that was patched in pull request 3985. That flaw allows unlimited multiplication of funds, instead of just a 2x multiplication that this attack allows.\n\nThis attack leverages the alternative tx_pub_keys feature introduced with subaddresses. extra data is arranged so it contains:\n\n1. A dummy tx_pub_key\n2. An array of alternative tx_pub_keys entries all containing the legitimate txkey for each output.\n3. The legitimate tx_pub_key\n\nThe process_new_transaction function will:\n\n1. Grab the dummy tx_pub_key\n2. Grab the array of alternative tx_pub_keys\n3. Scan all the outputs with both the dummy and alternative tx_pub_keys. Which will match on the legitimate tx_pub_keys.\n4. Loop back to the start, grab the legitimate tx_pub_key\n5. Since the alternative keys were not added into the public_keys_seen set, it scans all the outputs again.\n6. Hacked.\n \n## Releases Affected:\n\n * Monero master ebf2818ab5f42b10745cb99d07920f3197c3d914\n * Monero 0.12.3.0 release tag\n * Probably any Monero release since subaddresses were introduced\n\n## Steps To Reproduce:\n\n  1. On the attacking wallet, Patch cryptonote_tx_utils.cpp\n```\n    diff --git a/src/cryptonote_core/cryptonote_tx_utils.cpp b/src/cryptonote_core/cryptonote_tx_utils.cpp\n    index 071ce591..3835690a 100644\n    --- a/src/cryptonote_core/cryptonote_tx_utils.cpp\n    +++ b/src/cryptonote_core/cryptonote_tx_utils.cpp\n    @@ -351,9 +351,15 @@ namespace cryptonote\n           txkey_pub = rct::rct2pk(hwdev.scalarmultBase(rct::sk2rct(tx_key)));\n         }\n         remove_field_from_tx_extra(tx.extra, typeid(tx_extra_pub_key));\n    -    add_tx_pub_key_to_extra(tx, txkey_pub);\n    +    crypto::public_key dummy_key;\n    +    add_tx_pub_key_to_extra(tx, dummy_key);\n    \n         std::vector<crypto::public_key> additional_tx_public_keys;\n    +    for (size_t i = 0; i < destinations.size(); i++)\n    +      additional_tx_public_keys.push_back(txkey_pub); // One for each output.\n    +\n    +    add_additional_tx_pub_keys_to_extra(tx.extra, additional_tx_public_keys);\n    +    add_tx_pub_key_to_extra(tx, txkey_pub);\n    \n         // we don't need to include additional tx keys if:\n         //   - all the destinations are standard addresses\n    @@ -421,9 +427,9 @@ namespace cryptonote\n           output_index++;\n           summary_outs_money += dst_entr.amount;\n         }\n    -    CHECK_AND_ASSERT_MES(additional_tx_public_keys.size() == additional_tx_keys.size(), false, \"Internal error creating additional public keys\");\n    +    //CHECK_AND_ASSERT_MES(additional_tx_public_keys.size() == additional_tx_keys.size(), false, \"Internal error creating additional public keys\");\n    \n    -    remove_field_from_tx_extra(tx.extra, typeid(tx_extra_additional_pub_keys));\n    +    //remove_field_from_tx_extra(tx.extra, typeid(tx_extra_additional_pub_keys));\n    \n         LOG_PRINT_L2(\"tx pubkey: \" << txkey_pub);\n         if (need_additional_txkeys)\n\n  2\\. Compile wallet\n  3\\. Do a regular transfer to an exchange wallet.\n  4\\. Profit.\n\n## Impact\n\nBy depositing and withdrawing the same coins, doubling each time; The attacker could eventually steal all XMR from an exchange hotwallet.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "none", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "unchanged", 
+            "integrity": "low", 
+            "availability": "high"
+        }, 
+        "rating": "high", 
+        "score": 8.2, 
+        "author_type": "User"
+    }, 
+    "title": "Attcker can trick monero wallet into reporting it recived twice as much with alternative tx_keypubs", 
+    "is_member_of_team?": null, 
+    "vote_count": 13, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-08-26T10:19:44.929Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-08T09:25:10.562Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-08T09:25:10.562Z", 
+            "actor": {
+                "username": "moneromooo", 
+                "url": "/moneromooo", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Hrm. This was supposed to be fixed by only using those on the first loop.\nThanks for the report, will fix now.\n", 
+            "markdown_message": "<p>Hrm. This was supposed to be fixed by only using those on the first loop.<br>\nThanks for the report, will fix now.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3013164, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-08T09:57:07.366Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-08T09:57:31.615Z", 
+            "actor": {
+                "username": "moneromooo", 
+                "url": "/moneromooo", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "The following patch fixes the issue you reported. Thanks for the detailed report.\n```\ndiff --git a/src/wallet/wallet2.cpp b/src/wallet/wallet2.cpp\nindex df7ea75..ccf764c 100644\n--- a/src/wallet/wallet2.cpp\n+++ b/src/wallet/wallet2.cpp\n@@ -1238,7 +1238,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote\n \n     if (public_keys_seen.find(pub_key_field.pub_key) != public_keys_seen.end())\n     {\n-      MWARNING(\"The same transaction pubkey is present more than once, ignoring extra instance\");\n+      MWARNING(\"The same transaction pubkey is present more than once in \" << txid << \", ignoring extra instance\");\n       continue;\n     }\n     public_keys_seen.insert(pub_key_field.pub_key);\n@@ -1274,6 +1274,12 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote\n         {\n           for (size_t i = 0; i < additional_tx_pub_keys.data.size(); ++i)\n           {\n+            if (public_keys_seen.find(additional_tx_pub_keys.data[i]) != public_keys_seen.end())\n+            {\n+              MWARNING(\"The same transaction extra pubkey is present more than once in \" << txid << \", ignoring extra instance\");\n+              continue;\n+            }\n+            public_keys_seen.insert(additional_tx_pub_keys.data[i]);\n             additional_derivations.push_back({});\n             if (!hwdev.generate_key_derivation(additional_tx_pub_keys.data[i], keys.m_view_secret_key, additional_derivations.back()))\n             {\n@@ -1294,6 +1300,12 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote\n       {\n         for (size_t n = 0; n < tx_cache_data.additional.size(); ++n)\n         {\n+          if (public_keys_seen.find(tx_cache_data.additional[n].pkey) != public_keys_seen.end())\n+          {\n+            MWARNING(\"The same transaction extra pubkey is present more than once in \" << txid << \", ignoring extra instance\");\n+            continue;\n+          }\n+          public_keys_seen.insert(tx_cache_data.additional[n].pkey);\n           additional_tx_pub_keys.data.push_back(tx_cache_data.additional[n].pkey);\n           additional_derivations.push_back(tx_cache_data.additional[n].derivation);\n\n```", 
+            "markdown_message": "<p>The following patch fixes the issue you reported. Thanks for the detailed report.</p>\n<pre class=\"highlight diff\"><code><span class=\"gh\">diff --git a/src/wallet/wallet2.cpp b/src/wallet/wallet2.cpp\nindex df7ea75..ccf764c 100644\n</span><span class=\"gd\">--- a/src/wallet/wallet2.cpp\n</span><span class=\"gi\">+++ b/src/wallet/wallet2.cpp\n</span><span class=\"gu\">@@ -1238,7 +1238,7 @@ void wallet2::process_new_transaction(const crypto::hash &amp;txid, const cryptonote\n</span>\n     if (public_keys_seen.find(pub_key_field.pub_key) != public_keys_seen.end())\n     {\n<span class=\"gd\">-      MWARNING(&quot;The same transaction pubkey is present more than once, ignoring extra instance&quot;);\n</span><span class=\"gi\">+      MWARNING(&quot;The same transaction pubkey is present more than once in &quot; &lt;&lt; txid &lt;&lt; &quot;, ignoring extra instance&quot;);\n</span>       continue;\n     }\n     public_keys_seen.insert(pub_key_field.pub_key);\n<span class=\"gu\">@@ -1274,6 +1274,12 @@ void wallet2::process_new_transaction(const crypto::hash &amp;txid, const cryptonote\n</span>         {\n           for (size_t i = 0; i &lt; additional_tx_pub_keys.data.size(); ++i)\n           {\n<span class=\"gi\">+            if (public_keys_seen.find(additional_tx_pub_keys.data[i]) != public_keys_seen.end())\n+            {\n+              MWARNING(&quot;The same transaction extra pubkey is present more than once in &quot; &lt;&lt; txid &lt;&lt; &quot;, ignoring extra instance&quot;);\n+              continue;\n+            }\n+            public_keys_seen.insert(additional_tx_pub_keys.data[i]);\n</span>             additional_derivations.push_back({});\n             if (!hwdev.generate_key_derivation(additional_tx_pub_keys.data[i], keys.m_view_secret_key, additional_derivations.back()))\n             {\n<span class=\"gu\">@@ -1294,6 +1300,12 @@ void wallet2::process_new_transaction(const crypto::hash &amp;txid, const cryptonote\n</span>       {\n         for (size_t n = 0; n &lt; tx_cache_data.additional.size(); ++n)\n         {\n<span class=\"gi\">+          if (public_keys_seen.find(tx_cache_data.additional[n].pkey) != public_keys_seen.end())\n+          {\n+            MWARNING(&quot;The same transaction extra pubkey is present more than once in &quot; &lt;&lt; txid &lt;&lt; &quot;, ignoring extra instance&quot;);\n+            continue;\n+          }\n+          public_keys_seen.insert(tx_cache_data.additional[n].pkey);\n</span>           additional_tx_pub_keys.data.push_back(tx_cache_data.additional[n].pkey);\n           additional_derivations.push_back(tx_cache_data.additional[n].derivation);\n\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 3013190, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-08T10:05:18.082Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-08T10:05:18.082Z", 
+            "actor": {
+                "username": "phiren", 
+                "url": "/phiren", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "That patch won't work if multiple outputs are sent to the same subaddress. Each public key lines up with an output and sending multiple outputs to the same address will require repeats in the additional array. \n\nI'm not sure if this happens in practice. ", 
+            "markdown_message": "<p>That patch won&#39;t work if multiple outputs are sent to the same subaddress. Each public key lines up with an output and sending multiple outputs to the same address will require repeats in the additional array. </p>\n\n<p>I&#39;m not sure if this happens in practice. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3013198, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-08T12:35:29.969Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-08T12:36:15.108Z", 
+            "actor": {
+                "username": "moneromooo", 
+                "url": "/moneromooo", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Better patch after discussion with the reporter:\n```\ncommit 58f28cadf8318d7a0e0e8fd85f257acfef34f62e\nAuthor: moneromooo-monero <moneromooo-monero@users.noreply.github.com>\nDate:   Sun Jul 8 11:01:13 2018 +0100\n\n    wallet2: ensure outputs are processed only once\n    \n    This should be proof against any way one might get to multiple\n    processing, such as generating the same derivation from the\n    same pubkey, etc\n\ndiff --git a/src/wallet/wallet2.cpp b/src/wallet/wallet2.cpp\nindex 4477b97..2de92a5 100644\n--- a/src/wallet/wallet2.cpp\n+++ b/src/wallet/wallet2.cpp\n@@ -1030,6 +1030,16 @@ void wallet2::check_acc_out_precomp(const tx_out &o, const crypto::key_derivatio\n   tx_scan_info.error = false;\n }\n //----------------------------------------------------------------------------------------------------\n+void wallet2::check_acc_out_precomp_once(const tx_out &o, const crypto::key_derivation &derivation, const std::vector<crypto::key_derivation> &additional_derivations, size_t i, tx_scan_info_t &tx_scan_info, bool &already_seen) const\n+{\n+  tx_scan_info.received = boost::none;\n+  if (already_seen)\n+    return;\n+  check_acc_out_precomp(o, derivation, additional_derivations, i, tx_scan_info);\n+  if (tx_scan_info.received)\n+    already_seen = true;\n+}\n+//----------------------------------------------------------------------------------------------------\n static uint64_t decodeRct(const rct::rctSig & rv, const crypto::key_derivation &derivation, unsigned int i, rct::key & mask, hw::device &hwdev)\n {\n   crypto::secret_key scalar1;\n@@ -1110,7 +1120,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote\n   // Don't try to extract tx public key if tx has no ouputs\n   size_t pk_index = 0;\n   std::vector<tx_scan_info_t> tx_scan_info(tx.vout.size());\n-  std::unordered_set<crypto::public_key> public_keys_seen;\n+  std::deque<bool> output_found(tx.vout.size(), false);\n   while (!tx.vout.empty())\n   {\n     // if tx.vout is not empty, we loop through all tx pubkeys\n@@ -1126,13 +1136,6 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote\n       break;\n     }\n \n-    if (public_keys_seen.find(pub_key_field.pub_key) != public_keys_seen.end())\n-    {\n-      MWARNING(\"The same transaction pubkey is present more than once, ignoring extra instance\");\n-      continue;\n-    }\n-    public_keys_seen.insert(pub_key_field.pub_key);\n-\n     int num_vouts_received = 0;\n     tx_pub_key = pub_key_field.pub_key;\n     tools::threadpool& tpool = tools::threadpool::getInstance();\n@@ -1172,7 +1175,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote\n     }\n     else if (miner_tx && m_refresh_type == RefreshOptimizeCoinbase)\n     {\n-      check_acc_out_precomp(tx.vout[0], derivation, additional_derivations, 0, tx_scan_info[0]);\n+      check_acc_out_precomp_once(tx.vout[0], derivation, additional_derivations, 0, tx_scan_info[0], output_found[0]);\n       THROW_WALLET_EXCEPTION_IF(tx_scan_info[0].error, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());\n \n       // this assumes that the miner tx pays a single address\n@@ -1182,8 +1185,8 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote\n         // the first one was already checked\n         for (size_t i = 1; i < tx.vout.size(); ++i)\n         {\n-          tpool.submit(&waiter, boost::bind(&wallet2::check_acc_out_precomp, this, std::cref(tx.vout[i]), std::cref(derivation), std::cref(additional_derivations), i,\n-            std::ref(tx_scan_info[i])));\n+          tpool.submit(&waiter, boost::bind(&wallet2::check_acc_out_precomp_once, this, std::cref(tx.vout[i]), std::cref(derivation), std::cref(additional_derivations), i,\n+            std::ref(tx_scan_info[i]), std::ref(output_found[i])));\n         }\n         waiter.wait();\n         // then scan all outputs from 0\n@@ -1205,8 +1208,8 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote\n     {\n       for (size_t i = 0; i < tx.vout.size(); ++i)\n       {\n-        tpool.submit(&waiter, boost::bind(&wallet2::check_acc_out_precomp, this, std::cref(tx.vout[i]), std::cref(derivation), std::cref(additional_derivations), i,\n-            std::ref(tx_scan_info[i])));\n+        tpool.submit(&waiter, boost::bind(&wallet2::check_acc_out_precomp_once, this, std::cref(tx.vout[i]), std::cref(derivation), std::cref(additional_derivations), i,\n+            std::ref(tx_scan_info[i]), std::ref(output_found[i])));\n       }\n       waiter.wait();\n \n@@ -1227,7 +1230,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote\n     {\n       for (size_t i = 0; i < tx.vout.size(); ++i)\n       {\n-        check_acc_out_precomp(tx.vout[i], derivation, additional_derivations, i, tx_scan_info[i]);\n+        check_acc_out_precomp_once(tx.vout[i], derivation, additional_derivations, i, tx_scan_info[i], output_found[i]);\n         THROW_WALLET_EXCEPTION_IF(tx_scan_info[i].error, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());\n         if (tx_scan_info[i].received)\n         {\ndiff --git a/src/wallet/wallet2.h b/src/wallet/wallet2.h\nindex 97a5df5..59b4500 100644\n--- a/src/wallet/wallet2.h\n+++ b/src/wallet/wallet2.h\n@@ -1112,6 +1112,7 @@ namespace tools\n     bool generate_chacha_key_from_secret_keys(crypto::chacha_key &key) const;\n     crypto::hash get_payment_id(const pending_tx &ptx) const;\n     void check_acc_out_precomp(const cryptonote::tx_out &o, const crypto::key_derivation &derivation, const std::vector<crypto::key_derivation> &additional_derivations, size_t i, tx_scan_info_t &tx_scan_info) const;\n+    void check_acc_out_precomp_once(const cryptonote::tx_out &o, const crypto::key_derivation &derivation, const std::vector<crypto::key_derivation> &additional_derivations, size_t i, tx_scan_info_t &tx_scan_info, bool &already_seen) const;\n     void parse_block_round(const cryptonote::blobdata &blob, cryptonote::block &bl, crypto::hash &bl_id, bool &error) const;\n     uint64_t get_upper_transaction_size_limit() const;\n     std::vector<uint64_t> get_unspent_amounts_vector() const;\n```", 
+            "markdown_message": "<p>Better patch after discussion with the reporter:</p>\n<pre class=\"highlight plaintext\"><code>commit 58f28cadf8318d7a0e0e8fd85f257acfef34f62e\nAuthor: moneromooo-monero &lt;moneromooo-monero@users.noreply.github.com&gt;\nDate:   Sun Jul 8 11:01:13 2018 +0100\n\n    wallet2: ensure outputs are processed only once\n\n    This should be proof against any way one might get to multiple\n    processing, such as generating the same derivation from the\n    same pubkey, etc\n\ndiff --git a/src/wallet/wallet2.cpp b/src/wallet/wallet2.cpp\nindex 4477b97..2de92a5 100644\n--- a/src/wallet/wallet2.cpp\n+++ b/src/wallet/wallet2.cpp\n@@ -1030,6 +1030,16 @@ void wallet2::check_acc_out_precomp(const tx_out &amp;o, const crypto::key_derivatio\n   tx_scan_info.error = false;\n }\n //----------------------------------------------------------------------------------------------------\n+void wallet2::check_acc_out_precomp_once(const tx_out &amp;o, const crypto::key_derivation &amp;derivation, const std::vector&lt;crypto::key_derivation&gt; &amp;additional_derivations, size_t i, tx_scan_info_t &amp;tx_scan_info, bool &amp;already_seen) const\n+{\n+  tx_scan_info.received = boost::none;\n+  if (already_seen)\n+    return;\n+  check_acc_out_precomp(o, derivation, additional_derivations, i, tx_scan_info);\n+  if (tx_scan_info.received)\n+    already_seen = true;\n+}\n+//----------------------------------------------------------------------------------------------------\n static uint64_t decodeRct(const rct::rctSig &amp; rv, const crypto::key_derivation &amp;derivation, unsigned int i, rct::key &amp; mask, hw::device &amp;hwdev)\n {\n   crypto::secret_key scalar1;\n@@ -1110,7 +1120,7 @@ void wallet2::process_new_transaction(const crypto::hash &amp;txid, const cryptonote\n   // Don&#39;t try to extract tx public key if tx has no ouputs\n   size_t pk_index = 0;\n   std::vector&lt;tx_scan_info_t&gt; tx_scan_info(tx.vout.size());\n-  std::unordered_set&lt;crypto::public_key&gt; public_keys_seen;\n+  std::deque&lt;bool&gt; output_found(tx.vout.size(), false);\n   while (!tx.vout.empty())\n   {\n     // if tx.vout is not empty, we loop through all tx pubkeys\n@@ -1126,13 +1136,6 @@ void wallet2::process_new_transaction(const crypto::hash &amp;txid, const cryptonote\n       break;\n     }\n\n-    if (public_keys_seen.find(pub_key_field.pub_key) != public_keys_seen.end())\n-    {\n-      MWARNING(&quot;The same transaction pubkey is present more than once, ignoring extra instance&quot;);\n-      continue;\n-    }\n-    public_keys_seen.insert(pub_key_field.pub_key);\n-\n     int num_vouts_received = 0;\n     tx_pub_key = pub_key_field.pub_key;\n     tools::threadpool&amp; tpool = tools::threadpool::getInstance();\n@@ -1172,7 +1175,7 @@ void wallet2::process_new_transaction(const crypto::hash &amp;txid, const cryptonote\n     }\n     else if (miner_tx &amp;&amp; m_refresh_type == RefreshOptimizeCoinbase)\n     {\n-      check_acc_out_precomp(tx.vout[0], derivation, additional_derivations, 0, tx_scan_info[0]);\n+      check_acc_out_precomp_once(tx.vout[0], derivation, additional_derivations, 0, tx_scan_info[0], output_found[0]);\n       THROW_WALLET_EXCEPTION_IF(tx_scan_info[0].error, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());\n\n       // this assumes that the miner tx pays a single address\n@@ -1182,8 +1185,8 @@ void wallet2::process_new_transaction(const crypto::hash &amp;txid, const cryptonote\n         // the first one was already checked\n         for (size_t i = 1; i &lt; tx.vout.size(); ++i)\n         {\n-          tpool.submit(&amp;waiter, boost::bind(&amp;wallet2::check_acc_out_precomp, this, std::cref(tx.vout[i]), std::cref(derivation), std::cref(additional_derivations), i,\n-            std::ref(tx_scan_info[i])));\n+          tpool.submit(&amp;waiter, boost::bind(&amp;wallet2::check_acc_out_precomp_once, this, std::cref(tx.vout[i]), std::cref(derivation), std::cref(additional_derivations), i,\n+            std::ref(tx_scan_info[i]), std::ref(output_found[i])));\n         }\n         waiter.wait();\n         // then scan all outputs from 0\n@@ -1205,8 +1208,8 @@ void wallet2::process_new_transaction(const crypto::hash &amp;txid, const cryptonote\n     {\n       for (size_t i = 0; i &lt; tx.vout.size(); ++i)\n       {\n-        tpool.submit(&amp;waiter, boost::bind(&amp;wallet2::check_acc_out_precomp, this, std::cref(tx.vout[i]), std::cref(derivation), std::cref(additional_derivations), i,\n-            std::ref(tx_scan_info[i])));\n+        tpool.submit(&amp;waiter, boost::bind(&amp;wallet2::check_acc_out_precomp_once, this, std::cref(tx.vout[i]), std::cref(derivation), std::cref(additional_derivations), i,\n+            std::ref(tx_scan_info[i]), std::ref(output_found[i])));\n       }\n       waiter.wait();\n\n@@ -1227,7 +1230,7 @@ void wallet2::process_new_transaction(const crypto::hash &amp;txid, const cryptonote\n     {\n       for (size_t i = 0; i &lt; tx.vout.size(); ++i)\n       {\n-        check_acc_out_precomp(tx.vout[i], derivation, additional_derivations, i, tx_scan_info[i]);\n+        check_acc_out_precomp_once(tx.vout[i], derivation, additional_derivations, i, tx_scan_info[i], output_found[i]);\n         THROW_WALLET_EXCEPTION_IF(tx_scan_info[i].error, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());\n         if (tx_scan_info[i].received)\n         {\ndiff --git a/src/wallet/wallet2.h b/src/wallet/wallet2.h\nindex 97a5df5..59b4500 100644\n--- a/src/wallet/wallet2.h\n+++ b/src/wallet/wallet2.h\n@@ -1112,6 +1112,7 @@ namespace tools\n     bool generate_chacha_key_from_secret_keys(crypto::chacha_key &amp;key) const;\n     crypto::hash get_payment_id(const pending_tx &amp;ptx) const;\n     void check_acc_out_precomp(const cryptonote::tx_out &amp;o, const crypto::key_derivation &amp;derivation, const std::vector&lt;crypto::key_derivation&gt; &amp;additional_derivations, size_t i, tx_scan_info_t &amp;tx_scan_info) const;\n+    void check_acc_out_precomp_once(const cryptonote::tx_out &amp;o, const crypto::key_derivation &amp;derivation, const std::vector&lt;crypto::key_derivation&gt; &amp;additional_derivations, size_t i, tx_scan_info_t &amp;tx_scan_info, bool &amp;already_seen) const;\n     void parse_block_round(const cryptonote::blobdata &amp;blob, cryptonote::block &amp;bl, crypto::hash &amp;bl_id, bool &amp;error) const;\n     uint64_t get_upper_transaction_size_limit() const;\n     std::vector&lt;uint64_t&gt; get_unspent_amounts_vector() const;\n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 3013428, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-08T13:02:40.265Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-08T13:02:40.265Z", 
+            "actor": {
+                "username": "moneromooo", 
+                "url": "/moneromooo", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 3013473, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-08T20:01:34.375Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-08T20:01:34.375Z", 
+            "actor": {
+                "username": "phiren", 
+                "url": "/phiren", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "That patch looks good to me.", 
+            "markdown_message": "<p>That patch looks good to me.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3013968, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "phiren", 
+                "url": "/phiren"
+            }, 
+            "created_at": "2018-07-27T10:19:33.734Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-27T10:19:33.734Z", 
+            "actor": {
+                "username": "anonimal", 
+                "url": "/anonimal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/857/5d3774e5d965a4122d4364133d467ea77fc31acd_medium.png?1449305173"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Hi @phiren, thank you for the report. This is fixed in https://github.com/monero-project/monero/releases/tag/v0.12.3.0. Please paste an XMR address if you want a bounty payout.", 
+            "markdown_message": "<p>Hi <a href=\"/phiren\">@phiren</a>, thank you for the report. This is fixed in <a title=\"https://github.com/monero-project/monero/releases/tag/v0.12.3.0\" href=\"/redirect?signature=2eada19787e577d4df5d39bdf78cdc504442c2fc&amp;url=https%3A%2F%2Fgithub.com%2Fmonero-project%2Fmonero%2Freleases%2Ftag%2Fv0.12.3.0\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/monero-project/monero/releases/tag/v0.12.3.0</span><i class=\"icon-external-link\"></i></a>. Please paste an XMR address if you want a bounty payout.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3105045, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-27T10:19:44.862Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-27T10:19:44.862Z", 
+            "actor": {
+                "username": "anonimal", 
+                "url": "/anonimal", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/040/857/5d3774e5d965a4122d4364133d467ea77fc31acd_medium.png?1449305173"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3105046, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-27T21:28:22.740Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-27T21:28:22.740Z", 
+            "actor": {
+                "username": "phiren", 
+                "url": "/phiren", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Thanks for fixing this promptly.\n\nBounty Address: 4AKkgCVxvsz3x2LSaYCP5NA6H1Va24EJZWxFb8aDU3amPydnqomy66dFUAQArcwQRtexW2cRB9r6M1G7F5EBAvaQJfUR3iz", 
+            "markdown_message": "<p>Thanks for fixing this promptly.</p>\n\n<p>Bounty Address: 4AKkgCVxvsz3x2LSaYCP5NA6H1Va24EJZWxFb8aDU3amPydnqomy66dFUAQArcwQRtexW2cRB9r6M1G7F5EBAvaQJfUR3iz</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3107015, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-27T21:28:34.429Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-27T21:28:34.429Z", 
+            "actor": {
+                "username": "phiren", 
+                "url": "/phiren", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3107017, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-07-27T21:28:34.532Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-07-27T21:28:34.532Z", 
+            "actor": {
+                "username": "phiren", 
+                "url": "/phiren", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3107018, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-01T19:00:52.396Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-01T19:00:52.396Z", 
+            "actor": {
+                "username": "luigi1111w", 
+                "url": "/luigi1111w", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "monero", 
+            "message": "Sent 35 XMR: <f119ce93d3ea78f0c48be09ce9f86a88ce2320e2317c94c213390322d3b3ebce>", 
+            "markdown_message": "<p>Sent 35 XMR: &lt;f119ce93d3ea78f0c48be09ce9f86a88ce2320e2317c94c213390322d3b3ebce&gt;</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3129943, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "phiren", 
+                "url": "/phiren"
+            }, 
+            "created_at": "2018-08-02T00:10:09.071Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-02T00:10:09.071Z", 
+            "actor": {
+                "url": "/monero", 
+                "profile": {
+                    "name": "Monero"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/007/731/3428da1efb473c529a0d2e5836012a846f8b8d1e_medium.png?1484006970"
+                }
+            }, 
+            "team_handle": "monero", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::SwagAwarded", 
+            "id": 3130814, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "phiren", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/phiren", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 65, 
+        "name": "Business Logic Errors"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -8855920.833890967, 
+    "disclosed_at": "2018-07-27T21:28:34.494Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/379049", 
+    "created_at": "2018-07-08T00:06:19.804Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p><strong>Summary:</strong> multiple identical  tx_pub_keys were patched, but you can still use alternative tx_pub_keys to get the same result.</p>\n\n<p><strong>Description:</strong> An attacker can craft an XMR transaction which causes the receiving wallet to report that it received twice as much XMR as the attacker actually sent.</p>\n\n<p>The balance of the wallet isn&#39;t effected, so a personal user probably won&#39;t be ticked, however the doubled amount is reported over the get_transfers RPC call.</p>\n\n<p>This is especially devastating for automated wallets, such as cryptocurrency exchanges that rely on RPC calls returning the correct result. </p>\n\n<p>This attack is a slight modification of the previous flaw that was patched in pull request 3985. That flaw allows unlimited multiplication of funds, instead of just a 2x multiplication that this attack allows.</p>\n\n<p>This attack leverages the alternative tx_pub_keys feature introduced with subaddresses. extra data is arranged so it contains:</p>\n\n<ol>\n<li>A dummy tx_pub_key</li>\n<li>An array of alternative tx_pub_keys entries all containing the legitimate txkey for each output.</li>\n<li>The legitimate tx_pub_key</li>\n</ol>\n\n<p>The process_new_transaction function will:</p>\n\n<ol>\n<li>Grab the dummy tx_pub_key</li>\n<li>Grab the array of alternative tx_pub_keys</li>\n<li>Scan all the outputs with both the dummy and alternative tx_pub_keys. Which will match on the legitimate tx_pub_keys.</li>\n<li>Loop back to the start, grab the legitimate tx_pub_key</li>\n<li>Since the alternative keys were not added into the public_keys_seen set, it scans all the outputs again.</li>\n<li>Hacked.</li>\n</ol>\n\n<h2 id=\"releases-affected\">Releases Affected:</h2>\n\n<ul>\n<li>Monero master ebf2818ab5f42b10745cb99d07920f3197c3d914</li>\n<li>Monero 0.12.3.0 release tag</li>\n<li>Probably any Monero release since subaddresses were introduced</li>\n</ul>\n\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<ol>\n<li>\n<p>On the attacking wallet, Patch cryptonote_tx_utils.cpp</p>\n<pre class=\"highlight diff\"><code><span class=\"gh\">diff --git a/src/cryptonote_core/cryptonote_tx_utils.cpp b/src/cryptonote_core/cryptonote_tx_utils.cpp\nindex 071ce591..3835690a 100644\n</span><span class=\"gd\">--- a/src/cryptonote_core/cryptonote_tx_utils.cpp\n</span><span class=\"gi\">+++ b/src/cryptonote_core/cryptonote_tx_utils.cpp\n</span><span class=\"gu\">@@ -351,9 +351,15 @@ namespace cryptonote\n</span>       txkey_pub = rct::rct2pk(hwdev.scalarmultBase(rct::sk2rct(tx_key)));\n     }\n     remove_field_from_tx_extra(tx.extra, typeid(tx_extra_pub_key));\n<span class=\"gd\">-    add_tx_pub_key_to_extra(tx, txkey_pub);\n</span><span class=\"gi\">+    crypto::public_key dummy_key;\n+    add_tx_pub_key_to_extra(tx, dummy_key);\n</span>\n     std::vector&lt;crypto::public_key&gt; additional_tx_public_keys;\n<span class=\"gi\">+    for (size_t i = 0; i &lt; destinations.size(); i++)\n+      additional_tx_public_keys.push_back(txkey_pub); // One for each output.\n+\n+    add_additional_tx_pub_keys_to_extra(tx.extra, additional_tx_public_keys);\n+    add_tx_pub_key_to_extra(tx, txkey_pub);\n</span>\n     // we don&#39;t need to include additional tx keys if:\n     //   - all the destinations are standard addresses\n<span class=\"gu\">@@ -421,9 +427,9 @@ namespace cryptonote\n</span>       output_index++;\n       summary_outs_money += dst_entr.amount;\n     }\n<span class=\"gd\">-    CHECK_AND_ASSERT_MES(additional_tx_public_keys.size() == additional_tx_keys.size(), false, &quot;Internal error creating additional public keys&quot;);\n</span><span class=\"gi\">+    //CHECK_AND_ASSERT_MES(additional_tx_public_keys.size() == additional_tx_keys.size(), false, &quot;Internal error creating additional public keys&quot;);\n</span>\n<span class=\"gd\">-    remove_field_from_tx_extra(tx.extra, typeid(tx_extra_additional_pub_keys));\n</span><span class=\"gi\">+    //remove_field_from_tx_extra(tx.extra, typeid(tx_extra_additional_pub_keys));\n</span>\n     LOG_PRINT_L2(&quot;tx pubkey: &quot; &lt;&lt; txkey_pub);\n     if (need_additional_txkeys)\n</code></pre>\n</li>\n</ol>\n\n<p>2. Compile wallet<br>\n  3. Do a regular transfer to an exchange wallet.<br>\n  4. Profit.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>By depositing and withdrawing the same coins, doubling each time; The attacker could eventually steal all XMR from an exchange hotwallet.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://getmonero.org", 
+            "about": " Monero: the secure, private, untraceable cryptocurrency", 
+            "twitter_handle": "monerocurrency", 
+            "name": "Monero"
+        }, 
+        "handle": "monero", 
+        "url": "https://hackerone.com/monero", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/007/731/e9db7ce84f372b423c4d212b494be78c2e0a571e_small.png?1484006970", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/007/731/3428da1efb473c529a0d2e5836012a846f8b8d1e_medium.png?1484006970"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 7731, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

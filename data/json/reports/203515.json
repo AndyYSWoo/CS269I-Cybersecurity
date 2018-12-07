@@ -1,0 +1,397 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-06-17T23:52:32.237Z", 
+    "voters": [
+        "bl4de", 
+        "s_p_q_r", 
+        "bogdantcaciuc", 
+        "skansing", 
+        "ak1", 
+        "eveeez", 
+        "madrobot", 
+        "axolotl", 
+        "khalifah", 
+        "babayaga_", 
+        "and 13 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "350.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 203515, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "vulnerability_information": "Description\n-------------------\nAn attacker can inject a malicious script in to the filename which a victim tries to upload leading to XSS inside the administrators control panel.\n\nTwo different \"file to large\" cases end up in interpolating the file name and appending it into DOM unsanitized leading to XSS.\n\nI have attached pictures of one of the cases, in the attached case the file was 12.4 MB, in a freshly installed environment. For reproduction note that any file type can be used (.jar whatever) as the vuln happens before the type is validated.\n\nPoC\n-------------------\nCreate a 20MB file called \n\n`Dinosaurs secret life<img src=x  onerror=alert(1)>.png`\n\nGoto your wordpress site `http://127.0.0.1/wp-admin/media-new.php` and drag`n`drop or use file manager or choose the file via. the \"Select Files\" button.\n\nA error will appear with `... exceeds the maximum upload size for this site.` along with a alert box to display that the payload has been executed.\n\nDetails on XSS\n-------------------\nThe file `script-loader.php` prepares an array of messages for use later.\n\n```\n\t// error message for both plupload and swfupload\n\t$uploader_l10n = array(\n                ...\n\t\t'file_exceeds_size_limit' => __('%s  exceeds the maximum upload size for this site.'),\n\t\t'big_upload_failed' => __('Please try uploading this file with the %1$sbrowser uploader%2$s.'),\n\t\t...\n\t);\n```\n\nThe payload will be injected into the `%s` in the key `file_exceeds_size_limit`.\n\nThis happens because the `$uploader_l10n` is passed to `handlers.min.js` (non minified version shown)\n and interpolated without escaping the value previously.\n\nFirst the value passes trough a error case \n```\n// $uploader_l10n\ncase plupload.FILE_SIZE_ERROR:\n\t\t\tuploadSizeError(uploader, fileObj); // fileObj contains the filename payload in name attribute.\n\t\t\tbreak;\n....\nif ( max > hundredmb && fileObj.size > hundredmb )\n\t\t\t\twpFileError( fileObj, pluploadL10n.big_upload_failed.replace('%1$s', '<a class=\"uploader-html\" href=\"#\">').replace('%2$s', '</a>') );\n```\n\nand lastely interpolated and appended to the dom.\n\n```\n\nfunction uploadSizeError( up, file, over100mb ) {\n\tvar message;\n\n\tif ( over100mb )\n\t\tmessage = pluploadL10n.big_upload_queued.replace('%s', file.name) + ' ' + pluploadL10n.big_upload_failed.replace('%1$s', '<a class=\"uploader-html\" href=\"#\">').replace('%2$s', '</a>');\n\telse\n\t\tmessage = pluploadL10n.file_exceeds_size_limit.replace('%s', file.name);\n\n\n\tjQuery('#media-items').append('<div id=\"media-item-' + file.id + '\" class=\"media-item error\"><p>' + message + '</p></div>');\n\tup.removeFile(file);\n}\n```\n\nThe critical lines are \n```\nmessage = pluploadL10n.big_upload_queued.replace('%s', file.name) + ' ' + pluploadL10n.big_upload_failed.replace('%1$s', '<a class=\"uploader-html\" href=\"#\">').replace('%2$s', '</a>');\n\telse\n\t\tmessage = pluploadL10n.file_exceeds_size_limit.replace('%s', file.name);\n```\n\n# Suggested fix:\nRemove the filename or escape safely in context.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "high", 
+        "author_type": "User"
+    }, 
+    "title": "Wordpress 4.7.2 - Two XSS in Media Upload when file too large.", 
+    "is_member_of_team?": null, 
+    "vote_count": 23, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-07-17T23:52:32.310Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$350", 
+    "attachments": [
+        {
+            "file_name": "payload_effect.png", 
+            "type": "image/png", 
+            "id": 157473, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/157/473/398a407dcaa4bbc9543dd26e03116978ffbc150a/payload_effect.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223534Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=1e8b98dd2bd3a2aa452a56f137f21295776b34751b34ffa34e8d1943ae5200c1"
+        }, 
+        {
+            "file_name": "Payload_drop.png", 
+            "type": "image/png", 
+            "id": 157474, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/157/474/81f27f31cfd9311974a97b22fc212977d2d08e92/Payload_drop.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223534Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=33832f049311a5e29982fb4d1cc7cf4f1d7a4b2338883851bd7b54159c6c26d0"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-05T03:59:45.080Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-05T03:59:45.080Z", 
+            "actor": {
+                "username": "voldemortensen", 
+                "url": "/voldemortensen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/090/577/6fe6df6ee31d26bb0451a10b5d28d2490b500c30_medium.gif?1471148661"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hey @skansing, thanks for another great report. It made this one easy to reproduce. I'll get to work on this one.", 
+            "markdown_message": "<p>Hey <a href=\"/skansing\">@skansing</a>, thanks for another great report. It made this one easy to reproduce. I&#39;ll get to work on this one.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1463478, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-05T04:08:04.560Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-05T04:08:04.560Z", 
+            "actor": {
+                "username": "voldemortensen", 
+                "url": "/voldemortensen", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/090/577/6fe6df6ee31d26bb0451a10b5d28d2490b500c30_medium.gif?1471148661"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 1463482, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-02-05T09:32:48.569Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-02-05T09:32:48.569Z", 
+            "actor": {
+                "username": "skansing", 
+                "url": "/skansing", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/039/510/35216d41cc708c8a9081fb1d4ea38579153e0864_medium.jpg?1460620858"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hey @voldemortensen, awesome =)  \n\nThanks for asserting the bug so quickly and the feedback, made my morning extra great. thx", 
+            "markdown_message": "<p>Hey <a href=\"/voldemortensen\">@voldemortensen</a>, awesome =)  </p>\n\n<p>Thanks for asserting the bug so quickly and the feedback, made my morning extra great. thx</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1463716, 
+            "genius_execution_id": null
+        }, 
+        {
+            "attachments": [
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/171/471/32c3d8d230fcf8c14c3b83c06a4c89f7be2a528d/handlers-test.js?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223534Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=cea18225e2e9fa5deacad46264132e75857421f6831c1068fb283841d6000065", 
+                    "type": "text/x-diff", 
+                    "id": 171471, 
+                    "filename": "handlers-test.js"
+                }, 
+                {
+                    "url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/171/470/bff110eb320425621e57b50fbb5280ed8bef6532/249.diff?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQVHWOGSNR%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T223534Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEBAaDNyA%2BB7EVws6w20xiyK3AzcCTkx0GnZzVQ6TwXkp44%2Ff6M7%2FsO19EHzsTJXAjGqGadXUwBewmY%2FA3saLwd8Xt%2FLbqrBXnPVBmQqsNFRuZECDCBvLhSnrZ0V6VgN9XIGcsvjdqc1keY1F5jqudqF9DVlIY8TMvC8HZK%2B7Q1nt4NsrhczyPwsxABuLuXRQ9jz342kfr6jcg4V0RDeoTmkF41Ft6RtUq0hmoAqdCx1%2Fz70xB4R7l69zShPP7HLfYHPPTt8XR1Db%2BqWNJQckpie0NnlFKA6ZUTMDBoFCJMNlSMrC8fe4WfzeCwJzHJRBg8PuHWSmO%2BotEruefTqBjLBoXXi34gvMNLGz%2F2UMbXN0CJxslsSVQ1hVUGyCtMe0w9EsQpL39cO7khz0GcmiaRxiDS26USPGfQCc9lffeZFTxh4so1l02filHtFdYLVvAvgjiOYt2Mz5u6lBhccM0iI2WWXmcjR%2FS%2BkxYva3%2BrEYrii1%2BMbFzOhDKAxYvafuSoo%2BiLMqIErMru4lSMvT6Hdl0F7q6ar9ursg2xy2ld%2BSsM1Ffwx%2FIlTxlx%2Fk5K%2BKS4mgc5N3QgLYcjLnqKIjMyLCEr%2FVbmVxbtUo%2B7qm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=f0b8ffc65a84173edecd3336c597f1561afb77ec21093cc64f9a1ba090bd97e1", 
+                    "type": "text/x-diff", 
+                    "id": 171470, 
+                    "filename": "249.diff"
+                }
+            ], 
+            "automated_response": false, 
+            "created_at": "2017-03-27T02:58:24.213Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-27T02:58:24.213Z", 
+            "actor": {
+                "username": "adamsilverstein", 
+                "url": "/adamsilverstein", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/087/988/4d7f14ec4895c8f285c02347c7e5e2cbbc42cb9e_medium.jpg?1484018338"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "@skansing Thanks again for the report. \n\nI have prepared the attached patch to resolve the issue. It uses DOM construction for the `uploadSizeError` error message insertion. After the patch, variable `message` is inserted with jQuery's `.text()` so it is safe regardless of what you pass it as a filename. \n\nCan you test to verify this resolves the issue for you? \n\nThanks. Once we confirm, we'll get this into an upcoming release.\n\nI am also attaching a QUnit test that fails before the patch because the JS in the filename is evaluated. It passes after the patch.", 
+            "markdown_message": "<p><a href=\"/skansing\">@skansing</a> Thanks again for the report. </p>\n\n<p>I have prepared the attached patch to resolve the issue. It uses DOM construction for the <code>uploadSizeError</code> error message insertion. After the patch, variable <code>message</code> is inserted with jQuery&#39;s <code>.text()</code> so it is safe regardless of what you pass it as a filename. </p>\n\n<p>Can you test to verify this resolves the issue for you? </p>\n\n<p>Thanks. Once we confirm, we&#39;ll get this into an upcoming release.</p>\n\n<p>I am also attaching a QUnit test that fails before the patch because the JS in the filename is evaluated. It passes after the patch.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1564407, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-27T17:57:59.539Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-27T17:57:59.539Z", 
+            "actor": {
+                "username": "skansing", 
+                "url": "/skansing", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/039/510/35216d41cc708c8a9081fb1d4ea38579153e0864_medium.jpg?1460620858"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hey, thanks for the update.\n\nI can confirm the fix works and have been unable to trigger the XSS with the patch supplied.\n\n", 
+            "markdown_message": "<p>Hey, thanks for the update.</p>\n\n<p>I can confirm the fix works and have been unable to trigger the XSS with the patch supplied.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1565814, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-05-17T11:40:28.616Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-17T11:40:28.616Z", 
+            "actor": {
+                "username": "skansing", 
+                "url": "/skansing", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/039/510/35216d41cc708c8a9081fb1d4ea38579153e0864_medium.jpg?1460620858"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Hi this has been released in 4.7.5, lets the report public.", 
+            "markdown_message": "<p>Hi this has been released in 4.7.5, lets the report public.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1679826, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "skansing", 
+                "url": "/skansing"
+            }, 
+            "created_at": "2017-05-17T14:54:13.629Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-05-17T14:54:13.629Z", 
+            "actor": {
+                "username": "aaroncampbell", 
+                "url": "/aaroncampbell", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/020/821/6f1bfb789e2f97a2c2ca81a5e6ab6f7b3581ad4a_medium.jpg?1515860728"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "message": "Yes it was @skansing. We're going to be pushing through reports today to update them and note which were fixed and which are still pending.", 
+            "markdown_message": "<p>Yes it was <a href=\"/skansing\">@skansing</a>. We&#39;re going to be pushing through reports today to update them and note which were fixed and which are still pending.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1680360, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-06-17T23:52:32.267Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-17T23:52:32.267Z", 
+            "actor": {
+                "username": "skansing", 
+                "url": "/skansing", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/039/510/35216d41cc708c8a9081fb1d4ea38579153e0864_medium.jpg?1460620858"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "wordpress", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1763592, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-06-19T20:18:37.246Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-06-19T20:18:37.246Z", 
+            "actor": {
+                "url": "/wordpress", 
+                "profile": {
+                    "name": "WordPress"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/055/a7e722c23dedc020ade3b6e7f1a96baa455f86d8_medium.jpg?1392934661"
+                }
+            }, 
+            "team_handle": "wordpress", 
+            "bonus_amount": "50.0", 
+            "bounty_amount": "300.0", 
+            "collaborator": {
+                "username": "skansing", 
+                "url": "/skansing"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1766494, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-07-17T23:52:34.049Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-07-17T23:52:34.049Z", 
+            "actor": {
+                "url": "/wordpress", 
+                "profile": {
+                    "name": "WordPress"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/055/a7e722c23dedc020ade3b6e7f1a96baa455f86d8_medium.jpg?1392934661"
+                }
+            }, 
+            "team_handle": "wordpress", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1844908, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "skansing", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/skansing", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/039/510/91bea0e997720e8fa5454c81c61c2da28fe638e3_small.jpg?1460620858"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 60, 
+        "name": "Cross-site Scripting (XSS) - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -43800181.82460439, 
+    "disclosed_at": "2017-07-17T23:52:34.026Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/203515", 
+    "created_at": "2017-02-05T01:16:31.298Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<h2 id=\"description\">Description</h2>\n\n<p>An attacker can inject a malicious script in to the filename which a victim tries to upload leading to XSS inside the administrators control panel.</p>\n\n<p>Two different &quot;file to large&quot; cases end up in interpolating the file name and appending it into DOM unsanitized leading to XSS.</p>\n\n<p>I have attached pictures of one of the cases, in the attached case the file was 12.4 MB, in a freshly installed environment. For reproduction note that any file type can be used (.jar whatever) as the vuln happens before the type is validated.</p>\n\n<h2 id=\"poc\">PoC</h2>\n\n<p>Create a 20MB file called </p>\n\n<p><code>Dinosaurs secret life&lt;img src=x  onerror=alert(1)&gt;.png</code></p>\n\n<p>Goto your wordpress site <code>http://127.0.0.1/wp-admin/media-new.php</code> and drag<code>n</code>drop or use file manager or choose the file via. the &quot;Select Files&quot; button.</p>\n\n<p>A error will appear with <code>... exceeds the maximum upload size for this site.</code> along with a alert box to display that the payload has been executed.</p>\n\n<h2 id=\"details-on-xss\">Details on XSS</h2>\n\n<p>The file <code>script-loader.php</code> prepares an array of messages for use later.</p>\n<pre class=\"highlight plaintext\"><code>    // error message for both plupload and swfupload\n    $uploader_l10n = array(\n                ...\n        &#39;file_exceeds_size_limit&#39; =&gt; __(&#39;%s  exceeds the maximum upload size for this site.&#39;),\n        &#39;big_upload_failed&#39; =&gt; __(&#39;Please try uploading this file with the %1$sbrowser uploader%2$s.&#39;),\n        ...\n    );\n</code></pre>\n<p>The payload will be injected into the <code>%s</code> in the key <code>file_exceeds_size_limit</code>.</p>\n\n<p>This happens because the <code>$uploader_l10n</code> is passed to <code>handlers.min.js</code> (non minified version shown)<br>\n and interpolated without escaping the value previously.</p>\n\n<p>First the value passes trough a error case </p>\n<pre class=\"highlight plaintext\"><code>// $uploader_l10n\ncase plupload.FILE_SIZE_ERROR:\n            uploadSizeError(uploader, fileObj); // fileObj contains the filename payload in name attribute.\n            break;\n....\nif ( max &gt; hundredmb &amp;&amp; fileObj.size &gt; hundredmb )\n                wpFileError( fileObj, pluploadL10n.big_upload_failed.replace(&#39;%1$s&#39;, &#39;&lt;a class=&quot;uploader-html&quot; href=&quot;#&quot;&gt;&#39;).replace(&#39;%2$s&#39;, &#39;&lt;/a&gt;&#39;) );\n</code></pre>\n<p>and lastely interpolated and appended to the dom.</p>\n<pre class=\"highlight plaintext\"><code>\nfunction uploadSizeError( up, file, over100mb ) {\n    var message;\n\n    if ( over100mb )\n        message = pluploadL10n.big_upload_queued.replace(&#39;%s&#39;, file.name) + &#39; &#39; + pluploadL10n.big_upload_failed.replace(&#39;%1$s&#39;, &#39;&lt;a class=&quot;uploader-html&quot; href=&quot;#&quot;&gt;&#39;).replace(&#39;%2$s&#39;, &#39;&lt;/a&gt;&#39;);\n    else\n        message = pluploadL10n.file_exceeds_size_limit.replace(&#39;%s&#39;, file.name);\n\n\n    jQuery(&#39;#media-items&#39;).append(&#39;&lt;div id=&quot;media-item-&#39; + file.id + &#39;&quot; class=&quot;media-item error&quot;&gt;&lt;p&gt;&#39; + message + &#39;&lt;/p&gt;&lt;/div&gt;&#39;);\n    up.removeFile(file);\n}\n</code></pre>\n<p>The critical lines are </p>\n<pre class=\"highlight plaintext\"><code>message = pluploadL10n.big_upload_queued.replace(&#39;%s&#39;, file.name) + &#39; &#39; + pluploadL10n.big_upload_failed.replace(&#39;%1$s&#39;, &#39;&lt;a class=&quot;uploader-html&quot; href=&quot;#&quot;&gt;&#39;).replace(&#39;%2$s&#39;, &#39;&lt;/a&gt;&#39;);\n    else\n        message = pluploadL10n.file_exceeds_size_limit.replace(&#39;%s&#39;, file.name);\n</code></pre>\n<h1 id=\"suggested-fix\">Suggested fix:</h1>\n\n<p>Remove the filename or escape safely in context.</p>\n", 
+    "severity_rating": "high", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://wordpress.org/", 
+            "about": "Beautiful sites of any kind.", 
+            "twitter_handle": "wordpress", 
+            "name": "WordPress"
+        }, 
+        "handle": "wordpress", 
+        "url": "https://hackerone.com/wordpress", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/055/2ded484d947025dc191342c9ccdcf00effc53ff6_small.jpg?1392934661", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/055/a7e722c23dedc020ade3b6e7f1a96baa455f86d8_medium.jpg?1392934661"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 55, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

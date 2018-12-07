@@ -1,0 +1,437 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-05-01T05:34:52.590Z", 
+    "voters": [
+        "jokebookservice1", 
+        "irvinlim", 
+        "muon4", 
+        "eveeez", 
+        "ischleep", 
+        "geeknik", 
+        "an0nym0us", 
+        "michan001", 
+        "whitesector", 
+        "null-byte", 
+        "and 8 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 326639, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-05-02T17:29:01.877Z", 
+    "vulnerability_information": "I was taking a look into a related report (https://hackerone.com/reports/298265) and I discovered that the https://boards.greenhouse.io/embed/job_board/js?for= endpoint doesn't throw errors when I try to pass in an array of `for` parameters like this:\n\n```\nhttps://boards.greenhouse.io/embed/job_board/js?for[]=twitter&for[]=&for[]=&for[]=&for[]=&for[]=&for[]=&for[]=&for[]=&for[]=&for[]=&for[]=&for[]=&for[]=&for[]=&for[]=&for[]=&for[]=&for[]=\n```\n\nInstead, in the resultant JS, we can see that the HTTP parameters are escaped and injected into the `Grnhse.Settings` object:\n\n```js\nGrnhse.Settings = {\n  targetDomain:   'https://boards.greenhouse.io',\n  scrollOnLoad:   true,\n  autoLoad:       true,\n  boardURI:       'https://boards.greenhouse.io/embed/job_board?for%5B%5D=twitter&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=',\n  applicationURI: 'https://boards.greenhouse.io/embed/job_app?for%5B%5D=twitter&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=&amp;for%5B%5D=',\n  baseURI:        '',\n  iFrameWidth:    650\n};\n```\n\nWhen fetching the actual correct endpoint (https://boards.greenhouse.io/embed/job_board/js?for=twitter), we see that the result for `twitter` is cached, returning the same corrupted URIs in the JS file. From my tests, it seems that these endpoints are cached for an unknown amount of time, with some staying in the cache for only a few minutes while others may be an hour or longer.\n\nI also found out that the particular endpoint is on CloudFront by observing one of the IP addresses which served the file (35.164.91.227) and corroborating it with the IP range list published by AWS (https://ip-ranges.amazonaws.com/ip-ranges.json). However, fetching from different edge servers seems to result in the same mutated file being fetched at the correct endpoint (https://boards.greenhouse.io/embed/job_board/js?for=twitter). I conclude that there is a second layer of caching somewhere on the application layer.\n\nThe impact of corrupting the `boardURI` and `applicationURI` values is that the `job_app` or `job_board` iframes would fail to load in the client's website since the URI is incorrect, resulting in a denial of service for the client. One example is that Airbnb's job application page shows a Greenhouse.io error page (see attached images), which I managed to replicate it twice and lasted for about 20 minutes and less than 5 minutes respectively.\n\nI tried to investigate if I could reliably replicate this PoC by waiting for cache to expire, as well as across several domains, but failed to find anything conclusive without knowledge of the underlying network architecture. Additionally, I am not sure if what is going on at play is due to a cache, and seeing that some IDs take quite a while to recover back to its normal state, I will stop trying to replicate the attack for now.\n\nP.S. This is my first report, so do let me know if I could be of more help!\n\n## Impact\n\nIf the attacker has more patience and knowledge about the underlying architecture, the attacker could attempt to poison the cache reliably, resulting in an extended denial of service of Greenhouse job boards/application iframes in client sites.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "none", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "none", 
+            "availability": "low"
+        }, 
+        "rating": "medium", 
+        "score": 5.8, 
+        "author_type": "User"
+    }, 
+    "title": "DoS through cache poisoning using invalid HTTP parameters", 
+    "is_member_of_team?": null, 
+    "vote_count": 18, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 7295, 
+            "content": "Greenhouse.io allows its customers to embed iframes using its provided JS SDK on https://boards.greenhouse.io/embed/job_board/js?for=twitter, for Twitter for example. (Twitter does not seem to use Greenhouse.io anymore, but their account still exists.)\n\nI found that using parameter arrays (e.g. `for[]=twitter`) still loads the correct JS file, but with different URLs for the job board and application iframes. This file turns out to be cached, which I had effectively poisoned even when accessing the original URL (i.e. https://boards.greenhouse.io/embed/job_board/js?for=twitter). This results in a denial of service of the Greenhouse.io iframes that would be embedded in the customer's site, for around 20-30 minutes until the cache was cleared again.", 
+            "content_html": "<p>Greenhouse.io allows its customers to embed iframes using its provided JS SDK on <a title=\"https://boards.greenhouse.io/embed/job_board/js?for=twitter\" href=\"/redirect?signature=bfeaabccdf05961165eb3a262ab83b158abeb89e&amp;url=https%3A%2F%2Fboards.greenhouse.io%2Fembed%2Fjob_board%2Fjs%3Ffor%3Dtwitter\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://boards.greenhouse.io/embed/job_board/js?for=twitter</span><i class=\"icon-external-link\"></i></a>, for Twitter for example. (Twitter does not seem to use Greenhouse.io anymore, but their account still exists.)</p>\n\n<p>I found that using parameter arrays (e.g. <code>for[]=twitter</code>) still loads the correct JS file, but with different URLs for the job board and application iframes. This file turns out to be cached, which I had effectively poisoned even when accessing the original URL (i.e. <a title=\"https://boards.greenhouse.io/embed/job_board/js?for=twitter\" href=\"/redirect?signature=bfeaabccdf05961165eb3a262ab83b158abeb89e&amp;url=https%3A%2F%2Fboards.greenhouse.io%2Fembed%2Fjob_board%2Fjs%3Ffor%3Dtwitter\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://boards.greenhouse.io/embed/job_board/js?for=twitter</span><i class=\"icon-external-link\"></i></a>). This results in a denial of service of the Greenhouse.io iframes that would be embedded in the customer&#39;s site, for around 20-30 minutes until the cache was cleared again.</p>\n"
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-05-31T05:34:52.681Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$500", 
+    "attachments": [
+        {
+            "file_name": "airbnb_error-1.png", 
+            "type": "image/png", 
+            "id": 272864, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/272/864/5c40c9f0b027f80ca6723feec173de6bc7f4e9c4/airbnb_error-1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQSGAJTS7X%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222432Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDNv1JJkb2JCBJezLRSK3A3HLsRbM1N2dJQCs3cdkO9DdSlu97QyvuTWjB9TDM0zF0K5xYiGpDCZFKPrax%2BsFz5KI1WenrJdfAQhjK2VjV8ng750HOo6R9QtyoSkXqJSITk3z0sX6u%2BaGuR53DR1SgrXgU4%2BZj3kzVsOKKtd61G%2BDZP2N3q%2FR9lSxtCBWOIkOltAHyGZcqelOD%2BNHIXr08GPe3urs8MfpCWN12Uc98ELvbzHllGEdfFgQzzzB%2Fh03QvsfmUHldJCz%2F09ZO2mOXeVGvvhGa6P439ow0kmfHorCf2l49cQlp550RAVCceslQNRsIpjs%2FscvNzwUdv1wSWwe0IojrRDLG4nQFwiQ1K3a1GlpxXYzTv176jcnZhJdyzHXn0aNVd3n2yu6QXF1RyrednAqH6GTeLsY%2BmFdJvs1E%2FSPzNOEj5naR190ChZbKYdPEncIwhYy7S7R055CIUnAzUObhGpKBIz%2FL7hX57SOAVB8Fp6J9NWYxxkcT1Ux5M8TRdPzjlD4gsEW3VAWt2ylLrHUu11rkw%2BhgkA7Cbe4vsOk6sYBm%2BDSV9vvQVz42kWGtRMos%2BFMKzKt4FX3akfBm1nwEgIo656m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=c64ece8ff6120ae1c87c16a87abea6a0f25f451eb00d2ace5f16575e8dc25d09"
+        }, 
+        {
+            "file_name": "airbnb_error-2.png", 
+            "type": "image/png", 
+            "id": 272865, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/272/865/f4394cdb2ec2969d9bd36da03f5784f08f643202/airbnb_error-2.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQSGAJTS7X%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T222432Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDNv1JJkb2JCBJezLRSK3A3HLsRbM1N2dJQCs3cdkO9DdSlu97QyvuTWjB9TDM0zF0K5xYiGpDCZFKPrax%2BsFz5KI1WenrJdfAQhjK2VjV8ng750HOo6R9QtyoSkXqJSITk3z0sX6u%2BaGuR53DR1SgrXgU4%2BZj3kzVsOKKtd61G%2BDZP2N3q%2FR9lSxtCBWOIkOltAHyGZcqelOD%2BNHIXr08GPe3urs8MfpCWN12Uc98ELvbzHllGEdfFgQzzzB%2Fh03QvsfmUHldJCz%2F09ZO2mOXeVGvvhGa6P439ow0kmfHorCf2l49cQlp550RAVCceslQNRsIpjs%2FscvNzwUdv1wSWwe0IojrRDLG4nQFwiQ1K3a1GlpxXYzTv176jcnZhJdyzHXn0aNVd3n2yu6QXF1RyrednAqH6GTeLsY%2BmFdJvs1E%2FSPzNOEj5naR190ChZbKYdPEncIwhYy7S7R055CIUnAzUObhGpKBIz%2FL7hX57SOAVB8Fp6J9NWYxxkcT1Ux5M8TRdPzjlD4gsEW3VAWt2ylLrHUu11rkw%2BhgkA7Cbe4vsOk6sYBm%2BDSV9vvQVz42kWGtRMos%2BFMKzKt4FX3akfBm1nwEgIo656m4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=b3e33dca7a6ed87ea2dc3911ca120d2b3a5de8a60e84a65745d6d28b5b43ee96"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-16T13:38:13.308Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-16T13:38:13.308Z", 
+            "actor": {
+                "username": "rongutierrez", 
+                "url": "/rongutierrez", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "Hi @irvinlim, \n\nThanks for the submission. We will try to reproduce internally and let you know if we agree that it is an issue. ", 
+            "markdown_message": "<p>Hi <a href=\"/irvinlim\">@irvinlim</a>, </p>\n\n<p>Thanks for the submission. We will try to reproduce internally and let you know if we agree that it is an issue. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2499083, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-16T13:44:35.098Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-16T13:44:35.098Z", 
+            "actor": {
+                "username": "irvinlim", 
+                "url": "/irvinlim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/182/993/6b3b063d650a8407f0a8b4ddec246be42b060b76_medium.jpg?1499865377"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "Hi @rongutierrez, thanks for looking into it. It might be quite hard to replicate reliably especially behind multiple layers of caching, so it may be best to look into these URLs which seem to still be impacted (all of them look like they either don't use `iframe`s on their job site or stopped using Greenhouse):\n\n* https://boards.greenhouse.io/embed/job_board/js?for=2\n* https://boards.greenhouse.io/embed/job_board/js?for=twitter\n* https://boards.greenhouse.io/embed/job_board/js?for=zenefits\n* https://boards.greenhouse.io/embed/job_board/js?for=surveymonkey\n* https://boards.greenhouse.io/embed/job_board/js?for=twilio", 
+            "markdown_message": "<p>Hi <a href=\"/rongutierrez\">@rongutierrez</a>, thanks for looking into it. It might be quite hard to replicate reliably especially behind multiple layers of caching, so it may be best to look into these URLs which seem to still be impacted (all of them look like they either don&#39;t use <code>iframe</code>s on their job site or stopped using Greenhouse):</p>\n\n<ul>\n<li><a title=\"https://boards.greenhouse.io/embed/job_board/js?for=2\" href=\"/redirect?signature=f3f12f1339610c77457434424a0057ed9f2124fd&amp;url=https%3A%2F%2Fboards.greenhouse.io%2Fembed%2Fjob_board%2Fjs%3Ffor%3D2\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://boards.greenhouse.io/embed/job_board/js?for=2</span><i class=\"icon-external-link\"></i></a></li>\n<li><a title=\"https://boards.greenhouse.io/embed/job_board/js?for=twitter\" href=\"/redirect?signature=bfeaabccdf05961165eb3a262ab83b158abeb89e&amp;url=https%3A%2F%2Fboards.greenhouse.io%2Fembed%2Fjob_board%2Fjs%3Ffor%3Dtwitter\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://boards.greenhouse.io/embed/job_board/js?for=twitter</span><i class=\"icon-external-link\"></i></a></li>\n<li><a title=\"https://boards.greenhouse.io/embed/job_board/js?for=zenefits\" href=\"/redirect?signature=d19c414e35a4ab63e1b8861af5c7c30848c87d87&amp;url=https%3A%2F%2Fboards.greenhouse.io%2Fembed%2Fjob_board%2Fjs%3Ffor%3Dzenefits\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://boards.greenhouse.io/embed/job_board/js?for=zenefits</span><i class=\"icon-external-link\"></i></a></li>\n<li><a title=\"https://boards.greenhouse.io/embed/job_board/js?for=surveymonkey\" href=\"/redirect?signature=282e65ec3e78b1748b6f81a7804569c6e27002fa&amp;url=https%3A%2F%2Fboards.greenhouse.io%2Fembed%2Fjob_board%2Fjs%3Ffor%3Dsurveymonkey\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://boards.greenhouse.io/embed/job_board/js?for=surveymonkey</span><i class=\"icon-external-link\"></i></a></li>\n<li><a title=\"https://boards.greenhouse.io/embed/job_board/js?for=twilio\" href=\"/redirect?signature=e7b7181112f6f8358f0da7f85995d7d7f8f68e48&amp;url=https%3A%2F%2Fboards.greenhouse.io%2Fembed%2Fjob_board%2Fjs%3Ffor%3Dtwilio\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://boards.greenhouse.io/embed/job_board/js?for=twilio</span><i class=\"icon-external-link\"></i></a></li>\n</ul>\n", 
+            "type": "Activities::Comment", 
+            "id": 2499098, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-03-26T20:01:50.331Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-03-26T20:01:50.331Z", 
+            "actor": {
+                "username": "rongutierrez", 
+                "url": "/rongutierrez", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "Hi @irvinlim, \n\nI've validated the issue and it has been triaged on our end. We will let you know once it has been resolved.", 
+            "markdown_message": "<p>Hi <a href=\"/irvinlim\">@irvinlim</a>, </p>\n\n<p>I&#39;ve validated the issue and it has been triaged on our end. We will let you know once it has been resolved.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 2533445, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-05T19:23:51.666Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-05T19:23:51.666Z", 
+            "actor": {
+                "username": "rongutierrez", 
+                "url": "/rongutierrez", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "Hi @irvinlim, \n\nWe released a fix for this a couple of days ago. Would you be able to verify that it is working as expected?", 
+            "markdown_message": "<p>Hi <a href=\"/irvinlim\">@irvinlim</a>, </p>\n\n<p>We released a fix for this a couple of days ago. Would you be able to verify that it is working as expected?</p>\n", 
+            "type": "Activities::BugNeedsMoreInfo", 
+            "id": 2570725, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-05T19:54:55.135Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-05T19:54:55.135Z", 
+            "actor": {
+                "username": "irvinlim", 
+                "url": "/irvinlim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/182/993/6b3b063d650a8407f0a8b4ddec246be42b060b76_medium.jpg?1499865377"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "Hi @rongutierrez, looks good to me. However since I am behind CDN and other layers of caching, the results I'm seeing may possibly be cached. I trust that your internal team has thoroughly tested it directly on the origin server.\n\nI'm OK to resolve the issue. Can I also check if this is eligible for bounty?", 
+            "markdown_message": "<p>Hi <a href=\"/rongutierrez\">@rongutierrez</a>, looks good to me. However since I am behind CDN and other layers of caching, the results I&#39;m seeing may possibly be cached. I trust that your internal team has thoroughly tested it directly on the origin server.</p>\n\n<p>I&#39;m OK to resolve the issue. Can I also check if this is eligible for bounty?</p>\n", 
+            "type": "Activities::BugNew", 
+            "id": 2570843, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "irvinlim", 
+                "url": "/irvinlim"
+            }, 
+            "created_at": "2018-04-05T20:11:53.981Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-05T20:11:53.981Z", 
+            "actor": {
+                "username": "rongutierrez", 
+                "url": "/rongutierrez", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "The fix we implemented was to prevent the 'for' parameter from being anything other than a string. I'm going to mark the issue as resolved and award you with a bounty. Thanks for the thorough writeup and for being patient while we released the fix. ", 
+            "markdown_message": "<p>The fix we implemented was to prevent the &#39;for&#39; parameter from being anything other than a string. I&#39;m going to mark the issue as resolved and award you with a bounty. Thanks for the thorough writeup and for being patient while we released the fix. </p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 2570906, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-04-05T20:12:04.413Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-05T20:12:04.413Z", 
+            "actor": {
+                "url": "/greenhouse", 
+                "profile": {
+                    "name": "Greenhouse.io"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/312/d8a5615eac371f9e26a4ab3e56b8c32370280a0c_medium.jpg?1412369170"
+                }
+            }, 
+            "team_handle": "greenhouse", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "500.0", 
+            "collaborator": {
+                "username": "irvinlim", 
+                "url": "/irvinlim"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2570908, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-05T20:14:26.403Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-05T20:14:26.403Z", 
+            "actor": {
+                "username": "irvinlim", 
+                "url": "/irvinlim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/182/993/6b3b063d650a8407f0a8b4ddec246be42b060b76_medium.jpg?1499865377"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "Thank you very much for the generous bounty!", 
+            "markdown_message": "<p>Thank you very much for the generous bounty!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2570919, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-01T05:34:52.623Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-01T05:34:52.623Z", 
+            "actor": {
+                "username": "irvinlim", 
+                "url": "/irvinlim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/182/993/6b3b063d650a8407f0a8b4ddec246be42b060b76_medium.jpg?1499865377"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2684934, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-02T17:15:26.744Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-02T17:15:26.744Z", 
+            "actor": {
+                "username": "irvinlim", 
+                "url": "/irvinlim", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/182/993/6b3b063d650a8407f0a8b4ddec246be42b060b76_medium.jpg?1499865377"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "Shall we disclose?", 
+            "markdown_message": "<p>Shall we disclose?</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2691708, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-02T17:29:01.907Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-02T17:29:01.907Z", 
+            "actor": {
+                "username": "lcvicknair", 
+                "url": "/lcvicknair", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2691754, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-05-02T17:29:01.998Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-05-02T17:29:01.998Z", 
+            "actor": {
+                "username": "lcvicknair", 
+                "url": "/lcvicknair", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "greenhouse", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2691755, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "irvinlim", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/irvinlim", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/182/993/c9322dca355926cea90172b8df990f60e471712a_small.jpg?1499865377"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 48, 
+        "name": "Denial of Service"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -16390180.197695062, 
+    "disclosed_at": "2018-05-02T17:29:01.968Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/326639", 
+    "created_at": "2018-03-16T13:26:10.119Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>I was taking a look into a related report (<a title=\"https://hackerone.com/reports/298265\" href=\"https://hackerone.com/reports/298265\">https://hackerone.com/reports/298265</a>) and I discovered that the <a title=\"https://boards.greenhouse.io/embed/job_board/js?for=\" href=\"/redirect?signature=8970e14d80de2635f2c7763c9cf629f282bda7a3&amp;url=https%3A%2F%2Fboards.greenhouse.io%2Fembed%2Fjob_board%2Fjs%3Ffor%3D\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://boards.greenhouse.io/embed/job_board/js?for=</span><i class=\"icon-external-link\"></i></a> endpoint doesn&#39;t throw errors when I try to pass in an array of <code>for</code> parameters like this:</p>\n<pre class=\"highlight plaintext\"><code>https://boards.greenhouse.io/embed/job_board/js?for[]=twitter&amp;for[]=&amp;for[]=&amp;for[]=&amp;for[]=&amp;for[]=&amp;for[]=&amp;for[]=&amp;for[]=&amp;for[]=&amp;for[]=&amp;for[]=&amp;for[]=&amp;for[]=&amp;for[]=&amp;for[]=&amp;for[]=&amp;for[]=&amp;for[]=\n</code></pre>\n<p>Instead, in the resultant JS, we can see that the HTTP parameters are escaped and injected into the <code>Grnhse.Settings</code> object:</p>\n<pre class=\"highlight javascript\"><code><span class=\"nx\">Grnhse</span><span class=\"p\">.</span><span class=\"nx\">Settings</span> <span class=\"o\">=</span> <span class=\"p\">{</span>\n  <span class=\"na\">targetDomain</span><span class=\"p\">:</span>   <span class=\"s1\">&#39;https://boards.greenhouse.io&#39;</span><span class=\"p\">,</span>\n  <span class=\"na\">scrollOnLoad</span><span class=\"p\">:</span>   <span class=\"kc\">true</span><span class=\"p\">,</span>\n  <span class=\"na\">autoLoad</span><span class=\"p\">:</span>       <span class=\"kc\">true</span><span class=\"p\">,</span>\n  <span class=\"na\">boardURI</span><span class=\"p\">:</span>       <span class=\"s1\">&#39;https://boards.greenhouse.io/embed/job_board?for%5B%5D=twitter&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&#39;</span><span class=\"p\">,</span>\n  <span class=\"na\">applicationURI</span><span class=\"p\">:</span> <span class=\"s1\">&#39;https://boards.greenhouse.io/embed/job_app?for%5B%5D=twitter&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&amp;amp;for%5B%5D=&#39;</span><span class=\"p\">,</span>\n  <span class=\"na\">baseURI</span><span class=\"p\">:</span>        <span class=\"s1\">&#39;&#39;</span><span class=\"p\">,</span>\n  <span class=\"na\">iFrameWidth</span><span class=\"p\">:</span>    <span class=\"mi\">650</span>\n<span class=\"p\">};</span>\n</code></pre>\n<p>When fetching the actual correct endpoint (<a title=\"https://boards.greenhouse.io/embed/job_board/js?for=twitter\" href=\"/redirect?signature=bfeaabccdf05961165eb3a262ab83b158abeb89e&amp;url=https%3A%2F%2Fboards.greenhouse.io%2Fembed%2Fjob_board%2Fjs%3Ffor%3Dtwitter\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://boards.greenhouse.io/embed/job_board/js?for=twitter</span><i class=\"icon-external-link\"></i></a>), we see that the result for <code>twitter</code> is cached, returning the same corrupted URIs in the JS file. From my tests, it seems that these endpoints are cached for an unknown amount of time, with some staying in the cache for only a few minutes while others may be an hour or longer.</p>\n\n<p>I also found out that the particular endpoint is on CloudFront by observing one of the IP addresses which served the file (35.164.91.227) and corroborating it with the IP range list published by AWS (<a title=\"https://ip-ranges.amazonaws.com/ip-ranges.json\" href=\"/redirect?signature=d6d2ab1abb902c56702254d8a165b1ca7da7e13d&amp;url=https%3A%2F%2Fip-ranges.amazonaws.com%2Fip-ranges.json\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://ip-ranges.amazonaws.com/ip-ranges.json</span><i class=\"icon-external-link\"></i></a>). However, fetching from different edge servers seems to result in the same mutated file being fetched at the correct endpoint (<a title=\"https://boards.greenhouse.io/embed/job_board/js?for=twitter\" href=\"/redirect?signature=bfeaabccdf05961165eb3a262ab83b158abeb89e&amp;url=https%3A%2F%2Fboards.greenhouse.io%2Fembed%2Fjob_board%2Fjs%3Ffor%3Dtwitter\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://boards.greenhouse.io/embed/job_board/js?for=twitter</span><i class=\"icon-external-link\"></i></a>). I conclude that there is a second layer of caching somewhere on the application layer.</p>\n\n<p>The impact of corrupting the <code>boardURI</code> and <code>applicationURI</code> values is that the <code>job_app</code> or <code>job_board</code> iframes would fail to load in the client&#39;s website since the URI is incorrect, resulting in a denial of service for the client. One example is that Airbnb&#39;s job application page shows a Greenhouse.io error page (see attached images), which I managed to replicate it twice and lasted for about 20 minutes and less than 5 minutes respectively.</p>\n\n<p>I tried to investigate if I could reliably replicate this PoC by waiting for cache to expire, as well as across several domains, but failed to find anything conclusive without knowledge of the underlying network architecture. Additionally, I am not sure if what is going on at play is due to a cache, and seeing that some IDs take quite a while to recover back to its normal state, I will stop trying to replicate the attack for now.</p>\n\n<p>P.S. This is my first report, so do let me know if I could be of more help!</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>If the attacker has more patience and knowledge about the underlying architecture, the attacker could attempt to poison the cache reliably, resulting in an extended denial of service of Greenhouse job boards/application iframes in client sites.</p>\n", 
+    "severity_rating": "medium", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://app.greenhouse.io", 
+            "about": "Software to optimize your entire recruiting and onboarding process.", 
+            "twitter_handle": "", 
+            "name": "Greenhouse.io"
+        }, 
+        "handle": "greenhouse", 
+        "url": "https://hackerone.com/greenhouse", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/312/ed3e97e66e1308f7cd4c8ebdab7110ddfeaa1378_small.jpg?1412369170", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/312/d8a5615eac371f9e26a4ab3e56b8c32370280a0c_medium.jpg?1412369170"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 312, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

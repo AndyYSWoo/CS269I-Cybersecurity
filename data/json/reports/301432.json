@@ -1,0 +1,338 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-04-25T23:40:32.633Z", 
+    "voters": [
+        "jokebookservice1", 
+        "sp1d3rs", 
+        "bull", 
+        "alexbirsan", 
+        "jobert", 
+        "michiel", 
+        "spam404", 
+        "kapytein", 
+        "ramsexy", 
+        "bhavukjain1", 
+        "and 23 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "2000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 301432, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-04-27T02:21:49.915Z", 
+    "vulnerability_information": "The GitLab CI runner allows users to cache files and directories in between runs. These files are stored in a ZIP file and uploaded to a shared cache instance. In my testing, the files were uploaded to `runners-cache-4-internal.gitlab.com` and `runners-cache-3-internal.gitlab.com`, even for dedicated runners. It seems odd that dedicated runners use the same shared cache, but perhaps that was an intentional design decision. It could also be a vulnerability. I tried reaching the cache servers from a Docker instance itself, but wasn't able to (I tried from a reverse shell spawned from a Docker instance). There are multiple vulnerabilities (same root cause though) that can be chained to successfully poison the CI runner cache of another project.\n\n**Reading the cache of other projects**\nCreate a new project with a `.gitlab-ci.yml` file in it. The file should contain the following contents. By default, when a cache file is downloaded, it'll download the cache from http://runners-cache-4-internal.gitlab.com:444/runner/project/5024150/cache.\n\n**.gitlab-ci.yml**\n```\na:\n  script:\n  - ls -lashR\n  cache:\n    key: ../1/cache\n    policy: pull\n    paths:\n      - .\n```\n\nTo read the cache, the attacker needs to know two things: a project ID (auto incremental) and a cache key. By default, the project ID will be prepended to download the cache. But because it's an HTTP request and there's no additional checks on the `key` input, a path traversal vulnerability can be exploited to move up a directory and select the cache from a different project. In this case, when it downloads the cache, it'll request http://runners-cache-4-internal.gitlab.com:444/runner/gitlab/project/1/cache instead of the project ID of the build.\n\n**Build output**\n```\n\u001b[0KRunning with gitlab-runner 10.3.0 (5cf5e19a)\n  on docker-auto-scale (e11ae361)\n\u001b[0;m\u001b[0KUsing Docker executor with image ruby:2.1 ...\n\u001b[0;m\u001b[0KUsing docker image sha256:4eadb9b5cb46f487a71d05717762679404f7f6fdec1ba4fa96304de1db07dfef for predefined container...\n\u001b[0;m\u001b[0KPulling docker image ruby:2.1 ...\n\u001b[0;m\u001b[0KUsing docker image ruby:2.1 ID=sha256:223d1eaa9523fa64e78f5a92b701c9c11cbc507f0ff62246dbbacdae395ffea3 for build container...\n\u001b[0;msection_start:1514659811:prepare_script\n\u001b[0KRunning on runner-e11ae361-project-4989754-concurrent-0 via runner-e11ae361-srm-1514658950-a15d8859...\nsection_end:1514659812:prepare_script\n\u001b[0Ksection_start:1514659813:get_sources\n\u001b[0K\u001b[32;1mCloning repository...\u001b[0;m\nCloning into '/builds/jobertabma/build-test'...\n\u001b[32;1mChecking out e01918e5 as master...\u001b[0;m\n\u001b[32;1mSkipping Git submodules setup\u001b[0;m\nsection_end:1514659814:get_sources\n\u001b[0Ksection_start:1514659814:restore_cache\n\u001b[0K\u001b[32;1mChecking cache for ../13083/ruby-235-with-yarn...\u001b[0;m\nDownloading cache.zip from http://runners-cache-5-internal.gitlab.com:444/runner/project/13083/ruby-235-with-yarn\u001b[0;m \n\u001b[32;1mSuccessfully extracted cache\u001b[0;m\nsection_end:1514659844:restore_cache\n```\n\nThe cache key seems to be guessable pretty easily or even unused when no key is specified, since most will correlate with the step they're executed in. When I started looking at this, I had to specify which paths to download from the cache. This made exploitation more difficult. However, it (conveniently) allowed me to use `.` as path, extracting all files from the cache into the working directory. Running `ls -lashR` after that reveals the cache contents in the build output. Files can be read using `cat` or to store them as build artifacts through the `.gitlab-ci.yml`.\n\n**Writing the cache of other projects**\nNow that the attacker knows what files are stored in the cache, it can poison the cache with its own file contents. Create another CI YAML file with the following contents:\n\n**.gitlab-ci.yml**\n```\na:\n  script:\n  - echo 1 > file-to-poison\n  cache:\n    key: ../1/cache\n    policy: push\n    paths:\n      - file-to-poison\n```\n\nThe attacker has to run a build, which will overwrite the `file-to-poison` file in the cache for project ID 1. Now, when the targeted project starts another CI run, the poisoned cache files will be downloaded and used in the CI run. For example, an attacker could poison `13083/ruby-235-with-yarn`, which would overwrite the Ruby 2.3.5 executable that is being used for GitLab CE CI runs. As you can imagine, someone could enumerate over other projects that use cached executables and overwrite them with their own code.\n\nThis has been tested against the latest version of GitLab.\n\n## Impact\n\nDepending on the files that are cached, this may allow an attacker to run arbitrary code on a victim's Docker instance running a CI run. This may expose confidential data, inject artifacts in a build pipeline to ship additional code, among other things.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "low", 
+            "user_interaction": "required", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "changed", 
+            "integrity": "high", 
+            "availability": "high"
+        }, 
+        "rating": "critical", 
+        "score": 9.0, 
+        "author_type": "User"
+    }, 
+    "title": "GitLab CI runner can read and poison cache of all other projects", 
+    "is_member_of_team?": null, 
+    "vote_count": 33, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2018-05-25T23:40:32.704Z", 
+    "state": "Closed", 
+    "cve_ids": [
+        "CVE-2017-0918"
+    ], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$2,000", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2017-12-30T21:27:04.425Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-12-30T21:27:04.425Z", 
+            "actor": {
+                "username": "kathyw", 
+                "url": "/kathyw", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi Jobert,\n\nThank you for highlighting and detailing this vulnerability. We will immediately begin triaging and investigating this finding with our engineering and production teams. Based on current workloads and upcoming holidays, we expect that we will have a further response for you within the next 5-7 business days.\n\nRegards,\nGitLab Security Team", 
+            "markdown_message": "<p>Hi Jobert,</p>\n\n<p>Thank you for highlighting and detailing this vulnerability. We will immediately begin triaging and investigating this finding with our engineering and production teams. Based on current workloads and upcoming holidays, we expect that we will have a further response for you within the next 5-7 business days.</p>\n\n<p>Regards,<br>\nGitLab Security Team</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2253293, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-05T19:45:59.294Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-05T19:45:59.294Z", 
+            "actor": {
+                "username": "kathyw", 
+                "url": "/kathyw", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugTriaged", 
+            "id": 2265263, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-01-05T19:49:33.228Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-05T19:49:33.228Z", 
+            "actor": {
+                "username": "kathyw", 
+                "url": "/kathyw", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "Hi Jobert,\n\nCongratulations! Due to your detailed findings report #301432, we were able to work with our engineering team to report/triage the security vulnerability, and our engineering team is now working on a fix for this vulnerability.\n\nWe certainly appreciate your efforts and time, and would like to reward you accordingly, with the $2000 award for a critical security vulnerability finding. Thanks again, and we look forward to hearing from you again!\n\nRegards,\nGitLab Security Team", 
+            "markdown_message": "<p>Hi Jobert,</p>\n\n<p>Congratulations! Due to your detailed findings report <a href=\"/reports/301432\">#301432</a>, we were able to work with our engineering team to report/triage the security vulnerability, and our engineering team is now working on a fix for this vulnerability.</p>\n\n<p>We certainly appreciate your efforts and time, and would like to reward you accordingly, with the $2000 award for a critical security vulnerability finding. Thanks again, and we look forward to hearing from you again!</p>\n\n<p>Regards,<br>\nGitLab Security Team</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 2265271, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-01-05T19:50:05.878Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-05T19:50:05.878Z", 
+            "actor": {
+                "url": "/gitlab", 
+                "profile": {
+                    "name": "GitLab"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/264/f40e550269de1c8aef9adbdfe728c9aa8163a7e5_medium.png?1454722206"
+                }
+            }, 
+            "team_handle": "gitlab", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "2000.0", 
+            "collaborator": {
+                "username": "jobert", 
+                "url": "/jobert"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 2265275, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "jobert", 
+                "url": "/jobert"
+            }, 
+            "created_at": "2018-01-05T19:50:44.070Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-01-05T19:50:44.070Z", 
+            "actor": {
+                "username": "kathyw", 
+                "url": "/kathyw", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 2265278, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-25T23:40:32.665Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-25T23:40:32.665Z", 
+            "actor": {
+                "username": "jobert", 
+                "url": "/jobert", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/002/35cc46a21b3756f9df61d6269d287b9dc53d5b27_medium.png?1410255083"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2665584, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-27T02:21:49.945Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-27T02:21:49.945Z", 
+            "actor": {
+                "username": "kathyw", 
+                "url": "/kathyw", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 2670834, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-04-27T02:21:50.039Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-04-27T02:21:50.039Z", 
+            "actor": {
+                "username": "kathyw", 
+                "url": "/kathyw", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "gitlab", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 2670835, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "jobert", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/jobert", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/002/15c798072d48f06507cde4b11352a3338ae973fc_small.png?1410255083"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 19, 
+        "name": "Path Traversal"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -16843453.064879596, 
+    "disclosed_at": "2018-04-27T02:21:50.009Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/301432", 
+    "created_at": "2017-12-30T18:58:16.329Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>The GitLab CI runner allows users to cache files and directories in between runs. These files are stored in a ZIP file and uploaded to a shared cache instance. In my testing, the files were uploaded to <code>runners-cache-4-internal.gitlab.com</code> and <code>runners-cache-3-internal.gitlab.com</code>, even for dedicated runners. It seems odd that dedicated runners use the same shared cache, but perhaps that was an intentional design decision. It could also be a vulnerability. I tried reaching the cache servers from a Docker instance itself, but wasn&#39;t able to (I tried from a reverse shell spawned from a Docker instance). There are multiple vulnerabilities (same root cause though) that can be chained to successfully poison the CI runner cache of another project.</p>\n\n<p><strong>Reading the cache of other projects</strong><br>\nCreate a new project with a <code>.gitlab-ci.yml</code> file in it. The file should contain the following contents. By default, when a cache file is downloaded, it&#39;ll download the cache from <a title=\"http://runners-cache-4-internal.gitlab.com:444/runner/project/5024150/cache\" href=\"/redirect?signature=19eaa7f53e49e7777cf8d6e5382f594745f7281f&amp;url=http%3A%2F%2Frunners-cache-4-internal.gitlab.com%3A444%2Frunner%2Fproject%2F5024150%2Fcache\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://runners-cache-4-internal.gitlab.com:444/runner/project/5024150/cache</span><i class=\"icon-external-link\"></i></a>.</p>\n\n<p><strong>.gitlab-ci.yml</strong></p>\n<pre class=\"highlight plaintext\"><code>a:\n  script:\n  - ls -lashR\n  cache:\n    key: ../1/cache\n    policy: pull\n    paths:\n      - .\n</code></pre>\n<p>To read the cache, the attacker needs to know two things: a project ID (auto incremental) and a cache key. By default, the project ID will be prepended to download the cache. But because it&#39;s an HTTP request and there&#39;s no additional checks on the <code>key</code> input, a path traversal vulnerability can be exploited to move up a directory and select the cache from a different project. In this case, when it downloads the cache, it&#39;ll request <a title=\"http://runners-cache-4-internal.gitlab.com:444/runner/gitlab/project/1/cache\" href=\"/redirect?signature=f17fd2bb7c31042a92a0abdb5484d48dad29810a&amp;url=http%3A%2F%2Frunners-cache-4-internal.gitlab.com%3A444%2Frunner%2Fgitlab%2Fproject%2F1%2Fcache\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>http://runners-cache-4-internal.gitlab.com:444/runner/gitlab/project/1/cache</span><i class=\"icon-external-link\"></i></a> instead of the project ID of the build.</p>\n\n<p><strong>Build output</strong></p>\n<pre class=\"highlight plaintext\"><code>[0KRunning with gitlab-runner 10.3.0 (5cf5e19a)\n  on docker-auto-scale (e11ae361)\n[0;m[0KUsing Docker executor with image ruby:2.1 ...\n[0;m[0KUsing docker image sha256:4eadb9b5cb46f487a71d05717762679404f7f6fdec1ba4fa96304de1db07dfef for predefined container...\n[0;m[0KPulling docker image ruby:2.1 ...\n[0;m[0KUsing docker image ruby:2.1 ID=sha256:223d1eaa9523fa64e78f5a92b701c9c11cbc507f0ff62246dbbacdae395ffea3 for build container...\n[0;msection_start:1514659811:prepare_script\n[0KRunning on runner-e11ae361-project-4989754-concurrent-0 via runner-e11ae361-srm-1514658950-a15d8859...\nsection_end:1514659812:prepare_script\n[0Ksection_start:1514659813:get_sources\n[0K[32;1mCloning repository...[0;m\nCloning into &#39;/builds/jobertabma/build-test&#39;...\n[32;1mChecking out e01918e5 as master...[0;m\n[32;1mSkipping Git submodules setup[0;m\nsection_end:1514659814:get_sources\n[0Ksection_start:1514659814:restore_cache\n[0K[32;1mChecking cache for ../13083/ruby-235-with-yarn...[0;m\nDownloading cache.zip from http://runners-cache-5-internal.gitlab.com:444/runner/project/13083/ruby-235-with-yarn[0;m \n[32;1mSuccessfully extracted cache[0;m\nsection_end:1514659844:restore_cache\n</code></pre>\n<p>The cache key seems to be guessable pretty easily or even unused when no key is specified, since most will correlate with the step they&#39;re executed in. When I started looking at this, I had to specify which paths to download from the cache. This made exploitation more difficult. However, it (conveniently) allowed me to use <code>.</code> as path, extracting all files from the cache into the working directory. Running <code>ls -lashR</code> after that reveals the cache contents in the build output. Files can be read using <code>cat</code> or to store them as build artifacts through the <code>.gitlab-ci.yml</code>.</p>\n\n<p><strong>Writing the cache of other projects</strong><br>\nNow that the attacker knows what files are stored in the cache, it can poison the cache with its own file contents. Create another CI YAML file with the following contents:</p>\n\n<p><strong>.gitlab-ci.yml</strong></p>\n<pre class=\"highlight plaintext\"><code>a:\n  script:\n  - echo 1 &gt; file-to-poison\n  cache:\n    key: ../1/cache\n    policy: push\n    paths:\n      - file-to-poison\n</code></pre>\n<p>The attacker has to run a build, which will overwrite the <code>file-to-poison</code> file in the cache for project ID 1. Now, when the targeted project starts another CI run, the poisoned cache files will be downloaded and used in the CI run. For example, an attacker could poison <code>13083/ruby-235-with-yarn</code>, which would overwrite the Ruby 2.3.5 executable that is being used for GitLab CE CI runs. As you can imagine, someone could enumerate over other projects that use cached executables and overwrite them with their own code.</p>\n\n<p>This has been tested against the latest version of GitLab.</p>\n\n<h2 id=\"impact\">Impact</h2>\n\n<p>Depending on the files that are cached, this may allow an attacker to run arbitrary code on a victim&#39;s Docker instance running a CI run. This may expose confidential data, inject artifacts in a build pipeline to ship additional code, among other things.</p>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://about.gitlab.com", 
+            "about": "Open source software to collaborate on code", 
+            "twitter_handle": "gitlab", 
+            "name": "GitLab"
+        }, 
+        "handle": "gitlab", 
+        "url": "https://hackerone.com/gitlab", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/264/338ec4b43393873324e3f1911f2f107d025d13f1_small.png?1454722206", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/264/f40e550269de1c8aef9adbdfe728c9aa8163a7e5_medium.png?1454722206"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 264, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

